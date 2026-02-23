@@ -7,14 +7,13 @@
   <style>
     body { font-family: Arial, sans-serif; padding: 16px; }
     .topbar { display:flex; justify-content: space-between; align-items:center; gap: 12px; }
-    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background:#eef; }
-    .card { border:1px solid #ddd; border-radius:8px; padding:16px; margin-top:16px; max-width: 900px; }
+    .logo { height: 64px; width: 64px; object-fit: cover; border-radius: 10px; border:1px solid #ddd; background: #fff; }
+    .card { border:1px solid #ddd; border-radius:8px; padding:16px; margin-top:16px; max-width: 900px; background: rgba(255,255,255,0.85); }
     .row { display:flex; gap: 16px; flex-wrap: wrap; align-items:flex-end; }
     label { display:block; font-size: 0.9rem; color:#444; margin-bottom:6px; }
     select, button { padding: 8px; }
-    .menu { margin-top: 14px; display:flex; flex-wrap: wrap; gap: 8px; }
-    .menu a { text-decoration:none; border:1px solid #ddd; padding:8px 10px; border-radius: 8px; color:#111; }
-    .muted { color:#666; font-size: 0.95rem; }
+    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background:#eef; }
+    .muted { color:#333; font-size: 0.95rem; }
     .msg { margin-top: 12px; padding: 10px; border-radius: 8px; display:none; }
     .err { display:block; background:#fdeaea; border:1px solid #f3b6b6; color:#8a1f1f; }
     .ok  { display:block; background:#e7f7ea; border:1px solid #b6e2be; color:#1f6b2a; }
@@ -33,43 +32,21 @@
   </div>
 
   <div class="card">
-    <h3 style="margin-top:0;">Club activo</h3>
-
     <div class="row">
+      <img id="clubLogo" class="logo" alt="Logo club" />
       <div>
-        <label>Seleccionar club (si tenés más de uno)</label>
-        <select id="clubSelect">
-          <option value="">Cargando…</option>
-        </select>
-      </div>
-
-      <div>
-        <button id="btnApplyClub" type="button">Usar este club</button>
-      </div>
-
-      <div>
-        <span class="badge" id="roleBadge">Rol: —</span>
+        <div class="badge" id="roleBadge">Rol: —</div>
+        <div class="muted" id="clubInfo" style="margin-top:8px;"></div>
       </div>
     </div>
 
-    <div id="clubInfo" class="muted" style="margin-top:12px;"></div>
+    <div style="margin-top:14px;">
+      <label>Seleccionar club (si tenés más de uno)</label>
+      <select id="clubSelect"></select>
+      <button id="btnApplyClub" type="button">Usar este club</button>
+    </div>
+
     <div id="msgBox" class="msg"></div>
-
-    <h3 style="margin-top:18px;">Secciones (placeholder)</h3>
-    <div class="menu">
-      <a href="#" onclick="return false;">Socios</a>
-      <a href="#" onclick="return false;">Pagos</a>
-      <a href="#" onclick="return false;">Gastos</a>
-      <a href="#" onclick="return false;">Noticias</a>
-      <a href="#" onclick="return false;">Notificaciones</a>
-      <a href="#" onclick="return false;">Cumpleaños</a>
-      <a href="#" onclick="return false;">Configuración</a>
-      <a href="#" onclick="return false;">Reportes</a>
-    </div>
-
-    <p class="muted" style="margin-top:12px;">
-      Por ahora esta página muestra el club y rol desde el JWT. Luego conectamos cada sección a la API del club.
-    </p>
   </div>
 
   <script>

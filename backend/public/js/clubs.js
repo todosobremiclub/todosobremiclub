@@ -1,144 +1,87 @@
-// Base64URL decode para JWT (maneja "-" "_" y padding)
-function base64UrlDecode(str) {
-  const pad = '='.repeat((4 - (str.length % 4)) % 4);
-  const base64 = (str + pad).replace(/-/g, '+').replace(/_/g, '/');
-  const decoded = atob(base64);
-  // decode unicode safely
-  try {
-    return decodeURIComponent(Array.prototype.map.call(decoded, c =>
-      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-    ).join(''));
-  } catch {
-    return decoded;
-  }
-}
-
-function getTokenPayload() {
-  const token = localStorage.getItem('token');
-  if (!token) return null;
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  try {
-    return JSON.parse(base64UrlDecode(parts[1]));
-  } catch {
-    return null;
-  }
-}
-
-function showMsg(text, ok = false) {
-  const box = document.getElementById('msgBox');
-  if (!box) return;
+function showClubMsg(text, ok = true) {
+  const box = document.getElementById('clubMsg');
   box.className = 'msg ' + (ok ? 'ok' : 'err');
   box.textContent = text;
 }
 
-function redirectToLogin(msg) {
-  if (msg) alert(msg);
-  window.location.href = '/admin.html';
-}
-
-function setMeLabel(payload) {
-  const el = document.getElementById('meLabel');
-  if (!el) return;
-  el.textContent = payload?.email ? `Usuario: ${payload.email}` : '';
-}
-
-function setRoleBadge(role) {
-  const el = document.getElementById('roleBadge');
-  if (!el) return;
-  el.textContent = `Rol: ${role || '—'}`;
-}
-
-function setClubInfo(clubName, clubId) {
-  const el = document.getElementById('clubInfo');
-  if (!el) return;
-  el.innerHTML = clubName
-    ? `<strong>${clubName}</strong><br><span class="muted">club_id: ${clubId}</span>`
-    : '—';
-}
-
-function getRolesFromPayload(payload) {
-  const roles = payload?.roles;
-  return Array.isArray(roles) ? roles : [];
-}
-
-function getPreferredClubId(roles) {
-  // Si el usuario ya eligió un club antes, respetarlo:
-  const saved = localStorage.getItem('activeClubId');
-  if (saved && roles.some(r => String(r.club_id) === String(saved))) return saved;
-
-  // Si no, elegir el primero
-  return roles[0]?.club_id || null;
-}
-
-function fillClubSelect(roles) {
-  const sel = document.getElementById('clubSelect');
-  if (!sel) return;
-
-  sel.innerHTML = '';
-  roles.forEach(r => {
-    const opt = document.createElement('option');
-    opt.value = r.club_id;
-    opt.textContent = `${r.club_name} (${r.role})`;
-    sel.appendChild(opt);
-  });
-
-  // Selección por defecto
-  const preferred = getPreferredClubId(roles);
-  if (preferred) sel.value = preferred;
-}
-
-function applySelectedClub(roles) {
-  const sel = document.getElementById('clubSelect');
-  if (!sel) return;
-
-  const clubId = sel.value;
-  const match = roles.find(r => String(r.club_id) === String(clubId));
-  if (!match) {
-    showMsg('No se encontró el club seleccionado en tus permisos.', false);
-    return;
-  }
-
-  localStorage.setItem('activeClubId', match.club_id);
-  setRoleBadge(match.role);
-  setClubInfo(match.club_name, match.club_id);
-  showMsg('✅ Club activo seleccionado correctamente', true);
-
-  // En el futuro, acá podemos disparar carga de datos del club:
-  // loadClubDashboard(match.club_id)
-}
-
-(function initClubPage() {
+async function fetchAuth(url, options = {}) {
   const token = localStorage.getItem('token');
-  if (!token) return redirectToLogin('Tu sesión expiró. Iniciá sesión nuevamente.');
+  if (!token) {
+    alert('Sesión expirada');
+    window.location.href = '/admin.html';
+    throw new Error('No token');
+  }
 
-  const payload = getTokenPayload();
-  if (!payload) {
+  const headers = options.headers || {};
+  headers['Authorization'] = 'Bearer ' + token;
+
+  const isFormData = (options.body instanceof FormData);
+  if (!isFormData) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(url, { ...options, headers });
+
+  if (res.status === 401) {
     localStorage.removeItem('token');
-    return redirectToLogin('Token inválido. Iniciá sesión nuevamente.');
+    alert('Sesión expirada');
+    window.location.href = '/admin.html';
+    throw new Error('401');
   }
 
-  setMeLabel(payload);
+  return res;
+}
 
-  const roles = getRolesFromPayload(payload);
-  if (roles.length === 0) {
-    return showMsg('Tu usuario no tiene clubes asignados. Contactá al superadmin.', false);
-  }
+async function loadClubs() {
+  const tbody = document.getElementById('clubs-table');
+  tbody.innerHTML = '';
 
-  // Si es superadmin, NO debería estar acá (lo mandamos a superadmin.html)
-  const isSuperadmin = roles.some(r => r.role === 'superadmin');
-  if (isSuperadmin) {
-    window.location.href = '/superadmin.html';
+  const res = await fetchAuth('/admin/clubs');
+  const data = await res.json();
+
+  if (!data.ok) {
+    showClubMsg(data.error || 'Error cargando clubes', false);
     return;
   }
 
-  // Llenar selector
-  fillClubSelect(roles);
+  data.clubs.forEach(c => {
+    const logoHtml = c.logo_url ? `<img class="thumb" src="${c.logo_url}">` : '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${logoHtml}</td>
+      <td>${c.name}</td>
+      <td>${c.city || ''}</td>
+      <td>${c.province || ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
 
-  // Aplicar selección inicial
-  applySelectedClub(roles);
+async function createClub(e) {
+  e.preventDefault();
 
-  // Botón aplicar
-  const btn = document.getElementById('btnApplyClub');
-  if (btn) btn.addEventListener('click', () => applySelectedClub(roles));
-})();
+  const formData = new FormData();
+  formData.append('name', document.getElementById('club_name').value.trim());
+  formData.append('address', document.getElementById('club_address').value.trim());
+  formData.append('city', document.getElementById('club_city').value.trim());
+  formData.append('province', document.getElementById('club_province').value.trim());
+
+  const logoFile = document.getElementById('club_logo').files[0];
+  const bgFile = document.getElementById('club_background').files[0];
+
+  if (logoFile) formData.append('logo', logoFile);
+  if (bgFile) formData.append('background', bgFile);
+
+  const res = await fetchAuth('/admin/clubs', { method: 'POST', body: formData });
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.ok) {
+    showClubMsg(data.error || 'No se pudo crear el club', false);
+    return;
+  }
+
+  showClubMsg('✅ Club creado (logo y fondo guardados)', true);
+  document.getElementById('formClub').reset();
+  await loadClubs();
+}
+
+document.getElementById('formClub').addEventListener('submit', createClub);
+loadClubs();

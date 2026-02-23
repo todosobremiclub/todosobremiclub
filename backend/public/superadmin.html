@@ -10,12 +10,13 @@
     input, select { width: 100%; padding: 8px; margin: 6px 0 12px; }
     button { padding: 8px 12px; cursor: pointer; }
     table { width:100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border:1px solid #ddd; padding:8px; text-align:left; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:left; vertical-align: top; }
     th { background:#f3f3f3; }
     .msg { margin-top: 10px; padding: 10px; border-radius: 6px; display:none; }
     .ok { background:#e7f7ea; border:1px solid #b6e2be; color:#1f6b2a; display:block; }
     .err { background:#fdeaea; border:1px solid #f3b6b6; color:#8a1f1f; display:block; }
     .topbar { display:flex; justify-content: space-between; align-items:center; margin-bottom: 16px; }
+    .thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 8px; border:1px solid #ddd; }
   </style>
 </head>
 
@@ -38,6 +39,13 @@
       <input id="club_address" placeholder="Dirección">
       <input id="club_city" placeholder="Ciudad">
       <input id="club_province" placeholder="Provincia">
+
+      <label>Logo del club (imagen)</label>
+      <input id="club_logo" type="file" accept="image/*">
+
+      <label>Fondo del club (imagen)</label>
+      <input id="club_background" type="file" accept="image/*">
+
       <button type="submit">Guardar club</button>
     </form>
 
@@ -46,6 +54,7 @@
     <table>
       <thead>
         <tr>
+          <th>Logo</th>
           <th>Nombre</th>
           <th>Ciudad</th>
           <th>Provincia</th>
@@ -55,7 +64,7 @@
     </table>
   </div>
 
-  <!-- USUARIOS -->
+  <!-- USUARIOS (si ya lo tenés, esto sigue funcionando con tu users.js actual) -->
   <div class="card">
     <h3>Usuarios</h3>
 
@@ -97,24 +106,17 @@
 <script>
   const token = localStorage.getItem('token');
   if (!token) {
-    alert('Sesión expirada');
+    alert('Tu sesión expiró. Iniciá sesión nuevamente.');
     window.location.href = '/admin.html';
   }
 
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const roles = payload.roles || [];
-    const isSuperadmin = roles.some(r => r.role === 'superadmin');
-
-    if (!isSuperadmin) {
-      alert('No tenés permisos para acceder al panel Super Admin');
-      window.location.href = '/club.html';
-    }
-  } catch (e) {
+  function logout() {
     localStorage.removeItem('token');
+    localStorage.removeItem('activeClubId');
     window.location.href = '/admin.html';
   }
 </script>
+
 <script src="/js/clubs.js"></script>
 <script src="/js/users.js"></script>
 

@@ -15,6 +15,7 @@ const adminUsersRoutes = require('./routes/adminUsersRoutes');
 app.use('/auth', authRoutes);
 app.use('/admin/clubs', adminClubsRoutes);
 app.use('/admin/users', adminUsersRoutes);
+app.use('/club', require('./routes/clubRoutes'));
 
 // ===== HEALTH =====
 app.get('/health', (_req, res) => {
