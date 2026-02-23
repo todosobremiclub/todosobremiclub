@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Super Admin</title>
+</head>
+<body>
+
+<h1>Panel Super Admin</h1>
+<button onclick="logout()">Cerrar sesión</button>
+
+<h2>Clubes</h2>
+<table border="1">
+  <thead>
+    <tr>
+      <th>Nombre</th>
+      <th>Ciudad</th>
+      <th>Provincia</th>
+    </tr>
+  </thead>
+  <tbody id="clubs-table"></tbody>
+</table>
+
+<h2>Usuarios</h2>
+<table border="1">
+  <thead>
+    <tr>
+      <th>Email</th>
+      <th>Roles</th>
+    </tr>
+  </thead>
+  <tbody id="users-table"></tbody>
+</table>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/admin.html';
+
+  function logout() {
+    localStorage.removeItem('token');
+    window.location.href = '/admin.html';
+  }
+</script>
+
+<script src="/js/clubs.js"></script>
+<script src="/js/users.js"></script>
+
+</body>
+</html>
