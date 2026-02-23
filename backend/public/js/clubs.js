@@ -1,36 +1,28 @@
-function showClubMsg(text, type) {
+function showClubMsg(text, ok = true) {
   const box = document.getElementById('clubMsg');
-  if (!box) return;
-
-  box.className = 'msg ' + (type === 'ok' ? 'ok' : 'err');
+  box.className = 'msg ' + (ok ? 'ok' : 'err');
   box.textContent = text;
 }
 
-// Wrapper: fetch con token + manejo de sesión expirada
 async function fetchAuth(url, options = {}) {
   const token = localStorage.getItem('token');
   if (!token) {
-    alert('Tu sesión expiró. Por favor iniciá sesión nuevamente.');
+    alert('Sesión expirada');
     window.location.href = '/admin.html';
-    throw new Error('Sin token');
+    throw new Error('No token');
   }
 
   const headers = options.headers || {};
   headers['Authorization'] = 'Bearer ' + token;
-
-  // Si mandamos body y no especificamos JSON, lo ponemos
-  if (options.body && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
-  }
+  headers['Content-Type'] = 'application/json';
 
   const res = await fetch(url, { ...options, headers });
 
-  // Si el backend devuelve 401, sesión expirada / token inválido
   if (res.status === 401) {
     localStorage.removeItem('token');
-    alert('Tu sesión expiró. Por favor iniciá sesión nuevamente.');
+    alert('Sesión expirada');
     window.location.href = '/admin.html';
-    throw new Error('Token inválido');
+    throw new Error('401');
   }
 
   return res;
@@ -38,22 +30,11 @@ async function fetchAuth(url, options = {}) {
 
 async function loadClubs() {
   const tbody = document.getElementById('clubs-table');
-  if (!tbody) return;
-
-  tbody.innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
+  tbody.innerHTML = '';
 
   const res = await fetchAuth('/admin/clubs');
   const data = await res.json();
 
-  if (!data.ok) {
-    showClubMsg(data.error || 'Error al cargar clubes', 'err');
-    tbody.innerHTML = '';
-    return;
-  }
-
-  tbody.innerHTML = '';
-
-  // data.clubs viene del endpoint GET /admin/clubs
   data.clubs.forEach(c => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -63,5 +44,30 @@ async function loadClubs() {
     `;
     tbody.appendChild(tr);
   });
+}
 
-  if (data.clubs.length === 0) {
+async function createClub(e) {
+  e.preventDefault();
+
+  const payload = {
+    name: club_name.value,
+    address: club_address.value,
+    city: club_city.value,
+    province: club_province.value
+  };
+
+  const res = await fetchAuth('/admin/clubs', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  if (!data.ok) return showClubMsg(data.error, false);
+
+  showClubMsg('✅ Club creado');
+  e.target.reset();
+  loadClubs();
+}
+
+document.getElementById('formClub').addEventListener('submit', createClub);
+loadClubs();
