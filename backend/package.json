@@ -8,6 +8,7 @@
     "dev": "node src/app.js"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "pg": "^8.18.0"
   }
 }
