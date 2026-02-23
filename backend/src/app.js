@@ -4,6 +4,7 @@ const app = express();
 app.use(express.json());
 
 const authRoutes = require('./routes/authRoutes');
+const adminClubsRoutes = require('./routes/adminClubsRoutes');
 
 // health actual
 app.get('/health', (_req, res) => {
@@ -24,6 +25,7 @@ app.get('/db-health', async (_req, res) => {
 
 // ✅ NUEVO: Auth
 app.use('/auth', authRoutes);
+app.use('/admin/clubs', adminClubsRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ API listening on port ${PORT}`));
