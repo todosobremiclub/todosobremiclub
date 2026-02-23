@@ -3,12 +3,15 @@ const app = express();
 
 app.use(express.json());
 
-const db = require('./db');
+const authRoutes = require('./routes/authRoutes');
 
+// health actual
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'todosobremiclub-backend' });
 });
 
+// db-health (si lo tenés)
+const db = require('./db');
 app.get('/db-health', async (_req, res) => {
   try {
     const r = await db.query('SELECT 1 AS ok');
@@ -18,6 +21,9 @@ app.get('/db-health', async (_req, res) => {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+// ✅ NUEVO: Auth
+app.use('/auth', authRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ API listening on port ${PORT}`));
