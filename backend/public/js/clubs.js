@@ -1,90 +1,109 @@
-function showClubMsg(text, ok = true) {
-  const box = document.getElementById('clubMsg');
-  box.className = 'msg ' + (ok ? 'ok' : 'err');
-  box.textContent = text;
-}
-
-async function fetchAuth(url, options = {}) {
+async function fetchMe() {
   const token = localStorage.getItem('token');
   if (!token) {
-    alert('Sesión expirada');
     window.location.href = '/admin.html';
-    throw new Error('No token');
+    return null;
   }
 
-  const headers = options.headers || {};
-  headers['Authorization'] = 'Bearer ' + token;
-
-  const isFormData = (options.body instanceof FormData);
-  if (!isFormData) headers['Content-Type'] = 'application/json';
-
-  const res = await fetch(url, { ...options, headers });
-
-  if (res.status === 401) {
-    localStorage.removeItem('token');
-    alert('Sesión expirada');
-    window.location.href = '/admin.html';
-    throw new Error('401');
-  }
-
-  return res;
-}
-
-async function loadClubs() {
-  const tbody = document.getElementById('clubs-table');
-  tbody.innerHTML = '';
-
-  const res = await fetchAuth('/admin/clubs');
-  const data = await res.json();
-
-  if (!data.ok) {
-    showClubMsg(data.error || 'Error cargando clubes', false);
-    return;
-  }
-
-  data.clubs.forEach(c => {
-    const logoHtml = c.logo_url
-      ? `<img src="${c.logo_url}" class="thumb" />`
-      : '—';
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${logoHtml}</td>
-      <td>${c.name}</td>
-      <td>${c.city || ''}</td>
-      <td>${c.province || ''}</td>
-    `;
-    tbody.appendChild(tr);
+  const res = await fetch('/auth/me', {
+    headers: {
+      'Authorization': 'Bearer ' + token
+    }
   });
+
+  if (!res.ok) {
+    localStorage.removeItem('token');
+    window.location.href = '/admin.html';
+    return null;
+  }
+
+  const data = await res.json();
+  return data.user;
 }
 
-async function createClub(e) {
-  e.preventDefault();
+async function fetchClubInfo(clubId) {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`/club/${clubId}`, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  return res.json();
+}
 
-  const formData = new FormData();
-  formData.append('name', document.getElementById('club_name').value.trim());
-  formData.append('address', document.getElementById('club_address').value.trim());
-  formData.append('city', document.getElementById('club_city').value.trim());
-  formData.append('province', document.getElementById('club_province').value.trim());
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('activeClubId');
+  window.location.href = '/admin.html';
+}
 
-  const logoFile = document.getElementById('club_logo').files[0];
-  const bgFile = document.getElementById('club_background').files[0];
+function fillClubSelect(roles) {
+  const sel = document.getElementById('clubSelect');
+  sel.innerHTML = '';
 
-  if (logoFile) formData.append('logo', logoFile);
-  if (bgFile) formData.append('background', bgFile);
+  roles.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.club_id;
+    opt.textContent = `${r.club_name} (${r.role})`;
+    sel.appendChild(opt);
+  });
 
-  const res = await fetchAuth('/admin/clubs', { method: 'POST', body: formData });
-  const data = await res.json().catch(() => ({}));
+  const saved = localStorage.getItem('activeClubId');
+  if (saved && roles.some(r => String(r.club_id) === String(saved))) {
+    sel.value = saved;
+  }
+}
 
-  if (!res.ok || !data.ok) {
-    showClubMsg(data.error || 'No se pudo crear el club', false);
+async function applyClub(roles) {
+  const sel = document.getElementById('clubSelect');
+  const clubId = sel.value;
+
+  const match = roles.find(r => String(r.club_id) === String(clubId));
+  if (!match) return;
+
+  localStorage.setItem('activeClubId', match.club_id);
+
+  document.getElementById('roleBadge').textContent = `Rol: ${match.role}`;
+
+  const info = await fetchClubInfo(match.club_id);
+  if (!info.ok) return;
+
+  const club = info.club;
+
+  document.getElementById('clubInfo').innerHTML =
+    `<strong>${club.name}</strong><br>${club.city || ''} ${club.province || ''}`;
+
+  const logo = document.getElementById('clubLogo');
+  if (club.logo_url) logo.src = club.logo_url;
+
+  if (club.background_url) {
+    document.body.style.backgroundImage = `url('${club.background_url}')`;
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundPosition = 'center';
+    document.body.style.backgroundAttachment = 'fixed';
+  }
+}
+
+(async function init() {
+  const user = await fetchMe();
+  if (!user) return;
+
+  document.getElementById('meLabel').textContent = user.email;
+
+  if (!user.roles || user.roles.length === 0) {
+    document.getElementById('msgBox').textContent =
+      'Tu usuario no tiene clubes asignados.';
+    document.getElementById('msgBox').className = 'msg err';
     return;
   }
 
-  showClubMsg('✅ Club creado (logo y fondo subidos a Firebase)', true);
-  document.getElementById('formClub').reset();
-  await loadClubs();
-}
+  // Superadmin no debería estar acá
+  if (user.roles.some(r => r.role === 'superadmin')) {
+    window.location.href = '/superadmin.html';
+    return;
+  }
 
-document.getElementById('formClub').addEventListener('submit', createClub);
-loadClubs();
+  fillClubSelect(user.roles);
+  document.getElementById('btnApplyClub')
+    .addEventListener('click', () => applyClub(user.roles));
+
+  applyClub(user.roles);
+})();
