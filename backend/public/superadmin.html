@@ -1,48 +1,73 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Super Admin</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 16px; }
+    .row { display:flex; gap:16px; flex-wrap: wrap; }
+    .card { border:1px solid #ddd; border-radius:8px; padding:16px; width: 520px; max-width: 100%; }
+    input { width: 100%; padding: 8px; margin: 6px 0 12px; }
+    button { padding: 8px 12px; cursor: pointer; }
+    table { width:100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:left; }
+    th { background:#f3f3f3; }
+    .msg { margin-top: 10px; padding: 10px; border-radius: 6px; display:none; }
+    .ok { background:#e7f7ea; border:1px solid #b6e2be; color:#1f6b2a; display:block; }
+    .err { background:#fdeaea; border:1px solid #f3b6b6; color:#8a1f1f; display:block; }
+    .topbar { display:flex; justify-content: space-between; align-items:center; margin-bottom: 16px; }
+    .muted { color:#666; font-size: 0.9rem; }
+  </style>
 </head>
+
 <body>
+  <div class="topbar">
+    <div>
+      <h2 style="margin:0;">Panel Super Admin</h2>
+      <div class="muted" id="meBox"></div>
+    </div>
+    <div>
+      <button onclick="logout()">Cerrar sesión</button>
+    </div>
+  </div>
 
-<h1>Panel Super Admin</h1>
-<button onclick="logout()">Cerrar sesión</button>
+  <div class="row">
+    <!-- CLUBES -->
+    <div class="card">
+      <h3 style="margin-top:0;">Clubes</h3>
 
-<h2>Clubes</h2>
-<table border="1">
-  <thead>
-    <tr>
-      <th>Nombre</th>
-      <th>Ciudad</th>
-      <th>Provincia</th>
-    </tr>
-  </thead>
-  <tbody id="clubs-table"></tbody>
-</table>
+      <!-- Formulario Alta Club -->
+      <h4>Crear nuevo club</h4>
+      <form id="formClub">
+        <label>Nombre del club</label>
+        <input id="club_name" placeholder="Ej: Club Atlético Munro" required />
 
-<h2>Usuarios</h2>
-<table border="1">
-  <thead>
-    <tr>
-      <th>Email</th>
-      <th>Roles</th>
-    </tr>
-  </thead>
-  <tbody id="users-table"></tbody>
-</table>
+        <label>Dirección</label>
+        <input id="club_address" placeholder="Ej: Calle 123" />
 
-<script>
-  const token = localStorage.getItem('token');
+        <label>Ciudad</label>
+        <input id="club_city" placeholder="Ej: Munro" />
 
-  if (!token) {
-    alert('Tu sesión expiró. Por favor iniciá sesión nuevamente.');
-    window.location.href = '/admin.html';
-  }
-</script>
+        <label>Provincia</label>
+        <input id="club_province" placeholder="Ej: Buenos Aires" />
 
-<script src="/js/clubs.js"></script>
-<script src="/js/users.js"></script>
+        <button type="submit">Guardar club</button>
+      </form>
 
-</body>
-</html>
+      <div id="clubMsg" class="msg"></div>
+
+      <!-- Tabla clubes -->
+      <h4 style="margin-bottom:6px;">Listado</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Ciudad</th>
+            <th>Provincia</th>
+          </tr>
+        </thead>
+        <tbody id="clubs-table"></tbody>
+      </table>
+    </div>
+
