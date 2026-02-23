@@ -1,20 +1,85 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Panel del Club</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 16px; }
+    .topbar { display:flex; justify-content: space-between; align-items:center; gap: 12px; }
+    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background:#eef; }
+    .card { border:1px solid #ddd; border-radius:8px; padding:16px; margin-top:16px; max-width: 900px; }
+    .row { display:flex; gap: 16px; flex-wrap: wrap; align-items:flex-end; }
+    label { display:block; font-size: 0.9rem; color:#444; margin-bottom:6px; }
+    select, button { padding: 8px; }
+    .menu { margin-top: 14px; display:flex; flex-wrap: wrap; gap: 8px; }
+    .menu a { text-decoration:none; border:1px solid #ddd; padding:8px 10px; border-radius: 8px; color:#111; }
+    .muted { color:#666; font-size: 0.95rem; }
+    .msg { margin-top: 12px; padding: 10px; border-radius: 8px; display:none; }
+    .err { display:block; background:#fdeaea; border:1px solid #f3b6b6; color:#8a1f1f; }
+    .ok  { display:block; background:#e7f7ea; border:1px solid #b6e2be; color:#1f6b2a; }
+  </style>
 </head>
 <body>
-  <h2>Panel del Club</h2>
-  <p>Bienvenido. Esta es la web del club asignado.</p>
 
-  <button onclick="logout()">Cerrar sesión</button>
+  <div class="topbar">
+    <div>
+      <h2 style="margin:0;">Panel del Club</h2>
+      <div class="muted" id="meLabel"></div>
+    </div>
+    <div>
+      <button onclick="logout()">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Club activo</h3>
+
+    <div class="row">
+      <div>
+        <label>Seleccionar club (si tenés más de uno)</label>
+        <select id="clubSelect">
+          <option value="">Cargando…</option>
+        </select>
+      </div>
+
+      <div>
+        <button id="btnApplyClub" type="button">Usar este club</button>
+      </div>
+
+      <div>
+        <span class="badge" id="roleBadge">Rol: —</span>
+      </div>
+    </div>
+
+    <div id="clubInfo" class="muted" style="margin-top:12px;"></div>
+    <div id="msgBox" class="msg"></div>
+
+    <h3 style="margin-top:18px;">Secciones (placeholder)</h3>
+    <div class="menu">
+      <a href="#" onclick="return false;">Socios</a>
+      <a href="#" onclick="return false;">Pagos</a>
+      <a href="#" onclick="return false;">Gastos</a>
+      <a href="#" onclick="return false;">Noticias</a>
+      <a href="#" onclick="return false;">Notificaciones</a>
+      <a href="#" onclick="return false;">Cumpleaños</a>
+      <a href="#" onclick="return false;">Configuración</a>
+      <a href="#" onclick="return false;">Reportes</a>
+    </div>
+
+    <p class="muted" style="margin-top:12px;">
+      Por ahora esta página muestra el club y rol desde el JWT. Luego conectamos cada sección a la API del club.
+    </p>
+  </div>
 
   <script>
     function logout() {
       localStorage.removeItem('token');
+      localStorage.removeItem('activeClubId');
       window.location.href = '/admin.html';
     }
   </script>
+
+  <script src="/js/club.js"></script>
 </body>
 </html>
