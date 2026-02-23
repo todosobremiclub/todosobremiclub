@@ -15,6 +15,19 @@ async function login() {
     return;
   }
 
+  // Guardar token
   localStorage.setItem('token', data.token);
-  window.location.href = '/superadmin.html';
+
+  // Leer rol desde la respuesta
+  const roles = data.user.roles || [];
+  const hasSuperadmin = roles.some(r => r.role === 'superadmin');
+
+  if (hasSuperadmin) {
+    // ✅ Superadmin → consola global
+    window.location.href = '/superadmin.html';
+  } else {
+    // ✅ Admin / Staff → web del club
+    // Por ahora usamos una genérica
+    window.location.href = '/club.html';
+  }
 }

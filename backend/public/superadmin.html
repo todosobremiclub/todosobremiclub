@@ -97,16 +97,24 @@
 <script>
   const token = localStorage.getItem('token');
   if (!token) {
-    alert('Tu sesión expiró. Iniciá sesión nuevamente.');
+    alert('Sesión expirada');
     window.location.href = '/admin.html';
   }
 
-  function logout() {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const roles = payload.roles || [];
+    const isSuperadmin = roles.some(r => r.role === 'superadmin');
+
+    if (!isSuperadmin) {
+      alert('No tenés permisos para acceder al panel Super Admin');
+      window.location.href = '/club.html';
+    }
+  } catch (e) {
     localStorage.removeItem('token');
     window.location.href = '/admin.html';
   }
 </script>
-
 <script src="/js/clubs.js"></script>
 <script src="/js/users.js"></script>
 
