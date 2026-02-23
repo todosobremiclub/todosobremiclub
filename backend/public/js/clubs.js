@@ -43,7 +43,10 @@ async function loadClubs() {
   }
 
   data.clubs.forEach(c => {
-    const logoHtml = c.logo_url ? `<img class="thumb" src="${c.logo_url}">` : '—';
+    const logoHtml = c.logo_url
+      ? `<img src="${c.logo_url}" class="thumb" />`
+      : '—';
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${logoHtml}</td>
@@ -78,7 +81,7 @@ async function createClub(e) {
     return;
   }
 
-  showClubMsg('✅ Club creado (logo y fondo guardados)', true);
+  showClubMsg('✅ Club creado (logo y fondo subidos a Firebase)', true);
   document.getElementById('formClub').reset();
   await loadClubs();
 }

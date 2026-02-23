@@ -3,21 +3,17 @@ const multer = require('multer');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
+const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 
 const router = express.Router();
 
-// Multer en memoria (buffer)
+// multer en memoria
 const upload = multer({
-  limits: { fileSize: 2 * 1024 * 1024 } // 2MB por archivo (logo/fondo)
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 } // 2MB
 });
 
-function fileToDataUrl(file) {
-  if (!file) return null;
-  const b64 = file.buffer.toString('base64');
-  return `data:${file.mimetype};base64,${b64}`;
-}
-
-// ✅ LISTAR CLUBES (solo superadmin)
+// ✅ GET /admin/clubs
 router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
   try {
     const r = await db.query(
@@ -32,8 +28,7 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
   }
 });
 
-// ✅ CREAR CLUB con logo y fondo (solo superadmin)
-// Recibe multipart/form-data: fields + files
+// ✅ POST /admin/clubs (multipart/form-data con logo/background)
 router.post(
   '/',
   requireAuth,
@@ -41,7 +36,7 @@ router.post(
   upload.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'background', maxCount: 1 }
-  ]),
+  ]), // upload.fields está soportado por Multer [3](https://expressjs.com/en/resources/middleware/multer.html)
   async (req, res) => {
     try {
       const { name, address, city, province } = req.body || {};
@@ -49,11 +44,32 @@ router.post(
         return res.status(400).json({ ok: false, error: 'Falta name' });
       }
 
-      const logoFile = req.files?.logo?.[0] || null;
-      const bgFile = req.files?.background?.[0] || null;
+      let logo_url = null;
+      let background_url = null;
 
-      const logo_url = fileToDataUrl(logoFile);
-      const background_url = fileToDataUrl(bgFile);
+      const logoFile = req.files?.logo?.[0];
+      const bgFile = req.files?.background?.[0];
+
+      // Subir a Firebase si vienen archivos
+      if (logoFile) {
+        const up = await uploadImageBuffer({
+          buffer: logoFile.buffer,
+          mimetype: logoFile.mimetype,
+          originalname: logoFile.originalname,
+          folder: 'clubs/logo'
+        });
+        logo_url = up.url;
+      }
+
+      if (bgFile) {
+        const up = await uploadImageBuffer({
+          buffer: bgFile.buffer,
+          mimetype: bgFile.mimetype,
+          originalname: bgFile.originalname,
+          folder: 'clubs/background'
+        });
+        background_url = up.url;
+      }
 
       const r = await db.query(
         `INSERT INTO clubs (name, address, city, province, logo_url, background_url)
@@ -72,7 +88,7 @@ router.post(
       res.status(201).json({ ok: true, club: r.rows[0] });
     } catch (err) {
       console.error('❌ admin clubs create:', err);
-      res.status(500).json({ ok: false, error: 'Error interno' });
+      res.status(500).json({ ok: false, error: err.message || 'Error interno' });
     }
   }
 );
