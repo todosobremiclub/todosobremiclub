@@ -5,48 +5,80 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Panel del Club</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 16px; }
+    body { font-family: Arial, sans-serif; margin:0; padding:0; }
+    .layout { display:flex; min-height: 100vh; }
+    .sidebar { width: 240px; background:#111827; color:#fff; padding:14px; }
+    .sidebar h3 { margin: 0 0 12px 0; font-size: 16px; }
+    .navbtn { width:100%; text-align:left; padding:10px 10px; margin:6px 0; border:0; border-radius:8px; cursor:pointer; background:#1f2937; color:#fff; }
+    .navbtn:hover { background:#374151; }
+    .content { flex:1; padding: 16px; }
     .topbar { display:flex; justify-content: space-between; align-items:center; gap: 12px; }
-    .logo { height: 64px; width: 64px; object-fit: cover; border-radius: 10px; border:1px solid #ddd; background: #fff; }
-    .card { border:1px solid #ddd; border-radius:8px; padding:16px; margin-top:16px; max-width: 900px; background: rgba(255,255,255,0.85); }
+    .logo { height: 56px; width: 56px; object-fit: cover; border-radius: 10px; border:1px solid #ddd; background: #fff; }
+    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background:#eef; }
+    .card { border:1px solid #ddd; border-radius:8px; padding:16px; margin-top:16px; max-width: 1100px; background: rgba(255,255,255,0.90); }
     .row { display:flex; gap: 16px; flex-wrap: wrap; align-items:flex-end; }
     label { display:block; font-size: 0.9rem; color:#444; margin-bottom:6px; }
-    select, button { padding: 8px; }
-    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background:#eef; }
+    select, button, input { padding: 8px; }
     .muted { color:#333; font-size: 0.95rem; }
-    .msg { margin-top: 12px; padding: 10px; border-radius: 8px; display:none; }
-    .err { display:block; background:#fdeaea; border:1px solid #f3b6b6; color:#8a1f1f; }
-    .ok  { display:block; background:#e7f7ea; border:1px solid #b6e2be; color:#1f6b2a; }
+
+    /* estilos básicos para socios.html */
+    .section-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .filters { display:flex; flex-wrap:wrap; gap:10px; margin: 12px 0; }
+    .table-wrapper { overflow:auto; border:1px solid #ddd; border-radius:10px; background:#fff; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border-bottom:1px solid #eee; padding:8px; font-size: 14px; }
+    th { background:#f7f7f7; text-align:left; white-space:nowrap; }
+    .modal.hidden { display:none; }
+    .modal { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:999; }
+    .modal-content { width:min(780px, 92vw); background:#fff; border-radius:12px; padding:16px; }
+    .form-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:12px; }
+    @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } .sidebar { width: 200px; } }
   </style>
 </head>
 <body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>☰ Menú</h3>
+      <button class="navbtn" data-section="socios">👤 Socios</button>
+      <button class="navbtn" data-section="pagos">💰 Pagos (luego)</button>
+      <button class="navbtn" data-section="gastos">🧾 Gastos (luego)</button>
+      <button class="navbtn" data-section="noticias">📣 Noticias (luego)</button>
+      <button class="navbtn" data-section="cumpleanios">🎂 Cumpleaños (luego)</button>
+      <button class="navbtn" data-section="configuracion">⚙️ Configuración (luego)</button>
+      <hr style="border-color:#374151;">
+      <button class="navbtn" onclick="logout()">Cerrar sesión</button>
+    </aside>
 
-  <div class="topbar">
-    <div>
-      <h2 style="margin:0;">Panel del Club</h2>
-      <div class="muted" id="meLabel"></div>
-    </div>
-    <div>
-      <button onclick="logout()">Cerrar sesión</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="row">
-      <img id="clubLogo" class="logo" alt="Logo club" />
-      <div>
-        <div class="badge" id="roleBadge">Rol: —</div>
-        <div class="muted" id="clubInfo" style="margin-top:8px;"></div>
+    <main class="content">
+      <div class="topbar">
+        <div>
+          <h2 style="margin:0;">Panel del Club</h2>
+          <div class="muted" id="meLabel"></div>
+        </div>
+        <div class="row" style="gap:10px;">
+          <img id="clubLogo" class="logo" alt="Logo club" />
+          <span class="badge" id="roleBadge">Rol: —</span>
+        </div>
       </div>
-    </div>
 
-    <div style="margin-top:14px;">
-      <label>Seleccionar club (si tenés más de uno)</label>
-      <select id="clubSelect"></select>
-      <button id="btnApplyClub" type="button">Usar este club</button>
-    </div>
+      <div class="card">
+        <div class="row">
+          <div style="min-width:280px;">
+            <label>Seleccionar club (si tenés más de uno)</label>
+            <select id="clubSelect"></select>
+            <button id="btnApplyClub" type="button">Usar este club</button>
+          </div>
+          <div class="muted" id="clubInfo"></div>
+        </div>
+        <div id="msgBox" class="msg"></div>
+      </div>
 
-    <div id="msgBox" class="msg"></div>
+      <!-- CONTENEDOR DE SECCIONES -->
+      <div class="card" id="sectionContainer">
+        <div class="muted">Elegí una sección del menú.</div>
+      </div>
+    </main>
   </div>
 
   <script>
@@ -57,6 +89,10 @@
     }
   </script>
 
+  <!-- tu lógica existente del club -->
   <script src="/js/club.js"></script>
+
+  <!-- socios -->
+  <script src="/js/socios.js"></script>
 </body>
 </html>

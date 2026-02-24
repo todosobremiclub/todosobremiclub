@@ -1,0 +1,117 @@
+<section id="socios-section">
+
+  <div class="section-header">
+    <h2>Gestión de Socios</h2>
+    <div class="section-actions">
+      <button id="btnNuevoSocio">➕ Nuevo socio</button>
+      <button id="btnExportSocios">📥 Descargar Excel</button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <input type="text" id="sociosSearch" placeholder="Buscar por Nombre, Apellido o DNI" />
+    <select id="filtroCategoria">
+      <option value="">Todas las categorías</option>
+    </select>
+    <select id="filtroAnio">
+      <option value="">Todos los años</option>
+    </select>
+
+    <label class="checkbox">
+      <input type="checkbox" id="verInactivos" />
+      Ver inactivos
+    </label>
+
+    <button id="btnBuscarSocios">Buscar</button>
+  </div>
+
+  <div class="socios-info">
+    <span id="sociosActivosCount">Socios activos: 0</span>
+  </div>
+
+  <div class="table-wrapper">
+    <table class="socios-table">
+      <thead>
+        <tr>
+          <th>Pago</th>
+          <th>N° Socio</th>
+          <th>DNI</th>
+          <th>Nombre</th>
+          <th>Apellido</th>
+          <th>Categoría</th>
+          <th>Teléfono</th>
+          <th>Nacimiento</th>
+          <th>Año</th>
+          <th>Ingreso</th>
+          <th>Activo</th>
+          <th>Becado</th>
+          <th>Foto</th>
+          <th>Opciones</th>
+        </tr>
+      </thead>
+      <tbody id="sociosTableBody"></tbody>
+    </table>
+  </div>
+
+  <div id="modalSocio" class="modal hidden">
+    <div class="modal-content">
+      <h3 id="modalSocioTitle">Nuevo socio</h3>
+
+      <div class="form-grid">
+        <div>
+          <label>N° Socio</label>
+          <input type="number" id="socioNumero" placeholder="Automático si se deja vacío" />
+        </div>
+
+        <div>
+          <label>DNI *</label>
+          <input type="text" id="socioDni" required />
+        </div>
+
+        <div>
+          <label>Nombre *</label>
+          <input type="text" id="socioNombre" required />
+        </div>
+
+        <div>
+          <label>Apellido *</label>
+          <input type="text" id="socioApellido" required />
+        </div>
+
+        <div>
+          <label>Categoría *</label>
+          <input type="text" id="socioCategoria" required />
+        </div>
+
+        <div>
+          <label>Teléfono</label>
+          <input type="text" id="socioTelefono" />
+        </div>
+
+        <div>
+          <label>Fecha de nacimiento *</label>
+          <input type="date" id="socioNacimiento" required />
+        </div>
+
+        <div>
+          <label>Fecha de ingreso</label>
+          <input type="date" id="socioIngreso" />
+        </div>
+
+        <div class="checkbox">
+          <label><input type="checkbox" id="socioActivo" checked /> Activo</label>
+        </div>
+
+        <div class="checkbox">
+          <label><input type="checkbox" id="socioBecado" /> Becado</label>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="btnCancelarSocio">Cancelar</button>
+        <button id="btnGuardarSocio">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+</section>

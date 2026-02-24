@@ -28,6 +28,7 @@
   function fillSelect(roles) {
     const sel = document.getElementById('clubSelect');
     sel.innerHTML = '';
+
     roles.forEach(r => {
       const opt = document.createElement('option');
       opt.value = r.club_id;
@@ -36,7 +37,9 @@
     });
 
     const saved = localStorage.getItem('activeClubId');
-    if (saved && roles.some(r => String(r.club_id) === String(saved))) sel.value = saved;
+    if (saved && roles.some(r => String(r.club_id) === String(saved))) {
+      sel.value = saved;
+    }
   }
 
   async function applySelected(roles) {
@@ -68,8 +71,44 @@
     } else {
       document.body.style.backgroundImage = 'none';
     }
+
+    // 👉 cuando cambia el club, recargamos la sección actual
+    if (window.currentSection) {
+      loadSection(window.currentSection);
+    }
   }
 
+  // ===============================
+  // SECCIONES (Socios primero)
+  // ===============================
+  window.currentSection = null;
+
+  async function loadSection(sectionName) {
+    const container = document.getElementById('sectionContainer');
+    if (!container) return;
+
+    try {
+      window.currentSection = sectionName;
+
+      const res = await fetch(`/sections/${sectionName}.html`);
+      if (!res.ok) throw new Error('No se pudo cargar la sección');
+
+      const html = await res.text();
+      container.innerHTML = html;
+
+      // init por sección
+      if (sectionName === 'socios' && window.initSociosSection) {
+        await window.initSociosSection();
+      }
+
+    } catch (e) {
+      container.innerHTML = `<div style="color:red;">Error: ${e.message}</div>`;
+    }
+  }
+
+  // ===============================
+  // INIT
+  // ===============================
   let user;
   try {
     user = await fetchMe();
@@ -81,7 +120,7 @@
       return;
     }
 
-    // superadmin no entra acá
+    // superadmin no entra al panel de club
     if (user.roles.some(r => r.role === 'superadmin')) {
       window.location.href = '/superadmin.html';
       return;
@@ -89,14 +128,24 @@
 
     fillSelect(user.roles);
 
-    document.getElementById('btnApplyClub')
+    document
+      .getElementById('btnApplyClub')
       .addEventListener('click', () => applySelected(user.roles));
 
     await applySelected(user.roles);
 
+    // menú lateral
+    document.querySelectorAll('[data-section]').forEach(btn => {
+      btn.addEventListener('click', () => loadSection(btn.dataset.section));
+    });
+
+    // sección por defecto
+    loadSection('socios');
+
   } catch (e) {
     console.error(e);
     localStorage.removeItem('token');
+    localStorage.removeItem('activeClubId');
     alert('Sesión inválida o expirada.');
     window.location.href = '/admin.html';
   }
