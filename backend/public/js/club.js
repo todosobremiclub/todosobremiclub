@@ -78,6 +78,8 @@
     }
   }
 
+
+
   // ===============================
   // SECCIONES (Socios primero)
   // ===============================
@@ -108,6 +110,11 @@ if (sectionName === 'configuracion' && window.initConfiguracionSection) {
 if (sectionName === 'gastos' && window.initGastosSection) {
   await window.initGastosSection();
 }
+
+if (sectionName === 'cumples' && window.initCumplesSection) {
+  await window.initCumplesSection();
+}
+
 
 
     } catch (e) {

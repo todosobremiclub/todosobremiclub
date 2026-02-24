@@ -20,6 +20,7 @@ app.use('/club', require('./routes/clubRoutes'));
 app.use('/club', require('./routes/sociosRoutes'));
 app.use('/club', configuracionRoutes);
 app.use('/club', require('./routes/gastosRoutes'));
+app.use('/club', require('./routes/cumplesRoutes'));
 
 // ===== HEALTH =====
 app.get('/health', (_req, res) => {
