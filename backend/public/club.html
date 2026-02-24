@@ -35,17 +35,19 @@
     .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:12px; }
     @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } .sidebar { width: 200px; } }
   </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css">
+
 </head>
 <body>
   <div class="layout">
     <aside class="sidebar">
       <h3>☰ Menú</h3>
       <button class="navbtn" data-section="socios">👤 Socios</button>
-      <button class="navbtn" data-section="pagos">💰 Pagos (luego)</button>
-      <button class="navbtn" data-section="gastos">🧾 Gastos (luego)</button>
-      <button class="navbtn" data-section="noticias">📣 Noticias (luego)</button>
-      <button class="navbtn" data-section="cumples">🎂 Cumpleaños</button>
-      <button class="navbtn" data-section="configuracion">⚙️ Configuración (luego)</button>
+      <button class="navbtn" data-section="pagos">💰 Pagos </button>
+      <button class="navbtn" data-section="gastos">🧾 Gastos </button>
+      <button class="navbtn" data-section="noticias">📣 Noticias </button>
+      <button class="navbtn" data-section="cumples">🎂 Cumpleaños </button>
+      <button class="navbtn" data-section="configuracion">⚙️ Configuración </button>
       <hr style="border-color:#374151;">
       <button class="navbtn" onclick="logout()">Cerrar sesión</button>
     </aside>
@@ -96,6 +98,7 @@
   <script src="/js/socios.js"></script>
 <script src="/js/configuracion.js"></script>
 <script src="/js/gastos.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.js"></script>
 <script src="/js/cumples.js"></script>
 
 </body>
