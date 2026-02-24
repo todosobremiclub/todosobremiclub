@@ -17,39 +17,36 @@
     .err { background:#fdeaea; border:1px solid #f3b6b6; color:#8a1f1f; display:block; }
     .topbar { display:flex; justify-content: space-between; align-items:center; margin-bottom: 16px; }
     .thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 8px; border:1px solid #ddd; }
+    .hint { font-size: 12px; color: #666; margin-top: -8px; margin-bottom: 12px; }
   </style>
 </head>
-
 <body>
-
 <div class="topbar">
   <h2>Panel Super Admin</h2>
   <button onclick="logout()">Cerrar sesión</button>
 </div>
 
 <div class="row">
-
   <div class="card">
     <h3>Clubes</h3>
-
     <h4>Crear club</h4>
+
     <form id="formClub">
-  <input id="club_id" type="hidden">
+      <input id="club_id" type="hidden">
+      <input id="club_name" placeholder="Nombre del club" required>
+      <input id="club_address" placeholder="Dirección">
+      <input id="club_city" placeholder="Ciudad">
+      <input id="club_province" placeholder="Provincia">
 
-  <input id="club_name" placeholder="Nombre del club" required>
-  <input id="club_address" placeholder="Dirección">
-  <input id="club_city" placeholder="Ciudad">
-  <input id="club_province" placeholder="Provincia">
+      <label>Logo del club (imagen)</label>
+      <input id="club_logo" type="file" accept="image/*">
 
-  <label>Logo del club (imagen)</label>
-  <input id="club_logo" type="file" accept="image/*">
+      <label>Fondo del club (imagen)</label>
+      <input id="club_background" type="file" accept="image/*">
 
-  <label>Fondo del club (imagen)</label>
-  <input id="club_background" type="file" accept="image/*">
-
-  <button type="submit" id="club_submit_btn">Guardar club</button>
-  <button type="button" id="club_cancel_btn" style="display:none;">Cancelar edición</button>
-</form>
+      <button type="submit" id="club_submit_btn">Guardar club</button>
+      <button type="button" id="club_cancel_btn" style="display:none;">Cancelar edición</button>
+    </form>
 
     <div id="clubMsg" class="msg"></div>
 
@@ -60,7 +57,7 @@
           <th>Nombre</th>
           <th>Ciudad</th>
           <th>Provincia</th>
-<th>Acciones</th>
+          <th>Acciones</th>
         </tr>
       </thead>
       <tbody id="clubs-table"></tbody>
@@ -69,8 +66,8 @@
 
   <div class="card">
     <h3>Usuarios</h3>
-
     <h4>Crear usuario</h4>
+
     <form id="formUser">
       <input id="user_full_name" placeholder="Nombre completo">
       <input id="user_email" type="email" placeholder="Email" required>
@@ -82,9 +79,11 @@
         <option value="superadmin">superadmin</option>
       </select>
 
-      <select id="user_club_id" required>
+      <!-- ✅ MULTI SELECT -->
+      <select id="user_club_id" multiple size="6" required>
         <option value="">Cargando clubes...</option>
       </select>
+      <div class="hint">Tip: para seleccionar varios clubes mantené presionado CTRL (Windows) o CMD (Mac).</div>
 
       <button type="submit">Guardar usuario</button>
     </form>
@@ -102,7 +101,6 @@
       <tbody id="users-table"></tbody>
     </table>
   </div>
-
 </div>
 
 <script>
@@ -121,6 +119,5 @@
 
 <script src="/js/clubs.js"></script>
 <script src="/js/users.js"></script>
-
 </body>
 </html>

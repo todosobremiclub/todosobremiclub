@@ -75,16 +75,17 @@ router.post('/login', async (req, res) => {
 });
 
 /**
- * GET /auth/me  (requiere Bearer token)
+ * GET /auth/me (requiere Bearer token)
  */
 router.get('/me', requireAuth, (req, res) => {
   res.json({
     ok: true,
     user: {
-      id: req.user.id,
+      id: req.user.userId,   // ✅ FIX: el token trae userId, no id
       email: req.user.email,
       roles: req.user.roles
     }
   });
 });
+
 module.exports = router;

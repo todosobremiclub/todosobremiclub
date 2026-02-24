@@ -1,5 +1,6 @@
 (() => {
   const $ = (id) => document.getElementById(id);
+
   let usersCache = [];
   let clubsCache = [];
 
@@ -31,32 +32,35 @@
     const sel = $('user_club_id');
     if (!sel) return;
 
-    sel.innerHTML = '<option value="">Cargando clubes...</option>';
+    sel.innerHTML = 'Cargando clubes...';
 
     try {
       const res = await fetchAuth('/admin/clubs');
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.ok) {
-        sel.innerHTML = '<option value="">Error cargando clubes</option>';
+        sel.innerHTML = 'Error cargando clubes';
         return;
       }
 
       const clubs = data.clubs || [];
+      clubsCache = clubs; // ✅ FIX: antes no se guardaba
+
       if (clubs.length === 0) {
-        sel.innerHTML = '<option value="">No hay clubes</option>';
+        sel.innerHTML = 'No hay clubes';
         return;
       }
 
-      sel.innerHTML = '<option value="">Seleccionar...</option>';
+      sel.innerHTML = ''; // multi-select: no ponemos "Seleccionar..."
       clubs.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.id;
         opt.textContent = `${c.name}${c.city ? ' - ' + c.city : ''}`;
         sel.appendChild(opt);
       });
+
     } catch {
-      sel.innerHTML = '<option value="">Error cargando clubes</option>';
+      sel.innerHTML = 'Error cargando clubes';
     }
   }
 
@@ -64,7 +68,9 @@
     const tbody = $('users-table');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
+    tbody.innerHTML = `
+      <tr><td colspan="4">Cargando...</td></tr>
+    `;
 
     const res = await fetchAuth('/admin/users');
     const data = await res.json().catch(() => ({}));
@@ -81,12 +87,12 @@
     usersCache.forEach(u => {
       const roles = (u.roles || [])
         .map(r => `${r.role} (${r.club_name})`)
-        .join('<br>');
+        .join('\n');
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${u.email}</td>
-        <td>${roles}</td>
+        <td style="white-space:pre-line;">${roles}</td>
         <td>${u.is_active ? 'Activo' : 'Inactivo'}</td>
         <td>
           <button onclick="editUser('${u.id}')">Editar</button>
@@ -104,10 +110,12 @@
     const email = $('user_email').value.trim().toLowerCase();
     const password = $('user_password').value;
     const role = $('user_role').value;
-    const club_id = $('user_club_id').value;
 
-    if (!email || !password || !role || !club_id) {
-      showUserMsg('Completá email, contraseña, rol y club.', false);
+    const clubSelect = $('user_club_id');
+    const club_ids = [...clubSelect.selectedOptions].map(o => o.value);
+
+    if (!email || !password || !role || club_ids.length === 0) {
+      showUserMsg('Completá email, contraseña, rol y al menos un club.', false);
       return;
     }
 
@@ -115,7 +123,7 @@
       email,
       full_name: full_name || null,
       password,
-      assignments: [{ club_id, role }]
+      assignments: club_ids.map(club_id => ({ club_id, role }))
     };
 
     const res = await fetchAuth('/admin/users', {
@@ -147,6 +155,7 @@
     const is_active = confirm('¿Usuario activo?');
 
     const clubsList = clubsCache.map(c => `${c.id} - ${c.name}`).join('\n');
+
     const club_id = prompt(`Club ID:\n${clubsList}`, u.roles?.[0]?.club_id);
     const role = prompt('Rol (staff/admin/superadmin):', u.roles?.[0]?.role);
 
@@ -164,6 +173,7 @@
     });
 
     const data = await res.json().catch(() => ({}));
+
     if (!res.ok || !data.ok) {
       showUserMsg('Error actualizando usuario', false);
       return;
