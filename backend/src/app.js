@@ -16,6 +16,7 @@ app.use('/auth', authRoutes);
 app.use('/admin/clubs', adminClubsRoutes);
 app.use('/admin/users', adminUsersRoutes);
 app.use('/club', require('./routes/clubRoutes'));
+app.use('/club', require('./routes/sociosRoutes'));
 
 // ===== HEALTH =====
 app.get('/health', (_req, res) => {
