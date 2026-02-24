@@ -72,16 +72,13 @@
       document.body.style.backgroundImage = 'none';
     }
 
-    // 👉 cuando cambia el club, recargamos la sección actual
     if (window.currentSection) {
       loadSection(window.currentSection);
     }
   }
 
-
-
   // ===============================
-  // SECCIONES (Socios primero)
+  // CONTROL DE SECCIONES
   // ===============================
   window.currentSection = null;
 
@@ -98,24 +95,22 @@
       const html = await res.text();
       container.innerHTML = html;
 
-      // init por sección
-      // init por sección
-if (sectionName === 'socios' && window.initSociosSection) {
-  await window.initSociosSection();
-}
-if (sectionName === 'configuracion' && window.initConfiguracionSection) {
-  await window.initConfiguracionSection();
-}
+      // Init específico por sección
+      if (sectionName === 'socios' && window.initSociosSection) {
+        await window.initSociosSection();
+      }
 
-if (sectionName === 'gastos' && window.initGastosSection) {
-  await window.initGastosSection();
-}
+      if (sectionName === 'configuracion' && window.initConfiguracionSection) {
+        await window.initConfiguracionSection();
+      }
 
-if (sectionName === 'cumples' && window.initCumplesSection) {
-  await window.initCumplesSection();
-}
+      if (sectionName === 'gastos' && window.initGastosSection) {
+        await window.initGastosSection();
+      }
 
-
+      if (sectionName === 'cumples' && window.initCumplesSection) {
+        await window.initCumplesSection();
+      }
 
     } catch (e) {
       container.innerHTML = `<div style="color:red;">Error: ${e.message}</div>`;
@@ -123,9 +118,10 @@ if (sectionName === 'cumples' && window.initCumplesSection) {
   }
 
   // ===============================
-  // INIT
+  // INIT GENERAL
   // ===============================
   let user;
+
   try {
     user = await fetchMe();
 
@@ -150,12 +146,10 @@ if (sectionName === 'cumples' && window.initCumplesSection) {
 
     await applySelected(user.roles);
 
-    // menú lateral
     document.querySelectorAll('[data-section]').forEach(btn => {
       btn.addEventListener('click', () => loadSection(btn.dataset.section));
     });
 
-    // sección por defecto
     loadSection('socios');
 
   } catch (e) {
