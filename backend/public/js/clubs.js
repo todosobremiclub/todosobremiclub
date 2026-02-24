@@ -1,128 +1,191 @@
-const $ = (id) => document.getElementById(id);
+(() => {
+  const $ = (id) => document.getElementById(id);
 
-function showClubMsg(text, ok = true) {
-  const box = $('clubMsg');
-  if (!box) return;
-  box.className = 'msg ' + (ok ? 'ok' : 'err');
-  box.textContent = text;
-}
-
-function getToken() {
-  const t = localStorage.getItem('token');
-  if (!t) {
-    alert('Sesión expirada');
-    window.location.href = '/admin.html';
-    throw new Error('No token');
-  }
-  return t;
-}
-
-async function fetchAuth(url, options = {}) {
-  const headers = options.headers || {};
-  headers['Authorization'] = 'Bearer ' + getToken();
-  return fetch(url, { ...options, headers });
-}
-
-let clubsCache = [];
-
-async function loadClubs() {
-  const tbody = $('clubs-table');
-  if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="5">Cargando...</td></tr>`;
-
-  const res = await fetchAuth('/admin/clubs');
-  const data = await res.json();
-
-  if (!res.ok || !data.ok) {
-    showClubMsg(data.error || 'Error cargando clubes', false);
-    tbody.innerHTML = '';
-    return;
+  function showClubMsg(text, ok = true) {
+    const box = $('clubMsg');
+    if (!box) return;
+    box.className = 'msg ' + (ok ? 'ok' : 'err');
+    box.textContent = text;
   }
 
-  clubsCache = data.clubs;
-  tbody.innerHTML = '';
-
-  if (!clubsCache.length) {
-    tbody.innerHTML = `<tr><td colspan="5">No hay clubes</td></tr>`;
-    return;
+  function getTokenOrRedirect() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Sesión expirada');
+      window.location.href = '/admin.html';
+      throw new Error('Sin token');
+    }
+    return token;
   }
 
-  clubsCache.forEach(c => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${c.logo_url ? `<img src="${c.logo_url}" height="40">` : '—'}</td>
+  // ✅ Fetch auth SOLO para CLUBS (no pisa nada global)
+  async function fetchAuthClubs(url, options = {}) {
+    const token = getTokenOrRedirect();
+    const headers = options.headers || {};
+    headers['Authorization'] = 'Bearer ' + token;
+
+    // ⚠️ NO seteamos Content-Type cuando mandamos FormData
+    // si options.body es FormData, el browser lo arma solo
+    const res = await fetch(url, { ...options, headers });
+
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      alert('Sesión expirada');
+      window.location.href = '/admin.html';
+      throw new Error('401');
+    }
+    return res;
+  }
+
+  let clubsCache = [];
+
+  function setEditMode(on) {
+    const cancelBtn = $('club_cancel_btn');
+    const submitBtn = $('club_submit_btn');
+    if (cancelBtn) cancelBtn.style.display = on ? 'inline-block' : 'none';
+    if (submitBtn) submitBtn.textContent = on ? 'Guardar cambios' : 'Guardar club';
+  }
+
+  function resetClubForm() {
+    $('formClub')?.reset();
+    if ($('club_id')) $('club_id').value = '';
+    setEditMode(false);
+  }
+
+  function renderRow(c) {
+    const logoHtml = c.logo_url
+      ? `<img src="${c.logo_url}" alt="logo" style="width:42px;height:42px;object-fit:cover;border-radius:8px;border:1px solid #ddd" />`
+      : '—';
+
+    return `
+      <td>${logoHtml}</td>
       <td>${c.name}</td>
       <td>${c.city || ''}</td>
       <td>${c.province || ''}</td>
       <td>
-        <button onclick="editClub('${c.id}')">Editar</button>
-        <button onclick="deleteClub('${c.id}')">Eliminar</button>
-      </td>`;
-    tbody.appendChild(tr);
-  });
-}
-
-async function saveClub(e) {
-  e.preventDefault();
-
-  const id = $('club_id').value;
-  const fd = new FormData();
-  fd.append('name', $('club_name').value);
-  fd.append('address', $('club_address').value);
-  fd.append('city', $('club_city').value);
-  fd.append('province', $('club_province').value);
-
-  if ($('club_logo').files[0]) fd.append('logo', $('club_logo').files[0]);
-  if ($('club_background').files[0]) fd.append('background', $('club_background').files[0]);
-
-  const url = id ? `/admin/clubs/${id}` : '/admin/clubs';
-  const method = id ? 'PUT' : 'POST';
-
-  const res = await fetchAuth(url, { method, body: fd });
-  const text = await res.text();
-
-  let data;
-  try { data = JSON.parse(text); }
-  catch { return showClubMsg(text, false); }
-
-  if (!res.ok || !data.ok) {
-    showClubMsg(data.error || 'Error guardando club', false);
-    return;
+        <button data-action="edit" data-id="${c.id}">Editar</button>
+        <button data-action="delete" data-id="${c.id}">Eliminar</button>
+      </td>
+    `;
   }
 
-  showClubMsg(id ? '✅ Club actualizado' : '✅ Club creado', true);
-  resetForm();
-  loadClubs();
-}
+  async function loadClubs() {
+    const tbody = $('clubs-table');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="5">Cargando...</td></tr>`;
 
-function editClub(id) {
-  const c = clubsCache.find(x => x.id === id);
-  if (!c) return;
-  $('club_id').value = c.id;
-  $('club_name').value = c.name;
-  $('club_address').value = c.address || '';
-  $('club_city').value = c.city || '';
-  $('club_province').value = c.province || '';
-  $('club_cancel_btn').style.display = 'inline-block';
-}
+    const res = await fetchAuthClubs('/admin/clubs');
+    const data = await res.json().catch(() => ({}));
 
-async function deleteClub(id) {
-  if (!confirm('¿Eliminar club?')) return;
-  const res = await fetchAuth(`/admin/clubs/${id}`, { method: 'DELETE' });
-  const data = await res.json();
-  if (!res.ok || !data.ok) return showClubMsg(data.error, false);
-  showClubMsg('✅ Club eliminado', true);
-  loadClubs();
-}
+    if (!res.ok || !data.ok) {
+      showClubMsg(data.error || 'Error cargando clubes', false);
+      tbody.innerHTML = '';
+      return;
+    }
 
-function resetForm() {
-  $('formClub').reset();
-  $('club_id').value = '';
-  $('club_cancel_btn').style.display = 'none';
-}
+    clubsCache = data.clubs || [];
+    tbody.innerHTML = '';
 
-document.addEventListener('DOMContentLoaded', () => {
-  $('formClub').addEventListener('submit', saveClub);
-  $('club_cancel_btn').addEventListener('click', resetForm);
-  loadClubs();
-});
+    if (!clubsCache.length) {
+      tbody.innerHTML = `<tr><td colspan="5">No hay clubes</td></tr>`;
+      return;
+    }
+
+    clubsCache.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = renderRow(c);
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function saveClub(e) {
+    e.preventDefault();
+
+    const id = $('club_id')?.value?.trim() || '';
+    const name = $('club_name')?.value?.trim() || '';
+
+    if (!name) return showClubMsg('El nombre es obligatorio', false);
+
+    const fd = new FormData();
+    fd.append('name', name);
+    fd.append('address', $('club_address')?.value?.trim() || '');
+    fd.append('city', $('club_city')?.value?.trim() || '');
+    fd.append('province', $('club_province')?.value?.trim() || '');
+
+    const logoFile = $('club_logo')?.files?.[0];
+    const bgFile = $('club_background')?.files?.[0];
+    if (logoFile) fd.append('logo', logoFile);
+    if (bgFile) fd.append('background', bgFile);
+
+    const url = id ? `/admin/clubs/${id}` : '/admin/clubs';
+    const method = id ? 'PUT' : 'POST';
+
+    const res = await fetchAuthClubs(url, { method, body: fd });
+
+    // Si por algún motivo el backend responde HTML ante error, lo capturamos:
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch { return showClubMsg('Error guardando club: ' + text.slice(0, 120), false); }
+
+    if (!res.ok || !data.ok) {
+      showClubMsg(data.error || 'No se pudo guardar', false);
+      return;
+    }
+
+    showClubMsg(id ? '✅ Club actualizado' : '✅ Club creado', true);
+    resetClubForm();
+    await loadClubs();
+  }
+
+  function startEdit(id) {
+    const c = clubsCache.find(x => x.id === id);
+    if (!c) return;
+
+    $('club_id').value = c.id;
+    $('club_name').value = c.name || '';
+    $('club_address').value = c.address || '';
+    $('club_city').value = c.city || '';
+    $('club_province').value = c.province || '';
+
+    // file inputs no se precargan por seguridad (normal)
+    setEditMode(true);
+    showClubMsg('Editando: ' + c.name, true);
+  }
+
+  async function delClub(id) {
+    const c = clubsCache.find(x => x.id === id);
+    if (!confirm(`¿Eliminar el club "${c?.name || id}"?`)) return;
+
+    const res = await fetchAuthClubs(`/admin/clubs/${id}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      showClubMsg(data.error || 'No se pudo eliminar', false);
+      return;
+    }
+
+    showClubMsg('✅ Club eliminado', true);
+    resetClubForm();
+    await loadClubs();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    $('formClub')?.addEventListener('submit', saveClub);
+    $('club_cancel_btn')?.addEventListener('click', () => {
+      resetClubForm();
+      showClubMsg('Edición cancelada', true);
+    });
+
+    $('clubs-table')?.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      if (action === 'edit') startEdit(id);
+      if (action === 'delete') delClub(id);
+    });
+
+    loadClubs();
+  });
+})();
