@@ -582,7 +582,16 @@
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
-      alert(data.csv`;
+      alert(data.error || 'No se pudo eliminar el socio');
+      return;
+    }
+
+    await loadSocios();
+  }
+
+  function exportSocios() {
+    const clubId = getActiveClubId();
+    window.location.href = `/club/${clubId}/socios/export.csv`;
   }
 
   // =============================
@@ -630,7 +639,6 @@
       }
 
       if (act === 'photo') {
-        // reemplazar foto desde la grilla
         triggerQuickPhotoPick(id);
       }
     });
@@ -642,8 +650,8 @@
 
   async function initSociosSection() {
     ensurePhotoViewer();
-    ensureDraftPhotoUI();     // ✅ agrega “Elegir foto” dentro del modal
-    ensureQuickPhotoInput();  // ✅ input para reemplazo desde grilla
+    ensureDraftPhotoUI();
+    ensureQuickPhotoInput();
     bindEvents();
     await loadSocios();
   }
