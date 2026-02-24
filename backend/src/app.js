@@ -10,6 +10,7 @@ app.use(express.static('public'));
 const authRoutes = require('./routes/authRoutes');
 const adminClubsRoutes = require('./routes/adminClubsRoutes');
 const adminUsersRoutes = require('./routes/adminUsersRoutes');
+const configuracionRoutes = require('./routes/configuracionRoutes');
 
 // ===== API =====
 app.use('/auth', authRoutes);
@@ -17,6 +18,7 @@ app.use('/admin/clubs', adminClubsRoutes);
 app.use('/admin/users', adminUsersRoutes);
 app.use('/club', require('./routes/clubRoutes'));
 app.use('/club', require('./routes/sociosRoutes'));
+app.use('/club', configuracionRoutes);
 
 // ===== HEALTH =====
 app.get('/health', (_req, res) => {

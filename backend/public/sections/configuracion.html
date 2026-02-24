@@ -1,0 +1,175 @@
+<section id="configuracion-section">
+
+  <h2 style="margin-bottom: 12px;">Configuración del Sistema</h2>
+
+  <!-- ========================= -->
+  <!-- CUOTAS MENSUALES -->
+  <!-- ========================= -->
+  <div class="config-card">
+    <h3 style="margin:0 0 10px 0;">💰 Monto de cuota por mes</h3>
+
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th style="width: 30%;">Mes</th>
+          <th style="width: 40%;">Monto ($)</th>
+          <th style="width: 30%;">Guardar</th>
+        </tr>
+      </thead>
+      <tbody id="cuotasTableBody">
+        <!-- Renderizado por configuracion.js -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ========================= -->
+  <!-- CATEGORÍAS DEPORTIVAS -->
+  <!-- ========================= -->
+  <div class="config-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:10px; flex-wrap:wrap;">
+      <h3 style="margin:0;">🏷️ Categorías deportivas</h3>
+      <button id="btnCategoriaAdd" class="btn-add">➕ Agregar</button>
+    </div>
+
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th style="width: 90px; text-align:center;">Guardar</th>
+          <th style="width: 90px; text-align:center;">Eliminar</th>
+        </tr>
+      </thead>
+      <tbody id="categoriasTableBody">
+        <!-- Renderizado por configuracion.js -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ========================= -->
+  <!-- TIPOS DE GASTO -->
+  <!-- ========================= -->
+  <div class="config-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:10px; flex-wrap:wrap;">
+      <h3 style="margin:0;">🧾 Tipos de gasto</h3>
+      <button id="btnTipoGastoAdd" class="btn-add">➕ Agregar</button>
+    </div>
+
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th style="width: 90px; text-align:center;">Guardar</th>
+          <th style="width: 90px; text-align:center;">Eliminar</th>
+        </tr>
+      </thead>
+      <tbody id="tiposGastoTableBody">
+        <!-- Renderizado por configuracion.js -->
+      </tbody>
+    </table>
+  </div>
+
+<!-- ========================= -->
+  <!-- RESPONSABLES DEL GASTO -->
+  <!-- ========================= -->
+  <div class="config-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:10px; flex-wrap:wrap;">
+      <h3 style="margin:0;">👤 Responsables (quién realizó el gasto)</h3>
+      <button id="btnResponsableAdd" class="btn-add">➕ Agregar</button>
+    </div>
+
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th style="width: 90px; text-align:center;">Guardar</th>
+          <th style="width: 90px; text-align:center;">Eliminar</th>
+        </tr>
+      </thead>
+      <tbody id="responsablesTableBody">
+        <!-- Renderizado por configuracion.js -->
+      </tbody>
+    </table>
+  </div>
+
+</section>
+
+<style>
+  /* =========================
+     ESTILOS CONFIGURACIÓN
+     ========================= */
+
+  .config-card {
+    background: rgba(255,255,255,0.92);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 16px;
+    max-width: 950px;
+  }
+
+  .config-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .config-table thead th {
+    background: #0b3c7a;
+    color: #fff;
+    padding: 10px;
+    text-align: left;
+    font-weight: 600;
+  }
+
+  .config-table tbody td {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 10px;
+    vertical-align: middle;
+  }
+
+  .config-table tbody tr:nth-child(even) {
+    background: #f9fafb;
+  }
+
+  /* Inputs */
+  .config-table input[type="number"],
+  .config-table input[type="text"] {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 14px;
+    box-sizing: border-box;
+  }
+
+  /* Botones */
+  .btn-save {
+    background: #facc15;
+    color: #000;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-save:hover {
+    background: #eab308;
+  }
+
+  .btn-add {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-add:hover {
+    background: #1d4ed8;
+  }
+
+  @media (max-width: 720px) {
+    .config-card {
+      padding: 12px;
+    }
+  }
+</style>
