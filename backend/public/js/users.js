@@ -1,161 +1,128 @@
 (() => {
-  // ===== Helpers =====
   const $ = (id) => document.getElementById(id);
+  let usersCache = [];
+  let clubsCache = [];
 
-  function showUserMsg(text, type) {
+  function getToken() {
+    const t = localStorage.getItem('token');
+    if (!t) {
+      alert('Sesión expirada');
+      window.location.href = '/admin.html';
+      throw new Error('No token');
+    }
+    return t;
+  }
+
+  async function fetchAuth(url, options = {}) {
+    const headers = options.headers || {};
+    headers['Authorization'] = 'Bearer ' + getToken();
+    if (options.json) headers['Content-Type'] = 'application/json';
+    return fetch(url, { ...options, headers });
+  }
+
+  function showUserMsg(text, ok = true) {
     const box = $('userMsg');
     if (!box) return;
-    box.style.display = 'block';
-    box.style.padding = '10px';
-    box.style.borderRadius = '6px';
-    box.style.marginTop = '10px';
-
-    if (type === 'ok') {
-      box.style.background = '#e7f7ea';
-      box.style.border = '1px solid #b6e2be';
-      box.style.color = '#1f6b2a';
-    } else {
-      box.style.background = '#fdeaea';
-      box.style.border = '1px solid #f3b6b6';
-      box.style.color = '#8a1f1f';
-    }
+    box.className = 'msg ' + (ok ? 'ok' : 'err');
     box.textContent = text;
   }
 
-  function getTokenOrRedirect() {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('Tu sesión expiró. Por favor iniciá sesión nuevamente.');
-      window.location.href = '/admin.html';
-      throw new Error('Sin token');
-    }
-    return token;
+  // ================== LOAD CLUBS ==================
+  async function loadClubs() {
+    const r = await fetchAuth('/admin/clubs');
+    const d = await r.json();
+    clubsCache = d.clubs || [];
   }
 
-  // ✅ Fetch auth SOLO para USERS (no pisa nada global)
-  async function fetchAuthUsers(url, options = {}) {
-    const token = getTokenOrRedirect();
-    const headers = options.headers || {};
-    headers['Authorization'] = 'Bearer ' + token;
-
-    // Para requests JSON (create user), seteamos Content-Type.
-    // Para GET no hace falta.
-    if (options.json === true) {
-      headers['Content-Type'] = 'application/json';
-    }
-
-    const res = await fetch(url, { ...options, headers });
-
-    if (res.status === 401) {
-      localStorage.removeItem('token');
-      alert('Tu sesión expiró. Por favor iniciá sesión nuevamente.');
-      window.location.href = '/admin.html';
-      throw new Error('Token inválido');
-    }
-
-    return res;
-  }
-
-  async function loadClubsIntoUserSelect() {
-    const sel = $('user_club_id');
-    if (!sel) return;
-
-    // traemos clubes para llenar el select
-    const res = await fetchAuthUsers('/admin/clubs');
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok || !data.ok) {
-      sel.innerHTML = '<option value="">Error cargando clubes</option>';
-      return;
-    }
-
-    sel.innerHTML = '<option value="">Seleccionar...</option>';
-    (data.clubs || []).forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = `${c.name}${c.city ? ' - ' + c.city : ''}`;
-      sel.appendChild(opt);
-    });
-  }
-
+  // ================== LOAD USERS ==================
   async function loadUsers() {
     const tbody = $('users-table');
-    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="4">Cargando...</td></tr>`;
 
-    tbody.innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
+    const r = await fetchAuth('/admin/users');
+    const d = await r.json();
 
-    const res = await fetchAuthUsers('/admin/users');
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok || !data.ok) {
-      tbody.innerHTML = '<tr><td colspan="3">Error cargando usuarios</td></tr>';
+    if (!d.ok) {
+      tbody.innerHTML = '';
+      showUserMsg('Error cargando usuarios', false);
       return;
     }
 
+    usersCache = d.users;
     tbody.innerHTML = '';
 
-    (data.users || []).forEach(u => {
-      const rolesHtml = (u.roles || []).map(r => `${r.role} (${r.club_name})`).join('<br>');
-      const estado = u.is_active ? 'Activo' : 'Inactivo';
+    usersCache.forEach(u => {
+      const roles = (u.roles || [])
+        .map(r => `${r.role} (${r.club_name})`)
+        .join('<br>');
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${u.email}</td>
-        <td>${rolesHtml}</td>
-        <td>${estado}</td>
+        <td>${roles}</td>
+        <td>${u.is_active ? 'Activo' : 'Inactivo'}</td>
+        <td>
+          <button onclick="editUser('${u.id}')">Editar</button>
+          <button onclick="deleteUser('${u.id}')">Eliminar</button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
-
-    if ((data.users || []).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3">No hay usuarios</td></tr>';
-    }
   }
 
-  async function createUser(e) {
-    e.preventDefault();
+  // ================== EDIT ==================
+  window.editUser = async (id) => {
+    const u = usersCache.find(x => x.id === id);
+    if (!u) return;
 
-    const full_name = $('user_full_name')?.value?.trim() || '';
-    const email = $('user_email')?.value?.trim()?.toLowerCase() || '';
-    const password = $('user_password')?.value || '';
-    const role = $('user_role')?.value || '';
-    const club_id = $('user_club_id')?.value || '';
+    const email = prompt('Email:', u.email);
+    if (!email) return;
 
-    if (!email || !password || !role || !club_id) {
-      showUserMsg('Completá email, contraseña, rol y club.', 'err');
-      return;
-    }
+    const full_name = prompt('Nombre completo:', u.full_name || '') || null;
+    const is_active = confirm('¿Usuario activo?');
+
+    const clubOptions = clubsCache
+      .map(c => `${c.id} - ${c.name}`)
+      .join('\n');
+
+    const club_id = prompt(`Club ID:\n${clubOptions}`, u.roles?.[0]?.club_id);
+    const role = prompt('Rol (staff/admin/superadmin):', u.roles?.[0]?.role);
 
     const payload = {
       email,
-      full_name: full_name || null,
-      password,
-      assignments: [{ club_id, role }]
+      full_name,
+      is_active,
+      assignments: club_id && role ? [{ club_id, role }] : []
     };
 
-    const res = await fetchAuthUsers('/admin/users', {
-      method: 'POST',
+    const r = await fetchAuth(`/admin/users/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(payload),
       json: true
     });
 
-    const data = await res.json().catch(() => ({}));
+    const d = await r.json();
+    if (!d.ok) return showUserMsg('Error actualizando usuario', false);
 
-    if (!res.ok || !data.ok) {
-      showUserMsg(data.error || 'No se pudo crear el usuario', 'err');
-      return;
-    }
+    showUserMsg('✅ Usuario actualizado', true);
+    loadUsers();
+  };
 
-    showUserMsg('✅ Usuario creado correctamente', 'ok');
-    $('formUser')?.reset();
-    await loadUsers();
-  }
+  // ================== DELETE ==================
+  window.deleteUser = async (id) => {
+    if (!confirm('¿Eliminar usuario definitivamente?')) return;
+
+    const r = await fetchAuth(`/admin/users/${id}`, { method: 'DELETE' });
+    const d = await r.json();
+
+    if (!d.ok) return showUserMsg('Error eliminando usuario', false);
+
+    showUserMsg('✅ Usuario eliminado', true);
+    loadUsers();
+  };
 
   document.addEventListener('DOMContentLoaded', async () => {
-    const form = $('formUser');
-    if (form) form.addEventListener('submit', createUser);
-
-    await loadClubsIntoUserSelect();
+    await loadClubs();
     await loadUsers();
   });
 })();
