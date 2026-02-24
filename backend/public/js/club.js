@@ -97,9 +97,14 @@
       container.innerHTML = html;
 
       // init por sección
-      if (sectionName === 'socios' && window.initSociosSection) {
-        await window.initSociosSection();
-      }
+      // init por sección
+if (sectionName === 'socios' && window.initSociosSection) {
+  await window.initSociosSection();
+}
+if (sectionName === 'configuracion' && window.initConfiguracionSection) {
+  await window.initConfiguracionSection();
+}
+
 
     } catch (e) {
       container.innerHTML = `<div style="color:red;">Error: ${e.message}</div>`;
