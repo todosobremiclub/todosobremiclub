@@ -1,0 +1,105 @@
+<!-- sections/gastos.html -->
+<section class="section-gastos">
+
+  <div class="section-header">
+    <h2>Gestión de Gastos</h2>
+
+    <button id="btnGastoAdd" class="btn btn-primary">
+      + Registrar nuevo gasto
+    </button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters">
+    <label>
+      Período:
+      <input type="month" id="filtroDesde">
+    </label>
+
+    <span>a</span>
+
+    <label>
+      <input type="month" id="filtroHasta">
+    </label>
+
+    <button id="btnFiltrarGastos" class="btn btn-secondary">
+      Filtrar
+    </button>
+  </div>
+
+  <!-- Tabla -->
+  <div class="table-container">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Período</th>
+          <th>Tipo de gasto</th>
+          <th>Quién lo hizo</th>
+          <th>Monto</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody id="gastosTableBody">
+        <!-- dinámico -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Total -->
+  <div class="total-periodo">
+    <span>Total período:</span>
+    <strong id="totalPeriodo">$ 0,00</strong>
+  </div>
+
+  <!-- MODAL REGISTRAR GASTO -->
+  <div id="modalGasto" class="modal hidden">
+    <div class="modal-content">
+
+      <h3>Registrar Gasto</h3>
+
+      <form id="formGasto">
+
+        <label>
+          Tipo de gasto
+          <select id="gastoTipo" required>
+            <option value="">Cargando...</option>
+          </select>
+        </label>
+
+        <label>
+          Mes y año del gasto
+          <input type="month" id="gastoPeriodo" required>
+        </label>
+
+        <label>
+          Quién hizo el gasto
+          <select id="gastoResponsable" required>
+            <option value="">Cargando...</option>
+          </select>
+        </label>
+
+        <label>
+          Monto (ARS)
+          <input type="number" id="gastoMonto" min="0" step="0.01" required>
+        </label>
+
+        <label>
+          Descripción
+          <textarea id="gastoDescripcion" rows="2"></textarea>
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" id="btnGastoCancel" class="btn btn-secondary">
+            Cancelar
+          </button>
+
+          <button type="submit" class="btn btn-primary">
+            Guardar
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+</section>

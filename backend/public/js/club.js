@@ -105,6 +105,10 @@ if (sectionName === 'configuracion' && window.initConfiguracionSection) {
   await window.initConfiguracionSection();
 }
 
+if (sectionName === 'gastos' && window.initGastosSection) {
+  await window.initGastosSection();
+}
+
 
     } catch (e) {
       container.innerHTML = `<div style="color:red;">Error: ${e.message}</div>`;
