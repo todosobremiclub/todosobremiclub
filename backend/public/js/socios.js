@@ -31,7 +31,6 @@
 
     const res = await fetch(url, { ...options, headers });
 
-    // Sesión vencida
     if (res.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('activeClubId');
@@ -53,6 +52,9 @@
   // =============================
   let editingId = null;
   let sociosCache = [];
+
+  // Foto “draft” para alta/edición (se elige antes de guardar)
+  let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
 
   // =============================
   // Visor de foto (lightbox)
@@ -105,8 +107,6 @@
     document.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape' && modal.style.display === 'flex') close();
     });
-
-    window.closePhotoViewer = close;
   }
 
   function openPhotoViewer(url) {
@@ -118,164 +118,179 @@
   }
 
   // =============================
-  // Preview antes de subir (modal)
+  // UI extra dentro del modal de socio: Elegir foto + preview
   // =============================
-  let previewState = {
-    socioId: null,
-    dataUrl: null,   // para mostrar
-    base64: null,    // para enviar
-    mimetype: null,
-    filename: null
-  };
+  const draftPhotoInput = document.createElement('input');
+  draftPhotoInput.type = 'file';
+  draftPhotoInput.accept = 'image/*';
+  draftPhotoInput.style.display = 'none';
 
-  function ensurePhotoPreviewModal() {
-    if (document.getElementById('photoPreviewModal')) return;
+  function ensureDraftPhotoUI() {
+    // input al body
+    if (!document.body.contains(draftPhotoInput)) document.body.appendChild(draftPhotoInput);
 
-    const modal = document.createElement('div');
-    modal.id = 'photoPreviewModal';
-    modal.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,0.65);
-      display:none; align-items:center; justify-content:center; z-index:9998;
-      padding: 18px;
+    const modal = document.getElementById('modalSocio');
+    if (!modal) return;
+
+    const modalContent = modal.querySelector('.modal-content');
+    if (!modalContent) return;
+
+    if (document.getElementById('socioDraftPhotoBox')) return; // ya insertado
+
+    const box = document.createElement('div');
+    box.id = 'socioDraftPhotoBox';
+    box.style.cssText = `
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px dashed #ddd;
+      border-radius: 10px;
+      background: #fafafa;
     `;
 
-    modal.innerHTML = `
-      <div style="
-        position:relative; width:min(760px, 96vw);
-        background:#fff; border-radius:12px; overflow:hidden;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.35);
-      ">
-        <div style="padding:14px 16px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <div style="font-weight:700;">Preview de foto</div>
-            <div id="photoPreviewMeta" style="font-size:12px; color:#666; margin-top:2px;"></div>
+    box.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <div style="font-weight:600;">Foto del socio</div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="btnSocioPickFoto" style="padding:8px 10px; cursor:pointer;">Elegir foto</button>
+          <button type="button" id="btnSocioClearFoto" style="padding:8px 10px; cursor:pointer;">Quitar</button>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+        <img id="socioFotoDraftPreview" alt="Preview foto" style="
+          width: 74px; height:74px; border-radius:12px; object-fit:cover;
+          border:1px solid #ddd; background:#fff; display:none; cursor:pointer;
+        ">
+        <div>
+          <div id="socioFotoDraftMeta" style="font-size:12px; color:#555;">Sin foto seleccionada.</div>
+          <div style="font-size:12px; color:#777; margin-top:4px;">
+            La foto se subirá automáticamente al presionar <b>Guardar</b>.
           </div>
-          <button id="photoPreviewX" style="
-            border:0; background:#f1f1f1; padding:8px 10px; border-radius:10px; cursor:pointer;
-          ">✕</button>
-        </div>
-
-        <div style="background:#111; display:flex; align-items:center; justify-content:center; padding:12px;">
-          <img id="photoPreviewImg" alt="Preview" style="max-width:100%; max-height:60vh; object-fit:contain; border-radius:10px;">
-        </div>
-
-        <div style="padding:14px 16px; display:flex; justify-content:flex-end; gap:10px;">
-          <button id="photoPreviewCancel" style="padding:10px 14px; border-radius:10px; border:1px solid #ddd; background:#fff; cursor:pointer;">
-            Cancelar
-          </button>
-          <button id="photoPreviewUpload" style="padding:10px 14px; border-radius:10px; border:0; background:#111827; color:#fff; cursor:pointer;">
-            Subir foto
-          </button>
         </div>
       </div>
     `;
 
-    document.body.appendChild(modal);
+    // Insertar antes de los botones del modal
+    const actions = modalContent.querySelector('.modal-actions');
+    if (actions) modalContent.insertBefore(box, actions);
+    else modalContent.appendChild(box);
 
-    const close = () => {
-      modal.style.display = 'none';
-      previewState = { socioId:null, dataUrl:null, base64:null, mimetype:null, filename:null };
-      const img = document.getElementById('photoPreviewImg');
-      if (img) img.src = '';
-    };
-
-    // cerrar con click afuera
-    modal.addEventListener('click', (ev) => {
-      if (ev.target === modal) close();
+    // Bind botones
+    box.querySelector('#btnSocioPickFoto').addEventListener('click', () => {
+      draftPhotoInput.click();
     });
 
-    modal.querySelector('#photoPreviewX').addEventListener('click', close);
-    modal.querySelector('#photoPreviewCancel').addEventListener('click', close);
-
-    modal.querySelector('#photoPreviewUpload').addEventListener('click', async () => {
-      try {
-        if (!previewState.socioId || !previewState.base64 || !previewState.mimetype) {
-          alert('No hay foto para subir.');
-          return;
-        }
-
-        const clubId = getActiveClubId();
-        const payload = {
-          base64: previewState.base64,
-          mimetype: previewState.mimetype,
-          filename: previewState.filename || 'socio.jpg'
-        };
-
-        const res = await fetchAuth(`/club/${clubId}/socios/${previewState.socioId}/foto`, {
-          method: 'POST',
-          body: JSON.stringify(payload),
-          json: true
-        });
-
-        const data = await safeJson(res);
-        if (!res.ok || !data.ok) {
-          alert(data.error || 'No se pudo subir la foto');
-          return;
-        }
-
-        close();
-        await loadSocios();
-        alert('✅ Foto subida correctamente');
-      } catch (e) {
-        console.error(e);
-        alert(e.message || 'Error subiendo foto');
-      }
+    box.querySelector('#btnSocioClearFoto').addEventListener('click', () => {
+      setDraftPhoto(null);
     });
 
-    // ESC
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && modal.style.display === 'flex') close();
+    // Click en preview abre visor grande (si hay foto)
+    box.querySelector('#socioFotoDraftPreview').addEventListener('click', () => {
+      if (draftPhoto?.dataUrl) openPhotoViewer(draftPhoto.dataUrl);
     });
-  }
 
-  function openPhotoPreview({ socioId, file, dataUrl, base64 }) {
-    ensurePhotoPreviewModal();
-    previewState = {
-      socioId,
-      dataUrl,
-      base64,
-      mimetype: file.type || 'image/jpeg',
-      filename: file.name || 'socio.jpg'
-    };
+    // Change del input
+    draftPhotoInput.addEventListener('change', async () => {
+      const file = draftPhotoInput.files && draftPhotoInput.files[0];
+      draftPhotoInput.value = ''; // reset
 
-    const modal = document.getElementById('photoPreviewModal');
-    const img = document.getElementById('photoPreviewImg');
-    const meta = document.getElementById('photoPreviewMeta');
+      if (!file) return;
 
-    img.src = dataUrl;
-
-    const kb = Math.round((file.size || 0) / 1024);
-    meta.textContent = `${previewState.filename} • ${kb} KB • ${previewState.mimetype}`;
-
-    modal.style.display = 'flex';
-  }
-
-  // =============================
-  // Input oculto para elegir archivo
-  // =============================
-  const photoInput = document.createElement('input');
-  photoInput.type = 'file';
-  photoInput.accept = 'image/*';
-  photoInput.style.display = 'none';
-
-  function ensurePhotoInput() {
-    if (!document.body.contains(photoInput)) document.body.appendChild(photoInput);
-  }
-
-  let pendingPhotoSocioId = null;
-
-  photoInput.addEventListener('change', async () => {
-    try {
-      const file = photoInput.files && photoInput.files[0];
-      if (!file || !pendingPhotoSocioId) return;
-
-      // validación de tamaño
       if (file.size > 2 * 1024 * 1024) {
         alert('La imagen supera 2MB. Elegí una más liviana.');
         return;
       }
 
-      // leer como dataURL (sirve para preview)
+      // dataURL para preview + base64 para envío
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result || ''));
+        r.onerror = () => reject(new Error('Error leyendo archivo'));
+        r.readAsDataURL(file);
+      });
+
+      const comma = dataUrl.indexOf(',');
+      if (comma < 0) {
+        alert('No se pudo leer la imagen.');
+        return;
+      }
+
+      setDraftPhoto({
+        dataUrl,
+        base64: dataUrl.slice(comma + 1),
+        mimetype: file.type || 'image/jpeg',
+        filename: file.name || 'socio.jpg'
+      });
+    });
+  }
+
+  function setDraftPhoto(photo) {
+    draftPhoto = photo;
+
+    const img = document.getElementById('socioFotoDraftPreview');
+    const meta = document.getElementById('socioFotoDraftMeta');
+
+    if (!img || !meta) return;
+
+    if (!draftPhoto) {
+      img.style.display = 'none';
+      img.src = '';
+      meta.textContent = 'Sin foto seleccionada.';
+      return;
+    }
+
+    img.src = draftPhoto.dataUrl;
+    img.style.display = 'inline-block';
+    meta.textContent = `${draftPhoto.filename} • ${draftPhoto.mimetype}`;
+  }
+
+  // =============================
+  // Upload de foto (para socio ya existente)
+  // =============================
+  async function uploadSocioFotoById(socioId, photoPayload) {
+    const clubId = getActiveClubId();
+
+    const payload = {
+      base64: photoPayload.base64,
+      mimetype: photoPayload.mimetype,
+      filename: photoPayload.filename || 'socio.jpg'
+    };
+
+    const res = await fetchAuth(`/club/${clubId}/socios/${socioId}/foto`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      json: true
+    });
+
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'No se pudo subir la foto');
+    }
+    return data;
+  }
+
+  // Input oculto para reemplazar foto desde la grilla (📷 por fila)
+  const quickPhotoInput = document.createElement('input');
+  quickPhotoInput.type = 'file';
+  quickPhotoInput.accept = 'image/*';
+  quickPhotoInput.style.display = 'none';
+  let pendingQuickSocioId = null;
+
+  function ensureQuickPhotoInput() {
+    if (!document.body.contains(quickPhotoInput)) document.body.appendChild(quickPhotoInput);
+  }
+
+  quickPhotoInput.addEventListener('change', async () => {
+    try {
+      const file = quickPhotoInput.files && quickPhotoInput.files[0];
+      quickPhotoInput.value = '';
+      if (!file || !pendingQuickSocioId) return;
+
+      if (file.size > 2 * 1024 * 1024) {
+        alert('La imagen supera 2MB. Elegí una más liviana.');
+        return;
+      }
+
       const dataUrl = await new Promise((resolve, reject) => {
         const r = new FileReader();
         r.onload = () => resolve(String(r.result || ''));
@@ -286,29 +301,31 @@
       const comma = dataUrl.indexOf(',');
       if (comma < 0) throw new Error('No se pudo leer la imagen');
 
-      const base64 = dataUrl.slice(comma + 1);
+      // Preview “rápido” (confirm)
+      const ok = confirm('¿Subir esta foto para el socio seleccionado?');
+      if (!ok) return;
 
-      // abrir preview (NO sube todavía)
-      openPhotoPreview({
-        socioId: pendingPhotoSocioId,
-        file,
+      await uploadSocioFotoById(pendingQuickSocioId, {
         dataUrl,
-        base64
+        base64: dataUrl.slice(comma + 1),
+        mimetype: file.type || 'image/jpeg',
+        filename: file.name || 'socio.jpg'
       });
+
+      await loadSocios();
+      alert('✅ Foto actualizada');
     } catch (e) {
       console.error(e);
-      alert(e.message || 'Error preparando preview');
+      alert(e.message || 'Error subiendo foto');
     } finally {
-      // reset selector para permitir elegir la misma foto de nuevo
-      pendingPhotoSocioId = null;
-      photoInput.value = '';
+      pendingQuickSocioId = null;
     }
   });
 
-  function triggerPhotoPick(socioId) {
-    ensurePhotoInput();
-    pendingPhotoSocioId = socioId;
-    photoInput.click();
+  function triggerQuickPhotoPick(socioId) {
+    ensureQuickPhotoInput();
+    pendingQuickSocioId = socioId;
+    quickPhotoInput.click();
   }
 
   // =============================
@@ -316,6 +333,8 @@
   // =============================
   function openModalNew() {
     editingId = null;
+    setDraftPhoto(null);
+
     $('modalSocioTitle').textContent = 'Nuevo socio';
     $('socioNumero').value = '';
     $('socioDni').value = '';
@@ -327,11 +346,14 @@
     $('socioIngreso').value = '';
     $('socioActivo').checked = true;
     $('socioBecado').checked = false;
+
     $('modalSocio').classList.remove('hidden');
   }
 
   function openModalEdit(socio) {
     editingId = socio.id;
+    setDraftPhoto(null);
+
     $('modalSocioTitle').textContent = 'Editar socio';
     $('socioNumero').value = socio.numero_socio ?? '';
     $('socioDni').value = socio.dni ?? '';
@@ -343,6 +365,7 @@
     $('socioIngreso').value = (socio.fecha_ingreso || '').slice(0, 10);
     $('socioActivo').checked = !!socio.activo;
     $('socioBecado').checked = !!socio.becado;
+
     $('modalSocio').classList.remove('hidden');
   }
 
@@ -372,10 +395,12 @@
         ? s.anio_nacimiento
         : (s.fecha_nacimiento ? String(s.fecha_nacimiento).slice(0, 4) : '');
 
-      // ✅ miniatura clickeable (abre lightbox)
+      // Miniatura clickeable + fallback
       const fotoHtml = s.foto_url
-        ? `<img src="${s.foto_url}" data-act="viewphoto" data-url="${s.foto_url}"
-             style="width:42px;height:42px;object-fit:cover;border-radius:8px;border:1px solid #ddd;cursor:zoom-in;" />`
+        ? `<img data-act="viewphoto" data-url="${s.foto_url}"
+              src="${s.foto_url}"
+              alt="foto"
+              style="width:42px;height:42px;border-radius:10px;object-fit:cover;border:1px solid #ddd;cursor:pointer;">`
         : `<span style="color:#777;">—</span>`;
 
       const tr = document.createElement('tr');
@@ -510,22 +535,45 @@
       return;
     }
 
-    const url = editingId
-      ? `/club/${clubId}/socios/${editingId}`
-      : `/club/${clubId}/socios`;
+    const creating = !editingId;
+    const url = creating
+      ? `/club/${clubId}/socios`
+      : `/club/${clubId}/socios/${editingId}`;
 
-    const method = editingId ? 'PUT' : 'POST';
+    const method = creating ? 'POST' : 'PUT';
 
-    const res = await fetchAuth(url, { method, body: JSON.stringify(payload), json: true });
-    const data = await safeJson(res);
+    const btnSave = $('btnGuardarSocio');
+    if (btnSave) btnSave.disabled = true;
 
-    if (!res.ok || !data.ok) {
-      alert(data.error || 'No se pudo guardar el socio');
-      return;
+    try {
+      // 1) Guardar socio
+      const res = await fetchAuth(url, { method, body: JSON.stringify(payload), json: true });
+      const data = await safeJson(res);
+
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'No se pudo guardar el socio');
+        return;
+      }
+
+      // 2) Subir foto si el usuario la eligió ANTES
+      const socioId = creating ? (data.socio?.id || data.id) : editingId;
+
+      if (draftPhoto && socioId) {
+        await uploadSocioFotoById(socioId, draftPhoto);
+      }
+
+      // 3) Reset y refresco
+      setDraftPhoto(null);
+      closeModal();
+      await loadSocios();
+
+      alert(creating ? '✅ Socio creado' : '✅ Socio actualizado');
+    } catch (e) {
+      console.error(e);
+      alert(e.message || 'Error guardando socio');
+    } finally {
+      if (btnSave) btnSave.disabled = false;
     }
-
-    closeModal();
-    await loadSocios();
   }
 
   async function deleteSocio(id) {
@@ -534,16 +582,7 @@
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
-      alert(data.error || 'No se pudo eliminar el socio');
-      return;
-    }
-
-    await loadSocios();
-  }
-
-  function exportSocios() {
-    const clubId = getActiveClubId();
-    window.location.href = `/club/${clubId}/socios/export.csv`;
+      alert(data.csv`;
   }
 
   // =============================
@@ -565,7 +604,7 @@
     $('verInactivos')?.addEventListener('change', loadSocios);
 
     $('sociosTableBody')?.addEventListener('click', async (ev) => {
-      // ✅ click en miniatura
+      // click miniatura
       const img = ev.target.closest('[data-act="viewphoto"]');
       if (img) {
         const url = img.dataset.url;
@@ -591,7 +630,8 @@
       }
 
       if (act === 'photo') {
-        triggerPhotoPick(id); // ✅ abre selector y luego preview
+        // reemplazar foto desde la grilla
+        triggerQuickPhotoPick(id);
       }
     });
 
@@ -602,8 +642,8 @@
 
   async function initSociosSection() {
     ensurePhotoViewer();
-    ensurePhotoPreviewModal();
-    ensurePhotoInput();
+    ensureDraftPhotoUI();     // ✅ agrega “Elegir foto” dentro del modal
+    ensureQuickPhotoInput();  // ✅ input para reemplazo desde grilla
     bindEvents();
     await loadSocios();
   }
