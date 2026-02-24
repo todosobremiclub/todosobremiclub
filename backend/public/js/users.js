@@ -27,28 +27,55 @@
     box.textContent = text;
   }
 
-  // ================== LOAD CLUBS ==================
-  async function loadClubs() {
-    const r = await fetchAuth('/admin/clubs');
-    const d = await r.json();
-    clubsCache = d.clubs || [];
+  async function loadClubsIntoUserSelect() {
+    const sel = $('user_club_id');
+    if (!sel) return;
+
+    sel.innerHTML = '<option value="">Cargando clubes...</option>';
+
+    try {
+      const res = await fetchAuth('/admin/clubs');
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        sel.innerHTML = '<option value="">Error cargando clubes</option>';
+        return;
+      }
+
+      const clubs = data.clubs || [];
+      if (clubs.length === 0) {
+        sel.innerHTML = '<option value="">No hay clubes</option>';
+        return;
+      }
+
+      sel.innerHTML = '<option value="">Seleccionar...</option>';
+      clubs.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.name}${c.city ? ' - ' + c.city : ''}`;
+        sel.appendChild(opt);
+      });
+    } catch {
+      sel.innerHTML = '<option value="">Error cargando clubes</option>';
+    }
   }
 
-  // ================== LOAD USERS ==================
   async function loadUsers() {
     const tbody = $('users-table');
-    tbody.innerHTML = `<tr><td colspan="4">Cargando...</td></tr>`;
+    if (!tbody) return;
 
-    const r = await fetchAuth('/admin/users');
-    const d = await r.json();
+    tbody.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
 
-    if (!d.ok) {
+    const res = await fetchAuth('/admin/users');
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
       tbody.innerHTML = '';
       showUserMsg('Error cargando usuarios', false);
       return;
     }
 
-    usersCache = d.users;
+    usersCache = data.users || [];
     tbody.innerHTML = '';
 
     usersCache.forEach(u => {
@@ -70,7 +97,45 @@
     });
   }
 
-  // ================== EDIT ==================
+  async function createUser(e) {
+    e.preventDefault();
+
+    const full_name = $('user_full_name').value.trim();
+    const email = $('user_email').value.trim().toLowerCase();
+    const password = $('user_password').value;
+    const role = $('user_role').value;
+    const club_id = $('user_club_id').value;
+
+    if (!email || !password || !role || !club_id) {
+      showUserMsg('Completá email, contraseña, rol y club.', false);
+      return;
+    }
+
+    const payload = {
+      email,
+      full_name: full_name || null,
+      password,
+      assignments: [{ club_id, role }]
+    };
+
+    const res = await fetchAuth('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      json: true
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      showUserMsg(data.error || 'No se pudo crear el usuario', false);
+      return;
+    }
+
+    showUserMsg('✅ Usuario creado correctamente', true);
+    $('formUser').reset();
+    loadUsers();
+  }
+
   window.editUser = async (id) => {
     const u = usersCache.find(x => x.id === id);
     if (!u) return;
@@ -81,11 +146,8 @@
     const full_name = prompt('Nombre completo:', u.full_name || '') || null;
     const is_active = confirm('¿Usuario activo?');
 
-    const clubOptions = clubsCache
-      .map(c => `${c.id} - ${c.name}`)
-      .join('\n');
-
-    const club_id = prompt(`Club ID:\n${clubOptions}`, u.roles?.[0]?.club_id);
+    const clubsList = clubsCache.map(c => `${c.id} - ${c.name}`).join('\n');
+    const club_id = prompt(`Club ID:\n${clubsList}`, u.roles?.[0]?.club_id);
     const role = prompt('Rol (staff/admin/superadmin):', u.roles?.[0]?.role);
 
     const payload = {
@@ -95,34 +157,40 @@
       assignments: club_id && role ? [{ club_id, role }] : []
     };
 
-    const r = await fetchAuth(`/admin/users/${id}`, {
+    const res = await fetchAuth(`/admin/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
       json: true
     });
 
-    const d = await r.json();
-    if (!d.ok) return showUserMsg('Error actualizando usuario', false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      showUserMsg('Error actualizando usuario', false);
+      return;
+    }
 
     showUserMsg('✅ Usuario actualizado', true);
     loadUsers();
   };
 
-  // ================== DELETE ==================
   window.deleteUser = async (id) => {
     if (!confirm('¿Eliminar usuario definitivamente?')) return;
 
-    const r = await fetchAuth(`/admin/users/${id}`, { method: 'DELETE' });
-    const d = await r.json();
+    const res = await fetchAuth(`/admin/users/${id}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
 
-    if (!d.ok) return showUserMsg('Error eliminando usuario', false);
+    if (!res.ok || !data.ok) {
+      showUserMsg('Error eliminando usuario', false);
+      return;
+    }
 
     showUserMsg('✅ Usuario eliminado', true);
     loadUsers();
   };
 
   document.addEventListener('DOMContentLoaded', async () => {
-    await loadClubs();
+    $('formUser')?.addEventListener('submit', createUser);
+    await loadClubsIntoUserSelect();
     await loadUsers();
   });
 })();
