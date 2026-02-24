@@ -34,19 +34,22 @@
 
     <h4>Crear club</h4>
     <form id="formClub">
-      <input id="club_name" placeholder="Nombre del club" required>
-      <input id="club_address" placeholder="Dirección">
-      <input id="club_city" placeholder="Ciudad">
-      <input id="club_province" placeholder="Provincia">
+  <input id="club_id" type="hidden">
 
-      <label>Logo del club (imagen)</label>
-      <input id="club_logo" type="file" accept="image/*">
+  <input id="club_name" placeholder="Nombre del club" required>
+  <input id="club_address" placeholder="Dirección">
+  <input id="club_city" placeholder="Ciudad">
+  <input id="club_province" placeholder="Provincia">
 
-      <label>Fondo del club (imagen)</label>
-      <input id="club_background" type="file" accept="image/*">
+  <label>Logo del club (imagen)</label>
+  <input id="club_logo" type="file" accept="image/*">
 
-      <button type="submit">Guardar club</button>
-    </form>
+  <label>Fondo del club (imagen)</label>
+  <input id="club_background" type="file" accept="image/*">
+
+  <button type="submit" id="club_submit_btn">Guardar club</button>
+  <button type="button" id="club_cancel_btn" style="display:none;">Cancelar edición</button>
+</form>
 
     <div id="clubMsg" class="msg"></div>
 
@@ -57,6 +60,7 @@
           <th>Nombre</th>
           <th>Ciudad</th>
           <th>Provincia</th>
+<th>Acciones</th>
         </tr>
       </thead>
       <tbody id="clubs-table"></tbody>
