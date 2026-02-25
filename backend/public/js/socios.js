@@ -8,7 +8,7 @@
     const t = localStorage.getItem('token');
     if (!t) {
       alert('Tu sesión expiró. Iniciá sesión nuevamente.');
-      window.location.href = '/admin.html';
+      window.location.href = '/admin.html';function openCarnet(socio) {
       throw new Error('No token');
     }
     return t;
@@ -326,20 +326,32 @@
     $('carnetCategoria').textContent = `Categoría: ${socio.categoria || '—'}`;
 
     const est = pagoEstado(socio);
-    $('carnetPago').innerHTML = `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${est¡Perfecto, Leo! Ya con tus `[socios.js](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socios.js?EntityRepresentationId=55bd6112-01c6-46f3-81fb-b4b31275b283)` y `[club.js](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/club.js?EntityRepresentationId=9f3bbbc0-77d4-4a16-857a-1817eba25600)` completos, más los `[club.html](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%c2%a0Copilot/club.html?web=1&EntityRepresentationId=fefc3c56-a472-41ba-804e-458c9c8accf4)` y `[socios.html](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%c2%a0Copilot/socios.html?web=1&EntityRepresentationId=40ca7347-8258-49ae-b7b9-82669df9bb54)` actuales, armé **todo el pack de cambios** (lógica + UI + comportamiento) para que copies y pegues. Incluye también **un cambio en backend** para que la columna **Pago** se pueda calcular correctamente sin hacer 200 requests desde el frontend. [4](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socios.js)[2](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/club.js)[1](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/club.html)[3](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socios.html)[5](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/sociosRoutes.js)
+    $('carnetPago').innerHTML = `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}function openCarnet(socio) {
+  carnetSocioId = socio.id;
 
----
+  const foto = socio.foto_url || '/img/user-placeholder.png';
+  $('carnetFoto').src = foto;
+  $('carnetFoto').onerror = function () {
+    this.src = '/img/user-placeholder.png';
+  };
 
-# ✅ Archivos involucrados (son 5)
-1) `public/club.html`  ✅ (header más chico, nombre de club, logo “contain”, sidebar más angosto, cambio automático de club sin botón) [1](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/club.html)  
-2) `public/js/club.js` ✅ (cambio automático al seleccionar club + setear nombre del club en header) [2](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/club.js)  
-3) `public/sections/socios.html` ✅ (encabezado más compacto, “Descargar Excel” solo ícono, tabla en una línea, modal carnet) [3](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socios.html)  
-4) `public/js/socios.js` ✅ (botón pago verde/rojo, becado siempre verde, fechas dd-mm-aaaa en tabla, iconos ✏️ 🗑, sin botón 📷 de foto en grilla, carnet digital en doble click) [4](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socios.js)  
-5) `src/routes/sociosRoutes.js` ✅ (**backend** agrega `pago_al_dia` calculado con pagos del mes actual o anterior) [5](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/sociosRoutes.js)  
+  $('carnetNombre').textContent =
+    `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
 
-> No necesitás pasar más archivos para estos cambios.
+  $('carnetDni').textContent = `DNI: ${socio.dni || '—'}`;
+  $('carnetCategoria').textContent = `Categoría: ${socio.categoria || '—'}`;
 
----
+  const est = pagoEstado(socio);
+  $('carnetPago').innerHTML = `
+    <span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">
+      ${est.label}
+    </span>
+  `;
+
+  $('modalCarnet').classList.remove('hidden');
+}
+
+
 
 # 1) ✅ `public/club.html` (COMPLETO)
 
