@@ -1,6 +1,11 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
+// Base API (prod/local)
+  const API_URL = (window.API_URL || 'https://todosobremiclub-api.onrender.com');
+  const api = (path) => `${API_URL}${path}`;
+
+
   // =============================
   // Auth / helpers
   // =============================
@@ -29,7 +34,9 @@
     headers['Authorization'] = 'Bearer ' + getToken();
     if (options.json) headers['Content-Type'] = 'application/json';
 
-    const res = await fetch(url, { ...options, headers });
+    const { json, ...rest } = options;
+const res = await fetch(url, { ...rest, headers });
+
     if (res.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('activeClubId');
@@ -257,7 +264,7 @@
       filename: photoPayload.filename || 'socio.jpg'
     };
 
-    const res = await fetchAuth(`/club/${clubId}/socios/${socioId}/foto`, {
+    const res = await fetchAuth(api(`/club/${clubId}/socios/${socioId}/foto`), {
       method: 'POST',
       body: JSON.stringify(payload),
       json: true
@@ -529,7 +536,7 @@
     const clubId = getActiveClubId();
     const qs = buildQueryParams();
 
-    const res = await fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`);
+    const res = await fetchAuth(api(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`));
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
@@ -565,14 +572,14 @@
     }
 
     const creating = !editingId;
-    const url = creating ? `/club/${clubId}/socios` : `/club/${clubId}/socios/${editingId}`;
+    const urlPath = creating ? `/club/${clubId}/socios` : `/club/${clubId}/socios/${editingId}`;
     const method = creating ? 'POST' : 'PUT';
 
     const btnSave = $('btnGuardarSocio');
     if (btnSave) btnSave.disabled = true;
 
     try {
-      const res = await fetchAuth(url, { method, body: JSON.stringify(payload), json: true });
+      const res = await fetchAuth(api(urlPath), { method, body: JSON.stringify(payload), json: true });
       const data = await safeJson(res);
 
       if (!res.ok || !data.ok) {
@@ -599,7 +606,7 @@
 
   async function deleteSocio(id) {
     const clubId = getActiveClubId();
-    const res = await fetchAuth(`/club/${clubId}/socios/${id}`, { method: 'DELETE' });
+    const res = await fetchAuth(api(`/club/${clubId}/socios/${id}`), { method: 'DELETE' });
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
@@ -611,7 +618,8 @@
 
   function exportSocios() {
     const clubId = getActiveClubId();
-    window.location.href = `/club/${clubId}/socios/export.csv`;
+    window.location.href = api(`/club/${clubId}/socios/export.csv`);
+
   }
 
   // =============================
