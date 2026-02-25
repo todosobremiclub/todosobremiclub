@@ -9,15 +9,10 @@
   // =============================
   // Auth / helpers
   // =============================
- // function getToken() {
-    const t = localStorage.getItem('token');
-    if (!t) {
-      alert('Tu sesión expiró. Iniciá sesión nuevamente.');
-      window.location.href = '/admin.html';
-      throw new Error('No token');
-    }
-    return t;
-  }
+ // ⚠️ Auth por cookie: no se usa token
+function getToken() {
+  return null;
+}
 
   function getActiveClubId() {
     const c = localStorage.getItem('activeClubId');
@@ -38,7 +33,7 @@
   const res = await fetch(url, {
     ...rest,
     headers,
-    credentials: 'include' // ✅ ESTO ES CLAVE
+    credentials: 'include' // ✅ cookie de sesión
   });
 
   if (res.status === 401) {
@@ -50,6 +45,7 @@
 
   return res;
 }
+
 
   async function safeJson(res) {
     const text = await res.text();
