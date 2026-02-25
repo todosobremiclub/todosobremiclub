@@ -36,10 +36,11 @@
     @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } .sidebar { width: 200px; } }
   </style>
 
-  <!-- FullCalendar CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css">
-
+  <!-- FullCalendar (bundle global) -->
+  <!-- En v6, el bundle correcto para usar FullCalendar.Calendar por "globals" es index.global.min.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 </head>
+
 <body>
 
   <div class="layout">
@@ -86,7 +87,6 @@
         <div class="muted">Elegí una sección del menú.</div>
       </div>
     </main>
-
   </div>
 
   <script>
@@ -103,8 +103,8 @@
   <script src="/js/configuracion.js"></script>
   <script src="/js/gastos.js"></script>
 
-  <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.js"></script>
-<script defer src="/js/cumples.js"></script>
+  <!-- Cumples (debe cargarse después del bundle global de FullCalendar) -->
+  <script defer src="/js/cumples.js"></script>
 
 </body>
 </html>
