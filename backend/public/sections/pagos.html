@@ -1,0 +1,68 @@
+<section class="section-pagos">
+  <div class="section-header">
+    <h2>Gestión de Pagos</h2>
+    <button id="btnPagoAdd" class="btn btn-primary">+ Registrar Pago</button>
+  </div>
+
+  <div class="filters">
+    <input id="pagosSearch" type="text" placeholder="Buscar por apellido o DNI" />
+    <select id="pagosAnioSelect"></select>
+    <button id="btnRefreshPagos" class="btn btn-secondary">Actualizar</button>
+  </div>
+
+  <div class="table-wrapper">
+    <table class="socios-table">
+      <thead>
+        <tr>
+          <th>N° Socio</th>
+          <th>Nombre</th>
+          <th>Meses Abonados</th>
+        </tr>
+      </thead>
+      <tbody id="pagosTableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- MODAL REGISTRAR PAGO -->
+  <div id="modalPago" class="modal hidden">
+    <div class="modal-content" style="max-width: 820px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">Registrar Pago</h3>
+        <button id="btnPagoClose" class="btn btn-secondary">✕</button>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label>Buscar socio por Apellido o DNI</label>
+        <input id="modalSocioSearch" type="text" placeholder="Ej: Perez" />
+        <div id="modalSocioList" style="max-height:240px; overflow:auto; border:1px solid #ddd; border-radius:8px; padding:8px;"></div>
+      </div>
+
+      <div class="row" style="margin-top:12px; align-items:flex-start;">
+        <div style="min-width:240px;">
+          <label>Fecha de Pago</label>
+          <input id="modalFechaPago" type="date" />
+        </div>
+
+        <div style="min-width:200px;">
+          <label>Año</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button id="btnAnioPrev" class="btn btn-secondary">‹</button>
+            <strong id="modalAnioLabel" style="font-size:18px;"></strong>
+            <button id="btnAnioNext" class="btn btn-secondary">›</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label>Meses a pagar</label>
+        <div id="mesesGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px;"></div>
+        <div class="muted" id="montoHint" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="btnPagoCancel" class="btn btn-secondary">Cancelar</button>
+        <button id="btnPagoSave" class="btn btn-primary">Guardar Pago</button>
+      </div>
+    </div>
+  </div>
+</section>

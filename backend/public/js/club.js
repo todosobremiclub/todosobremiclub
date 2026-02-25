@@ -112,10 +112,17 @@
         await window.initCumplesSection();
       }
 
+if (sectionName === 'pagos' && window.initPagosSection) {
+  await window.initPagosSection();
+}
+
+
     } catch (e) {
       container.innerHTML = `<div style="color:red;">Error: ${e.message}</div>`;
     }
   }
+
+
 
   // ===============================
   // INIT GENERAL
