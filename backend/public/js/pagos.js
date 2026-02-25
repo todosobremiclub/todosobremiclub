@@ -4,36 +4,47 @@
   const MESES = [
     { n: 1, label: 'Ene' }, { n: 2, label: 'Feb' }, { n: 3, label: 'Mar' }, { n: 4, label: 'Abr' },
     { n: 5, label: 'May' }, { n: 6, label: 'Jun' }, { n: 7, label: 'Jul' }, { n: 8, label: 'Ago' },
-    { n: 9, label: 'Sep' }, { n: 10, label: 'Oct' }, { n: 11, label: 'Nov' }, { n: 12, label: 'Dic' },
+    { n: 9, label: 'Sep' }, { n: 10, label: 'Oct' }, { n: 11, label: 'Nov' }, { n: 12, label: 'Dic' }
   ];
 
+  /* =============================
+   * Helpers auth / club
+   * ============================= */
   function getToken() {
     const t = localStorage.getItem('token');
-    if (!t) { alert('Sesión expirada'); window.location.href = '/admin.html'; throw new Error('No token'); }
+    if (!t) {
+      alert('Sesión expirada');
+      window.location.href = '/admin.html';
+      throw new Error('No token');
+    }
     return t;
   }
 
   function getActiveClubId() {
     const c = localStorage.getItem('activeClubId');
-    if (!c) { alert('No hay club activo'); throw new Error('No activeClubId'); }
+    if (!c) {
+      alert('No hay club activo');
+      throw new Error('No activeClubId');
+    }
     return c;
   }
 
   async function fetchAuth(url, options = {}) {
     const headers = options.headers || {};
-    headers['Authorization'] = 'Bearer ' + getToken();
+    headers.Authorization = 'Bearer ' + getToken();
     if (options.json) headers['Content-Type'] = 'application/json';
 
     const res = await fetch(url, { ...options, headers });
     const text = await res.text();
     let data;
-    try { data = JSON.parse(text); } catch { data = { ok: false, error: text }; }
+    try { data = JSON.parse(text); }
+    catch { data = { ok: false, error: text }; }
     return { res, data };
   }
 
-  // =============================
-  // Estado
-  // =============================
+  /* =============================
+   * Estado
+   * ============================= */
   let sociosCache = [];
   let cuotasMap = new Map(); // mes -> monto
   let selectedSocioId = null;
@@ -49,12 +60,14 @@
     return `${y}-${m}-${day}`;
   }
 
-  // =============================
-  // Cargas
-  // =============================
+  /* =============================
+   * Cargas
+   * ============================= */
   async function loadSociosAll() {
     const clubId = getActiveClubId();
-    const { res, data } = await fetchAuth(`/club/${clubId}/socios?activo=1&limit=2000&offset=0`);
+    const { res, data } = await fetchAuth(
+      `/club/${clubId}/socios?activo=1&limit=2000&offset=0`
+    );
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando socios');
     sociosCache = data.socios || [];
   }
@@ -68,23 +81,25 @@
 
   async function loadResumen() {
     const clubId = getActiveClubId();
-    const { res, data } = await fetchAuth(`/club/${clubId}/pagos/resumen?anio=${selectedYear}`);
+    const { res, data } = await fetchAuth(
+      `/club/${clubId}/pagos/resumen?anio=${selectedYear}`
+    );
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando resumen pagos');
 
     const search = (($('pagosSearch')?.value) || '').trim().toLowerCase();
     const rows = (data.socios || []).filter(s => {
       if (!search) return true;
-      const dni = String(s.dni || ''); // OJO: hoy el endpoint resumen no trae dni (lo corregimos luego)
       const ap = String(s.apellido || '').toLowerCase();
+      const dni = String(s.dni || '');
       return ap.includes(search) || dni.includes(search);
     });
 
     renderTabla(rows);
   }
 
-  // =============================
-  // Render tabla
-  // =============================
+  /* =============================
+   * Tabla principal
+   * ============================= */
   function renderTabla(rows) {
     const tbody = $('pagosTableBody');
     if (!tbody) return;
@@ -96,7 +111,9 @@
         <td>${s.numero_socio ?? ''}</td>
         <td>${s.nombre ?? ''} ${s.apellido ?? ''}</td>
         <td>
-          <button class="btn btn-secondary" data-act="details" data-id="${s.socio_id}">
+          <button class="btn btn-secondary"
+                  data-act="details"
+                  data-id="${s.socio_id}">
             Ver detalles
           </button>
         </td>
@@ -105,25 +122,20 @@
     });
   }
 
-  // =============================
-  // Modal
-  // =============================
+  /* =============================
+   * Modal Registrar Pago
+   * ============================= */
   function openModal() {
     const modal = $('modalPago');
     if (!modal) return;
 
     selectedSocioId = null;
-    mesesPagados = new Set();
-    mesesSeleccionados = new Set();
+    mesesPagados.clear();
+    mesesSeleccionados.clear();
 
-    const inpSoc = $('modalSocioSearch');
-    if (inpSoc) inpSoc.value = '';
-
-    const inpFecha = $('modalFechaPago');
-    if (inpFecha) inpFecha.value = todayISO();
-
-    const anioLbl = $('modalAnioLabel');
-    if (anioLbl) anioLbl.textContent = String(selectedYear);
+    $('modalSocioSearch') && ($('modalSocioSearch').value = '');
+    $('modalFechaPago') && ($('modalFechaPago').value = todayISO());
+    $('modalAnioLabel') && ($('modalAnioLabel').textContent = String(selectedYear));
 
     renderSociosList();
     renderMesesGrid();
@@ -152,7 +164,8 @@
       btn.type = 'button';
       btn.className = 'navbtn';
       btn.style.margin = '4px 0';
-      btn.style.background = (String(s.id) === String(selectedSocioId)) ? '#2563eb' : '#1f2937';
+      btn.style.background =
+        String(s.id) === String(selectedSocioId) ? '#2563eb' : '#1f2937';
       btn.textContent = `${s.apellido ?? ''} ${s.nombre ?? ''} - ${s.dni ?? ''}`;
 
       btn.addEventListener('click', async () => {
@@ -167,18 +180,18 @@
   }
 
   async function refreshMesesPagados() {
-    mesesPagados = new Set();
-    mesesSeleccionados = new Set();
+    mesesPagados.clear();
+    mesesSeleccionados.clear();
     if (!selectedSocioId) return;
 
     const clubId = getActiveClubId();
-    const { res, data } = await fetchAuth(`/club/${clubId}/pagos/${selectedSocioId}?anio=${selectedYear}`);
-
+    const { res, data } = await fetchAuth(
+      `/club/${clubId}/pagos/${selectedSocioId}?anio=${selectedYear}`
+    );
     if (!res.ok || !data.ok) {
       console.error(data.error || 'Error cargando pagos del socio');
       return;
     }
-
     (data.mesesPagados || []).forEach(m => mesesPagados.add(Number(m)));
   }
 
@@ -197,10 +210,8 @@
       b.style.padding = '12px 10px';
       b.style.borderRadius = '10px';
       b.style.fontWeight = '700';
-
       b.style.background = paid ? '#d1d5db' : (selected ? '#16a34a' : '#e5e7eb');
       b.style.color = paid ? '#6b7280' : (selected ? '#fff' : '#111827');
-
       b.disabled = paid || !selectedSocioId;
       b.innerHTML = paid ? `${m.label} ✅` : m.label;
 
@@ -268,12 +279,10 @@
         body: JSON.stringify(body),
         json: true
       });
-
       if (!res.ok || !data.ok) {
         alert(data.error || 'Error guardando pago');
         return;
       }
-
       alert(`✅ Pagos guardados: ${data.insertedCount}`);
       closeModal();
       await loadResumen();
@@ -282,25 +291,89 @@
     }
   }
 
-  // =============================
-  // Año selector (tabla + modal)
-  // =============================
+  /* =============================
+   * Modal Detalles
+   * ============================= */
+  function mesLabel(num) {
+    const m = MESES.find(x => x.n === Number(num));
+    return m ? m.label : String(num);
+  }
+
+  function openDetallesUI() {
+    $('modalPagoDetalles')?.classList.remove('hidden');
+  }
+
+  function closeDetallesUI() {
+    $('modalPagoDetalles')?.classList.add('hidden');
+  }
+
+  async function openDetallesModal(socioId) {
+    const clubId = getActiveClubId();
+    const socio = sociosCache.find(
+      s => String(s.id) === String(socioId) || String(s.socio_id) === String(socioId)
+    );
+    const nombreSocio = socio
+      ? `${socio.apellido ?? ''} ${socio.nombre ?? ''}`.trim()
+      : `Socio ${socioId}`;
+
+    $('detTitle').textContent = `Pagos de ${nombreSocio}`;
+    $('detSub').textContent = `Año: ${selectedYear}`;
+    $('detTableBody').innerHTML =
+      '<tr><td colspan="3">Cargando...</td></tr>';
+    $('detTotal').textContent = '';
+
+    openDetallesUI();
+
+    const { res, data } = await fetchAuth(
+      `/club/${clubId}/pagos/${socioId}?anio=${selectedYear}`
+    );
+    if (!res.ok || !data.ok) {
+      $('detTableBody').innerHTML =
+        `<tr><td colspan="3">Error: ${data.error || 'No se pudo cargar'}</td></tr>`;
+      return;
+    }
+
+    const pagos = data.pagos || [];
+    if (!pagos.length) {
+      $('detTableBody').innerHTML =
+        '<tr><td colspan="3">No hay pagos registrados para este año.</td></tr>';
+      $('detTotal').textContent = 'Total: $ 0.00';
+      return;
+    }
+
+    let total = 0;
+    $('detTableBody').innerHTML = '';
+    pagos.forEach(p => {
+      total += Number(p.monto || 0);
+      const fecha = String(p.fecha_pago || '').slice(0, 10);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${mesLabel(p.mes)}</strong></td>
+        <td>$ ${Number(p.monto || 0).toFixed(2)}</td>
+        <td>${fecha || '—'}</td>
+      `;
+      $('detTableBody').appendChild(tr);
+    });
+
+    $('detTotal').textContent = `Total: $ ${total.toFixed(2)}`;
+  }
+
+  /* =============================
+   * Año selector + bind
+   * ============================= */
   function fillAnios() {
     const sel = $('pagosAnioSelect');
     if (!sel) return;
 
     const y = new Date().getFullYear();
-    const years = [];
-    for (let i = y - 3; i <= y + 1; i++) years.push(i);
-
     sel.innerHTML = '';
-    years.forEach(yy => {
+    for (let i = y - 3; i <= y + 1; i++) {
       const opt = document.createElement('option');
-      opt.value = String(yy);
-      opt.textContent = String(yy);
+      opt.value = String(i);
+      opt.textContent = String(i);
       sel.appendChild(opt);
-    });
-
+    }
     sel.value = String(selectedYear);
   }
 
@@ -310,13 +383,9 @@
     $('pagosAnioSelect') && ($('pagosAnioSelect').value = String(selectedYear));
   }
 
-  // =============================
-  // Bind & Init
-  // =============================
   function bindOnce() {
     const root = document.querySelector('.section-pagos');
-    if (!root) return;
-    if (root.dataset.bound === '1') return;
+    if (!root || root.dataset.bound === '1') return;
     root.dataset.bound = '1';
 
     $('btnPagoAdd')?.addEventListener('click', openModal);
@@ -325,6 +394,8 @@
     $('btnPagoSave')?.addEventListener('click', savePago);
 
     $('modalSocioSearch')?.addEventListener('input', renderSociosList);
+    $('btnRefreshPagos')?.addEventListener('click', loadResumen);
+    $('pagosSearch')?.addEventListener('input', loadResumen);
 
     $('btnAnioPrev')?.addEventListener('click', async () => {
       setSelectedYear(selectedYear - 1);
@@ -340,54 +411,47 @@
       await loadResumen();
     });
 
-    $('pagosAnioSelect')?.addEventListener('change', async (e) => {
+    $('pagosAnioSelect')?.addEventListener('change', async e => {
       setSelectedYear(e.target.value);
       await refreshMesesPagados();
       renderMesesGrid();
       await loadResumen();
     });
 
-    $('btnRefreshPagos')?.addEventListener('click', loadResumen);
-
-    $('pagosSearch')?.addEventListener('input', loadResumen);
-
-    $('pagosTableBody')?.addEventListener('click', (ev) => {
+    $('pagosTableBody')?.addEventListener('click', ev => {
       const btn = ev.target.closest('button[data-act]');
       if (!btn) return;
       if (btn.dataset.act === 'details') {
-        // Placeholder: en el próximo paso armamos el modal de detalles/historial
-        alert('Próximo paso: modal de detalles por socio');
+        openDetallesModal(btn.dataset.id);
       }
     });
 
-    $('modalPago')?.addEventListener('click', (ev) => {
-      if (ev.target && ev.target.id === 'modalPago') closeModal();
+    $('btnDetClose')?.addEventListener('click', closeDetallesUI);
+    $('btnDetOk')?.addEventListener('click', closeDetallesUI);
+    $('modalPagoDetalles')?.addEventListener('click', ev => {
+      if (ev.target?.id === 'modalPagoDetalles') closeDetallesUI();
     });
 
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && !$('modalPago')?.classList.contains('hidden')) closeModal();
+    document.addEventListener('keydown', ev => {
+      if (ev.key === 'Escape') {
+        if (!$('modalPago')?.classList.contains('hidden')) closeModal();
+        if (!$('modalPagoDetalles')?.classList.contains('hidden')) closeDetallesUI();
+      }
     });
   }
 
   async function initPagosSection() {
     bindOnce();
     fillAnios();
-
-    await Promise.all([
-      loadSociosAll(),
-      loadCuotas(),
-    ]);
-
+    await Promise.all([loadSociosAll(), loadCuotas()]);
     await loadResumen();
   }
 
   window.initPagosSection = initPagosSection;
 
-  // Si se abre pagos como página directa (no por loadSection), intenta init
   document.addEventListener('DOMContentLoaded', () => {
     if (document.querySelector('.section-pagos')) {
       initPagosSection();
     }
   });
-
 })();

@@ -65,4 +65,34 @@
       </div>
     </div>
   </div>
+
+<!-- MODAL DETALLES PAGO POR SOCIO -->
+<div id="modalPagoDetalles" class="modal hidden">
+  <div class="modal-content" style="max-width: 820px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 id="detTitle" style="margin:0;">Detalles de Pagos</h3>
+      <button id="btnDetClose" class="btn btn-secondary">✕</button>
+    </div>
+
+    <div class="muted" id="detSub" style="margin-top:8px;"></div>
+
+    <div class="table-wrapper" style="margin-top:12px;">
+      <table class="socios-table">
+        <thead>
+          <tr>
+            <th>Mes</th>
+            <th>Monto</th>
+            <th>Fecha de pago</th>
+          </tr>
+        </thead>
+        <tbody id="detTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="row" style="justify-content: space-between; margin-top: 10px;">
+      <strong id="detTotal"></strong>
+      <button id="btnDetOk" class="btn btn-primary">Aceptar</button>
+    </div>
+  </div>
+</div>
 </section>
