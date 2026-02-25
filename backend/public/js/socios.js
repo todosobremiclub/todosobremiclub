@@ -1,7 +1,9 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  // ===== Auth + helpers =====
+  // =============================
+  // Auth / helpers
+  // =============================
   function getToken() {
     const t = localStorage.getItem('token');
     if (!t) {
@@ -61,27 +63,19 @@
     return `${d}-${m}-${y}`;
   }
 
-  // ===== Pago status =====
-  function getCurrPrevYYYYMM() {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth() + 1;
-    const curr = y * 100 + m;                  // YYYYMM
-    const prev = (m === 1) ? ((y - 1) * 100 + 12) : (y * 100 + (m - 1));
-    return { curr, prev };
+  function yearFromISO(iso) {
+    if (!iso) return '';
+    return String(iso).slice(0, 4);
   }
 
+  // =============================
+  // Estado pago (usa backend pago_al_dia)
+  // =============================
   function pagoEstado(s) {
-  if (s.becado) {
-    return { ok: true, label: 'Becado' };
+    if (s.becado) return { ok: true, label: 'Becado' };
+    if (s.pago_al_dia === true) return { ok: true, label: 'Al día' };
+    return { ok: false, label: 'Impago' };
   }
-
-  if (s.pago_al_dia === true) {
-    return { ok: true, label: 'Al día' };
-  }
-
-  return { ok: false, label: 'Impago' };
-}
 
   function renderPagoPill(s) {
     const est = pagoEstado(s);
@@ -90,12 +84,16 @@
     return `<span class="pay-pill ${cls}" title="${escapeHtml(est.label)}">${txt}</span>`;
   }
 
-  // ===== Estado =====
+  // =============================
+  // Estado
+  // =============================
   let editingId = null;
   let sociosCache = [];
   let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
 
-  // ===== Photo viewer =====
+  // =============================
+  // Photo viewer
+  // =============================
   function ensurePhotoViewer() {
     if (document.getElementById('photoViewerModal')) return;
 
@@ -108,7 +106,7 @@
     `;
 
     modal.innerHTML = `
-      <div style="background:#111827; color:#fff; padding:10px 12px; border-radius:10px; max-width: 92vw;">
+      <div style="background:#111827; color:#fff; padding:10px 12px; border-radius:10px; max-width:92vw;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
           <strong>Foto socio</strong>
           <button id="photoViewerClose" style="border:0; border-radius:8px; padding:6px 10px; cursor:pointer;">✕ Cerrar</button>
@@ -138,11 +136,14 @@
     ensurePhotoViewer();
     const modal = document.getElementById('photoViewerModal');
     const img = document.getElementById('photoViewerImg');
+    if (!modal || !img) return;
     img.src = url;
     modal.style.display = 'flex';
   }
 
-  // ===== Draft photo (solo en modal alta/edición) =====
+  // =============================
+  // Draft photo UI (solo modal socio)
+  // =============================
   const draftPhotoInput = document.createElement('input');
   draftPhotoInput.type = 'file';
   draftPhotoInput.accept = 'image/*';
@@ -267,7 +268,9 @@
     return data;
   }
 
-  // ===== Modal alta/edición =====
+  // =============================
+  // Modal socio alta/edición
+  // =============================
   function openModalNew() {
     editingId = null;
     setDraftPhoto(null);
@@ -310,7 +313,9 @@
     $('modalSocio')?.classList.add('hidden');
   }
 
-  // ===== Carnet digital =====
+  // =============================
+  // Carnet digital (doble click)
+  // =============================
   let carnetSocioId = null;
 
   function ensureCarnetModal() {
@@ -319,15 +324,18 @@
     const modal = document.createElement('div');
     modal.id = 'modalCarnet';
     modal.className = 'modal hidden';
+
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-content" style="max-width: 560px;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
           <h3 style="margin:0;">Carnet digital</h3>
           <button id="btnCarnetClose" class="btn btn-secondary">✕</button>
         </div>
 
-        <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
-          <img id="carnetFoto" style="width:84px; height:84px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;" alt="Foto"/>
+        <div style="display:flex; gap:12px; align-items:flex-start; margin-top:12px;">
+          <img id="carnetFoto"
+               style="width:90px; height:90px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;"
+               alt="Foto"/>
           <div style="flex:1;">
             <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
             <div id="carnetDni" class="muted" style="margin-top:4px;"></div>
@@ -336,12 +344,18 @@
           </div>
         </div>
 
+        <div id="carnetExtra"
+             class="muted"
+             style="margin-top:10px; font-size:13px; line-height:1.35;">
+        </div>
+
         <div class="modal-actions">
           <button id="btnCarnetEdit" class="btn btn-primary">Editar</button>
           <button id="btnCarnetOk" class="btn btn-secondary">Cerrar</button>
         </div>
       </div>
     `;
+
     document.body.appendChild(modal);
 
     $('btnCarnetClose').addEventListener('click', closeCarnet);
@@ -376,8 +390,15 @@
     $('carnetCategoria').textContent = `Categoría: ${socio.categoria || '—'}`;
 
     const est = pagoEstado(socio);
-    $('carnetPago').innerHTML = `
-      <span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${escapeHtml(est.label)}</span>
+    $('carnetPago').innerHTML = `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${escapeHtml(est.label)}</span>`;
+
+    $('carnetExtra').innerHTML = `
+      <div><b>N° Socio:</b> ${escapeHtml(socio.numero_socio ?? '—')}</div>
+      <div><b>Teléfono:</b> ${escapeHtml(socio.telefono ?? '—')}</div>
+      <div><b>Nacimiento:</b> ${escapeHtml(fmtDMY(socio.fecha_nacimiento))}</div>
+      <div><b>Ingreso:</b> ${escapeHtml(fmtDMY(socio.fecha_ingreso))}</div>
+      <div><b>Activo:</b> ${socio.activo ? 'Sí' : 'No'}</div>
+      <div><b>Becado:</b> ${socio.becado ? 'Sí' : 'No'}</div>
     `;
 
     $('modalCarnet').classList.remove('hidden');
@@ -387,7 +408,9 @@
     $('modalCarnet')?.classList.add('hidden');
   }
 
-  // ===== Render tabla =====
+  // =============================
+  // Render tabla (incluye Año)
+  // =============================
   function renderSocios(socios) {
     sociosCache = socios || [];
     const tbody = $('sociosTableBody');
@@ -399,12 +422,17 @@
     sociosCache.forEach(s => {
       if (s.activo) activos++;
 
-      const fotoHtml = s.foto_url
-        ? `<img data-act="viewphoto" data-url="${escapeHtml(s.foto_url)}"
-                src="${escapeHtml(s.foto_url)}"
-                style="width:34px; height:34px; border-radius:10px; object-fit:cover; border:1px solid #ddd; background:#fff; cursor:pointer;"
-                onerror="this.src='/img/user-placeholder.png'"/>`
-        : '—';
+      const fotoUrl = s.foto_url || '/img/user-placeholder.png';
+      const fotoHtml = `
+        <img
+          data-act="viewphoto"
+          data-url="${escapeHtml(fotoUrl)}"
+          src="${escapeHtml(fotoUrl)}"
+          style="width:34px; height:34px; border-radius:10px; object-fit:cover; border:1px solid #ddd; background:#fff; cursor:pointer;"
+          onerror="this.src='/img/user-placeholder.png'"
+          alt="foto"
+        />
+      `;
 
       const tr = document.createElement('tr');
       tr.dataset.id = s.id;
@@ -418,6 +446,7 @@
         <td>${escapeHtml(s.categoria ?? '')}</td>
         <td>${escapeHtml(s.telefono ?? '')}</td>
         <td>${fmtDMY(s.fecha_nacimiento)}</td>
+        <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
         <td>${fmtDMY(s.fecha_ingreso)}</td>
         <td>${s.activo ? 'Sí' : 'No'}</td>
         <td>${s.becado ? 'Sí' : 'No'}</td>
@@ -435,7 +464,9 @@
     if (countEl) countEl.textContent = `Socios activos: ${activos}`;
   }
 
-  // ===== Filtros dropdown =====
+  // =============================
+  // Filtros dropdown
+  // =============================
   function refreshCategoriaOptions(socios) {
     const sel = $('filtroCategoria');
     if (!sel) return;
@@ -476,7 +507,9 @@
     if (years.map(String).includes(current)) sel.value = current;
   }
 
-  // ===== API =====
+  // =============================
+  // API
+  // =============================
   function buildQueryParams() {
     const q = new URLSearchParams();
     const search = $('sociosSearch')?.value?.trim();
@@ -581,9 +614,11 @@
     window.location.href = `/club/${clubId}/socios/export.csv`;
   }
 
-  // ===== Bind events =====
+  // =============================
+  // Bind events
+  // =============================
   function bindOnce() {
-    const root = $('socios-section') || document.querySelector('#socios-section');
+    const root = document.querySelector('.section-socios') || document.getElementById('socios-section');
     if (!root) return;
     if (root.dataset.bound === '1') return;
     root.dataset.bound = '1';
@@ -606,7 +641,6 @@
     $('filtroAnio')?.addEventListener('change', loadSocios);
     $('verInactivos')?.addEventListener('change', loadSocios);
 
-    // Click en tabla: foto / edit / delete
     $('sociosTableBody')?.addEventListener('click', async (ev) => {
       const img = ev.target.closest('[data-act="viewphoto"]');
       if (img) {
@@ -633,7 +667,6 @@
       }
     });
 
-    // Doble click: carnet digital
     $('sociosTableBody')?.addEventListener('dblclick', (ev) => {
       const tr = ev.target.closest('tr');
       if (!tr || !tr.dataset.id) return;
@@ -641,7 +674,6 @@
       if (socio) openCarnet(socio);
     });
 
-    // Cerrar modal clic afuera
     $('modalSocio')?.addEventListener('click', (ev) => {
       if (ev.target && ev.target.id === 'modalSocio') closeModalSocio();
     });
@@ -655,6 +687,8 @@
   window.initSociosSection = initSociosSection;
 
   document.addEventListener('DOMContentLoaded', () => {
-    if ($('sociosTableBody')) initSociosSection();
+    if (document.querySelector('.section-socios') || $('sociosTableBody')) {
+      initSociosSection();
+    }
   });
 })();

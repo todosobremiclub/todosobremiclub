@@ -1,35 +1,48 @@
-<section id="socios-section">
+<section id="socios-section" class="section-socios">
 
+  <!-- ENCABEZADO -->
   <div class="section-header" style="align-items:center;">
-    <h2 style="margin:0; font-size:18px;">Socios</h2>
+    <h2 style="margin:0; font-size:16px;">Socios</h2>
 
-    <div class="section-actions" style="display:flex; gap:10px; align-items:center;">
+    <div class="section-actions" style="display:flex; gap:8px; align-items:center;">
       <button id="btnNuevoSocio" title="Nuevo socio">➕</button>
       <button id="btnExportSocios" title="Descargar Excel">📥</button>
     </div>
   </div>
 
+  <!-- FILTROS -->
   <div class="filters">
-    <input type="text" id="sociosSearch" placeholder="Buscar por Nombre, Apellido o DNI" />
+    <input
+      type="text"
+      id="sociosSearch"
+      placeholder="Buscar por Nombre, Apellido o DNI"
+      style="min-width:220px;"
+    />
+
     <select id="filtroCategoria">
       <option value="">Todas las categorías</option>
     </select>
+
     <select id="filtroAnio">
       <option value="">Todos los años</option>
     </select>
-    <label class="checkbox">
+
+    <label class="checkbox" style="display:flex; align-items:center; gap:6px;">
       <input type="checkbox" id="verInactivos" />
       Ver inactivos
     </label>
+
     <button id="btnBuscarSocios">Buscar</button>
   </div>
 
+  <!-- INFO -->
   <div class="socios-info">
     <span id="sociosActivosCount">Socios activos: 0</span>
   </div>
 
+  <!-- TABLA -->
   <div class="table-wrapper" style="overflow-x:auto;">
-    <table class="socios-table" style="min-width: 1100px;">
+    <table class="socios-table" style="min-width: 1200px;">
       <thead>
         <tr>
           <th>Pago</th>
@@ -52,7 +65,7 @@
     </table>
   </div>
 
-  <!-- MODAL SOCIO -->
+  <!-- MODAL SOCIO (ALTA / EDICIÓN) -->
   <div id="modalSocio" class="modal hidden">
     <div class="modal-content">
       <h3 id="modalSocioTitle">Nuevo socio</h3>
@@ -62,30 +75,37 @@
           <label>N° Socio</label>
           <input type="number" id="socioNumero" placeholder="Automático si se deja vacío" />
         </div>
+
         <div>
           <label>DNI *</label>
           <input type="text" id="socioDni" required />
         </div>
+
         <div>
           <label>Nombre *</label>
           <input type="text" id="socioNombre" required />
         </div>
+
         <div>
           <label>Apellido *</label>
           <input type="text" id="socioApellido" required />
         </div>
+
         <div>
           <label>Categoría *</label>
           <input type="text" id="socioCategoria" required />
         </div>
+
         <div>
           <label>Teléfono</label>
           <input type="text" id="socioTelefono" />
         </div>
+
         <div>
           <label>Fecha de nacimiento *</label>
           <input type="date" id="socioNacimiento" required />
         </div>
+
         <div>
           <label>Fecha de ingreso</label>
           <input type="date" id="socioIngreso" />
@@ -94,6 +114,7 @@
         <div class="checkbox">
           <label><input type="checkbox" id="socioActivo" checked /> Activo</label>
         </div>
+
         <div class="checkbox">
           <label><input type="checkbox" id="socioBecado" /> Becado</label>
         </div>
@@ -108,14 +129,18 @@
 
   <!-- MODAL CARNET DIGITAL -->
   <div id="modalCarnet" class="modal hidden">
-    <div class="modal-content" style="max-width: 520px;">
+    <div class="modal-content" style="max-width: 560px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">Carnet digital</h3>
         <button id="btnCarnetClose">✕</button>
       </div>
 
-      <div style="display:flex; gap:12px; margin-top:12px; align-items:center;">
-        <img id="carnetFoto" alt="Foto" style="width:90px; height:90px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;" />
+      <div style="display:flex; gap:12px; margin-top:12px; align-items:flex-start;">
+        <img
+          id="carnetFoto"
+          alt="Foto"
+          style="width:90px; height:90px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;"
+        />
         <div>
           <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
           <div id="carnetDni" class="muted"></div>
@@ -125,7 +150,7 @@
       </div>
 
       <div style="margin-top:12px;">
-        <div class="muted" id="carnetExtra"></div>
+        <div class="muted" id="carnetExtra" style="font-size:13px; line-height:1.4;"></div>
       </div>
 
       <div class="modal-actions">
@@ -135,11 +160,15 @@
     </div>
   </div>
 
+  <!-- ESTILOS LOCALES -->
   <style>
-    /* Mantener fila en una línea */
-    .socios-table td, .socios-table th { white-space: nowrap; }
+    /* Filas en una sola línea */
+    .socios-table td,
+    .socios-table th {
+      white-space: nowrap;
+    }
 
-    .btn-icon {
+    .btn-ico {
       border: 0;
       background: transparent;
       cursor: pointer;
@@ -157,7 +186,17 @@
       cursor: default;
     }
 
-    .pay-ok { background:#dcfce7; color:#166534; border-color:#86efac; }
-    .pay-bad { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+    .pay-ok {
+      background:#dcfce7;
+      color:#166534;
+      border-color:#86efac;
+    }
+
+    .pay-bad {
+      background:#fee2e2;
+      color:#991b1b;
+      border-color:#fecaca;
+    }
   </style>
+
 </section>

@@ -9,70 +9,160 @@
     body { font-family: Arial, sans-serif; margin:0; padding:0; }
     .layout { display:flex; min-height: 100vh; }
 
-    /* ✅ Sidebar más angosta */
-    .sidebar { width: 240px; background:#111827; color:#fff; padding:12px; }
-    .sidebar h3 { margin: 0 0 10px 0; font-size: 15px; }
+    /* ✅ Sidebar más ancho */
+    .sidebar {
+      width: 260px;
+      background:#111827;
+      color:#fff;
+      padding:12px;
+    }
+
+    .sidebar h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+    }
+
     .navbtn {
-      width:100%; text-align:left; padding:9px 10px; margin:6px 0;
-      border:0; border-radius:8px; cursor:pointer;
-      background:#1f2937; color:#fff;
-      font-size: 14px;
+      width:100%;
+      text-align:left;
+      padding:10px 12px;
+      margin:6px 0;
+      border:0;
+      border-radius:10px;
+      cursor:pointer;
+      background:#1f2937;
+      color:#fff;
+      font-size:14px;
+      white-space: nowrap;
     }
     .navbtn:hover { background:#374151; }
 
     .content { flex:1; padding: 14px; }
 
-    /* ✅ Header más chico y con fondo visible */
+    /* ✅ Header compacto con fondo */
     .topbar {
-      display:flex; justify-content: space-between; align-items:center; gap: 12px;
-      padding: 10px 12px;
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      gap: 12px;
+      padding: 10px 14px;
       border-radius: 12px;
-      background: rgba(17,24,39,0.75);
-      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(17,24,39,0.80);
+      border: 1px solid rgba(255,255,255,0.12);
       backdrop-filter: blur(4px);
     }
-    .topbar h2 { margin:0; color:#fff; font-size: 18px; }
-    .topbar .muted { color: rgba(255,255,255,0.85); font-size: 13px; }
+
+    .topbar h2 {
+      margin:0;
+      color:#fff;
+      font-size:18px;
+      line-height:1.2;
+    }
+
+    .topbar .muted {
+      color: rgba(255,255,255,0.85);
+      font-size: 13px;
+    }
 
     /* ✅ Logo completo */
     .logo {
-      height: 52px; width: 52px;
+      height: 52px;
+      width: 52px;
       object-fit: contain;
       border-radius: 10px;
       border:1px solid rgba(255,255,255,0.25);
       background: rgba(255,255,255,0.95);
       padding: 2px;
+      box-sizing: border-box;
     }
 
-    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.92); font-size: 13px; }
+    .badge {
+      display:inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.92);
+      font-size: 12px;
+      color:#111827;
+    }
 
     .card {
-      border:1px solid #ddd; border-radius:10px; padding:14px;
-      margin-top:12px; max-width: 1100px;
-      background: rgba(255,255,255,0.90);
+      border:1px solid #ddd;
+      border-radius:10px;
+      padding:14px;
+      margin-top:12px;
+      max-width: 1200px;
+      background: rgba(255,255,255,0.92);
     }
 
-    .row { display:flex; gap: 12px; flex-wrap: wrap; align-items:flex-end; }
+    .row { display:flex; gap: 12px; align-items:center; }
+
     label { display:block; font-size: 0.85rem; color:#444; margin-bottom:6px; }
     select, button, input { padding: 8px; }
 
-    .section-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
-    .filters { display:flex; flex-wrap:wrap; gap:10px; margin: 12px 0; }
+    .section-header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
 
-    .table-wrapper { overflow:auto; border:1px solid #ddd; border-radius:10px; background:#fff; }
+    .filters {
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin: 8px 0;
+    }
+
+    .table-wrapper {
+      overflow:auto;
+      border:1px solid #ddd;
+      border-radius:10px;
+      background:#fff;
+    }
+
     table { width:100%; border-collapse:collapse; }
-    th, td { border-bottom:1px solid #eee; padding:8px; font-size: 14px; }
-    th { background:#f7f7f7; text-align:left; white-space:nowrap; }
+    th, td {
+      border-bottom:1px solid #eee;
+      padding:8px;
+      font-size:14px;
+      white-space: nowrap;
+    }
+    th {
+      background:#f7f7f7;
+      text-align:left;
+    }
 
     .modal.hidden { display:none; }
-    .modal { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:999; }
-    .modal-content { width:min(780px, 92vw); background:#fff; border-radius:12px; padding:16px; }
-    .form-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:12px; }
+    .modal {
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.45);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:999;
+    }
+    .modal-content {
+      width:min(780px, 92vw);
+      background:#fff;
+      border-radius:12px;
+      padding:16px;
+    }
+    .form-grid {
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .modal-actions {
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      margin-top:12px;
+    }
 
     @media (max-width: 720px) {
+      .sidebar { width: 210px; }
       .form-grid { grid-template-columns: 1fr; }
-      .sidebar { width: 190px; }
     }
   </style>
 
@@ -95,34 +185,33 @@
     </aside>
 
     <main class="content">
+
+      <!-- ✅ HEADER -->
       <div class="topbar">
         <div>
-          <!-- ✅ Este título lo cambia club.js al nombre del club -->
           <h2 id="clubTitle">Panel del Club</h2>
           <div class="muted" id="meLabel"></div>
         </div>
 
-        <div class="row" style="gap:10px;">
-          <img id="clubLogo" class="logo" alt="Logo club" />
-          <span class="badge" id="roleBadge">Rol: —</span>
-        </div>
-      </div>
-
-      <div class="card">
+        <!-- ✅ Logo + Selector Club + Rol alineados -->
         <div class="row">
-          <div style="min-width:280px;">
-            <label>Seleccionar club (si tenés más de uno)</label>
-            <!-- ✅ Sin botón: cambia automáticamente -->
-            <select id="clubSelect"></select>
+          <img id="clubLogo" class="logo" alt="Logo club" />
+
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <select id="clubSelect"
+                    style="padding:4px 6px; font-size:12px; border-radius:6px;">
+            </select>
+
+            <span class="badge" id="roleBadge">Rol: —</span>
           </div>
-          <div class="muted" id="clubInfo"></div>
         </div>
-        <div id="msgBox" class="msg"></div>
       </div>
 
+      <!-- ✅ Contenedor de secciones -->
       <div class="card" id="sectionContainer">
         <div class="muted">Elegí una sección del menú.</div>
       </div>
+
     </main>
   </div>
 
