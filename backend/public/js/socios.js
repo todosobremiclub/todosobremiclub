@@ -9,7 +9,7 @@
   // =============================
   // Auth / helpers
   // =============================
-  function getToken() {
+ // function getToken() {
     const t = localStorage.getItem('token');
     if (!t) {
       alert('Tu sesión expiró. Iniciá sesión nuevamente.');
@@ -29,23 +29,27 @@
     return c;
   }
 
-  async function fetchAuth(url, options = {}) {
-    const headers = options.headers || {};
-    headers['Authorization'] = 'Bearer ' + getToken();
-    if (options.json) headers['Content-Type'] = 'application/json';
+ async function fetchAuth(url, options = {}) {
+  const headers = options.headers || {};
+  if (options.json) headers['Content-Type'] = 'application/json';
 
-    const { json, ...rest } = options;
-const res = await fetch(url, { ...rest, headers });
+  const { json, ...rest } = options;
 
-    if (res.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('activeClubId');
-      alert('Sesión inválida o expirada.');
-      window.location.href = '/admin.html';
-      throw new Error('401');
-    }
-    return res;
+  const res = await fetch(url, {
+    ...rest,
+    headers,
+    credentials: 'include' // ✅ ESTO ES CLAVE
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem('activeClubId');
+    alert('Sesión inválida o expirada.');
+    window.location.href = '/admin.html';
+    throw new Error('401');
   }
+
+  return res;
+}
 
   async function safeJson(res) {
     const text = await res.text();
