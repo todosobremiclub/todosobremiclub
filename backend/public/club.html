@@ -8,50 +8,88 @@
   <style>
     body { font-family: Arial, sans-serif; margin:0; padding:0; }
     .layout { display:flex; min-height: 100vh; }
-    .sidebar { width: 240px; background:#111827; color:#fff; padding:14px; }
-    .sidebar h3 { margin: 0 0 12px 0; font-size: 16px; }
-    .navbtn { width:100%; text-align:left; padding:10px 10px; margin:6px 0; border:0; border-radius:8px; cursor:pointer; background:#1f2937; color:#fff; }
+
+    /* ✅ Sidebar más angosta */
+    .sidebar { width: 210px; background:#111827; color:#fff; padding:12px; }
+    .sidebar h3 { margin: 0 0 10px 0; font-size: 15px; }
+    .navbtn {
+      width:100%; text-align:left; padding:9px 10px; margin:6px 0;
+      border:0; border-radius:8px; cursor:pointer;
+      background:#1f2937; color:#fff;
+      font-size: 14px;
+    }
     .navbtn:hover { background:#374151; }
-    .content { flex:1; padding: 16px; }
-    .topbar { display:flex; justify-content: space-between; align-items:center; gap: 12px; }
-    .logo { height: 56px; width: 56px; object-fit: cover; border-radius: 10px; border:1px solid #ddd; background: #fff; }
-    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background:#eef; }
-    .card { border:1px solid #ddd; border-radius:8px; padding:16px; margin-top:16px; max-width: 1100px; background: rgba(255,255,255,0.90); }
-    .row { display:flex; gap: 16px; flex-wrap: wrap; align-items:flex-end; }
-    label { display:block; font-size: 0.9rem; color:#444; margin-bottom:6px; }
+
+    .content { flex:1; padding: 14px; }
+
+    /* ✅ Header más chico y con fondo visible */
+    .topbar {
+      display:flex; justify-content: space-between; align-items:center; gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(17,24,39,0.75);
+      border: 1px solid rgba(255,255,255,0.10);
+      backdrop-filter: blur(4px);
+    }
+    .topbar h2 { margin:0; color:#fff; font-size: 18px; }
+    .topbar .muted { color: rgba(255,255,255,0.85); font-size: 13px; }
+
+    /* ✅ Logo completo */
+    .logo {
+      height: 52px; width: 52px;
+      object-fit: contain;
+      border-radius: 10px;
+      border:1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.95);
+      padding: 2px;
+    }
+
+    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.92); font-size: 13px; }
+
+    .card {
+      border:1px solid #ddd; border-radius:10px; padding:14px;
+      margin-top:12px; max-width: 1100px;
+      background: rgba(255,255,255,0.90);
+    }
+
+    .row { display:flex; gap: 12px; flex-wrap: wrap; align-items:flex-end; }
+    label { display:block; font-size: 0.85rem; color:#444; margin-bottom:6px; }
     select, button, input { padding: 8px; }
-    .muted { color:#333; font-size: 0.95rem; }
 
     .section-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .filters { display:flex; flex-wrap:wrap; gap:10px; margin: 12px 0; }
+
     .table-wrapper { overflow:auto; border:1px solid #ddd; border-radius:10px; background:#fff; }
     table { width:100%; border-collapse:collapse; }
     th, td { border-bottom:1px solid #eee; padding:8px; font-size: 14px; }
     th { background:#f7f7f7; text-align:left; white-space:nowrap; }
+
     .modal.hidden { display:none; }
     .modal { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:999; }
     .modal-content { width:min(780px, 92vw); background:#fff; border-radius:12px; padding:16px; }
     .form-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:12px; }
-    @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } .sidebar { width: 200px; } }
+
+    @media (max-width: 720px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .sidebar { width: 190px; }
+    }
   </style>
 
-  <!-- FullCalendar (bundle global) -->
-  <!-- En v6, el bundle correcto para usar FullCalendar.Calendar por "globals" es index.global.min.js -->
+  <!-- FullCalendar global bundle -->
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 </head>
 
 <body>
-
   <div class="layout">
     <aside class="sidebar">
       <h3>☰ Menú</h3>
       <button class="navbtn" data-section="socios">👤 Socios</button>
-      <button class="navbtn" data-section="pagos">💰 Pagos </button>
-      <button class="navbtn" data-section="gastos">🧾 Gastos </button>
-      <button class="navbtn" data-section="noticias">📣 Noticias </button>
-      <button class="navbtn" data-section="cumples">🎂 Cumpleaños </button>
-      <button class="navbtn" data-section="configuracion">⚙️ Configuración </button>
+      <button class="navbtn" data-section="pagos">💰 Pagos</button>
+      <button class="navbtn" data-section="gastos">🧾 Gastos</button>
+      <button class="navbtn" data-section="noticias">📣 Noticias</button>
+      <button class="navbtn" data-section="cumples">🎂 Cumpleaños</button>
+      <button class="navbtn" data-section="configuracion">⚙️ Configuración</button>
       <hr style="border-color:#374151;">
       <button class="navbtn" onclick="logout()">Cerrar sesión</button>
     </aside>
@@ -59,7 +97,8 @@
     <main class="content">
       <div class="topbar">
         <div>
-          <h2 style="margin:0;">Panel del Club</h2>
+          <!-- ✅ Este título lo cambia club.js al nombre del club -->
+          <h2 id="clubTitle">Panel del Club</h2>
           <div class="muted" id="meLabel"></div>
         </div>
 
@@ -73,16 +112,14 @@
         <div class="row">
           <div style="min-width:280px;">
             <label>Seleccionar club (si tenés más de uno)</label>
+            <!-- ✅ Sin botón: cambia automáticamente -->
             <select id="clubSelect"></select>
-            <button id="btnApplyClub" type="button">Usar este club</button>
           </div>
           <div class="muted" id="clubInfo"></div>
         </div>
-
         <div id="msgBox" class="msg"></div>
       </div>
 
-      <!-- CONTENEDOR DE SECCIONES -->
       <div class="card" id="sectionContainer">
         <div class="muted">Elegí una sección del menú.</div>
       </div>
@@ -104,9 +141,7 @@
   <script src="/js/gastos.js"></script>
   <script src="/js/pagos.js"></script>
 
-
-  <!-- Cumples (debe cargarse después del bundle global de FullCalendar) -->
+  <!-- Cumples después de FullCalendar -->
   <script defer src="/js/cumples.js"></script>
-
 </body>
 </html>

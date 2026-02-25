@@ -1,10 +1,11 @@
 <section id="socios-section">
 
-  <div class="section-header">
-    <h2>Gestión de Socios</h2>
-    <div class="section-actions">
-      <button id="btnNuevoSocio">➕ Nuevo socio</button>
-      <button id="btnExportSocios">📥 Descargar Excel</button>
+  <div class="section-header" style="align-items:center;">
+    <h2 style="margin:0; font-size:18px;">Socios</h2>
+
+    <div class="section-actions" style="display:flex; gap:10px; align-items:center;">
+      <button id="btnNuevoSocio" title="Nuevo socio">➕</button>
+      <button id="btnExportSocios" title="Descargar Excel">📥</button>
     </div>
   </div>
 
@@ -16,12 +17,10 @@
     <select id="filtroAnio">
       <option value="">Todos los años</option>
     </select>
-
     <label class="checkbox">
       <input type="checkbox" id="verInactivos" />
       Ver inactivos
     </label>
-
     <button id="btnBuscarSocios">Buscar</button>
   </div>
 
@@ -29,12 +28,12 @@
     <span id="sociosActivosCount">Socios activos: 0</span>
   </div>
 
-  <div class="table-wrapper">
-    <table class="socios-table">
+  <div class="table-wrapper" style="overflow-x:auto;">
+    <table class="socios-table" style="min-width: 1100px;">
       <thead>
         <tr>
           <th>Pago</th>
-          <th>N° Socio</th>
+          <th>N°</th>
           <th>DNI</th>
           <th>Nombre</th>
           <th>Apellido</th>
@@ -46,13 +45,14 @@
           <th>Activo</th>
           <th>Becado</th>
           <th>Foto</th>
-          <th>Opciones</th>
+          <th>Acciones</th>
         </tr>
       </thead>
       <tbody id="sociosTableBody"></tbody>
     </table>
   </div>
 
+  <!-- MODAL SOCIO -->
   <div id="modalSocio" class="modal hidden">
     <div class="modal-content">
       <h3 id="modalSocioTitle">Nuevo socio</h3>
@@ -62,37 +62,30 @@
           <label>N° Socio</label>
           <input type="number" id="socioNumero" placeholder="Automático si se deja vacío" />
         </div>
-
         <div>
           <label>DNI *</label>
           <input type="text" id="socioDni" required />
         </div>
-
         <div>
           <label>Nombre *</label>
           <input type="text" id="socioNombre" required />
         </div>
-
         <div>
           <label>Apellido *</label>
           <input type="text" id="socioApellido" required />
         </div>
-
         <div>
           <label>Categoría *</label>
           <input type="text" id="socioCategoria" required />
         </div>
-
         <div>
           <label>Teléfono</label>
           <input type="text" id="socioTelefono" />
         </div>
-
         <div>
           <label>Fecha de nacimiento *</label>
           <input type="date" id="socioNacimiento" required />
         </div>
-
         <div>
           <label>Fecha de ingreso</label>
           <input type="date" id="socioIngreso" />
@@ -101,7 +94,6 @@
         <div class="checkbox">
           <label><input type="checkbox" id="socioActivo" checked /> Activo</label>
         </div>
-
         <div class="checkbox">
           <label><input type="checkbox" id="socioBecado" /> Becado</label>
         </div>
@@ -114,4 +106,58 @@
     </div>
   </div>
 
+  <!-- MODAL CARNET DIGITAL -->
+  <div id="modalCarnet" class="modal hidden">
+    <div class="modal-content" style="max-width: 520px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">Carnet digital</h3>
+        <button id="btnCarnetClose">✕</button>
+      </div>
+
+      <div style="display:flex; gap:12px; margin-top:12px; align-items:center;">
+        <img id="carnetFoto" alt="Foto" style="width:90px; height:90px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;" />
+        <div>
+          <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
+          <div id="carnetDni" class="muted"></div>
+          <div id="carnetCategoria" class="muted"></div>
+          <div id="carnetPago" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div class="muted" id="carnetExtra"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="btnCarnetEdit">✏️ Editar</button>
+        <button id="btnCarnetOk">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* Mantener fila en una línea */
+    .socios-table td, .socios-table th { white-space: nowrap; }
+
+    .btn-icon {
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 4px 6px;
+    }
+
+    .pay-pill {
+      display:inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 12px;
+      border: 1px solid transparent;
+      cursor: default;
+    }
+
+    .pay-ok { background:#dcfce7; color:#166534; border-color:#86efac; }
+    .pay-bad { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+  </style>
 </section>

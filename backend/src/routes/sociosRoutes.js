@@ -3,7 +3,6 @@ const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 const { initFirebase } = require('../config/firebaseAdmin');
-
 const router = express.Router();
 
 // ===============================
@@ -15,9 +14,7 @@ function requireClubAccess(req, res, next) {
   const allowed = roles.some(
     r => String(r.club_id) === String(clubId) || r.role === 'superadmin'
   );
-  if (!allowed) {
-    return res.status(403).json({ ok: false, error: 'No autorizado para este club' });
-  }
+  if (!allowed) return res.status(403).json({ ok: false, error: 'No autorizado para este club' });
   next();
 }
 
@@ -35,20 +32,17 @@ function extractFirebaseObjectPath(url) {
     return null;
   }
 }
-
 async function deleteFirebaseObjectByUrl(url) {
   const objectPath = extractFirebaseObjectPath(url);
   if (!objectPath) return;
-
   const admin = initFirebase();
   if (!admin) return;
-
   const bucket = admin.storage().bucket();
   await bucket.file(objectPath).delete({ ignoreNotFound: true });
 }
 
 // ===============================
-// LISTAR / BUSCAR / FILTRAR
+// LISTAR / BUSCAR / FILTRAR (+ pago_al_dia)
 // ===============================
 router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) => {
   try {
@@ -62,46 +56,68 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
       offset = '0'
     } = req.query;
 
-    const where = ['club_id = $1'];
+    // Periodo actual y anterior (para estado de pago)
+    const now = new Date();
+    const curY = now.getFullYear();
+    const curM = now.getMonth() + 1;
+    let prevY = curY;
+    let prevM = curM - 1;
+    if (prevM === 0) { prevM = 12; prevY = curY - 1; }
+
+    const where = ['s.club_id = $1'];
     const params = [clubId];
     let p = 2;
 
-    if (activo !== '') {
-      where.push(`activo = $${p++}`);
-      params.push(activo === '1');
-    }
-    if (categoria) {
-      where.push(`categoria = $${p++}`);
-      params.push(categoria);
-    }
-    if (anio) {
-      where.push(`EXTRACT(YEAR FROM fecha_nacimiento) = $${p++}`);
-      params.push(Number(anio));
-    }
+    if (activo !== '') { where.push(`s.activo = $${p++}`); params.push(activo === '1'); }
+    if (categoria) { where.push(`s.categoria = $${p++}`); params.push(categoria); }
+    if (anio) { where.push(`EXTRACT(YEAR FROM s.fecha_nacimiento) = $${p++}`); params.push(Number(anio)); }
     if (search) {
       where.push(`(
-        nombre ILIKE $${p} OR
-        apellido ILIKE $${p} OR
-        dni ILIKE $${p}
+        s.nombre ILIKE $${p} OR
+        s.apellido ILIKE $${p} OR
+        s.dni ILIKE $${p}
       )`);
       params.push(`%${search}%`);
       p++;
     }
 
+    // params para cálculo pago
+    const pCurY = p++; params.push(curY);
+    const pCurM = p++; params.push(curM);
+    const pPrevY = p++; params.push(prevY);
+    const pPrevM = p++; params.push(prevM);
+
     const q = `
       SELECT
-        id, club_id, numero_socio, dni, nombre, apellido, categoria, telefono,
-        fecha_nacimiento, fecha_ingreso, activo, becado, foto_url,
-        created_at, updated_at,
-        DATE_PART('year', AGE(fecha_nacimiento))::int AS edad,
-        EXTRACT(YEAR FROM fecha_nacimiento)::int AS anio_nacimiento
-      FROM socios
+        s.id, s.club_id, s.numero_socio, s.dni, s.nombre, s.apellido, s.categoria, s.telefono,
+        s.fecha_nacimiento, s.fecha_ingreso, s.activo, s.becado, s.foto_url,
+        s.created_at, s.updated_at,
+        DATE_PART('year', AGE(s.fecha_nacimiento))::int AS edad,
+        EXTRACT(YEAR FROM s.fecha_nacimiento)::int AS anio_nacimiento,
+
+        CASE
+          WHEN s.becado = true THEN true
+          WHEN EXISTS (
+            SELECT 1
+            FROM pagos_mensuales pm
+            WHERE pm.club_id = s.club_id
+              AND pm.socio_id = s.id
+              AND (
+                (pm.anio = $${pCurY} AND pm.mes = $${pCurM})
+                OR
+                (pm.anio = $${pPrevY} AND pm.mes = $${pPrevM})
+              )
+          ) THEN true
+          ELSE false
+        END AS pago_al_dia
+
+      FROM socios s
       WHERE ${where.join(' AND ')}
-      ORDER BY numero_socio ASC
+      ORDER BY s.numero_socio ASC
       LIMIT $${p++} OFFSET $${p++}
     `;
-    params.push(Number(limit), Number(offset));
 
+    params.push(Number(limit), Number(offset));
     const r = await db.query(q, params);
     res.json({ ok: true, socios: r.rows });
   } catch (e) {
@@ -130,7 +146,6 @@ router.post('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) 
     }
 
     await db.query('BEGIN');
-
     await db.query(`
       INSERT INTO club_counters (club_id, next_socio_num)
       VALUES ($1, 1)
@@ -195,14 +210,12 @@ router.put('/:clubId/socios/:id', requireAuth, requireClubAccess, async (req, re
       RETURNING *
     `, [
       numero_socio, dni, nombre, apellido, telefono || null,
-      fecha_nacimiento, fecha_ingreso,
+      fecha_nacimiento, fecha_ingreso || null,
       !!activo, !!becado, categoria,
       id, clubId
     ]);
 
-    if (!r.rowCount) {
-      return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
-    }
+    if (!r.rowCount) return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
     res.json({ ok: true, socio: r.rows[0] });
   } catch (e) {
     console.error('❌ update socio', e);
@@ -220,9 +233,7 @@ router.delete('/:clubId/socios/:id', requireAuth, requireClubAccess, async (req,
   const { clubId, id } = req.params;
   try {
     const r = await db.query(`DELETE FROM socios WHERE id=$1 AND club_id=$2`, [id, clubId]);
-    if (!r.rowCount) {
-      return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
-    }
+    if (!r.rowCount) return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
     res.json({ ok: true });
   } catch (e) {
     console.error('❌ delete socio', e);
@@ -242,17 +253,14 @@ router.post('/:clubId/socios/:id/foto', requireAuth, requireClubAccess, async (r
       return res.status(400).json({ ok: false, error: 'Falta base64 o mimetype' });
     }
 
-    // 1) Obtener foto anterior
     const prev = await db.query(
       `SELECT foto_url FROM socios WHERE id=$1 AND club_id=$2`,
       [id, clubId]
     );
-    if (!prev.rowCount) {
-      return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
-    }
+    if (!prev.rowCount) return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+
     const oldUrl = prev.rows[0].foto_url;
 
-    // 2) Subir nueva
     const buffer = Buffer.from(base64, 'base64');
     const up = await uploadImageBuffer({
       buffer,
@@ -261,19 +269,14 @@ router.post('/:clubId/socios/:id/foto', requireAuth, requireClubAccess, async (r
       folder: `clubs/${clubId}/socios`
     });
 
-    // 3) Guardar nueva URL
     const r = await db.query(
       `UPDATE socios SET foto_url=$1 WHERE id=$2 AND club_id=$3 RETURNING id, foto_url`,
       [up.url, id, clubId]
     );
 
-    // 4) Borrar foto anterior (best-effort)
     if (oldUrl && oldUrl !== up.url) {
-      try {
-        await deleteFirebaseObjectByUrl(oldUrl);
-      } catch (err) {
-        console.warn('⚠️ No se pudo borrar la foto anterior:', err.message);
-      }
+      try { await deleteFirebaseObjectByUrl(oldUrl); }
+      catch (err) { console.warn('⚠️ No se pudo borrar la foto anterior:', err.message); }
     }
 
     res.json({ ok: true, socio: r.rows[0] });
@@ -302,7 +305,6 @@ router.get('/:clubId/socios/export.csv', requireAuth, requireClubAccess, async (
       'numero_socio','dni','nombre','apellido','categoria','telefono',
       'fecha_nacimiento','fecha_ingreso','activo','becado','foto_url'
     ];
-
     const lines = [header.join(',')].concat(
       r.rows.map(row =>
         header.map(h => {

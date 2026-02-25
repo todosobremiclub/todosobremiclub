@@ -7,9 +7,7 @@
   }
 
   async function fetchMe() {
-    const res = await fetch('/auth/me', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
+    const res = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
     if (!res.ok) throw new Error('No autorizado');
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'No autorizado');
@@ -17,9 +15,7 @@
   }
 
   async function fetchClubInfo(clubId) {
-    const res = await fetch(`/club/${clubId}`, {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
+    const res = await fetch(`/club/${clubId}`, { headers: { 'Authorization': 'Bearer ' + token } });
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando club');
     return data.club;
@@ -28,7 +24,6 @@
   function fillSelect(roles) {
     const sel = document.getElementById('clubSelect');
     sel.innerHTML = '';
-
     roles.forEach(r => {
       const opt = document.createElement('option');
       opt.value = r.club_id;
@@ -45,7 +40,6 @@
   async function applySelected(roles) {
     const sel = document.getElementById('clubSelect');
     const clubId = sel.value;
-
     const match = roles.find(r => String(r.club_id) === String(clubId));
     if (!match) return;
 
@@ -56,13 +50,18 @@
 
     const club = await fetchClubInfo(match.club_id);
 
-    document.getElementById('clubInfo').innerHTML =
-      `<strong>${club.name}</strong><br>${club.city || ''} ${club.province || ''}`;
+    // ✅ Título con nombre del club
+    const titleEl = document.getElementById('clubTitle');
+    if (titleEl) titleEl.textContent = club.name || 'Panel del Club';
+    document.title = club.name ? `Club • ${club.name}` : 'Panel del Club';
+
+    document.getElementById('clubInfo').innerHTML = `${club.name}<br>${club.city || ''} ${club.province || ''}`;
 
     const logo = document.getElementById('clubLogo');
     if (club.logo_url) logo.src = club.logo_url;
     else logo.removeAttribute('src');
 
+    // Fondo
     if (club.background_url) {
       document.body.style.backgroundImage = `url('${club.background_url}')`;
       document.body.style.backgroundSize = 'cover';
@@ -95,34 +94,15 @@
       const html = await res.text();
       container.innerHTML = html;
 
-      // Init específico por sección
-      if (sectionName === 'socios' && window.initSociosSection) {
-        await window.initSociosSection();
-      }
-
-      if (sectionName === 'configuracion' && window.initConfiguracionSection) {
-        await window.initConfiguracionSection();
-      }
-
-      if (sectionName === 'gastos' && window.initGastosSection) {
-        await window.initGastosSection();
-      }
-
-      if (sectionName === 'cumples' && window.initCumplesSection) {
-        await window.initCumplesSection();
-      }
-
-if (sectionName === 'pagos' && window.initPagosSection) {
-  await window.initPagosSection();
-}
-
-
+      if (sectionName === 'socios' && window.initSociosSection) await window.initSociosSection();
+      if (sectionName === 'configuracion' && window.initConfiguracionSection) await window.initConfiguracionSection();
+      if (sectionName === 'gastos' && window.initGastosSection) await window.initGastosSection();
+      if (sectionName === 'cumples' && window.initCumplesSection) await window.initCumplesSection();
+      if (sectionName === 'pagos' && window.initPagosSection) await window.initPagosSection();
     } catch (e) {
-      container.innerHTML = `<div style="color:red;">Error: ${e.message}</div>`;
+      container.innerHTML = `\nError: ${e.message}\n`;
     }
   }
-
-
 
   // ===============================
   // INIT GENERAL
@@ -134,8 +114,7 @@ if (sectionName === 'pagos' && window.initPagosSection) {
 
     if (!user.roles || user.roles.length === 0) {
       document.getElementById('msgBox').className = 'msg err';
-      document.getElementById('msgBox').textContent =
-        'Tu usuario no tiene clubes asignados.';
+      document.getElementById('msgBox').textContent = 'Tu usuario no tiene clubes asignados.';
       return;
     }
 
@@ -147,10 +126,10 @@ if (sectionName === 'pagos' && window.initPagosSection) {
 
     fillSelect(user.roles);
 
-    document
-      .getElementById('btnApplyClub')
-      .addEventListener('click', () => applySelected(user.roles));
+    // ✅ Aplica automáticamente al cambiar el select
+    document.getElementById('clubSelect').addEventListener('change', () => applySelected(user.roles));
 
+    // Aplica el club seleccionado por defecto
     await applySelected(user.roles);
 
     document.querySelectorAll('[data-section]').forEach(btn => {
@@ -158,7 +137,6 @@ if (sectionName === 'pagos' && window.initPagosSection) {
     });
 
     loadSection('socios');
-
   } catch (e) {
     console.error(e);
     localStorage.removeItem('token');

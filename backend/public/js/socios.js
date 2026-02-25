@@ -30,7 +30,6 @@
     if (options.json) headers['Content-Type'] = 'application/json';
 
     const res = await fetch(url, { ...options, headers });
-
     if (res.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('activeClubId');
@@ -48,13 +47,48 @@
   }
 
   // =============================
-  // Estado interno
+  // Estado
   // =============================
   let editingId = null;
   let sociosCache = [];
 
-  // Foto “draft” para alta/edición (se elige antes de guardar)
+  // Foto “draft” para alta/edición
   let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
+
+  // =============================
+  // Util: fecha dd-mm-aaaa
+  // =============================
+  function fmtDMY(iso) {
+    if (!iso) return '';
+    const s = String(iso).slice(0, 10); // YYYY-MM-DD
+    const [y, m, d] = s.split('-');
+    if (!y || !m || !d) return s;
+    return `${d}-${m}-${y}`;
+  }
+
+  // =============================
+  // Estado de pago (regla solicitada)
+  // =============================
+  function getCurrPrevYYYYMM() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const curr = y * 100 + m;
+    const prev = (m === 1) ? ((y - 1) * 100 + 12) : (y * 100 + (m - 1));
+    return { curr, prev };
+  }
+
+  function pagoEstado(s) {
+    // Becado siempre al día
+    if (s.becado) return { ok: true, label: 'Becado' };
+
+    const last = s.last_pago_yyyymm ? Number(s.last_pago_yyyymm) : 0;
+    const { prev, curr } = getCurrPrevYYYYMM();
+
+    // Verde si pagó mes actual o mes anterior (o algo más nuevo)
+    const ok = last >= prev && last <= (curr + 100); // tolerancia simple si cargan por adelantado
+    return ok ? { ok: true, label: 'Al día' } : { ok: false, label: 'Impago' };
+  }
 
   // =============================
   // Visor de foto (lightbox)
@@ -66,31 +100,21 @@
     modal.id = 'photoViewerModal';
     modal.style.cssText = `
       position:fixed; inset:0; background:rgba(0,0,0,0.75);
-      display:none; align-items:center; justify-content:center; z-index:9999;
-      padding: 18px;
+      display:none; align-items:center; justify-content:center;
+      z-index:9999; padding: 18px;
     `;
 
     modal.innerHTML = `
-      <div style="
-        position:relative; width:min(980px, 96vw); max-height: 92vh;
-        background:#111; border-radius:12px; overflow:hidden;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-      ">
-        <button id="photoViewerClose" style="
-          position:absolute; top:10px; right:10px; z-index:2;
-          border:0; background:rgba(255,255,255,0.12);
-          color:#fff; padding:8px 10px; border-radius:10px; cursor:pointer;
-          font-size:14px;
-        ">✕ Cerrar</button>
-
-        <div style="display:flex; align-items:center; justify-content:center; background:#000;">
-          <img id="photoViewerImg" alt="Foto socio" style="
-            max-width: 100%; max-height: 92vh; display:block; object-fit:contain;
-          ">
+      <div style="background:#111827; color:#fff; padding:10px 12px; border-radius:10px; max-width: 92vw;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <strong>Foto socio</strong>
+          <button id="photoViewerClose" style="border:0; border-radius:8px; padding:6px 10px; cursor:pointer;">✕ Cerrar</button>
+        </div>
+        <div style="margin-top:10px; display:flex; justify-content:center;">
+          <img id="photoViewerImg" style="max-width:86vw; max-height:78vh; border-radius:10px; background:#fff;" alt="Foto"/>
         </div>
       </div>
     `;
-
     document.body.appendChild(modal);
 
     const close = () => {
@@ -99,9 +123,7 @@
       if (img) img.src = '';
     };
 
-    modal.addEventListener('click', (ev) => {
-      if (ev.target === modal) close();
-    });
+    modal.addEventListener('click', (ev) => { if (ev.target === modal) close(); });
     modal.querySelector('#photoViewerClose').addEventListener('click', close);
 
     document.addEventListener('keydown', (ev) => {
@@ -118,7 +140,7 @@
   }
 
   // =============================
-  // UI extra dentro del modal de socio: Elegir foto + preview
+  // UI extra en modal socio: elegir foto (solo en edición/alta)
   // =============================
   const draftPhotoInput = document.createElement('input');
   draftPhotoInput.type = 'file';
@@ -126,7 +148,6 @@
   draftPhotoInput.style.display = 'none';
 
   function ensureDraftPhotoUI() {
-    // input al body
     if (!document.body.contains(draftPhotoInput)) document.body.appendChild(draftPhotoInput);
 
     const modal = document.getElementById('modalSocio');
@@ -135,65 +156,48 @@
     const modalContent = modal.querySelector('.modal-content');
     if (!modalContent) return;
 
-    if (document.getElementById('socioDraftPhotoBox')) return; // ya insertado
+    if (document.getElementById('socioDraftPhotoBox')) return;
 
     const box = document.createElement('div');
     box.id = 'socioDraftPhotoBox';
     box.style.cssText = `
-      margin-top: 10px;
-      padding: 10px;
-      border: 1px dashed #ddd;
-      border-radius: 10px;
-      background: #fafafa;
+      margin-top: 10px; padding: 10px;
+      border: 1px dashed #ddd; border-radius: 10px; background: #fafafa;
     `;
 
     box.innerHTML = `
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-        <div style="font-weight:600;">Foto del socio</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <strong>Foto del socio</strong>
         <div style="display:flex; gap:8px;">
-          <button type="button" id="btnSocioPickFoto" style="padding:8px 10px; cursor:pointer;">Elegir foto</button>
-          <button type="button" id="btnSocioClearFoto" style="padding:8px 10px; cursor:pointer;">Quitar</button>
+          <button id="btnSocioPickFoto" type="button">Elegir</button>
+          <button id="btnSocioClearFoto" type="button">Quitar</button>
         </div>
       </div>
 
-      <div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
-        <img id="socioFotoDraftPreview" alt="Preview foto" style="
-          width: 74px; height:74px; border-radius:12px; object-fit:cover;
-          border:1px solid #ddd; background:#fff; display:none; cursor:pointer;
-        ">
-        <div>
-          <div id="socioFotoDraftMeta" style="font-size:12px; color:#555;">Sin foto seleccionada.</div>
-          <div style="font-size:12px; color:#777; margin-top:4px;">
-            La foto se subirá automáticamente al presionar <b>Guardar</b>.
-          </div>
-        </div>
+      <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+        <img id="socioFotoDraftPreview" alt="Preview" style="width:70px; height:70px; border-radius:10px; object-fit:cover; display:none; border:1px solid #ddd; background:#fff; cursor:pointer;" />
+        <div class="muted" id="socioFotoDraftMeta" style="font-size:12px;">Sin foto seleccionada.</div>
+      </div>
+
+      <div class="muted" style="font-size:12px; margin-top:8px;">
+        La foto se sube al presionar <b>Guardar</b>.
       </div>
     `;
 
-    // Insertar antes de los botones del modal
     const actions = modalContent.querySelector('.modal-actions');
     if (actions) modalContent.insertBefore(box, actions);
     else modalContent.appendChild(box);
 
-    // Bind botones
-    box.querySelector('#btnSocioPickFoto').addEventListener('click', () => {
-      draftPhotoInput.click();
-    });
+    box.querySelector('#btnSocioPickFoto').addEventListener('click', () => draftPhotoInput.click());
+    box.querySelector('#btnSocioClearFoto').addEventListener('click', () => setDraftPhoto(null));
 
-    box.querySelector('#btnSocioClearFoto').addEventListener('click', () => {
-      setDraftPhoto(null);
-    });
-
-    // Click en preview abre visor grande (si hay foto)
     box.querySelector('#socioFotoDraftPreview').addEventListener('click', () => {
       if (draftPhoto?.dataUrl) openPhotoViewer(draftPhoto.dataUrl);
     });
 
-    // Change del input
     draftPhotoInput.addEventListener('change', async () => {
       const file = draftPhotoInput.files && draftPhotoInput.files[0];
-      draftPhotoInput.value = ''; // reset
-
+      draftPhotoInput.value = '';
       if (!file) return;
 
       if (file.size > 2 * 1024 * 1024) {
@@ -201,7 +205,6 @@
         return;
       }
 
-      // dataURL para preview + base64 para envío
       const dataUrl = await new Promise((resolve, reject) => {
         const r = new FileReader();
         r.onload = () => resolve(String(r.result || ''));
@@ -226,10 +229,8 @@
 
   function setDraftPhoto(photo) {
     draftPhoto = photo;
-
     const img = document.getElementById('socioFotoDraftPreview');
     const meta = document.getElementById('socioFotoDraftMeta');
-
     if (!img || !meta) return;
 
     if (!draftPhoto) {
@@ -244,92 +245,25 @@
     meta.textContent = `${draftPhoto.filename} • ${draftPhoto.mimetype}`;
   }
 
-  // =============================
-  // Upload de foto (para socio ya existente)
-  // =============================
   async function uploadSocioFotoById(socioId, photoPayload) {
     const clubId = getActiveClubId();
-
     const payload = {
       base64: photoPayload.base64,
       mimetype: photoPayload.mimetype,
       filename: photoPayload.filename || 'socio.jpg'
     };
-
     const res = await fetchAuth(`/club/${clubId}/socios/${socioId}/foto`, {
       method: 'POST',
       body: JSON.stringify(payload),
       json: true
     });
-
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) {
-      throw new Error(data.error || 'No se pudo subir la foto');
-    }
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo subir la foto');
     return data;
   }
 
-  // Input oculto para reemplazar foto desde la grilla (📷 por fila)
-  const quickPhotoInput = document.createElement('input');
-  quickPhotoInput.type = 'file';
-  quickPhotoInput.accept = 'image/*';
-  quickPhotoInput.style.display = 'none';
-  let pendingQuickSocioId = null;
-
-  function ensureQuickPhotoInput() {
-    if (!document.body.contains(quickPhotoInput)) document.body.appendChild(quickPhotoInput);
-  }
-
-  quickPhotoInput.addEventListener('change', async () => {
-    try {
-      const file = quickPhotoInput.files && quickPhotoInput.files[0];
-      quickPhotoInput.value = '';
-      if (!file || !pendingQuickSocioId) return;
-
-      if (file.size > 2 * 1024 * 1024) {
-        alert('La imagen supera 2MB. Elegí una más liviana.');
-        return;
-      }
-
-      const dataUrl = await new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(String(r.result || ''));
-        r.onerror = () => reject(new Error('Error leyendo archivo'));
-        r.readAsDataURL(file);
-      });
-
-      const comma = dataUrl.indexOf(',');
-      if (comma < 0) throw new Error('No se pudo leer la imagen');
-
-      // Preview “rápido” (confirm)
-      const ok = confirm('¿Subir esta foto para el socio seleccionado?');
-      if (!ok) return;
-
-      await uploadSocioFotoById(pendingQuickSocioId, {
-        dataUrl,
-        base64: dataUrl.slice(comma + 1),
-        mimetype: file.type || 'image/jpeg',
-        filename: file.name || 'socio.jpg'
-      });
-
-      await loadSocios();
-      alert('✅ Foto actualizada');
-    } catch (e) {
-      console.error(e);
-      alert(e.message || 'Error subiendo foto');
-    } finally {
-      pendingQuickSocioId = null;
-    }
-  });
-
-  function triggerQuickPhotoPick(socioId) {
-    ensureQuickPhotoInput();
-    pendingQuickSocioId = socioId;
-    quickPhotoInput.click();
-  }
-
   // =============================
-  // UI: Modal Socio
+  // Modal socio (alta/edición)
   // =============================
   function openModalNew() {
     editingId = null;
@@ -361,8 +295,10 @@
     $('socioApellido').value = socio.apellido ?? '';
     $('socioCategoria').value = socio.categoria ?? '';
     $('socioTelefono').value = socio.telefono ?? '';
+
     $('socioNacimiento').value = (socio.fecha_nacimiento || '').slice(0, 10);
     $('socioIngreso').value = (socio.fecha_ingreso || '').slice(0, 10);
+
     $('socioActivo').checked = !!socio.activo;
     $('socioBecado').checked = !!socio.becado;
 
@@ -374,293 +310,214 @@
   }
 
   // =============================
-  // Render tabla
+  // Carnet digital (doble click)
   // =============================
-  function pagoDotPlaceholder() {
-    return `<span title="Estado de pago (pendiente de módulo Pagos)"
-      style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#9aa0a6"></span>`;
-  }
+  let carnetSocioId = null;
 
-  function renderSocios(socios) {
-    sociosCache = socios || [];
-    const tbody = $('sociosTableBody');
-    tbody.innerHTML = '';
+  function openCarnet(socio) {
+    carnetSocioId = socio.id;
 
-    let activos = 0;
+    const foto = socio.foto_url || '/img/user-placeholder.png';
+    $('carnetFoto').src = foto;
+    $('carnetFoto').onerror = function () { this.src = '/img/user-placeholder.png'; };
 
-    sociosCache.forEach(s => {
-      if (s.activo) activos++;
+    $('carnetNombre').textContent = `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
+    $('carnetDni').textContent = `DNI: ${socio.dni || '—'}`;
+    $('carnetCategoria').textContent = `Categoría: ${socio.categoria || '—'}`;
 
-      const anioNac = s.anio_nacimiento
-        ? s.anio_nacimiento
-        : (s.fecha_nacimiento ? String(s.fecha_nacimiento).slice(0, 4) : '');
+    const est = pagoEstado(socio);
+    $('carnetPago').innerHTML = `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${est¡Perfecto, Leo! Ya con tus `[socios.js](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socios.js?EntityRepresentationId=55bd6112-01c6-46f3-81fb-b4b31275b283)` y `[club.js](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/club.js?EntityRepresentationId=9f3bbbc0-77d4-4a16-857a-1817eba25600)` completos, más los `[club.html](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%c2%a0Copilot/club.html?web=1&EntityRepresentationId=fefc3c56-a472-41ba-804e-458c9c8accf4)` y `[socios.html](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%c2%a0Copilot/socios.html?web=1&EntityRepresentationId=40ca7347-8258-49ae-b7b9-82669df9bb54)` actuales, armé **todo el pack de cambios** (lógica + UI + comportamiento) para que copies y pegues. Incluye también **un cambio en backend** para que la columna **Pago** se pueda calcular correctamente sin hacer 200 requests desde el frontend. [4](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socios.js)[2](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/club.js)[1](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/club.html)[3](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socios.html)[5](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/sociosRoutes.js)
 
-      // Miniatura clickeable + fallback
-      const fotoHtml = s.foto_url
-        ? `<img data-act="viewphoto" data-url="${s.foto_url}"
-              src="${s.foto_url}"
-              alt="foto"
-              style="width:42px;height:42px;border-radius:10px;object-fit:cover;border:1px solid #ddd;cursor:pointer;">`
-        : `<span style="color:#777;">—</span>`;
+---
 
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td style="text-align:center;">${pagoDotPlaceholder()}</td>
-        <td>${s.numero_socio ?? ''}</td>
-        <td>${s.dni ?? ''}</td>
-        <td>${s.nombre ?? ''}</td>
-        <td>${s.apellido ?? ''}</td>
-        <td>${s.categoria ?? ''}</td>
-        <td>${s.telefono ?? ''}</td>
-        <td>${(s.fecha_nacimiento || '').slice(0,10)}</td>
-        <td>${anioNac}</td>
-        <td>${(s.fecha_ingreso || '').slice(0,10)}</td>
-        <td style="text-align:center;"><input type="checkbox" disabled ${s.activo ? 'checked':''}></td>
-        <td style="text-align:center;"><input type="checkbox" disabled ${s.becado ? 'checked':''}></td>
-        <td style="text-align:center;">
-          ${fotoHtml}
-          <div style="margin-top:6px;">
-            <button data-act="photo" data-id="${s.id}" style="padding:4px 8px;">📷</button>
+# ✅ Archivos involucrados (son 5)
+1) `public/club.html`  ✅ (header más chico, nombre de club, logo “contain”, sidebar más angosto, cambio automático de club sin botón) [1](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/club.html)  
+2) `public/js/club.js` ✅ (cambio automático al seleccionar club + setear nombre del club en header) [2](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/club.js)  
+3) `public/sections/socios.html` ✅ (encabezado más compacto, “Descargar Excel” solo ícono, tabla en una línea, modal carnet) [3](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socios.html)  
+4) `public/js/socios.js` ✅ (botón pago verde/rojo, becado siempre verde, fechas dd-mm-aaaa en tabla, iconos ✏️ 🗑, sin botón 📷 de foto en grilla, carnet digital en doble click) [4](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socios.js)  
+5) `src/routes/sociosRoutes.js` ✅ (**backend** agrega `pago_al_dia` calculado con pagos del mes actual o anterior) [5](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/sociosRoutes.js)  
+
+> No necesitás pasar más archivos para estos cambios.
+
+---
+
+# 1) ✅ `public/club.html` (COMPLETO)
+
+Copiá y pegá todo el archivo:
+
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Panel del Club</title>
+
+  <style>
+    body { font-family: Arial, sans-serif; margin:0; padding:0; }
+
+    .layout { display:flex; min-height: 100vh; }
+
+    /* Sidebar más angosto */
+    .sidebar { width: 210px; background:#111827; color:#fff; padding:10px; }
+    .sidebar h3 { margin: 0 0 10px 0; font-size: 15px; }
+
+    .navbtn {
+      width:100%;
+      text-align:left;
+      padding:9px 10px;
+      margin:6px 0;
+      border:0;
+      border-radius:8px;
+      cursor:pointer;
+      background:#1f2937;
+      color:#fff;
+      font-size: 14px;
+    }
+    .navbtn:hover { background:#374151; }
+
+    .content { flex:1; padding: 12px; }
+
+    /* Header más chico + fondo más visible */
+    .topbar {
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: linear-gradient(90deg, rgba(17,24,39,0.90), rgba(31,41,55,0.75));
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff;
+    }
+    .topbar h2 { margin:0; font-size: 18px; letter-spacing: 0.2px; }
+    .muted { color: rgba(255,255,255,0.85); font-size: 0.92rem; }
+
+    /* Logo completo (contain) manteniendo tamaño */
+    .logo {
+      height: 48px;
+      width: 48px;
+      object-fit: contain;
+      border-radius: 10px;
+      border:1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.95);
+      padding: 2px;
+      box-sizing: border-box;
+    }
+
+    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(238,238,255,0.95); color:#111827; font-size: 12px; }
+
+    .card {
+      border:1px solid #ddd;
+      border-radius:12px;
+      padding:12px;
+      margin-top:12px;
+      max-width: 1200px;
+      background: rgba(255,255,255,0.90);
+    }
+
+    .row { display:flex; gap: 12px; flex-wrap: wrap; align-items:flex-end; }
+
+    label { display:block; font-size: 0.9rem; color:#444; margin-bottom:6px; }
+    select, button, input { padding: 8px; }
+
+    .section-header { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .filters { display:flex; flex-wrap:wrap; gap:10px; margin: 10px 0; }
+
+    .table-wrapper { overflow:auto; border:1px solid #ddd; border-radius:10px; background:#fff; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border-bottom:1px solid #eee; padding:8px; font-size: 14px; }
+    th { background:#f7f7f7; text-align:left; white-space:nowrap; }
+    td { white-space: nowrap; } /* filas en una línea */
+
+    .modal.hidden { display:none; }
+    .modal { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:999; }
+    .modal-content { width:min(780px, 92vw); background:#fff; border-radius:12px; padding:16px; }
+    .form-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:12px; }
+
+    @media (max-width: 720px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .sidebar { width: 180px; }
+      .content { padding: 10px; }
+      .topbar { padding: 10px; }
+    }
+  </style>
+
+  <!-- FullCalendar (bundle global) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+</head>
+
+<body>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>☰ Menú</h3>
+      <button class="navbtn" data-section="socios">👤 Socios</button>
+      <button class="navbtn" data-section="pagos">💰 Pagos</button>
+      <button class="navbtn" data-section="gastos">🧾 Gastos</button>
+      <button class="navbtn" data-section="noticias">📣 Noticias</button>
+      <button class="navbtn" data-section="cumples">🎂 Cumpleaños</button>
+      <button class="navbtn" data-section="configuracion">⚙️ Configuración</button>
+      <hr style="border-color:#374151;">
+      <button class="navbtn" onclick="logout()">Cerrar sesión</button>
+    </aside>
+
+    <main class="content">
+
+      <!-- Header -->
+      <div class="topbar">
+        <div>
+          <h2 id="clubTitle">—</h2>
+          <div class="muted" id="meLabel"></div>
+        </div>
+
+        <div class="row" style="gap:10px; align-items:center;">
+          <img id="clubLogo" class="logo" alt="Logo club" />
+          <span class="badge" id="roleBadge">Rol: —</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="align-items:flex-end;">
+          <div style="min-width:260px;">
+            <label>Seleccionar club (si tenés más de uno)</label>
+            <select id="clubSelect"></select>
+            <div class="muted" style="margin-top:6px; color:#374151;">
+              Cambia automáticamente al seleccionar.
+            </div>
           </div>
-        </td>
-        <td>
-          <button data-act="edit" data-id="${s.id}">Editar</button>
-          <button data-act="del" data-id="${s.id}">Eliminar</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
 
-    $('sociosActivosCount').textContent = `Socios activos: ${activos}`;
-  }
+          <div class="muted" id="clubInfo" style="color:#111827;"></div>
+        </div>
 
-  // =============================
-  // Filtros
-  // =============================
-  function refreshCategoriaOptions(socios) {
-    const sel = $('filtroCategoria');
-    const current = sel.value;
+        <div id="msgBox" class="msg"></div>
+      </div>
 
-    const cats = [...new Set((socios || [])
-      .map(s => s.categoria)
-      .filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b, 'es'));
+      <!-- CONTENEDOR DE SECCIONES -->
+      <div class="card" id="sectionContainer">
+        <div class="muted" style="color:#111827;">Elegí una sección del menú.</div>
+      </div>
 
-    sel.innerHTML = `<option value="">Todas las categorías</option>`;
-    cats.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      sel.appendChild(opt);
-    });
+    </main>
+  </div>
 
-    if (cats.includes(current)) sel.value = current;
-  }
-
-  function refreshAnioOptions(socios) {
-    const sel = $('filtroAnio');
-    const current = sel.value;
-
-    const years = [...new Set((socios || [])
-      .map(s => s.anio_nacimiento || (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0, 4)) : null))
-      .filter(Boolean))]
-      .sort((a, b) => b - a);
-
-    sel.innerHTML = `<option value="">Todos los años</option>`;
-    years.forEach(y => {
-      const opt = document.createElement('option');
-      opt.value = String(y);
-      opt.textContent = String(y);
-      sel.appendChild(opt);
-    });
-
-    if (years.map(String).includes(current)) sel.value = current;
-  }
-
-  // =============================
-  // API calls
-  // =============================
-  function buildQueryParams() {
-    const q = new URLSearchParams();
-
-    const search = $('sociosSearch')?.value?.trim();
-    const categoria = $('filtroCategoria')?.value;
-    const anio = $('filtroAnio')?.value;
-    const verInactivos = $('verInactivos')?.checked;
-
-    if (search) q.set('search', search);
-    if (categoria) q.set('categoria', categoria);
-    if (anio) q.set('anio', anio);
-
-    if (!verInactivos) q.set('activo', '1');
-    return q.toString();
-  }
-
-  async function loadSocios() {
-    const clubId = getActiveClubId();
-    const qs = buildQueryParams();
-
-    const res = await fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`);
-    const data = await safeJson(res);
-
-    if (!res.ok || !data.ok) {
-      alert(data.error || 'Error cargando socios');
-      return;
+  <script>
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('activeClubId');
+      window.location.href = '/admin.html';
     }
+  </script>
 
-    refreshCategoriaOptions(data.socios || []);
-    refreshAnioOptions(data.socios || []);
-    renderSocios(data.socios || []);
-  }
+  <!-- Scripts principales -->
+  <script src="/js/club.js"></script>
+  <script src="/js/socios.js"></script>
+  <script src="/js/configuracion.js"></script>
+  <script src="/js/gastos.js"></script>
+  <script src="/js/pagos.js"></script>
 
-  async function saveSocio() {
-    const clubId = getActiveClubId();
-
-    const numeroRaw = $('socioNumero').value.trim();
-    const payload = {
-      numero_socio: numeroRaw ? Number(numeroRaw) : null,
-      dni: $('socioDni').value.trim(),
-      nombre: $('socioNombre').value.trim(),
-      apellido: $('socioApellido').value.trim(),
-      categoria: $('socioCategoria').value.trim(),
-      telefono: $('socioTelefono').value.trim() || null,
-      fecha_nacimiento: $('socioNacimiento').value,
-      fecha_ingreso: $('socioIngreso').value || null,
-      activo: $('socioActivo').checked,
-      becado: $('socioBecado').checked
-    };
-
-    if (!payload.dni || !payload.nombre || !payload.apellido || !payload.categoria || !payload.fecha_nacimiento) {
-      alert('Completá DNI, Nombre, Apellido, Categoría y Fecha de nacimiento.');
-      return;
-    }
-
-    const creating = !editingId;
-    const url = creating
-      ? `/club/${clubId}/socios`
-      : `/club/${clubId}/socios/${editingId}`;
-
-    const method = creating ? 'POST' : 'PUT';
-
-    const btnSave = $('btnGuardarSocio');
-    if (btnSave) btnSave.disabled = true;
-
-    try {
-      // 1) Guardar socio
-      const res = await fetchAuth(url, { method, body: JSON.stringify(payload), json: true });
-      const data = await safeJson(res);
-
-      if (!res.ok || !data.ok) {
-        alert(data.error || 'No se pudo guardar el socio');
-        return;
-      }
-
-      // 2) Subir foto si el usuario la eligió ANTES
-      const socioId = creating ? (data.socio?.id || data.id) : editingId;
-
-      if (draftPhoto && socioId) {
-        await uploadSocioFotoById(socioId, draftPhoto);
-      }
-
-      // 3) Reset y refresco
-      setDraftPhoto(null);
-      closeModal();
-      await loadSocios();
-
-      alert(creating ? '✅ Socio creado' : '✅ Socio actualizado');
-    } catch (e) {
-      console.error(e);
-      alert(e.message || 'Error guardando socio');
-    } finally {
-      if (btnSave) btnSave.disabled = false;
-    }
-  }
-
-  async function deleteSocio(id) {
-    const clubId = getActiveClubId();
-    const res = await fetchAuth(`/club/${clubId}/socios/${id}`, { method: 'DELETE' });
-    const data = await safeJson(res);
-
-    if (!res.ok || !data.ok) {
-      alert(data.error || 'No se pudo eliminar el socio');
-      return;
-    }
-
-    await loadSocios();
-  }
-
-  function exportSocios() {
-    const clubId = getActiveClubId();
-    window.location.href = `/club/${clubId}/socios/export.csv`;
-  }
-
-  // =============================
-  // Events + init
-  // =============================
-  function bindEvents() {
-    $('btnNuevoSocio')?.addEventListener('click', openModalNew);
-    $('btnCancelarSocio')?.addEventListener('click', closeModal);
-    $('btnGuardarSocio')?.addEventListener('click', saveSocio);
-    $('btnBuscarSocios')?.addEventListener('click', loadSocios);
-    $('btnExportSocios')?.addEventListener('click', exportSocios);
-
-    $('sociosSearch')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') loadSocios();
-    });
-
-    $('filtroCategoria')?.addEventListener('change', loadSocios);
-    $('filtroAnio')?.addEventListener('change', loadSocios);
-    $('verInactivos')?.addEventListener('change', loadSocios);
-
-    $('sociosTableBody')?.addEventListener('click', async (ev) => {
-      // click miniatura
-      const img = ev.target.closest('[data-act="viewphoto"]');
-      if (img) {
-        const url = img.dataset.url;
-        if (url) openPhotoViewer(url);
-        return;
-      }
-
-      const btn = ev.target.closest('button');
-      if (!btn) return;
-
-      const act = btn.dataset.act;
-      const id = btn.dataset.id;
-
-      if (act === 'edit') {
-        const socio = sociosCache.find(x => x.id === id);
-        if (socio) openModalEdit(socio);
-      }
-
-      if (act === 'del') {
-        if (confirm('¿Eliminar socio definitivamente?')) {
-          await deleteSocio(id);
-        }
-      }
-
-      if (act === 'photo') {
-        triggerQuickPhotoPick(id);
-      }
-    });
-
-    $('modalSocio')?.addEventListener('click', (ev) => {
-      if (ev.target && ev.target.id === 'modalSocio') closeModal();
-    });
-  }
-
-  async function initSociosSection() {
-    ensurePhotoViewer();
-    ensureDraftPhotoUI();
-    ensureQuickPhotoInput();
-    bindEvents();
-    await loadSocios();
-  }
-
-  window.initSociosSection = initSociosSection;
-
-  document.addEventListener('DOMContentLoaded', () => {
-    if ($('socios-section') && $('sociosTableBody')) {
-      initSociosSection();
-    }
-  });
-})();
+  <!-- Cumples -->
+  <script defer src="/js/cumples.js"></script>
+</body>
+</html>
