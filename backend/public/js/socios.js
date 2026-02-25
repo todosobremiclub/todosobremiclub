@@ -1,14 +1,12 @@
 (() => {
-  // =============================
-  // Helpers base
-  // =============================
   const $ = (id) => document.getElementById(id);
 
+  // ===== Auth + helpers =====
   function getToken() {
     const t = localStorage.getItem('token');
     if (!t) {
       alert('Tu sesión expiró. Iniciá sesión nuevamente.');
-      window.location.href = '/admin.html';function openCarnet(socio) {
+      window.location.href = '/admin.html';
       throw new Error('No token');
     }
     return t;
@@ -46,18 +44,15 @@
     catch { return { ok: false, error: text }; }
   }
 
-  // =============================
-  // Estado
-  // =============================
-  let editingId = null;
-  let sociosCache = [];
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
 
-  // Foto “draft” para alta/edición
-  let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
-
-  // =============================
-  // Util: fecha dd-mm-aaaa
-  // =============================
   function fmtDMY(iso) {
     if (!iso) return '';
     const s = String(iso).slice(0, 10); // YYYY-MM-DD
@@ -66,33 +61,40 @@
     return `${d}-${m}-${y}`;
   }
 
-  // =============================
-  // Estado de pago (regla solicitada)
-  // =============================
+  // ===== Pago status =====
   function getCurrPrevYYYYMM() {
     const now = new Date();
     const y = now.getFullYear();
     const m = now.getMonth() + 1;
-    const curr = y * 100 + m;
+    const curr = y * 100 + m;                  // YYYYMM
     const prev = (m === 1) ? ((y - 1) * 100 + 12) : (y * 100 + (m - 1));
     return { curr, prev };
   }
 
   function pagoEstado(s) {
-    // Becado siempre al día
     if (s.becado) return { ok: true, label: 'Becado' };
 
     const last = s.last_pago_yyyymm ? Number(s.last_pago_yyyymm) : 0;
     const { prev, curr } = getCurrPrevYYYYMM();
 
-    // Verde si pagó mes actual o mes anterior (o algo más nuevo)
-    const ok = last >= prev && last <= (curr + 100); // tolerancia simple si cargan por adelantado
+    // Verde si tiene pago del mes anterior o actual, o si pagó adelantado
+    const ok = last >= prev;
     return ok ? { ok: true, label: 'Al día' } : { ok: false, label: 'Impago' };
   }
 
-  // =============================
-  // Visor de foto (lightbox)
-  // =============================
+  function renderPagoPill(s) {
+    const est = pagoEstado(s);
+    const cls = est.ok ? 'pay-ok' : 'pay-bad';
+    const txt = est.ok ? '🟢' : '🔴';
+    return `<span class="pay-pill ${cls}" title="${escapeHtml(est.label)}">${txt}</span>`;
+  }
+
+  // ===== Estado =====
+  let editingId = null;
+  let sociosCache = [];
+  let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
+
+  // ===== Photo viewer =====
   function ensurePhotoViewer() {
     if (document.getElementById('photoViewerModal')) return;
 
@@ -101,7 +103,7 @@
     modal.style.cssText = `
       position:fixed; inset:0; background:rgba(0,0,0,0.75);
       display:none; align-items:center; justify-content:center;
-      z-index:9999; padding: 18px;
+      z-index:9999; padding:18px;
     `;
 
     modal.innerHTML = `
@@ -139,9 +141,7 @@
     modal.style.display = 'flex';
   }
 
-  // =============================
-  // UI extra en modal socio: elegir foto (solo en edición/alta)
-  // =============================
+  // ===== Draft photo (solo en modal alta/edición) =====
   const draftPhotoInput = document.createElement('input');
   draftPhotoInput.type = 'file';
   draftPhotoInput.accept = 'image/*';
@@ -175,7 +175,8 @@
       </div>
 
       <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
-        <img id="socioFotoDraftPreview" alt="Preview" style="width:70px; height:70px; border-radius:10px; object-fit:cover; display:none; border:1px solid #ddd; background:#fff; cursor:pointer;" />
+        <img id="socioFotoDraftPreview" alt="Preview"
+          style="width:70px; height:70px; border-radius:10px; object-fit:cover; display:none; border:1px solid #ddd; background:#fff; cursor:pointer;" />
         <div class="muted" id="socioFotoDraftMeta" style="font-size:12px;">Sin foto seleccionada.</div>
       </div>
 
@@ -229,6 +230,7 @@
 
   function setDraftPhoto(photo) {
     draftPhoto = photo;
+
     const img = document.getElementById('socioFotoDraftPreview');
     const meta = document.getElementById('socioFotoDraftMeta');
     if (!img || !meta) return;
@@ -252,19 +254,19 @@
       mimetype: photoPayload.mimetype,
       filename: photoPayload.filename || 'socio.jpg'
     };
+
     const res = await fetchAuth(`/club/${clubId}/socios/${socioId}/foto`, {
       method: 'POST',
       body: JSON.stringify(payload),
       json: true
     });
+
     const data = await safeJson(res);
     if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo subir la foto');
     return data;
   }
 
-  // =============================
-  // Modal socio (alta/edición)
-  // =============================
+  // ===== Modal alta/edición =====
   function openModalNew() {
     editingId = null;
     setDraftPhoto(null);
@@ -295,26 +297,73 @@
     $('socioApellido').value = socio.apellido ?? '';
     $('socioCategoria').value = socio.categoria ?? '';
     $('socioTelefono').value = socio.telefono ?? '';
-
     $('socioNacimiento').value = (socio.fecha_nacimiento || '').slice(0, 10);
     $('socioIngreso').value = (socio.fecha_ingreso || '').slice(0, 10);
-
     $('socioActivo').checked = !!socio.activo;
     $('socioBecado').checked = !!socio.becado;
 
     $('modalSocio').classList.remove('hidden');
   }
 
-  function closeModal() {
-    $('modalSocio').classList.add('hidden');
+  function closeModalSocio() {
+    $('modalSocio')?.classList.add('hidden');
   }
 
-  // =============================
-  // Carnet digital (doble click)
-  // =============================
+  // ===== Carnet digital =====
   let carnetSocioId = null;
 
+  function ensureCarnetModal() {
+    if (document.getElementById('modalCarnet')) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'modalCarnet';
+    modal.className = 'modal hidden';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 520px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h3 style="margin:0;">Carnet digital</h3>
+          <button id="btnCarnetClose" class="btn btn-secondary">✕</button>
+        </div>
+
+        <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
+          <img id="carnetFoto" style="width:84px; height:84px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;" alt="Foto"/>
+          <div style="flex:1;">
+            <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
+            <div id="carnetDni" class="muted" style="margin-top:4px;"></div>
+            <div id="carnetCategoria" class="muted" style="margin-top:2px;"></div>
+            <div id="carnetPago" style="margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button id="btnCarnetEdit" class="btn btn-primary">Editar</button>
+          <button id="btnCarnetOk" class="btn btn-secondary">Cerrar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    $('btnCarnetClose').addEventListener('click', closeCarnet);
+    $('btnCarnetOk').addEventListener('click', closeCarnet);
+    $('btnCarnetEdit').addEventListener('click', () => {
+      const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
+      if (socio) {
+        closeCarnet();
+        openModalEdit(socio);
+      }
+    });
+
+    modal.addEventListener('click', (ev) => {
+      if (ev.target && ev.target.id === 'modalCarnet') closeCarnet();
+    });
+
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && !modal.classList.contains('hidden')) closeCarnet();
+    });
+  }
+
   function openCarnet(socio) {
+    ensureCarnetModal();
     carnetSocioId = socio.id;
 
     const foto = socio.foto_url || '/img/user-placeholder.png';
@@ -326,210 +375,285 @@
     $('carnetCategoria').textContent = `Categoría: ${socio.categoria || '—'}`;
 
     const est = pagoEstado(socio);
-    $('carnetPago').innerHTML = `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}function openCarnet(socio) {
-  carnetSocioId = socio.id;
+    $('carnetPago').innerHTML = `
+      <span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${escapeHtml(est.label)}</span>
+    `;
 
-  const foto = socio.foto_url || '/img/user-placeholder.png';
-  $('carnetFoto').src = foto;
-  $('carnetFoto').onerror = function () {
-    this.src = '/img/user-placeholder.png';
-  };
+    $('modalCarnet').classList.remove('hidden');
+  }
 
-  $('carnetNombre').textContent =
-    `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
+  function closeCarnet() {
+    $('modalCarnet')?.classList.add('hidden');
+  }
 
-  $('carnetDni').textContent = `DNI: ${socio.dni || '—'}`;
-  $('carnetCategoria').textContent = `Categoría: ${socio.categoria || '—'}`;
+  // ===== Render tabla =====
+  function renderSocios(socios) {
+    sociosCache = socios || [];
+    const tbody = $('sociosTableBody');
+    if (!tbody) return;
 
-  const est = pagoEstado(socio);
-  $('carnetPago').innerHTML = `
-    <span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">
-      ${est.label}
-    </span>
-  `;
+    tbody.innerHTML = '';
+    let activos = 0;
 
-  $('modalCarnet').classList.remove('hidden');
-}
+    sociosCache.forEach(s => {
+      if (s.activo) activos++;
 
+      const fotoHtml = s.foto_url
+        ? `<img data-act="viewphoto" data-url="${escapeHtml(s.foto_url)}"
+                src="${escapeHtml(s.foto_url)}"
+                style="width:34px; height:34px; border-radius:10px; object-fit:cover; border:1px solid #ddd; background:#fff; cursor:pointer;"
+                onerror="this.src='/img/user-placeholder.png'"/>`
+        : '—';
 
+      const tr = document.createElement('tr');
+      tr.dataset.id = s.id;
 
-# 1) ✅ `public/club.html` (COMPLETO)
+      tr.innerHTML = `
+        <td>${renderPagoPill(s)}</td>
+        <td>${s.numero_socio ?? ''}</td>
+        <td>${escapeHtml(s.dni ?? '')}</td>
+        <td>${escapeHtml(s.nombre ?? '')}</td>
+        <td>${escapeHtml(s.apellido ?? '')}</td>
+        <td>${escapeHtml(s.categoria ?? '')}</td>
+        <td>${escapeHtml(s.telefono ?? '')}</td>
+        <td>${fmtDMY(s.fecha_nacimiento)}</td>
+        <td>${fmtDMY(s.fecha_ingreso)}</td>
+        <td>${s.activo ? 'Sí' : 'No'}</td>
+        <td>${s.becado ? 'Sí' : 'No'}</td>
+        <td>${fotoHtml}</td>
+        <td style="white-space:nowrap;">
+          <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
+          <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
+        </td>
+      `;
 
-Copiá y pegá todo el archivo:
+      tbody.appendChild(tr);
+    });
 
-```html
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Panel del Club</title>
+    const countEl = $('sociosActivosCount');
+    if (countEl) countEl.textContent = `Socios activos: ${activos}`;
+  }
 
-  <style>
-    body { font-family: Arial, sans-serif; margin:0; padding:0; }
+  // ===== Filtros dropdown =====
+  function refreshCategoriaOptions(socios) {
+    const sel = $('filtroCategoria');
+    if (!sel) return;
 
-    .layout { display:flex; min-height: 100vh; }
+    const current = sel.value;
+    const cats = [...new Set((socios || []).map(s => s.categoria).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'es'));
 
-    /* Sidebar más angosto */
-    .sidebar { width: 210px; background:#111827; color:#fff; padding:10px; }
-    .sidebar h3 { margin: 0 0 10px 0; font-size: 15px; }
+    sel.innerHTML = `<option value="">Todas las categorías</option>`;
+    cats.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      sel.appendChild(opt);
+    });
 
-    .navbtn {
-      width:100%;
-      text-align:left;
-      padding:9px 10px;
-      margin:6px 0;
-      border:0;
-      border-radius:8px;
-      cursor:pointer;
-      background:#1f2937;
-      color:#fff;
-      font-size: 14px;
+    if (cats.includes(current)) sel.value = current;
+  }
+
+  function refreshAnioOptions(socios) {
+    const sel = $('filtroAnio');
+    if (!sel) return;
+
+    const current = sel.value;
+    const years = [...new Set((socios || [])
+      .map(s => s.anio_nacimiento || (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0, 4)) : null))
+      .filter(Boolean))]
+      .sort((a, b) => b - a);
+
+    sel.innerHTML = `<option value="">Todos los años</option>`;
+    years.forEach(y => {
+      const opt = document.createElement('option');
+      opt.value = String(y);
+      opt.textContent = String(y);
+      sel.appendChild(opt);
+    });
+
+    if (years.map(String).includes(current)) sel.value = current;
+  }
+
+  // ===== API =====
+  function buildQueryParams() {
+    const q = new URLSearchParams();
+    const search = $('sociosSearch')?.value?.trim();
+    const categoria = $('filtroCategoria')?.value;
+    const anio = $('filtroAnio')?.value;
+    const verInactivos = $('verInactivos')?.checked;
+
+    if (search) q.set('search', search);
+    if (categoria) q.set('categoria', categoria);
+    if (anio) q.set('anio', anio);
+    if (!verInactivos) q.set('activo', '1');
+
+    return q.toString();
+  }
+
+  async function loadSocios() {
+    const clubId = getActiveClubId();
+    const qs = buildQueryParams();
+
+    const res = await fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`);
+    const data = await safeJson(res);
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error cargando socios');
+      return;
     }
-    .navbtn:hover { background:#374151; }
 
-    .content { flex:1; padding: 12px; }
+    refreshCategoriaOptions(data.socios || []);
+    refreshAnioOptions(data.socios || []);
+    renderSocios(data.socios || []);
+  }
 
-    /* Header más chico + fondo más visible */
-    .topbar {
-      display:flex;
-      justify-content: space-between;
-      align-items:center;
-      gap: 12px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      background: linear-gradient(90deg, rgba(17,24,39,0.90), rgba(31,41,55,0.75));
-      border: 1px solid rgba(255,255,255,0.15);
-      color: #fff;
-    }
-    .topbar h2 { margin:0; font-size: 18px; letter-spacing: 0.2px; }
-    .muted { color: rgba(255,255,255,0.85); font-size: 0.92rem; }
+  async function saveSocio() {
+    const clubId = getActiveClubId();
 
-    /* Logo completo (contain) manteniendo tamaño */
-    .logo {
-      height: 48px;
-      width: 48px;
-      object-fit: contain;
-      border-radius: 10px;
-      border:1px solid rgba(255,255,255,0.25);
-      background: rgba(255,255,255,0.95);
-      padding: 2px;
-      box-sizing: border-box;
+    const numeroRaw = $('socioNumero').value.trim();
+    const payload = {
+      numero_socio: numeroRaw ? Number(numeroRaw) : null,
+      dni: $('socioDni').value.trim(),
+      nombre: $('socioNombre').value.trim(),
+      apellido: $('socioApellido').value.trim(),
+      categoria: $('socioCategoria').value.trim(),
+      telefono: $('socioTelefono').value.trim() || null,
+      fecha_nacimiento: $('socioNacimiento').value,
+      fecha_ingreso: $('socioIngreso').value || null,
+      activo: $('socioActivo').checked,
+      becado: $('socioBecado').checked
+    };
+
+    if (!payload.dni || !payload.nombre || !payload.apellido || !payload.categoria || !payload.fecha_nacimiento) {
+      alert('Completá DNI, Nombre, Apellido, Categoría y Fecha de nacimiento.');
+      return;
     }
 
-    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(238,238,255,0.95); color:#111827; font-size: 12px; }
+    const creating = !editingId;
+    const url = creating ? `/club/${clubId}/socios` : `/club/${clubId}/socios/${editingId}`;
+    const method = creating ? 'POST' : 'PUT';
 
-    .card {
-      border:1px solid #ddd;
-      border-radius:12px;
-      padding:12px;
-      margin-top:12px;
-      max-width: 1200px;
-      background: rgba(255,255,255,0.90);
+    const btnSave = $('btnGuardarSocio');
+    if (btnSave) btnSave.disabled = true;
+
+    try {
+      const res = await fetchAuth(url, { method, body: JSON.stringify(payload), json: true });
+      const data = await safeJson(res);
+
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'No se pudo guardar el socio');
+        return;
+      }
+
+      const socioId = creating ? (data.socio?.id || data.id) : editingId;
+      if (draftPhoto && socioId) {
+        await uploadSocioFotoById(socioId, draftPhoto);
+      }
+
+      setDraftPhoto(null);
+      closeModalSocio();
+      await loadSocios();
+      alert(creating ? '✅ Socio creado' : '✅ Socio actualizado');
+    } catch (e) {
+      console.error(e);
+      alert(e.message || 'Error guardando socio');
+    } finally {
+      if (btnSave) btnSave.disabled = false;
     }
+  }
 
-    .row { display:flex; gap: 12px; flex-wrap: wrap; align-items:flex-end; }
+  async function deleteSocio(id) {
+    const clubId = getActiveClubId();
+    const res = await fetchAuth(`/club/${clubId}/socios/${id}`, { method: 'DELETE' });
+    const data = await safeJson(res);
 
-    label { display:block; font-size: 0.9rem; color:#444; margin-bottom:6px; }
-    select, button, input { padding: 8px; }
-
-    .section-header { display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    .filters { display:flex; flex-wrap:wrap; gap:10px; margin: 10px 0; }
-
-    .table-wrapper { overflow:auto; border:1px solid #ddd; border-radius:10px; background:#fff; }
-    table { width:100%; border-collapse:collapse; }
-    th, td { border-bottom:1px solid #eee; padding:8px; font-size: 14px; }
-    th { background:#f7f7f7; text-align:left; white-space:nowrap; }
-    td { white-space: nowrap; } /* filas en una línea */
-
-    .modal.hidden { display:none; }
-    .modal { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:999; }
-    .modal-content { width:min(780px, 92vw); background:#fff; border-radius:12px; padding:16px; }
-    .form-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:12px; }
-
-    @media (max-width: 720px) {
-      .form-grid { grid-template-columns: 1fr; }
-      .sidebar { width: 180px; }
-      .content { padding: 10px; }
-      .topbar { padding: 10px; }
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'No se pudo eliminar el socio');
+      return;
     }
-  </style>
+    await loadSocios();
+  }
 
-  <!-- FullCalendar (bundle global) -->
-  <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-</head>
+  function exportSocios() {
+    const clubId = getActiveClubId();
+    window.location.href = `/club/${clubId}/socios/export.csv`;
+  }
 
-<body>
+  // ===== Bind events =====
+  function bindOnce() {
+    const root = $('socios-section') || document.querySelector('#socios-section');
+    if (!root) return;
+    if (root.dataset.bound === '1') return;
+    root.dataset.bound = '1';
 
-  <div class="layout">
-    <aside class="sidebar">
-      <h3>☰ Menú</h3>
-      <button class="navbtn" data-section="socios">👤 Socios</button>
-      <button class="navbtn" data-section="pagos">💰 Pagos</button>
-      <button class="navbtn" data-section="gastos">🧾 Gastos</button>
-      <button class="navbtn" data-section="noticias">📣 Noticias</button>
-      <button class="navbtn" data-section="cumples">🎂 Cumpleaños</button>
-      <button class="navbtn" data-section="configuracion">⚙️ Configuración</button>
-      <hr style="border-color:#374151;">
-      <button class="navbtn" onclick="logout()">Cerrar sesión</button>
-    </aside>
+    ensurePhotoViewer();
+    ensureDraftPhotoUI();
 
-    <main class="content">
+    $('btnNuevoSocio')?.addEventListener('click', openModalNew);
+    $('btnCancelarSocio')?.addEventListener('click', closeModalSocio);
+    $('btnGuardarSocio')?.addEventListener('click', saveSocio);
 
-      <!-- Header -->
-      <div class="topbar">
-        <div>
-          <h2 id="clubTitle">—</h2>
-          <div class="muted" id="meLabel"></div>
-        </div>
+    $('btnBuscarSocios')?.addEventListener('click', loadSocios);
+    $('btnExportSocios')?.addEventListener('click', exportSocios);
 
-        <div class="row" style="gap:10px; align-items:center;">
-          <img id="clubLogo" class="logo" alt="Logo club" />
-          <span class="badge" id="roleBadge">Rol: —</span>
-        </div>
-      </div>
+    $('sociosSearch')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loadSocios();
+    });
 
-      <div class="card">
-        <div class="row" style="align-items:flex-end;">
-          <div style="min-width:260px;">
-            <label>Seleccionar club (si tenés más de uno)</label>
-            <select id="clubSelect"></select>
-            <div class="muted" style="margin-top:6px; color:#374151;">
-              Cambia automáticamente al seleccionar.
-            </div>
-          </div>
+    $('filtroCategoria')?.addEventListener('change', loadSocios);
+    $('filtroAnio')?.addEventListener('change', loadSocios);
+    $('verInactivos')?.addEventListener('change', loadSocios);
 
-          <div class="muted" id="clubInfo" style="color:#111827;"></div>
-        </div>
+    // Click en tabla: foto / edit / delete
+    $('sociosTableBody')?.addEventListener('click', async (ev) => {
+      const img = ev.target.closest('[data-act="viewphoto"]');
+      if (img) {
+        const url = img.dataset.url;
+        if (url) openPhotoViewer(url);
+        return;
+      }
 
-        <div id="msgBox" class="msg"></div>
-      </div>
+      const btn = ev.target.closest('button[data-act]');
+      if (!btn) return;
 
-      <!-- CONTENEDOR DE SECCIONES -->
-      <div class="card" id="sectionContainer">
-        <div class="muted" style="color:#111827;">Elegí una sección del menú.</div>
-      </div>
+      const act = btn.dataset.act;
+      const id = btn.dataset.id;
 
-    </main>
-  </div>
+      if (act === 'edit') {
+        const socio = sociosCache.find(x => String(x.id) === String(id));
+        if (socio) openModalEdit(socio);
+      }
 
-  <script>
-    function logout() {
-      localStorage.removeItem('token');
-      localStorage.removeItem('activeClubId');
-      window.location.href = '/admin.html';
-    }
-  </script>
+      if (act === 'del') {
+        if (confirm('¿Eliminar socio definitivamente?')) {
+          await deleteSocio(id);
+        }
+      }
+    });
 
-  <!-- Scripts principales -->
-  <script src="/js/club.js"></script>
-  <script src="/js/socios.js"></script>
-  <script src="/js/configuracion.js"></script>
-  <script src="/js/gastos.js"></script>
-  <script src="/js/pagos.js"></script>
+    // Doble click: carnet digital
+    $('sociosTableBody')?.addEventListener('dblclick', (ev) => {
+      const tr = ev.target.closest('tr');
+      if (!tr || !tr.dataset.id) return;
+      const socio = sociosCache.find(x => String(x.id) === String(tr.dataset.id));
+      if (socio) openCarnet(socio);
+    });
 
-  <!-- Cumples -->
-  <script defer src="/js/cumples.js"></script>
-</body>
-</html>
+    // Cerrar modal clic afuera
+    $('modalSocio')?.addEventListener('click', (ev) => {
+      if (ev.target && ev.target.id === 'modalSocio') closeModalSocio();
+    });
+  }
+
+  async function initSociosSection() {
+    bindOnce();
+    await loadSocios();
+  }
+
+  window.initSociosSection = initSociosSection;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if ($('sociosTableBody')) initSociosSection();
+  });
+})();
