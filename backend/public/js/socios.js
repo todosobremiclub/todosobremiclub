@@ -72,15 +72,16 @@
   }
 
   function pagoEstado(s) {
-    if (s.becado) return { ok: true, label: 'Becado' };
-
-    const last = s.last_pago_yyyymm ? Number(s.last_pago_yyyymm) : 0;
-    const { prev, curr } = getCurrPrevYYYYMM();
-
-    // Verde si tiene pago del mes anterior o actual, o si pagó adelantado
-    const ok = last >= prev;
-    return ok ? { ok: true, label: 'Al día' } : { ok: false, label: 'Impago' };
+  if (s.becado) {
+    return { ok: true, label: 'Becado' };
   }
+
+  if (s.pago_al_dia === true) {
+    return { ok: true, label: 'Al día' };
+  }
+
+  return { ok: false, label: 'Impago' };
+}
 
   function renderPagoPill(s) {
     const est = pagoEstado(s);
