@@ -8,15 +8,23 @@
     box.textContent = text;
   }
 
-  function getTokenOrRedirect() {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('Sesión expirada');
-      window.location.href = '/admin.html';
-      throw new Error('Sin token');
-    }
-    return token;
+ function getTokenOrRedirect() { return null; } // cookie session
+
+async function fetchAuthClubs(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    credentials: 'include'
+  });
+
+  if (res.status === 401) {
+    alert('Sesión inválida o expirada.');
+    window.location.href = '/admin.html';
+    throw new Error('401');
   }
+
+  return res;
+}
+
 
   // ✅ Fetch auth SOLO para CLUBS (no pisa nada global)
   async function fetchAuthClubs(url, options = {}) {

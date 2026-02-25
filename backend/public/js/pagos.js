@@ -10,15 +10,35 @@
   /* =============================
    * Helpers auth / club
    * ============================= */
-  function getToken() {
-    const t = localStorage.getItem('token');
-    if (!t) {
-      alert('Sesión expirada');
-      window.location.href = '/admin.html';
-      throw new Error('No token');
-    }
-    return t;
+  function getToken() { return null; } // cookie session
+
+async function fetchAuth(url, options = {}) {
+  const headers = options.headers || {};
+  if (options.json) headers['Content-Type'] = 'application/json';
+
+  const { json, ...rest } = options;
+
+  const res = await fetch(url, {
+    ...rest,
+    headers,
+    credentials: 'include'
+  });
+
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch { data = { ok: false, error: text }; }
+
+  if (res.status === 401) {
+    localStorage.removeItem('activeClubId');
+    alert('Sesión inválida o expirada.');
+    window.location.href = '/admin.html';
+    throw new Error('401');
   }
+
+  return { res, data };
+}
+
 
   function getActiveClubId() {
     const c = localStorage.getItem('activeClubId');

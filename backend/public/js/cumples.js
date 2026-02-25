@@ -2,14 +2,19 @@
 
   const $ = id => document.getElementById(id);
 
-  function getToken() {
-    const t = localStorage.getItem('token');
-    if (!t) {
-      alert('Sesión expirada');
-      window.location = '/admin.html';
-    }
-    return t;
+  function getToken() { return null; } // cookie session
+
+async function fetchAuth(url) {
+  const res = await fetch(url, { credentials: 'include' });
+  if (res.status === 401) {
+    localStorage.removeItem('activeClubId');
+    alert('Sesión inválida o expirada.');
+    window.location.href = '/admin.html';
+    throw new Error('401');
   }
+  return res.json();
+}
+
 
   function getActiveClubId() {
     const c = localStorage.getItem('activeClubId');

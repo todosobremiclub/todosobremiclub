@@ -1,22 +1,18 @@
 (async function init() {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    alert('Tu sesión expiró. Iniciá sesión nuevamente.');
-    window.location.href = '/admin.html';
-    return;
-  }
-
+  // ✅ Sesión por cookie: validamos con /auth/me
   async function fetchMe() {
-    const res = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+    const res = await fetch('/auth/me', { credentials: 'include' });
+    if (res.status === 401) throw new Error('No autorizado');
     if (!res.ok) throw new Error('No autorizado');
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!data.ok) throw new Error(data.error || 'No autorizado');
     return data.user;
   }
 
   async function fetchClubInfo(clubId) {
-    const res = await fetch(`/club/${clubId}`, { headers: { 'Authorization': 'Bearer ' + token } });
-    const data = await res.json();
+    const res = await fetch(`/club/${clubId}`, { credentials: 'include' });
+    if (res.status === 401) throw new Error('No autorizado');
+    const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando club');
     return data.club;
   }
@@ -37,7 +33,7 @@
     }
   }
 
-  async function applySelected(roles) {
+  async function applySelected(roles, user) {
     const sel = document.getElementById('clubSelect');
     const clubId = sel.value;
     const match = roles.find(r => String(r.club_id) === String(clubId));
@@ -55,7 +51,8 @@
     if (titleEl) titleEl.textContent = club.name || 'Panel del Club';
     document.title = club.name ? `Club • ${club.name}` : 'Panel del Club';
 
-    document.getElementById('clubInfo').innerHTML = `${club.name}<br>${club.city || ''} ${club.province || ''}`;
+    document.getElementById('clubInfo').innerHTML = `${club.name}
+${club.city || ''} ${club.province || ''}`;
 
     const logo = document.getElementById('clubLogo');
     if (club.logo_url) logo.src = club.logo_url;
@@ -71,6 +68,7 @@
       document.body.style.backgroundImage = 'none';
     }
 
+    // recargar la sección actual si existía
     if (window.currentSection) {
       loadSection(window.currentSection);
     }
@@ -88,7 +86,8 @@
     try {
       window.currentSection = sectionName;
 
-      const res = await fetch(`/sections/${sectionName}.html`);
+      const res = await fetch(`/sections/${sectionName}.html`, { credentials: 'include' });
+      if (res.status === 401) throw new Error('No autorizado');
       if (!res.ok) throw new Error('No se pudo cargar la sección');
 
       const html = await res.text();
@@ -99,8 +98,14 @@
       if (sectionName === 'gastos' && window.initGastosSection) await window.initGastosSection();
       if (sectionName === 'cumples' && window.initCumplesSection) await window.initCumplesSection();
       if (sectionName === 'pagos' && window.initPagosSection) await window.initPagosSection();
+
     } catch (e) {
       container.innerHTML = `\nError: ${e.message}\n`;
+      if (String(e.message).toLowerCase().includes('no autorizado')) {
+        alert('Sesión inválida o expirada.');
+        localStorage.removeItem('activeClubId');
+        window.location.href = '/admin.html';
+      }
     }
   }
 
@@ -108,7 +113,6 @@
   // INIT GENERAL
   // ===============================
   let user;
-
   try {
     user = await fetchMe();
 
@@ -127,19 +131,19 @@
     fillSelect(user.roles);
 
     // ✅ Aplica automáticamente al cambiar el select
-    document.getElementById('clubSelect').addEventListener('change', () => applySelected(user.roles));
+    document.getElementById('clubSelect').addEventListener('change', () => applySelected(user.roles, user));
 
     // Aplica el club seleccionado por defecto
-    await applySelected(user.roles);
+    await applySelected(user.roles, user);
 
     document.querySelectorAll('[data-section]').forEach(btn => {
       btn.addEventListener('click', () => loadSection(btn.dataset.section));
     });
 
     loadSection('socios');
+
   } catch (e) {
     console.error(e);
-    localStorage.removeItem('token');
     localStorage.removeItem('activeClubId');
     alert('Sesión inválida o expirada.');
     window.location.href = '/admin.html';
