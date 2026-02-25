@@ -26,19 +26,21 @@ router.get('/:clubId/cumples', requireAuth, requireClubAccess, async (req, res) 
     const inicio = `${mes}-01`;
 
     const r = await db.query(`
-      SELECT
-        id,
-        nombre,
-        apellido,
-        categoria,
-        fecha_nacimiento,
-        EXTRACT(MONTH FROM fecha_nacimiento) AS mes_nac,
-        EXTRACT(DAY FROM fecha_nacimiento) AS dia_nac,
-        DATE_PART('year', AGE(fecha_nacimiento))::int AS edad
-      FROM socios
-      WHERE club_id = $1 AND activo = true
-      ORDER BY fecha_nacimiento
-    `, [clubId]);
+ SELECT
+ id,
+ nombre,
+ apellido,
+ categoria,
+ foto_url,
+ fecha_nacimiento,
+ EXTRACT(MONTH FROM fecha_nacimiento) AS mes_nac,
+ EXTRACT(DAY FROM fecha_nacimiento) AS dia_nac,
+ DATE_PART('year', AGE(fecha_nacimiento))::int AS edad
+ FROM socios
+ WHERE club_id = $1 AND activo = true
+ ORDER BY fecha_nacimiento
+`, [clubId]);
+
 
     const hoy = new Date();
     const hoyMes = hoy.getMonth() + 1;
