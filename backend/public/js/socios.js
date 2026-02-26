@@ -318,13 +318,13 @@
   }
 
   // =============================
-  // Carnet digital (doble click)
-  // =============================
-  let carnetSocioId = null;
+// Carnet digital (doble click)
+// =============================
+let carnetSocioId = null;
 
-  function ensureCarnetModal() {
+function ensureCarnetModal() {
   let modal = document.getElementById('modalCarnet');
-  if (modal) return;
+  if (modal) return modal;
 
   modal = document.createElement('div');
   modal.id = 'modalCarnet';
@@ -363,15 +363,17 @@
 
   document.body.appendChild(modal);
 
-  // ✅ Delegación de eventos: no dependemos de IDs globales
+  // Delegación: click en botones / click fuera / escape
   modal.addEventListener('click', (ev) => {
     const btn = ev.target.closest('button[data-act]');
     if (btn) {
       const act = btn.dataset.act;
+
       if (act === 'close') {
         closeCarnet();
         return;
       }
+
       if (act === 'edit') {
         const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
         if (socio) {
@@ -382,14 +384,46 @@
       }
     }
 
-    // click fuera del contenido => cerrar
     if (ev.target === modal) closeCarnet();
   });
 
-  // Escape => cerrar
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && !modal.classList.contains('hidden')) closeCarnet();
   });
+
+  return modal;
+}
+
+function openCarnet(socio) {
+  const modal = ensureCarnetModal();
+  carnetSocioId = socio.id;
+
+  // Rellenar campos usando el modal (robusto)
+  const foto = socio.foto_url || '/img/user-placeholder.png';
+  const img = modal.querySelector('#carnetFoto');
+  img.src = foto;
+  img.onerror = function () { this.src = '/img/user-placeholder.png'; };
+
+  modal.querySelector('#carnetNombre').textContent =
+    `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
+
+  modal.querySelector('#carnetDni').textContent = `DNI: ${socio.dni || '—'}`;
+  modal.querySelector('#carnetCategoria').textContent = `Categoría: ${socio.categoria || '—'}`;
+
+  const est = pagoEstado(socio);
+  modal.querySelector('#carnetPago').innerHTML =
+    `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${escapeHtml(est.label)}</span>`;
+
+  modal.querySelector('#carnetExtra').innerHTML = `
+    <div><b>N° Socio:</b> ${escapeHtml(socio.numero_socio ?? '—')}</div>
+    <div><b>Teléfono:</b> ${escapeHtml(socio.telefono ?? '—')}</div>
+    <div><b>Nacimiento:</b> ${escapeHtml(fmtDMY(socio.fecha_nacimiento))}</div>
+    <div><b>Ingreso:</b> ${escapeHtml(fmtDMY(socio.fecha_ingreso))}</div>
+    <div><b>Activo:</b> ${socio.activo ? 'Sí' : 'No'}</div>
+    <div><b>Becado:</b> ${socio.becado ? 'Sí' : 'No'}</div>
+  `;
+
+  modal.classList.remove('hidden');
 }
 
 function closeCarnet() {
@@ -692,12 +726,13 @@ function closeCarnet() {
       }
     });
 
-    $('sociosTableBody')?.addEventListener('dblclick', (ev) => {
-      const tr = ev.target.closest('tr');
-      if (!tr || !tr.dataset.id) return;
-      const socio = sociosCache.find(x => String(x.id) === String(tr.dataset.id));
-      if (socio) openCarnet(socio);
-    });
+    root.addEventListener('dblclick', (ev) => {
+  const tr = ev.target.closest('#sociosTableBody tr');
+  if (!tr || !tr.dataset.id) return;
+
+  const socio = sociosCache.find(x => String(x.id) === String(tr.dataset.id));
+  if (socio) openCarnet(socio);
+});
 
     $('modalSocio')?.addEventListener('click', (ev) => {
       if (ev.target && ev.target.id === 'modalSocio') closeModalSocio();
