@@ -8,15 +8,24 @@
   <style>
     body { font-family: Arial, sans-serif; margin:0; padding:0; }
 
-    /* ✅ Layout ahora vertical (sin sidebar) */
+    /* =========================
+       LAYOUT
+       ========================= */
     .layout {
       display:flex;
       flex-direction: column;
       min-height: 100vh;
     }
 
+    .content {
+      width: 100%;
+      max-width: 1600px;   /* ✅ aprovecha pantallas grandes */
+      margin: 0 auto;
+      padding: 14px;
+    }
+
     /* =========================
-       BOTONES DE NAVEGACIÓN
+       BOTONES
        ========================= */
     .navbtn {
       text-align:left;
@@ -31,7 +40,6 @@
     }
     .navbtn:hover { background:#374151; }
 
-    /* Variante horizontal (menú superior) */
     .navbtn--top {
       width:auto;
       margin:0;
@@ -47,16 +55,13 @@
     }
 
     /* =========================
-       CONTENIDO
+       HEADER
        ========================= */
-    .content { padding: 14px; }
-
-    /* ✅ Header */
     .topbar {
       display:flex;
-      justify-content: space-between;
+      justify-content:space-between;
       align-items:center;
-      gap: 12px;
+      gap:16px;
       padding: 10px 14px;
       border-radius: 12px;
       background: rgba(17,24,39,0.80);
@@ -64,19 +69,12 @@
       backdrop-filter: blur(4px);
     }
 
-    .topbar h2 {
-      margin:0;
-      color:#fff;
-      font-size:18px;
-      line-height:1.2;
+    .topbar-left {
+      display:flex;
+      align-items:center;
+      gap:12px;
     }
 
-    .topbar .muted {
-      color: rgba(255,255,255,0.85);
-      font-size: 13px;
-    }
-
-    /* ✅ Logo */
     .logo {
       height: 52px;
       width: 52px;
@@ -86,6 +84,35 @@
       background: rgba(255,255,255,0.95);
       padding: 2px;
       box-sizing: border-box;
+    }
+
+    .topbar-titles {
+      display:flex;
+      flex-direction:column;
+      line-height:1.15;
+    }
+
+    .club-name {
+      font-size:18px;
+      font-weight:700;
+      color:#fff;
+    }
+
+    .club-user {
+      font-size:13px;
+      color:rgba(255,255,255,0.85);
+    }
+
+    .topbar-right {
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .club-select {
+      padding:4px 6px;
+      font-size:12px;
+      border-radius:6px;
     }
 
     .badge {
@@ -103,6 +130,7 @@
     .topnav {
       display:flex;
       align-items:center;
+      justify-content:center;   /* ✅ secciones centradas */
       gap:8px;
       padding:10px 12px;
       margin-top:10px;
@@ -124,7 +152,7 @@
       border-radius:10px;
       padding:14px;
       margin-top:12px;
-      max-width: 1200px;
+      max-width: 100%;
       background: rgba(255,255,255,0.92);
     }
 
@@ -152,6 +180,7 @@
       border:1px solid #ddd;
       border-radius:10px;
       background:#fff;
+      max-width:100%;
     }
 
     table { width:100%; border-collapse:collapse; }
@@ -199,6 +228,13 @@
 
     @media (max-width: 720px) {
       .form-grid { grid-template-columns: 1fr; }
+      .topbar {
+        flex-direction: column;
+        align-items:flex-start;
+      }
+      .topbar-right {
+        align-self: flex-end;
+      }
     }
   </style>
 
@@ -208,30 +244,25 @@
 
 <body>
   <div class="layout">
-
     <main class="content">
 
       <!-- ✅ HEADER -->
       <div class="topbar">
-        <div>
-          <h2 id="clubTitle">Panel del Club</h2>
-          <div class="muted" id="meLabel"></div>
+        <div class="topbar-left">
+          <img id="clubLogo" class="logo" alt="Logo club" />
+          <div class="topbar-titles">
+            <div class="club-name" id="clubTitle">Panel del Club</div>
+            <div class="club-user" id="meLabel"></div>
+          </div>
         </div>
 
-        <div class="row">
-          <img id="clubLogo" class="logo" alt="Logo club" />
-
-          <div style="display:flex; flex-direction:column; gap:4px;">
-            <select id="clubSelect"
-                    style="padding:4px 6px; font-size:12px; border-radius:6px;">
-            </select>
-
-            <span class="badge" id="roleBadge">Rol: —</span>
-          </div>
+        <div class="topbar-right">
+          <select id="clubSelect" class="club-select"></select>
+          <span class="badge" id="roleBadge">Rol: —</span>
         </div>
       </div>
 
-      <!-- ✅ MENÚ SUPERIOR -->
+      <!-- ✅ MENÚ -->
       <nav class="topnav" aria-label="Menú principal">
         <button class="navbtn navbtn--top" data-section="socios">👤 Socios</button>
         <button class="navbtn navbtn--top" data-section="pagos">💰 Pagos</button>
@@ -245,7 +276,7 @@
         <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
       </nav>
 
-      <!-- ✅ CONTENEDOR DE SECCIONES -->
+      <!-- ✅ CONTENIDO -->
       <div class="card" id="sectionContainer">
         <div class="muted">Elegí una sección del menú.</div>
       </div>
