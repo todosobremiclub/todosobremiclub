@@ -633,15 +633,16 @@ function bindSorting() {
   const totalItems = ordered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   currentPage = clampPage(currentPage, totalPages);
-  const start = (currentPage - 1) * pageSize;
-  const pageRows = ordered.slice(start, start + pageSize);
+
+  const startIdx = (currentPage - 1) * pageSize;
+  const pageRows = ordered.slice(startIdx, startIdx + pageSize);
+
+  // ✅ contador activos (sobre el total filtrado/ordenado, no solo la página)
+  const activos = ordered.filter(s => s.activo).length;
 
   tbody.innerHTML = '';
-  const activos = ordered.filter(s => s.activo).length;
-pageRows.forEach(...)
 
-    if (s.activo) activos++;
-
+  pageRows.forEach(s => {
     const fotoUrl = s.foto_url || '/img/user-placeholder.png';
     const fotoHtml = `
       <img
@@ -683,10 +684,7 @@ pageRows.forEach(...)
   const countEl = $('sociosActivosCount');
   if (countEl) countEl.textContent = `Socios activos: ${activos}`;
 
-  // ✅ paginador abajo
   renderPagination(totalItems);
-
-  // ✅ pintar flechas en headers
   updateSortIndicators();
 }
 
