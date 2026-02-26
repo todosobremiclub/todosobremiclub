@@ -30,7 +30,6 @@
     if (options.json) headers['Content-Type'] = 'application/json';
 
     const { json, ...rest } = options;
-
     const res = await fetch(url, { ...rest, headers });
 
     if (res.status === 401) {
@@ -50,6 +49,7 @@
     catch { return { ok: false, error: text }; }
   }
 
+  // ✅ FIX: escapeHtml correcto (tu versión estaba doble-escapando por entidades HTML)
   function escapeHtml(str) {
     return String(str ?? '')
       .replaceAll('&', '&amp;')
@@ -96,54 +96,54 @@
   let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
 
   // =============================
-// Photo viewer
-// =============================
-function ensurePhotoViewer() {
-  if (document.getElementById('photoViewerModal')) return;
+  // Photo viewer
+  // =============================
+  function ensurePhotoViewer() {
+    if (document.getElementById('photoViewerModal')) return;
 
-  const modal = document.createElement('div');
-  modal.id = 'photoViewerModal';
-  modal.style.cssText = `
-    position:fixed; inset:0; background:rgba(0,0,0,0.75);
-    display:none; align-items:center; justify-content:center;
-    z-index:9999; padding:18px;
-  `;
+    const modal = document.createElement('div');
+    modal.id = 'photoViewerModal';
+    modal.style.cssText = `
+      position:fixed; inset:0; background:rgba(0,0,0,0.75);
+      display:none; align-items:center; justify-content:center;
+      z-index:9999; padding:18px;
+    `;
 
-  modal.innerHTML = `
-    <div style="background:#111827; color:#fff; padding:10px 12px; border-radius:10px; max-width:92vw;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-        <strong>Foto socio</strong>
-        <button id="photoViewerClose" style="border:0; border-radius:8px; padding:6px 10px; cursor:pointer;">✕ Cerrar</button>
+    modal.innerHTML = `
+      <div style="background:#111827; color:#fff; padding:10px 12px; border-radius:10px; max-width:92vw;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <strong>Foto socio</strong>
+          <button id="photoViewerClose" style="border:0; border-radius:8px; padding:6px 10px; cursor:pointer;">✕ Cerrar</button>
+        </div>
+        <div style="margin-top:10px; display:flex; justify-content:center;">
+          <img id="photoViewerImg" style="max-width:86vw; max-height:78vh; border-radius:10px; background:#fff;" alt="Foto"/>
+        </div>
       </div>
-      <div style="margin-top:10px; display:flex; justify-content:center;">
-        <img id="photoViewerImg" style="max-width:86vw; max-height:78vh; border-radius:10px; background:#fff;" alt="Foto"/>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
+    `;
+    document.body.appendChild(modal);
 
-  const close = () => {
-    modal.style.display = 'none';
+    const close = () => {
+      modal.style.display = 'none';
+      const img = document.getElementById('photoViewerImg');
+      if (img) img.src = '';
+    };
+
+    modal.addEventListener('click', (ev) => { if (ev.target === modal) close(); });
+    modal.querySelector('#photoViewerClose').addEventListener('click', close);
+
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && modal.style.display === 'flex') close();
+    });
+  }
+
+  function openPhotoViewer(url) {
+    ensurePhotoViewer();
+    const modal = document.getElementById('photoViewerModal');
     const img = document.getElementById('photoViewerImg');
-    if (img) img.src = '';
-  };
-
-  modal.addEventListener('click', (ev) => { if (ev.target === modal) close(); });
-  modal.querySelector('#photoViewerClose').addEventListener('click', close);
-
-  document.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape' && modal.style.display === 'flex') close();
-  });
-}
-
-function openPhotoViewer(url) {
-  ensurePhotoViewer();
-  const modal = document.getElementById('photoViewerModal');
-  const img = document.getElementById('photoViewerImg');
-  if (!modal || !img) return;
-  img.src = url;
-  modal.style.display = 'flex';
-}
+    if (!modal || !img) return;
+    img.src = url;
+    modal.style.display = 'flex';
+  }
 
   // =============================
   // Draft photo UI (solo modal socio)
@@ -318,115 +318,162 @@ function openPhotoViewer(url) {
   }
 
   // =============================
-// Carnet digital (doble click)
-// =============================
-let carnetSocioId = null;
+  // Carnet digital (doble click)
+  // =============================
+  let carnetSocioId = null;
 
-function ensureCarnetModal() {
-  let modal = document.getElementById('modalCarnet');
+  function ensureCarnetModal() {
+    let modal = document.getElementById('modalCarnet');
 
-  // Si NO existe, lo creamos como ya hacías
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'modalCarnet';
-    modal.className = 'modal hidden';
+    // Si NO existe, lo creamos
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modalCarnet';
+      modal.className = 'modal hidden';
 
-    // 🔒 Forzar capa y clicks (evita CSS que bloquee interacción)
-    modal.style.position = 'fixed';
-    modal.style.inset = '0';
-    modal.style.background = 'rgba(0,0,0,0.55)';
-    modal.style.zIndex = '20000';
-    modal.style.alignItems = 'center';
-    modal.style.justifyContent = 'center';
-    modal.style.padding = '18px';
-    modal.style.pointerEvents = 'auto';
-    modal.style.display = 'none';
+      // 🔒 Forzar capa y clicks
+      modal.style.position = 'fixed';
+      modal.style.inset = '0';
+      modal.style.background = 'rgba(0,0,0,0.55)';
+      modal.style.zIndex = '20000';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.style.padding = '18px';
+      modal.style.pointerEvents = 'auto';
+      modal.style.display = 'none';
 
-    modal.innerHTML = `
-      <div class="modal-content" style="max-width: 560px; pointer-events:auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-          <h3 style="margin:0;">Carnet digital</h3>
-          <button type="button" data-act="close" class="btn btn-secondary">✕</button>
-        </div>
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width: 560px; pointer-events:auto;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <h3 style="margin:0;">Carnet digital</h3>
+            <button type="button" data-act="close" class="btn btn-secondary">✕</button>
+          </div>
 
-        <div style="display:flex; gap:12px; align-items:flex-start; margin-top:12px;">
-          <img id="carnetFoto"
-            style="width:90px; height:90px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;"
-            alt="Foto"/>
-          <div style="flex:1;">
-            <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
-            <div id="carnetDni" class="muted" style="margin-top:4px;"></div>
-            <div id="carnetCategoria" class="muted" style="margin-top:2px;"></div>
-            <div id="carnetPago" style="margin-top:8px;"></div>
+          <div style="display:flex; gap:12px; align-items:flex-start; margin-top:12px;">
+            <img id="carnetFoto"
+              style="width:90px; height:90px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;"
+              alt="Foto"/>
+            <div style="flex:1;">
+              <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
+              <div id="carnetDni" class="muted" style="margin-top:4px;"></div>
+              <div id="carnetCategoria" class="muted" style="margin-top:2px;"></div>
+              <div id="carnetPago" style="margin-top:8px;"></div>
+            </div>
+          </div>
+
+          <div id="carnetExtra" class="muted" style="margin-top:10px; font-size:13px; line-height:1.35;"></div>
+
+          <div class="modal-actions">
+            <button type="button" data-act="edit" class="btn btn-primary">Editar</button>
+            <button type="button" data-act="close" class="btn btn-secondary">Cerrar</button>
           </div>
         </div>
+      `;
 
-        <div id="carnetExtra" class="muted" style="margin-top:10px; font-size:13px; line-height:1.35;"></div>
+      document.body.appendChild(modal);
+    }
 
-        <div class="modal-actions">
-          <button type="button" data-act="edit" class="btn btn-primary">Editar</button>
-          <button type="button" data-act="close" class="btn btn-secondary">Cerrar</button>
-        </div>
-      </div>
-    `;
+    // ✅ Bind UNA sola vez
+    if (modal.dataset.bound === '1') return modal;
+    modal.dataset.bound = '1';
 
-    document.body.appendChild(modal);
+    modal.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button[data-act]');
+      if (btn) {
+        const act = btn.dataset.act;
+        if (act === 'close') {
+          closeCarnet();
+          return;
+        }
+        if (act === 'edit') {
+          const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
+          if (socio) {
+            closeCarnet();
+            openModalEdit(socio);
+          }
+          return;
+        }
+      }
+      if (ev.target === modal) closeCarnet();
+    });
+
+    // Compat con IDs del HTML (si existen)
+    modal.querySelector('#btnCarnetClose')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeCarnet();
+    });
+    modal.querySelector('#btnCarnetOk')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeCarnet();
+    });
+    modal.querySelector('#btnCarnetEdit')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
+      if (socio) {
+        closeCarnet();
+        openModalEdit(socio);
+      }
+    });
+
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && !modal.classList.contains('hidden')) closeCarnet();
+    });
+
+    return modal;
   }
 
-  // ✅ SI existe (o recién creado), bindeamos UNA sola vez
-  if (modal.dataset.bound === '1') return modal;
-  modal.dataset.bound = '1';
+  // ✅ FIX: Estas funciones NO estaban en tu archivo, por eso fallaba el dobleclick
+  function openCarnet(socio) {
+    const modal = ensureCarnetModal();
+    carnetSocioId = socio.id;
 
-  // Click en botones (soporta tanto el modal creado como el del HTML)
-  modal.addEventListener('click', (ev) => {
-    const btn = ev.target.closest('button[data-act]');
-    if (btn) {
-      const act = btn.dataset.act;
-      if (act === 'close') {
-        closeCarnet();
-        return;
-      }
-      if (act === 'edit') {
-        const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
-        if (socio) {
-          closeCarnet();
-          openModalEdit(socio);
-        }
-        return;
-      }
+    const foto = socio.foto_url || '/img/user-placeholder.png';
+    const img = modal.querySelector('#carnetFoto');
+    if (img) {
+      img.src = foto;
+      img.onerror = function () { this.src = '/img/user-placeholder.png'; };
     }
 
-    // Click afuera (overlay)
-    if (ev.target === modal) closeCarnet();
-  });
+    const nombre = `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
+    modal.querySelector('#carnetNombre')?.textContent = nombre;
+    modal.querySelector('#carnetDni')?.textContent = `DNI: ${socio.dni ?? '—'}`;
+    modal.querySelector('#carnetCategoria')?.textContent = `Categoría: ${socio.categoria ?? '—'}`;
 
-  // Compat: si tu HTML usa ids (btnCarnetClose/Ok/Edit), los soportamos también
-  modal.querySelector('#btnCarnetClose')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    closeCarnet();
-  });
-  modal.querySelector('#btnCarnetOk')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    closeCarnet();
-  });
-  modal.querySelector('#btnCarnetEdit')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
-    if (socio) {
-      closeCarnet();
-      openModalEdit(socio);
+    const est = pagoEstado(socio);
+    const pagoEl = modal.querySelector('#carnetPago');
+    if (pagoEl) {
+      pagoEl.innerHTML = `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${escapeHtml(est.label)}</span>`;
     }
-  });
 
-  // Escape
-  document.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape' && !modal.classList.contains('hidden')) closeCarnet();
-  });
+    const extraEl = modal.querySelector('#carnetExtra');
+    if (extraEl) {
+      extraEl.innerHTML = `
+        <div><b>N° Socio:</b> ${escapeHtml(socio.numero_socio ?? '—')}</div>
+        <div><b>Teléfono:</b> ${escapeHtml(socio.telefono ?? '—')}</div>
+        <div><b>Nacimiento:</b> ${escapeHtml(fmtDMY(socio.fecha_nacimiento))}</div>
+        <div><b>Ingreso:</b> ${escapeHtml(fmtDMY(socio.fecha_ingreso))}</div>
+        <div><b>Activo:</b> ${socio.activo ? 'Sí' : 'No'}</div>
+        <div><b>Becado:</b> ${socio.becado ? 'Sí' : 'No'}</div>
+      `;
+    }
 
-  return modal;
-}  
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+    modal.style.pointerEvents = 'auto';
+  }
 
-// =============================
+  function closeCarnet() {
+    const modal = document.getElementById('modalCarnet');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+
+  // ✅ Exponer por robustez (evita problemas de scope en handlers)
+  window.openCarnet = openCarnet;
+  window.closeCarnet = closeCarnet;
+
+  // =============================
   // Render tabla (incluye Año)
   // =============================
   function renderSocios(socios) {
@@ -631,7 +678,6 @@ function ensureCarnetModal() {
     const clubId = getActiveClubId();
 
     try {
-      // Descarga con Authorization (para que funcione aunque el endpoint esté protegido)
       const res = await fetch(`/club/${clubId}/socios/export.csv`, {
         headers: { Authorization: 'Bearer ' + getToken() }
       });
@@ -720,13 +766,14 @@ function ensureCarnetModal() {
       }
     });
 
+    // ✅ FIX: usar window.openCarnet (evita ReferenceError)
     root.addEventListener('dblclick', (ev) => {
-  const tr = ev.target.closest('#sociosTableBody tr');
-  if (!tr || !tr.dataset.id) return;
+      const tr = ev.target.closest('#sociosTableBody tr');
+      if (!tr || !tr.dataset.id) return;
 
-  const socio = sociosCache.find(x => String(x.id) === String(tr.dataset.id));
-  if (socio) openCarnet(socio);
-});
+      const socio = sociosCache.find(x => String(x.id) === String(tr.dataset.id));
+      if (socio) window.openCarnet(socio);
+    });
 
     $('modalSocio')?.addEventListener('click', (ev) => {
       if (ev.target && ev.target.id === 'modalSocio') closeModalSocio();
