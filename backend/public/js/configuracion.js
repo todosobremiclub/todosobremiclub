@@ -16,6 +16,47 @@
     { n: 12, nombre: 'Diciembre' }
   ];
 
+/* ===============================
+   Helpers auth (JWT token)
+=============================== */
+function getToken() {
+  const t = localStorage.getItem('token');
+  if (!t) {
+    alert('Tu sesión expiró. Iniciá sesión nuevamente.');
+    window.location.href = '/admin.html';
+    throw new Error('No token');
+  }
+  return t;
+}
+
+async function fetchJsonAuth(url, options = {}) {
+  const headers = options.headers || {};
+  headers['Authorization'] = 'Bearer ' + getToken();
+  if (options.json) headers['Content-Type'] = 'application/json';
+
+  const { json, ...rest } = options;
+
+  const res = await fetch(url, { ...rest, headers });
+
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('activeClubId');
+    alert('Sesión inválida o expirada.');
+    window.location.href = '/admin.html';
+    throw new Error('401');
+  }
+
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { ok: false, error: text };
+  }
+
+  return { res, data };
+}
+
   // =============================
   // Auth / helpers (TOKEN)
   // =============================
