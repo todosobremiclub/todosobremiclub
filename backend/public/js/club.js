@@ -32,8 +32,11 @@
 
     const text = await res.text();
     let data;
-    try { data = JSON.parse(text); }
-    catch { data = { ok: false, error: text }; }
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { ok: false, error: text };
+    }
 
     return { res, data };
   }
@@ -96,8 +99,7 @@
 
     const infoEl = document.getElementById('clubInfo');
     if (infoEl) {
-      infoEl.innerHTML = `${club.name}
-${club.city || ''} ${club.province || ''}`;
+      infoEl.innerHTML = `${club.name}<br>${club.city || ''} ${club.province || ''}`;
     }
 
     const logo = document.getElementById('clubLogo');
@@ -116,7 +118,7 @@ ${club.city || ''} ${club.province || ''}`;
       document.body.style.backgroundImage = 'none';
     }
 
-    // recargar la sección actual si existía
+    // Recargar la sección actual si existía
     if (window.currentSection) {
       loadSection(window.currentSection);
     }
@@ -134,7 +136,7 @@ ${club.city || ''} ${club.province || ''}`;
     try {
       window.currentSection = sectionName;
 
-      // Las secciones HTML son estáticas (public/sections/...), no requieren auth
+      // Las secciones HTML son estáticas (public/sections/...)
       const res = await fetch(`/sections/${sectionName}.html`);
       if (!res.ok) throw new Error('No se pudo cargar la sección');
 
@@ -142,13 +144,23 @@ ${club.city || ''} ${club.province || ''}`;
       container.innerHTML = html;
 
       // Inicializadores por sección
-      if (sectionName === 'socios' && window.initSociosSection) await window.initSociosSection();
-      if (sectionName === 'configuracion' && window.initConfiguracionSection) await window.initConfiguracionSection();
-      if (sectionName === 'gastos' && window.initGastosSection) await window.initGastosSection();
-      if (sectionName === 'cumples' && window.initCumplesSection) await window.initCumplesSection();
-      if (sectionName === 'pagos' && window.initPagosSection) await window.initPagosSection();
+      if (sectionName === 'socios' && window.initSociosSection) {
+        await window.initSociosSection();
+      }
+      if (sectionName === 'configuracion' && window.initConfiguracionSection) {
+        await window.initConfiguracionSection();
+      }
+      if (sectionName === 'gastos' && window.initGastosSection) {
+        await window.initGastosSection();
+      }
+      if (sectionName === 'cumples' && window.initCumplesSection) {
+        await window.initCumplesSection();
+      }
+      if (sectionName === 'pagos' && window.initPagosSection) {
+        await window.initPagosSection();
+      }
     } catch (e) {
-      container.innerHTML = `\nError: ${e.message}\n`;
+      container.innerHTML = `<pre>Error: ${e.message}</pre>`;
     }
   }
 
@@ -180,7 +192,9 @@ ${club.city || ''} ${club.province || ''}`;
     // ✅ Aplica automáticamente al cambiar el select
     const clubSelect = document.getElementById('clubSelect');
     if (clubSelect) {
-      clubSelect.addEventListener('change', () => applySelected(user.roles, user));
+      clubSelect.addEventListener('change', () =>
+        applySelected(user.roles, user)
+      );
     }
 
     // Aplica el club seleccionado por defecto
@@ -188,7 +202,9 @@ ${club.city || ''} ${club.province || ''}`;
 
     // Botones menú (secciones)
     document.querySelectorAll('[data-section]').forEach(btn => {
-      btn.addEventListener('click', () => loadSection(btn.dataset.section));
+      btn.addEventListener('click', () =>
+        loadSection(btn.dataset.section)
+      );
     });
 
     // Default

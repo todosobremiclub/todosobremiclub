@@ -6,6 +6,13 @@
   <title>Panel del Club</title>
 
   <style>
+    :root{
+      /* ✅ Colores por defecto (se pisan dinámicamente por club.js) */
+      --club-primary: #2563eb;
+      --club-secondary: #1e40af;
+      --club-accent: #facc15;
+    }
+
     body { font-family: Arial, sans-serif; margin:0; padding:0; }
 
     /* =========================
@@ -19,7 +26,7 @@
 
     .content {
       width: 100%;
-      max-width: 1600px;   /* ✅ aprovecha pantallas grandes */
+      max-width: 1600px;
       margin: 0 auto;
       padding: 14px;
     }
@@ -33,12 +40,14 @@
       border:0;
       border-radius:10px;
       cursor:pointer;
-      background:#1f2937;
+      background: var(--club-primary);
       color:#fff;
       font-size:14px;
       white-space: nowrap;
     }
-    .navbtn:hover { background:#374151; }
+    .navbtn:hover {
+      background: var(--club-secondary);
+    }
 
     .navbtn--top {
       width:auto;
@@ -64,9 +73,12 @@
       gap:16px;
       padding: 10px 14px;
       border-radius: 12px;
-      background: rgba(17,24,39,0.80);
-      border: 1px solid rgba(255,255,255,0.12);
-      backdrop-filter: blur(4px);
+      background: linear-gradient(
+        135deg,
+        var(--club-primary),
+        var(--club-secondary)
+      );
+      border: 1px solid rgba(255,255,255,0.18);
     }
 
     .topbar-left {
@@ -80,8 +92,8 @@
       width: 52px;
       object-fit: contain;
       border-radius: 10px;
-      border:1px solid rgba(255,255,255,0.25);
-      background: rgba(255,255,255,0.95);
+      border:1px solid rgba(255,255,255,0.35);
+      background: #fff;
       padding: 2px;
       box-sizing: border-box;
     }
@@ -100,7 +112,7 @@
 
     .club-user {
       font-size:13px;
-      color:rgba(255,255,255,0.85);
+      color:rgba(255,255,255,0.9);
     }
 
     .topbar-right {
@@ -113,66 +125,55 @@
       padding:4px 6px;
       font-size:12px;
       border-radius:6px;
+      border:1px solid #ddd;
     }
 
     .badge {
       display:inline-block;
       padding: 4px 10px;
       border-radius: 999px;
-      background: rgba(255,255,255,0.92);
+      background: var(--club-accent);
       font-size: 12px;
       color:#111827;
+      font-weight:700;
     }
 
     /* =========================
        MENÚ SUPERIOR
        ========================= */
     .topnav{
-  display:flex;
-  align-items:center;
-  justify-content:space-between; /* centro real + logout a la derecha */
-  gap:10px;
-}
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-top:10px;
+    }
 
-.topnav__center{
-  flex:1;
-  display:flex;
-  justify-content:center;        /* ✅ botones centrados */
-  gap:8px;
-  overflow-x:auto;
-  padding: 2px 0;
-}
+    .topnav__center{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      gap:8px;
+      overflow-x:auto;
+      padding: 2px 0;
+    }
 
     /* =========================
        CARDS / TABLAS
        ========================= */
     .card {
       border:1px solid #ddd;
-      border-radius:10px;
+      border-radius:12px;
       padding:14px;
       margin-top:12px;
       max-width: 100%;
-      background: rgba(255,255,255,0.92);
+      background:#fff;
     }
 
     .row { display:flex; gap: 12px; align-items:center; }
 
     label { display:block; font-size: 0.85rem; color:#444; margin-bottom:6px; }
     select, button, input { padding: 8px; }
-
-    .section-header {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-    }
-
-    .filters {
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin: 8px 0;
-    }
 
     .table-wrapper {
       overflow:auto;
@@ -213,20 +214,8 @@
       border-radius:12px;
       padding:16px;
     }
-    .form-grid {
-      display:grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-    }
-    .modal-actions {
-      display:flex;
-      justify-content:flex-end;
-      gap:10px;
-      margin-top:12px;
-    }
 
     @media (max-width: 720px) {
-      .form-grid { grid-template-columns: 1fr; }
       .topbar {
         flex-direction: column;
         align-items:flex-start;
@@ -263,18 +252,17 @@
 
       <!-- ✅ MENÚ -->
       <nav class="topnav" aria-label="Menú principal">
-  <div class="topnav__center">
-    <button class="navbtn navbtn--top" data-section="socios">👤 Socios</button>
-    <button class="navbtn navbtn--top" data-section="pagos">💰 Pagos</button>
-    <button class="navbtn navbtn--top" data-section="gastos">🧾 Gastos</button>
-    <button class="navbtn navbtn--top" data-section="noticias">📣 Noticias</button>
-    <button class="navbtn navbtn--top" data-section="cumples">🎂 Cumpleaños</button>
-    <button class="navbtn navbtn--top" data-section="configuracion">⚙️ Configuración</button>
-  </div>
+        <div class="topnav__center">
+          <button class="navbtn navbtn--top" data-section="socios">👤 Socios</button>
+          <button class="navbtn navbtn--top" data-section="pagos">💰 Pagos</button>
+          <button class="navbtn navbtn--top" data-section="gastos">🧾 Gastos</button>
+          <button class="navbtn navbtn--top" data-section="noticias">📣 Noticias</button>
+          <button class="navbtn navbtn--top" data-section="cumples">🎂 Cumpleaños</button>
+          <button class="navbtn navbtn--top" data-section="configuracion">⚙️ Configuración</button>
+        </div>
 
-  <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
-</nav>
-
+        <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
+      </nav>
 
       <!-- ✅ CONTENIDO -->
       <div class="card" id="sectionContainer">

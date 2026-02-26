@@ -3,121 +3,359 @@
 <head>
   <meta charset="UTF-8">
   <title>Super Admin</title>
+
   <style>
-    body { font-family: Arial, sans-serif; padding: 16px; }
-    .row { display:flex; gap:16px; flex-wrap: wrap; }
-    .card { border:1px solid #ddd; border-radius:8px; padding:16px; width: 520px; max-width: 100%; }
-    input, select { width: 100%; padding: 8px; margin: 6px 0 12px; }
-    button { padding: 8px 12px; cursor: pointer; }
-    table { width:100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border:1px solid #ddd; padding:8px; text-align:left; vertical-align: top; }
-    th { background:#f3f3f3; }
-    .msg { margin-top: 10px; padding: 10px; border-radius: 6px; display:none; }
-    .ok { background:#e7f7ea; border:1px solid #b6e2be; color:#1f6b2a; display:block; }
-    .err { background:#fdeaea; border:1px solid #f3b6b6; color:#8a1f1f; display:block; }
-    .topbar { display:flex; justify-content: space-between; align-items:center; margin-bottom: 16px; }
-    .thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 8px; border:1px solid #ddd; }
-    .hint { font-size: 12px; color: #666; margin-top: -8px; margin-bottom: 12px; }
+    :root{
+      --bg:#f5f7fb;
+      --card:#ffffff;
+      --border:#e5e7eb;
+      --text:#111827;
+      --muted:#6b7280;
+      --primary:#2563eb;
+      --primary-hover:#1d4ed8;
+      --danger:#ef4444;
+      --danger-hover:#dc2626;
+      --ok-bg:#e7f7ea;
+      --ok-border:#b6e2be;
+      --err-bg:#fdeaea;
+      --err-border:#f3b6b6;
+    }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    /* ===== Header ===== */
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:14px 20px;
+      background:#111827;
+      color:#fff;
+    }
+
+    .topbar h2{
+      margin:0;
+      font-size:18px;
+      font-weight:700;
+    }
+
+    .topbar button{
+      background:var(--danger);
+      border:0;
+      color:#fff;
+      padding:8px 14px;
+      border-radius:8px;
+      cursor:pointer;
+      font-size:13px;
+    }
+    .topbar button:hover{ background:var(--danger-hover); }
+
+    /* ===== Layout ===== */
+    .container{
+      max-width:1200px;
+      margin:0 auto;
+      padding:20px;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:20px;
+    }
+
+    @media (max-width: 900px){
+      .row{ grid-template-columns: 1fr; }
+    }
+
+    /* ===== Cards ===== */
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:18px;
+    }
+
+    .card h3{
+      margin:0 0 8px;
+      font-size:16px;
+    }
+
+    .card h4{
+      margin:16px 0 8px;
+      font-size:14px;
+      color:var(--muted);
+      font-weight:600;
+    }
+
+    /* ===== Form ===== */
+    label{
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    input, select{
+      width:100%;
+      padding:8px 10px;
+      border-radius:8px;
+      border:1px solid var(--border);
+      margin:6px 0 12px;
+      font-size:14px;
+    }
+
+    input[type="color"]{
+      padding:2px;
+      height:38px;
+    }
+
+    .form-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+
+    .form-grid.full{
+      grid-template-columns: 1fr;
+    }
+
+    button.primary{
+      background:var(--primary);
+      color:#fff;
+      border:0;
+      padding:9px 14px;
+      border-radius:8px;
+      cursor:pointer;
+      font-size:14px;
+    }
+    button.primary:hover{ background:var(--primary-hover); }
+
+    button.secondary{
+      background:#e5e7eb;
+      border:0;
+      padding:9px 14px;
+      border-radius:8px;
+      cursor:pointer;
+    }
+
+    /* ===== Tables ===== */
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:14px;
+      font-size:13px;
+    }
+
+    th, td{
+      border-bottom:1px solid var(--border);
+      padding:8px;
+      text-align:left;
+      vertical-align:middle;
+    }
+
+    th{
+      color:var(--muted);
+      font-weight:600;
+      background:#fafafa;
+    }
+
+    .thumb{
+      width:42px;
+      height:42px;
+      object-fit:cover;
+      border-radius:8px;
+      border:1px solid var(--border);
+    }
+
+    /* ===== Messages ===== */
+    .msg{
+      margin-top:10px;
+      padding:10px;
+      border-radius:8px;
+      display:none;
+      font-size:13px;
+    }
+
+    .ok{
+      display:block;
+      background:var(--ok-bg);
+      border:1px solid var(--ok-border);
+      color:#1f6b2a;
+    }
+
+    .err{
+      display:block;
+      background:var(--err-bg);
+      border:1px solid var(--err-border);
+      color:#8a1f1f;
+    }
+
+    .hint{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:-6px;
+      margin-bottom:12px;
+    }
   </style>
 </head>
+
 <body>
-<div class="topbar">
-  <h2>Panel Super Admin</h2>
-  <button onclick="logout()">Cerrar sesión</button>
-</div>
-
-<div class="row">
-  <div class="card">
-    <h3>Clubes</h3>
-    <h4>Crear club</h4>
-
-    <form id="formClub">
-      <input id="club_id" type="hidden">
-      <input id="club_name" placeholder="Nombre del club" required>
-      <input id="club_address" placeholder="Dirección">
-      <input id="club_city" placeholder="Ciudad">
-      <input id="club_province" placeholder="Provincia">
-
-      <label>Logo del club (imagen)</label>
-      <input id="club_logo" type="file" accept="image/*">
-
-      <label>Fondo del club (imagen)</label>
-      <input id="club_background" type="file" accept="image/*">
-
-      <button type="submit" id="club_submit_btn">Guardar club</button>
-      <button type="button" id="club_cancel_btn" style="display:none;">Cancelar edición</button>
-    </form>
-
-    <div id="clubMsg" class="msg"></div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Logo</th>
-          <th>Nombre</th>
-          <th>Ciudad</th>
-          <th>Provincia</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="clubs-table"></tbody>
-    </table>
+  <!-- ===== HEADER ===== -->
+  <div class="topbar">
+    <h2>Panel Super Admin</h2>
+    <button onclick="logout()">Cerrar sesión</button>
   </div>
 
-  <div class="card">
-    <h3>Usuarios</h3>
-    <h4>Crear usuario</h4>
+  <div class="container">
+    <div class="row">
 
-    <form id="formUser">
-      <input id="user_full_name" placeholder="Nombre completo">
-      <input id="user_email" type="email" placeholder="Email" required>
-      <input id="user_password" type="password" placeholder="Contraseña inicial" required>
+      <!-- ===== CLUBES ===== -->
+      <div class="card">
+        <h3>Clubes</h3>
+        <h4>Crear / Editar club</h4>
 
-      <select id="user_role">
-        <option value="staff">staff</option>
-        <option value="admin">admin</option>
-        <option value="superadmin">superadmin</option>
-      </select>
+        <form id="formClub">
+          <input id="club_id" type="hidden">
 
-      <!-- ✅ MULTI SELECT -->
-      <select id="user_club_id" multiple size="6" required>
-        <option value="">Cargando clubes...</option>
-      </select>
-      <div class="hint">Tip: para seleccionar varios clubes mantené presionado CTRL (Windows) o CMD (Mac).</div>
+          <div class="form-grid">
+            <div>
+              <label>Nombre del club *</label>
+              <input id="club_name" required>
+            </div>
+            <div>
+              <label>Dirección</label>
+              <input id="club_address">
+            </div>
+            <div>
+              <label>Ciudad</label>
+              <input id="club_city">
+            </div>
+            <div>
+              <label>Provincia</label>
+              <input id="club_province">
+            </div>
+          </div>
 
-      <button type="submit">Guardar usuario</button>
-    </form>
+          <h4>Identidad visual</h4>
 
-    <div id="userMsg" class="msg"></div>
+          <div class="form-grid">
+            <div>
+              <label>Color primario</label>
+              <input id="club_color_primary" type="color" value="#2563eb">
+            </div>
+            <div>
+              <label>Color secundario</label>
+              <input id="club_color_secondary" type="color" value="#1e40af">
+            </div>
+            <div>
+              <label>Color acento</label>
+              <input id="club_color_accent" type="color" value="#facc15">
+            </div>
+          </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Email</th>
-          <th>Roles</th>
-          <th>Estado</th>
-        </tr>
-      </thead>
-      <tbody id="users-table"></tbody>
-    </table>
+          <h4>Imágenes</h4>
+
+          <label>Logo del club</label>
+          <input id="club_logo" type="file" accept="image/*">
+
+          <label>Fondo del club</label>
+          <input id="club_background" type="file" accept="image/*">
+
+          <div style="display:flex; gap:10px; margin-top:10px;">
+            <button type="submit" id="club_submit_btn" class="primary">Guardar club</button>
+            <button type="button" id="club_cancel_btn" class="secondary" style="display:none;">
+              Cancelar edición
+            </button>
+          </div>
+        </form>
+
+        <div id="clubMsg" class="msg"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Logo</th>
+              <th>Nombre</th>
+              <th>Ciudad</th>
+              <th>Provincia</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="clubs-table"></tbody>
+        </table>
+      </div>
+
+      <!-- ===== USUARIOS ===== -->
+      <div class="card">
+        <h3>Usuarios</h3>
+        <h4>Crear usuario</h4>
+
+        <form id="formUser">
+          <label>Nombre completo</label>
+          <input id="user_full_name">
+
+          <label>Email *</label>
+          <input id="user_email" type="email" required>
+
+          <label>Contraseña inicial *</label>
+          <input id="user_password" type="password" required>
+
+          <label>Rol</label>
+          <select id="user_role">
+            <option value="staff">staff</option>
+            <option value="admin">admin</option>
+            <option value="superadmin">superadmin</option>
+          </select>
+
+          <label>Clubes asignados</label>
+          <select id="user_club_id" multiple size="6" required>
+            <option value="">Cargando clubes...</option>
+          </select>
+          <div class="hint">
+            Tip: para seleccionar varios clubes mantené presionado CTRL (Windows) o CMD (Mac).
+          </div>
+
+          <button type="submit" class="primary">Guardar usuario</button>
+        </form>
+
+        <div id="userMsg" class="msg"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Roles</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="users-table"></tbody>
+        </table>
+      </div>
+
+    </div>
   </div>
-</div>
 
-<script>
-  const token = localStorage.getItem('token');
-  if (!token) {
-    alert('Tu sesión expiró. Iniciá sesión nuevamente.');
-    window.location.href = '/admin.html';
-  }
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Tu sesión expiró. Iniciá sesión nuevamente.');
+      window.location.href = '/admin.html';
+    }
 
-  function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('activeClubId');
-    window.location.href = '/admin.html';
-  }
-</script>
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('activeClubId');
+      window.location.href = '/admin.html';
+    }
+  </script>
 
-<script src="/js/clubs.js"></script>
-<script src="/js/users.js"></script>
+  <!-- Scripts existentes -->
+  <script src="/js/clubs.js"></script>
+  <script src="/js/users.js"></script>
 </body>
 </html>
