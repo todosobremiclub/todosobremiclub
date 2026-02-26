@@ -127,22 +127,21 @@
     /* =========================
        MENÚ SUPERIOR
        ========================= */
-    .topnav {
-      display:flex;
-      align-items:center;
-      justify-content:center;   /* ✅ secciones centradas */
-      gap:8px;
-      padding:10px 12px;
-      margin-top:10px;
-      border-radius:12px;
-      background: rgba(255,255,255,0.92);
-      border:1px solid #e5e7eb;
-      overflow-x:auto;
-    }
+    .topnav{
+  display:flex;
+  align-items:center;
+  justify-content:space-between; /* centro real + logout a la derecha */
+  gap:10px;
+}
 
-    .topnav__spacer {
-      flex:1;
-    }
+.topnav__center{
+  flex:1;
+  display:flex;
+  justify-content:center;        /* ✅ botones centrados */
+  gap:8px;
+  overflow-x:auto;
+  padding: 2px 0;
+}
 
     /* =========================
        CARDS / TABLAS
@@ -264,17 +263,18 @@
 
       <!-- ✅ MENÚ -->
       <nav class="topnav" aria-label="Menú principal">
-        <button class="navbtn navbtn--top" data-section="socios">👤 Socios</button>
-        <button class="navbtn navbtn--top" data-section="pagos">💰 Pagos</button>
-        <button class="navbtn navbtn--top" data-section="gastos">🧾 Gastos</button>
-        <button class="navbtn navbtn--top" data-section="noticias">📣 Noticias</button>
-        <button class="navbtn navbtn--top" data-section="cumples">🎂 Cumpleaños</button>
-        <button class="navbtn navbtn--top" data-section="configuracion">⚙️ Configuración</button>
+  <div class="topnav__center">
+    <button class="navbtn navbtn--top" data-section="socios">👤 Socios</button>
+    <button class="navbtn navbtn--top" data-section="pagos">💰 Pagos</button>
+    <button class="navbtn navbtn--top" data-section="gastos">🧾 Gastos</button>
+    <button class="navbtn navbtn--top" data-section="noticias">📣 Noticias</button>
+    <button class="navbtn navbtn--top" data-section="cumples">🎂 Cumpleaños</button>
+    <button class="navbtn navbtn--top" data-section="configuracion">⚙️ Configuración</button>
+  </div>
 
-        <div class="topnav__spacer"></div>
+  <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
+</nav>
 
-        <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
-      </nav>
 
       <!-- ✅ CONTENIDO -->
       <div class="card" id="sectionContainer">

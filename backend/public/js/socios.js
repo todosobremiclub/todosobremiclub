@@ -51,13 +51,13 @@
 
   // ✅ FIX: escapeHtml correcto (tu versión estaba doble-escapando por entidades HTML)
   function escapeHtml(str) {
-    return String(str ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
+  return String(str ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
 
   function fmtDMY(iso) {
     if (!iso) return '';
@@ -94,6 +94,15 @@
   let editingId = null;
   let sociosCache = [];
   let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
+
+// =============================
+// Orden + paginación
+// =============================
+let sortKey = null;          // 'pago' | 'numero' | 'dni' | ...
+let sortDir = 'asc';         // 'asc' | 'desc'
+let currentPage = 1;
+const pageSize = 50;
+
 
   // =============================
   // Photo viewer
@@ -479,61 +488,208 @@ if (elCat) elCat.textContent = `Categoría: ${socio.categoria ?? '—'}`;
   window.openCarnet = openCarnet;
   window.closeCarnet = closeCarnet;
 
+function fmtSocioNumero(n) {
+  const num = Number(n);
+  if (!Number.isFinite(num)) return '';
+  return String(num).padStart(5, '0');
+}
+
+function getSortValue(s, key) {
+  switch (key) {
+    case 'pago': {
+      // orden alfabético sobre label: "Al día", "Becado", "Impago"
+      return pagoEstado(s).label || '';
+    }
+    case 'numero': return Number(s.numero_socio ?? 0);
+    case 'dni': return String(s.dni ?? '');
+    case 'nombre': return String(s.nombre ?? '');
+    case 'apellido': return String(s.apellido ?? '');
+    case 'categoria': return String(s.categoria ?? '');
+    case 'anio': {
+      const y = s.anio_nacimiento ?? (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0,4)) : 0);
+      return Number(y ?? 0);
+    }
+    case 'activo': return s.activo ? 1 : 0;
+    case 'becado': return s.becado ? 1 : 0;
+    default: return '';
+  }
+}
+
+function sortRows(rows) {
+  if (!sortKey) return rows;
+  const dir = sortDir === 'asc' ? 1 : -1;
+
+  return rows.slice().sort((a, b) => {
+    const va = getSortValue(a, sortKey);
+    const vb = getSortValue(b, sortKey);
+
+    // números
+    if (typeof va === 'number' && typeof vb === 'number') {
+      return (va - vb) * dir;
+    }
+    // strings
+    return String(va).localeCompare(String(vb), 'es', { numeric: true, sensitivity: 'base' }) * dir;
+  });
+}
+
+function clampPage(p, totalPages) {
+  if (totalPages <= 1) return 1;
+  return Math.min(Math.max(1, p), totalPages);
+}
+
+function renderPagination(totalItems) {
+  const el = document.getElementById('sociosPagination');
+  if (!el) return;
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  currentPage = clampPage(currentPage, totalPages);
+
+  const mkBtn = (label, page, active=false, disabled=false) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    if (active) b.classList.add('active');
+    if (disabled) b.disabled = true;
+    b.addEventListener('click', () => {
+      currentPage = page;
+      renderSocios(sociosCache); // re-render completo con sort/paginación
+    });
+    return b;
+  };
+
+  el.innerHTML = '';
+  el.appendChild(mkBtn('‹', currentPage - 1, false, currentPage === 1));
+
+  // páginas (ventana simple)
+  const windowSize = 7;
+  let start = Math.max(1, currentPage - Math.floor(windowSize/2));
+  let end = Math.min(totalPages, start + windowSize - 1);
+  start = Math.max(1, end - windowSize + 1);
+
+  for (let p = start; p <= end; p++) {
+    el.appendChild(mkBtn(String(p), p, p === currentPage));
+  }
+
+  el.appendChild(mkBtn('›', currentPage + 1, false, currentPage === totalPages));
+}
+
+function updateSortIndicators() {
+  document.querySelectorAll('th.sortable').forEach(th => {
+    const old = th.querySelector('.sort-ind');
+    if (old) old.remove();
+
+    const key = th.dataset.sort;
+    if (!key || key !== sortKey) return;
+
+    const ind = document.createElement('span');
+    ind.className = 'sort-ind';
+    ind.textContent = sortDir === 'asc' ? '▲' : '▼';
+    th.appendChild(ind);
+  });
+}
+
+function bindSorting() {
+  const root = document.getElementById('socios-section');
+  if (!root) return;
+
+  const table = root.querySelector('table');
+  if (!table) return;
+
+  // evitar doble bind cuando se recarga sección
+  if (table.dataset.sortBound === '1') return;
+  table.dataset.sortBound = '1';
+
+  table.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (!key) return;
+
+      if (sortKey === key) {
+        sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+      } else {
+        sortKey = key;
+        sortDir = 'asc';
+      }
+
+      currentPage = 1;
+      renderSocios(sociosCache);
+    });
+  });
+}
+
+
   // =============================
   // Render tabla (incluye Año)
   // =============================
   function renderSocios(socios) {
-    sociosCache = socios || [];
-    const tbody = $('sociosTableBody');
-    if (!tbody) return;
+  sociosCache = socios || [];
+  const tbody = $('sociosTableBody');
+  if (!tbody) return;
 
-    tbody.innerHTML = '';
-    let activos = 0;
+  // ✅ aplicar orden
+  const ordered = sortRows(sociosCache);
 
-    sociosCache.forEach(s => {
-      if (s.activo) activos++;
+  // ✅ paginación
+  const totalItems = ordered.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  currentPage = clampPage(currentPage, totalPages);
+  const start = (currentPage - 1) * pageSize;
+  const pageRows = ordered.slice(start, start + pageSize);
 
-      const fotoUrl = s.foto_url || '/img/user-placeholder.png';
-      const fotoHtml = `
-        <img
-          data-act="viewphoto"
-          data-url="${escapeHtml(fotoUrl)}"
-          src="${escapeHtml(fotoUrl)}"
-          style="width:34px; height:34px; border-radius:10px; object-fit:cover; border:1px solid #ddd; background:#fff; cursor:pointer;"
-          onerror="this.src='/img/user-placeholder.png'"
-          alt="foto"
-        />
-      `;
+  tbody.innerHTML = '';
+  const activos = ordered.filter(s => s.activo).length;
+pageRows.forEach(...)
 
-      const tr = document.createElement('tr');
-      tr.dataset.id = s.id;
+    if (s.activo) activos++;
 
-      tr.innerHTML = `
-        <td>${renderPagoPill(s)}</td>
-        <td>${s.numero_socio ?? ''}</td>
-        <td>${escapeHtml(s.dni ?? '')}</td>
-        <td>${escapeHtml(s.nombre ?? '')}</td>
-        <td>${escapeHtml(s.apellido ?? '')}</td>
-        <td>${escapeHtml(s.categoria ?? '')}</td>
-        <td>${escapeHtml(s.telefono ?? '')}</td>
-        <td>${fmtDMY(s.fecha_nacimiento)}</td>
-        <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
-        <td>${fmtDMY(s.fecha_ingreso)}</td>
-        <td>${s.activo ? 'Sí' : 'No'}</td>
-        <td>${s.becado ? 'Sí' : 'No'}</td>
-        <td>${fotoHtml}</td>
-        <td style="white-space:nowrap;">
-          <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
-          <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
-        </td>
-      `;
+    const fotoUrl = s.foto_url || '/img/user-placeholder.png';
+    const fotoHtml = `
+      <img
+        data-act="viewphoto"
+        data-url="${escapeHtml(fotoUrl)}"
+        src="${escapeHtml(fotoUrl)}"
+        style="width:34px; height:34px; border-radius:10px; object-fit:cover; border:1px solid #ddd; background:#fff; cursor:pointer;"
+        onerror="this.src='/img/user-placeholder.png'"
+        alt="foto"
+      />
+    `;
 
-      tbody.appendChild(tr);
-    });
+    const tr = document.createElement('tr');
+    tr.dataset.id = s.id;
 
-    const countEl = $('sociosActivosCount');
-    if (countEl) countEl.textContent = `Socios activos: ${activos}`;
-  }
+    tr.innerHTML = `
+      <td>${renderPagoPill(s)}</td>
+      <td>${fmtSocioNumero(s.numero_socio)}</td>
+      <td>${escapeHtml(s.dni ?? '')}</td>
+      <td>${escapeHtml(s.nombre ?? '')}</td>
+      <td>${escapeHtml(s.apellido ?? '')}</td>
+      <td>${escapeHtml(s.categoria ?? '')}</td>
+      <td>${escapeHtml(s.telefono ?? '')}</td>
+      <td>${fmtDMY(s.fecha_nacimiento)}</td>
+      <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
+      <td>${fmtDMY(s.fecha_ingreso)}</td>
+      <td>${s.activo ? 'Sí' : 'No'}</td>
+      <td>${s.becado ? 'Sí' : 'No'}</td>
+      <td>${fotoHtml}</td>
+      <td style="white-space:nowrap;">
+        <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
+        <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  const countEl = $('sociosActivosCount');
+  if (countEl) countEl.textContent = `Socios activos: ${activos}`;
+
+  // ✅ paginador abajo
+  renderPagination(totalItems);
+
+  // ✅ pintar flechas en headers
+  updateSortIndicators();
+}
+
 
   // =============================
   // Filtros dropdown
@@ -596,11 +752,14 @@ if (elCat) elCat.textContent = `Categoría: ${socio.categoria ?? '—'}`;
     return q.toString();
   }
 
-  async function loadSocios() {
-    const clubId = getActiveClubId();
-    const qs = buildQueryParams();
+  
+async function loadSocios() {
+  const clubId = getActiveClubId();
+  const qs = buildQueryParams();
 
-    const res = await fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`);
+  currentPage = 1; // ✅ reset
+
+  const res = await fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`);
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
@@ -730,6 +889,8 @@ if (elCat) elCat.textContent = `Categoría: ${socio.categoria ?? '—'}`;
 
     ensurePhotoViewer();
     ensureDraftPhotoUI();
+bindSorting();
+
 
     $('btnNuevoSocio')?.addEventListener('click', openModalNew);
     $('btnCancelarSocio')?.addEventListener('click', closeModalSocio);
