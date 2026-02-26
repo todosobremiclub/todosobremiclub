@@ -7,26 +7,20 @@
 
   <style>
     body { font-family: Arial, sans-serif; margin:0; padding:0; }
-    .layout { display:flex; min-height: 100vh; }
 
-    /* ✅ Sidebar más ancho */
-    .sidebar {
-      width: 260px;
-      background:#111827;
-      color:#fff;
-      padding:12px;
+    /* ✅ Layout ahora vertical (sin sidebar) */
+    .layout {
+      display:flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
 
-    .sidebar h3 {
-      margin: 0 0 12px 0;
-      font-size: 16px;
-    }
-
+    /* =========================
+       BOTONES DE NAVEGACIÓN
+       ========================= */
     .navbtn {
-      width:100%;
       text-align:left;
       padding:10px 12px;
-      margin:6px 0;
       border:0;
       border-radius:10px;
       cursor:pointer;
@@ -37,9 +31,27 @@
     }
     .navbtn:hover { background:#374151; }
 
-    .content { flex:1; padding: 14px; }
+    /* Variante horizontal (menú superior) */
+    .navbtn--top {
+      width:auto;
+      margin:0;
+      padding:8px 12px;
+      font-size:13px;
+    }
 
-    /* ✅ Header compacto con fondo */
+    .navbtn--logout {
+      background:#ef4444;
+    }
+    .navbtn--logout:hover {
+      background:#dc2626;
+    }
+
+    /* =========================
+       CONTENIDO
+       ========================= */
+    .content { padding: 14px; }
+
+    /* ✅ Header */
     .topbar {
       display:flex;
       justify-content: space-between;
@@ -64,7 +76,7 @@
       font-size: 13px;
     }
 
-    /* ✅ Logo completo */
+    /* ✅ Logo */
     .logo {
       height: 52px;
       width: 52px;
@@ -85,6 +97,28 @@
       color:#111827;
     }
 
+    /* =========================
+       MENÚ SUPERIOR
+       ========================= */
+    .topnav {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 12px;
+      margin-top:10px;
+      border-radius:12px;
+      background: rgba(255,255,255,0.92);
+      border:1px solid #e5e7eb;
+      overflow-x:auto;
+    }
+
+    .topnav__spacer {
+      flex:1;
+    }
+
+    /* =========================
+       CARDS / TABLAS
+       ========================= */
     .card {
       border:1px solid #ddd;
       border-radius:10px;
@@ -132,6 +166,9 @@
       text-align:left;
     }
 
+    /* =========================
+       MODAL
+       ========================= */
     .modal.hidden { display:none; }
     .modal {
       position:fixed;
@@ -161,28 +198,16 @@
     }
 
     @media (max-width: 720px) {
-      .sidebar { width: 210px; }
       .form-grid { grid-template-columns: 1fr; }
     }
   </style>
 
-  <!-- FullCalendar global bundle -->
+  <!-- FullCalendar -->
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 </head>
 
 <body>
   <div class="layout">
-    <aside class="sidebar">
-      <h3>☰ Menú</h3>
-      <button class="navbtn" data-section="socios">👤 Socios</button>
-      <button class="navbtn" data-section="pagos">💰 Pagos</button>
-      <button class="navbtn" data-section="gastos">🧾 Gastos</button>
-      <button class="navbtn" data-section="noticias">📣 Noticias</button>
-      <button class="navbtn" data-section="cumples">🎂 Cumpleaños</button>
-      <button class="navbtn" data-section="configuracion">⚙️ Configuración</button>
-      <hr style="border-color:#374151;">
-      <button class="navbtn" onclick="logout()">Cerrar sesión</button>
-    </aside>
 
     <main class="content">
 
@@ -193,7 +218,6 @@
           <div class="muted" id="meLabel"></div>
         </div>
 
-        <!-- ✅ Logo + Selector Club + Rol alineados -->
         <div class="row">
           <img id="clubLogo" class="logo" alt="Logo club" />
 
@@ -207,7 +231,21 @@
         </div>
       </div>
 
-      <!-- ✅ Contenedor de secciones -->
+      <!-- ✅ MENÚ SUPERIOR -->
+      <nav class="topnav" aria-label="Menú principal">
+        <button class="navbtn navbtn--top" data-section="socios">👤 Socios</button>
+        <button class="navbtn navbtn--top" data-section="pagos">💰 Pagos</button>
+        <button class="navbtn navbtn--top" data-section="gastos">🧾 Gastos</button>
+        <button class="navbtn navbtn--top" data-section="noticias">📣 Noticias</button>
+        <button class="navbtn navbtn--top" data-section="cumples">🎂 Cumpleaños</button>
+        <button class="navbtn navbtn--top" data-section="configuracion">⚙️ Configuración</button>
+
+        <div class="topnav__spacer"></div>
+
+        <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
+      </nav>
+
+      <!-- ✅ CONTENEDOR DE SECCIONES -->
       <div class="card" id="sectionContainer">
         <div class="muted">Elegí una sección del menú.</div>
       </div>
@@ -223,14 +261,12 @@
     }
   </script>
 
-  <!-- Scripts principales -->
+  <!-- Scripts -->
   <script src="/js/club.js"></script>
   <script src="/js/socios.js"></script>
   <script src="/js/configuracion.js"></script>
   <script src="/js/gastos.js"></script>
   <script src="/js/pagos.js"></script>
-
-  <!-- Cumples después de FullCalendar -->
   <script defer src="/js/cumples.js"></script>
 </body>
 </html>
