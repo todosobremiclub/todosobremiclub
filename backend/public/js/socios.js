@@ -128,12 +128,46 @@
       if (img) img.src = '';
     };
 
-    modal.addEventListener('click', (ev) => { if (ev.target === modal) close(); });
-    modal.querySelector('#photoViewerClose').addEventListener('click', close);
+    // 🔥 Listener global en CAPTURE: intercepta clicks aunque haya overlays/stopPropagation
+  if (!window.__carnetCaptureBound) {
+    window.__carnetCaptureBound = true;
 
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && modal.style.display === 'flex') close();
-    });
+    document.addEventListener('click', (ev) => {
+      const m = document.getElementById('modalCarnet');
+      if (!m || m.classList.contains('hidden')) return;
+
+      // Si se clickea un botón del carnet con data-act
+      const btn = ev.target.closest && ev.target.closest('#modalCarnet button[data-act]');
+      if (btn) {
+        const act = btn.dataset.act;
+
+        if (act === 'close') {
+          ev.preventDefault();
+          ev.stopPropagation();
+          closeCarnet();
+          return;
+        }
+
+        if (act === 'edit') {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
+          if (socio) {
+            closeCarnet();
+            openModalEdit(socio);
+          }
+          return;
+        }
+      }
+
+      // Click afuera del contenido => cerrar
+      const content = m.querySelector('.modal-content');
+      if (content && !content.contains(ev.target)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        closeCarnet();
+      }
+    }, true); // 👈 CAPTURE MODE
   }
 
   function openPhotoViewer(url) {
