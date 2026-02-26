@@ -324,67 +324,68 @@ let carnetSocioId = null;
 
 function ensureCarnetModal() {
   let modal = document.getElementById('modalCarnet');
-  if (modal) return modal;
 
-  modal = document.createElement('div');
-  modal.id = 'modalCarnet';
-  modal.className = 'modal hidden';
-  // 🔒 Forzar capa y clicks (evita CSS que bloquee interacción)
-  modal.style.position = 'fixed';
-  modal.style.inset = '0';
-  modal.style.background = 'rgba(0,0,0,0.55)';
-  modal.style.zIndex = '20000';
-  modal.style.alignItems = 'center';
-  modal.style.justifyContent = 'center';
-  modal.style.padding = '18px';
-  modal.style.pointerEvents = 'auto';
-  modal.style.display = 'none'; // lo abrimos con openCarnet()
+  // Si NO existe, lo creamos como ya hacías
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modalCarnet';
+    modal.className = 'modal hidden';
 
+    // 🔒 Forzar capa y clicks (evita CSS que bloquee interacción)
+    modal.style.position = 'fixed';
+    modal.style.inset = '0';
+    modal.style.background = 'rgba(0,0,0,0.55)';
+    modal.style.zIndex = '20000';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.padding = '18px';
+    modal.style.pointerEvents = 'auto';
+    modal.style.display = 'none';
 
-  modal.innerHTML = `
-    <div class="modal-content" style="max-width: 560px; pointer-events:auto;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-        <h3 style="margin:0;">Carnet digital</h3>
-        <button type="button" data-act="close" class="btn btn-secondary">✕</button>
-      </div>
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 560px; pointer-events:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h3 style="margin:0;">Carnet digital</h3>
+          <button type="button" data-act="close" class="btn btn-secondary">✕</button>
+        </div>
 
-      <div style="display:flex; gap:12px; align-items:flex-start; margin-top:12px;">
-        <img id="carnetFoto"
-             style="width:90px; height:90px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;"
-             alt="Foto"/>
-        <div style="flex:1;">
-          <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
-          <div id="carnetDni" class="muted" style="margin-top:4px;"></div>
-          <div id="carnetCategoria" class="muted" style="margin-top:2px;"></div>
-          <div id="carnetPago" style="margin-top:8px;"></div>
+        <div style="display:flex; gap:12px; align-items:flex-start; margin-top:12px;">
+          <img id="carnetFoto"
+            style="width:90px; height:90px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;"
+            alt="Foto"/>
+          <div style="flex:1;">
+            <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
+            <div id="carnetDni" class="muted" style="margin-top:4px;"></div>
+            <div id="carnetCategoria" class="muted" style="margin-top:2px;"></div>
+            <div id="carnetPago" style="margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <div id="carnetExtra" class="muted" style="margin-top:10px; font-size:13px; line-height:1.35;"></div>
+
+        <div class="modal-actions">
+          <button type="button" data-act="edit" class="btn btn-primary">Editar</button>
+          <button type="button" data-act="close" class="btn btn-secondary">Cerrar</button>
         </div>
       </div>
+    `;
 
-      <div id="carnetExtra"
-           class="muted"
-           style="margin-top:10px; font-size:13px; line-height:1.35;">
-      </div>
+    document.body.appendChild(modal);
+  }
 
-      <div class="modal-actions">
-        <button type="button" data-act="edit" class="btn btn-primary">Editar</button>
-        <button type="button" data-act="close" class="btn btn-secondary">Cerrar</button>
-      </div>
-    </div>
-  `;
+  // ✅ SI existe (o recién creado), bindeamos UNA sola vez
+  if (modal.dataset.bound === '1') return modal;
+  modal.dataset.bound = '1';
 
-  document.body.appendChild(modal);
-
-  // Delegación: click en botones / click fuera / escape
+  // Click en botones (soporta tanto el modal creado como el del HTML)
   modal.addEventListener('click', (ev) => {
     const btn = ev.target.closest('button[data-act]');
     if (btn) {
       const act = btn.dataset.act;
-
       if (act === 'close') {
         closeCarnet();
         return;
       }
-
       if (act === 'edit') {
         const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
         if (socio) {
@@ -395,57 +396,37 @@ function ensureCarnetModal() {
       }
     }
 
+    // Click afuera (overlay)
     if (ev.target === modal) closeCarnet();
   });
 
+  // Compat: si tu HTML usa ids (btnCarnetClose/Ok/Edit), los soportamos también
+  modal.querySelector('#btnCarnetClose')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeCarnet();
+  });
+  modal.querySelector('#btnCarnetOk')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeCarnet();
+  });
+  modal.querySelector('#btnCarnetEdit')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
+    if (socio) {
+      closeCarnet();
+      openModalEdit(socio);
+    }
+  });
+
+  // Escape
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && !modal.classList.contains('hidden')) closeCarnet();
   });
 
   return modal;
-}
+}  
 
-function openCarnet(socio) {
-  const modal = ensureCarnetModal();
-  carnetSocioId = socio.id;
-
-  // Rellenar campos usando el modal (robusto)
-  const foto = socio.foto_url || '/img/user-placeholder.png';
-  const img = modal.querySelector('#carnetFoto');
-  img.src = foto;
-  img.onerror = function () { this.src = '/img/user-placeholder.png'; };
-
-  modal.querySelector('#carnetNombre').textContent =
-    `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
-
-  modal.querySelector('#carnetDni').textContent = `DNI: ${socio.dni || '—'}`;
-  modal.querySelector('#carnetCategoria').textContent = `Categoría: ${socio.categoria || '—'}`;
-
-  const est = pagoEstado(socio);
-  modal.querySelector('#carnetPago').innerHTML =
-    `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${escapeHtml(est.label)}</span>`;
-
-  modal.querySelector('#carnetExtra').innerHTML = `
-    <div><b>N° Socio:</b> ${escapeHtml(socio.numero_socio ?? '—')}</div>
-    <div><b>Teléfono:</b> ${escapeHtml(socio.telefono ?? '—')}</div>
-    <div><b>Nacimiento:</b> ${escapeHtml(fmtDMY(socio.fecha_nacimiento))}</div>
-    <div><b>Ingreso:</b> ${escapeHtml(fmtDMY(socio.fecha_ingreso))}</div>
-    <div><b>Activo:</b> ${socio.activo ? 'Sí' : 'No'}</div>
-    <div><b>Becado:</b> ${socio.becado ? 'Sí' : 'No'}</div>
-  `;
-
-  modal.classList.remove('hidden'); // por si lo usás en otros estilos
-modal.style.display = 'flex';
-modal.style.pointerEvents = 'auto';
-}
-
-function closeCarnet() {
-  const modal = document.getElementById('modalCarnet');
-  if (!modal) return;
-  modal.classList.add('hidden');
-  modal.style.display = 'none';
-}
-  // =============================
+// =============================
   // Render tabla (incluye Año)
   // =============================
   function renderSocios(socios) {
