@@ -96,88 +96,54 @@
   let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
 
   // =============================
-  // Photo viewer
-  // =============================
-  function ensurePhotoViewer() {
-    if (document.getElementById('photoViewerModal')) return;
+// Photo viewer
+// =============================
+function ensurePhotoViewer() {
+  if (document.getElementById('photoViewerModal')) return;
 
-    const modal = document.createElement('div');
-    modal.id = 'photoViewerModal';
-    modal.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,0.75);
-      display:none; align-items:center; justify-content:center;
-      z-index:9999; padding:18px;
-    `;
+  const modal = document.createElement('div');
+  modal.id = 'photoViewerModal';
+  modal.style.cssText = `
+    position:fixed; inset:0; background:rgba(0,0,0,0.75);
+    display:none; align-items:center; justify-content:center;
+    z-index:9999; padding:18px;
+  `;
 
-    modal.innerHTML = `
-      <div style="background:#111827; color:#fff; padding:10px 12px; border-radius:10px; max-width:92vw;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-          <strong>Foto socio</strong>
-          <button id="photoViewerClose" style="border:0; border-radius:8px; padding:6px 10px; cursor:pointer;">✕ Cerrar</button>
-        </div>
-        <div style="margin-top:10px; display:flex; justify-content:center;">
-          <img id="photoViewerImg" style="max-width:86vw; max-height:78vh; border-radius:10px; background:#fff;" alt="Foto"/>
-        </div>
+  modal.innerHTML = `
+    <div style="background:#111827; color:#fff; padding:10px 12px; border-radius:10px; max-width:92vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <strong>Foto socio</strong>
+        <button id="photoViewerClose" style="border:0; border-radius:8px; padding:6px 10px; cursor:pointer;">✕ Cerrar</button>
       </div>
-    `;
-    document.body.appendChild(modal);
+      <div style="margin-top:10px; display:flex; justify-content:center;">
+        <img id="photoViewerImg" style="max-width:86vw; max-height:78vh; border-radius:10px; background:#fff;" alt="Foto"/>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
 
-    const close = () => {
-      modal.style.display = 'none';
-      const img = document.getElementById('photoViewerImg');
-      if (img) img.src = '';
-    };
-
-    // 🔥 Listener global en CAPTURE: intercepta clicks aunque haya overlays/stopPropagation
-  if (!window.__carnetCaptureBound) {
-    window.__carnetCaptureBound = true;
-
-    document.addEventListener('click', (ev) => {
-      const m = document.getElementById('modalCarnet');
-      if (!m || m.classList.contains('hidden')) return;
-
-      // Si se clickea un botón del carnet con data-act
-      const btn = ev.target.closest && ev.target.closest('#modalCarnet button[data-act]');
-      if (btn) {
-        const act = btn.dataset.act;
-
-        if (act === 'close') {
-          ev.preventDefault();
-          ev.stopPropagation();
-          closeCarnet();
-          return;
-        }
-
-        if (act === 'edit') {
-          ev.preventDefault();
-          ev.stopPropagation();
-          const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
-          if (socio) {
-            closeCarnet();
-            openModalEdit(socio);
-          }
-          return;
-        }
-      }
-
-      // Click afuera del contenido => cerrar
-      const content = m.querySelector('.modal-content');
-      if (content && !content.contains(ev.target)) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        closeCarnet();
-      }
-    }, true); // 👈 CAPTURE MODE
-  }
-
-  function openPhotoViewer(url) {
-    ensurePhotoViewer();
-    const modal = document.getElementById('photoViewerModal');
+  const close = () => {
+    modal.style.display = 'none';
     const img = document.getElementById('photoViewerImg');
-    if (!modal || !img) return;
-    img.src = url;
-    modal.style.display = 'flex';
-  }
+    if (img) img.src = '';
+  };
+
+  modal.addEventListener('click', (ev) => { if (ev.target === modal) close(); });
+  modal.querySelector('#photoViewerClose').addEventListener('click', close);
+
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && modal.style.display === 'flex') close();
+  });
+}
+
+function openPhotoViewer(url) {
+  ensurePhotoViewer();
+  const modal = document.getElementById('photoViewerModal');
+  const img = document.getElementById('photoViewerImg');
+  if (!modal || !img) return;
+  img.src = url;
+  modal.style.display = 'flex';
+}
 
   // =============================
   // Draft photo UI (solo modal socio)
