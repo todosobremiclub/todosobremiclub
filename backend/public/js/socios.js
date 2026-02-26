@@ -329,9 +329,20 @@ function ensureCarnetModal() {
   modal = document.createElement('div');
   modal.id = 'modalCarnet';
   modal.className = 'modal hidden';
+  // 🔒 Forzar capa y clicks (evita CSS que bloquee interacción)
+  modal.style.position = 'fixed';
+  modal.style.inset = '0';
+  modal.style.background = 'rgba(0,0,0,0.55)';
+  modal.style.zIndex = '20000';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
+  modal.style.padding = '18px';
+  modal.style.pointerEvents = 'auto';
+  modal.style.display = 'none'; // lo abrimos con openCarnet()
+
 
   modal.innerHTML = `
-    <div class="modal-content" style="max-width: 560px;">
+    <div class="modal-content" style="max-width: 560px; pointer-events:auto;">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
         <h3 style="margin:0;">Carnet digital</h3>
         <button type="button" data-act="close" class="btn btn-secondary">✕</button>
@@ -423,15 +434,17 @@ function openCarnet(socio) {
     <div><b>Becado:</b> ${socio.becado ? 'Sí' : 'No'}</div>
   `;
 
-  modal.classList.remove('hidden');
+  modal.classList.remove('hidden'); // por si lo usás en otros estilos
+modal.style.display = 'flex';
+modal.style.pointerEvents = 'auto';
 }
 
 function closeCarnet() {
   const modal = document.getElementById('modalCarnet');
   if (!modal) return;
   modal.classList.add('hidden');
+  modal.style.display = 'none';
 }
-
   // =============================
   // Render tabla (incluye Año)
   // =============================
