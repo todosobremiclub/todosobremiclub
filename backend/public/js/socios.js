@@ -435,9 +435,15 @@
     }
 
     const nombre = `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
-    modal.querySelector('#carnetNombre')?.textContent = nombre;
-    modal.querySelector('#carnetDni')?.textContent = `DNI: ${socio.dni ?? '—'}`;
-    modal.querySelector('#carnetCategoria')?.textContent = `Categoría: ${socio.categoria ?? '—'}`;
+    const elNombre = modal.querySelector('#carnetNombre');
+if (elNombre) elNombre.textContent = nombre;
+
+const elDni = modal.querySelector('#carnetDni');
+if (elDni) elDni.textContent = `DNI: ${socio.dni ?? '—'}`;
+
+const elCat = modal.querySelector('#carnetCategoria');
+if (elCat) elCat.textContent = `Categoría: ${socio.categoria ?? '—'}`;
+
 
     const est = pagoEstado(socio);
     const pagoEl = modal.querySelector('#carnetPago');
