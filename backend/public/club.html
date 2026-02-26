@@ -6,18 +6,22 @@
   <title>Panel del Club</title>
 
   <style>
-    :root{
-      /* ✅ Colores por defecto (se pisan dinámicamente por club.js) */
-      --club-primary: #2563eb;
-      --club-secondary: #1e40af;
-      --club-accent: #facc15;
+    :root {
+      /* ✅ Colores por defecto (pisados dinámicamente por club.js) */
+      --color-primary: #2563eb;
+      --color-secondary: #1e40af;
+      --color-accent: #facc15;
     }
 
-    body { font-family: Arial, sans-serif; margin:0; padding:0; }
+    body {
+      font-family: Arial, sans-serif;
+      margin:0;
+      padding:0;
+    }
 
     /* =========================
        LAYOUT
-       ========================= */
+    ========================= */
     .layout {
       display:flex;
       flex-direction: column;
@@ -33,20 +37,21 @@
 
     /* =========================
        BOTONES
-       ========================= */
+    ========================= */
     .navbtn {
       text-align:left;
       padding:10px 12px;
       border:0;
       border-radius:10px;
       cursor:pointer;
-      background: var(--club-primary);
+      background: var(--color-primary);
       color:#fff;
       font-size:14px;
       white-space: nowrap;
     }
+
     .navbtn:hover {
-      background: var(--club-secondary);
+      background: var(--color-secondary);
     }
 
     .navbtn--top {
@@ -59,13 +64,14 @@
     .navbtn--logout {
       background:#ef4444;
     }
+
     .navbtn--logout:hover {
       background:#dc2626;
     }
 
     /* =========================
        HEADER
-       ========================= */
+    ========================= */
     .topbar {
       display:flex;
       justify-content:space-between;
@@ -75,8 +81,8 @@
       border-radius: 12px;
       background: linear-gradient(
         135deg,
-        var(--club-primary),
-        var(--club-secondary)
+        var(--color-primary),
+        var(--color-secondary)
       );
       border: 1px solid rgba(255,255,255,0.18);
     }
@@ -132,7 +138,7 @@
       display:inline-block;
       padding: 4px 10px;
       border-radius: 999px;
-      background: var(--club-accent);
+      background: var(--color-accent);
       font-size: 12px;
       color:#111827;
       font-weight:700;
@@ -140,8 +146,8 @@
 
     /* =========================
        MENÚ SUPERIOR
-       ========================= */
-    .topnav{
+    ========================= */
+    .topnav {
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -149,7 +155,7 @@
       margin-top:10px;
     }
 
-    .topnav__center{
+    .topnav__center {
       flex:1;
       display:flex;
       justify-content:center;
@@ -160,73 +166,54 @@
 
     /* =========================
        CARDS / TABLAS
-       ========================= */
+    ========================= */
     .card {
       border:1px solid #ddd;
       border-radius:12px;
       padding:14px;
       margin-top:12px;
-      max-width: 100%;
       background:#fff;
     }
-
-    .row { display:flex; gap: 12px; align-items:center; }
-
-    label { display:block; font-size: 0.85rem; color:#444; margin-bottom:6px; }
-    select, button, input { padding: 8px; }
 
     .table-wrapper {
       overflow:auto;
       border:1px solid #ddd;
       border-radius:10px;
       background:#fff;
-      max-width:100%;
     }
 
-    table { width:100%; border-collapse:collapse; }
+    table {
+      width:100%;
+      border-collapse:collapse;
+    }
+
     th, td {
       border-bottom:1px solid #eee;
       padding:8px;
       font-size:14px;
       white-space: nowrap;
     }
+
     th {
       background:#f7f7f7;
       text-align:left;
     }
 
     /* =========================
-       MODAL
-       ========================= */
-    .modal.hidden { display:none; }
-    .modal {
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,0.45);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      z-index:999;
-    }
-    .modal-content {
-      width:min(780px, 92vw);
-      background:#fff;
-      border-radius:12px;
-      padding:16px;
-    }
-
+       RESPONSIVE
+    ========================= */
     @media (max-width: 720px) {
       .topbar {
         flex-direction: column;
         align-items:flex-start;
       }
+
       .topbar-right {
         align-self: flex-end;
       }
     }
   </style>
 
-  <!-- FullCalendar -->
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 </head>
 
@@ -234,7 +221,7 @@
   <div class="layout">
     <main class="content">
 
-      <!-- ✅ HEADER -->
+      <!-- HEADER -->
       <div class="topbar">
         <div class="topbar-left">
           <img id="clubLogo" class="logo" alt="Logo club" />
@@ -243,15 +230,14 @@
             <div class="club-user" id="meLabel"></div>
           </div>
         </div>
-
         <div class="topbar-right">
           <select id="clubSelect" class="club-select"></select>
           <span class="badge" id="roleBadge">Rol: —</span>
         </div>
       </div>
 
-      <!-- ✅ MENÚ -->
-      <nav class="topnav" aria-label="Menú principal">
+      <!-- MENÚ -->
+      <nav class="topnav">
         <div class="topnav__center">
           <button class="navbtn navbtn--top" data-section="socios">👤 Socios</button>
           <button class="navbtn navbtn--top" data-section="pagos">💰 Pagos</button>
@@ -260,14 +246,11 @@
           <button class="navbtn navbtn--top" data-section="cumples">🎂 Cumpleaños</button>
           <button class="navbtn navbtn--top" data-section="configuracion">⚙️ Configuración</button>
         </div>
-
         <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
       </nav>
 
-      <!-- ✅ CONTENIDO -->
-      <div class="card" id="sectionContainer">
-        <div class="muted">Elegí una sección del menú.</div>
-      </div>
+      <!-- CONTENIDO -->
+      <div class="card" id="sectionContainer"></div>
 
     </main>
   </div>
@@ -280,7 +263,6 @@
     }
   </script>
 
-  <!-- Scripts -->
   <script src="/js/club.js"></script>
   <script src="/js/socios.js"></script>
   <script src="/js/configuracion.js"></script>
