@@ -1,18 +1,18 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-// Base API (prod/local)
-  const API_URL = (window.API_URL || 'https://todosobremiclub-api.onrender.com');
-  const api = (path) => `${API_URL}${path}`;
-
-
   // =============================
-  // Auth / helpers
+  // Auth / helpers (TOKEN)
   // =============================
- // ⚠️ Auth por cookie: no se usa token
-function getToken() {
-  return null;
-}
+  function getToken() {
+    const t = localStorage.getItem('token');
+    if (!t) {
+      alert('Tu sesión expiró. Iniciá sesión nuevamente.');
+      window.location.href = '/admin.html';
+      throw new Error('No token');
+    }
+    return t;
+  }
 
   function getActiveClubId() {
     const c = localStorage.getItem('activeClubId');
@@ -24,28 +24,25 @@ function getToken() {
     return c;
   }
 
- async function fetchAuth(url, options = {}) {
-  const headers = options.headers || {};
-  if (options.json) headers['Content-Type'] = 'application/json';
+  async function fetchAuth(url, options = {}) {
+    const headers = options.headers || {};
+    headers['Authorization'] = 'Bearer ' + getToken();
+    if (options.json) headers['Content-Type'] = 'application/json';
 
-  const { json, ...rest } = options;
+    const { json, ...rest } = options;
 
-  const res = await fetch(url, {
-    ...rest,
-    headers,
-    credentials: 'include' // ✅ cookie de sesión
-  });
+    const res = await fetch(url, { ...rest, headers });
 
-  if (res.status === 401) {
-    localStorage.removeItem('activeClubId');
-    alert('Sesión inválida o expirada.');
-    window.location.href = '/admin.html';
-    throw new Error('401');
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('activeClubId');
+      alert('Sesión inválida o expirada.');
+      window.location.href = '/admin.html';
+      throw new Error('401');
+    }
+
+    return res;
   }
-
-  return res;
-}
-
 
   async function safeJson(res) {
     const text = await res.text();
@@ -264,7 +261,7 @@ function getToken() {
       filename: photoPayload.filename || 'socio.jpg'
     };
 
-    const res = await fetchAuth(api(`/club/${clubId}/socios/${socioId}/foto`), {
+    const res = await fetchAuth(`/club/${clubId}/socios/${socioId}/foto`, {
       method: 'POST',
       body: JSON.stringify(payload),
       json: true
@@ -536,7 +533,7 @@ function getToken() {
     const clubId = getActiveClubId();
     const qs = buildQueryParams();
 
-    const res = await fetchAuth(api(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`));
+    const res = await fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`);
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
@@ -572,14 +569,14 @@ function getToken() {
     }
 
     const creating = !editingId;
-    const urlPath = creating ? `/club/${clubId}/socios` : `/club/${clubId}/socios/${editingId}`;
+    const url = creating ? `/club/${clubId}/socios` : `/club/${clubId}/socios/${editingId}`;
     const method = creating ? 'POST' : 'PUT';
 
     const btnSave = $('btnGuardarSocio');
     if (btnSave) btnSave.disabled = true;
 
     try {
-      const res = await fetchAuth(api(urlPath), { method, body: JSON.stringify(payload), json: true });
+      const res = await fetchAuth(url, { method, body: JSON.stringify(payload), json: true });
       const data = await safeJson(res);
 
       if (!res.ok || !data.ok) {
@@ -606,7 +603,7 @@ function getToken() {
 
   async function deleteSocio(id) {
     const clubId = getActiveClubId();
-    const res = await fetchAuth(api(`/club/${clubId}/socios/${id}`), { method: 'DELETE' });
+    const res = await fetchAuth(`/club/${clubId}/socios/${id}`, { method: 'DELETE' });
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
@@ -616,10 +613,44 @@ function getToken() {
     await loadSocios();
   }
 
-  function exportSocios() {
+  async function exportSocios() {
     const clubId = getActiveClubId();
-    window.location.href = api(`/club/${clubId}/socios/export.csv`);
 
+    try {
+      // Descarga con Authorization (para que funcione aunque el endpoint esté protegido)
+      const res = await fetch(`/club/${clubId}/socios/export.csv`, {
+        headers: { Authorization: 'Bearer ' + getToken() }
+      });
+
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('activeClubId');
+        alert('Sesión inválida o expirada.');
+        window.location.href = '/admin.html';
+        return;
+      }
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        alert('No se pudo exportar. ' + (txt || `HTTP ${res.status}`));
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `socios_${clubId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert('Error exportando CSV');
+    }
   }
 
   // =============================

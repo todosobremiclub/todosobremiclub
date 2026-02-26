@@ -16,38 +16,26 @@
     { n: 12, nombre: 'Diciembre' }
   ];
 
-  function getToken() { return null; } // cookie session
-
-async function fetchAuth(url, options = {}) {
-  const headers = options.headers || {};
-  if (options.json) headers['Content-Type'] = 'application/json';
-
-  const { json, ...rest } = options;
-
-  const res = await fetch(url, {
-    ...rest,
-    headers,
-    credentials: 'include'
-  });
-
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); }
-  catch { data = { ok: false, error: text }; }
-
-  if (res.status === 401) {
-    localStorage.removeItem('activeClubId');
-    alert('Sesión inválida o expirada.');
-    window.location.href = '/admin.html';
-    throw new Error('401');
+  // =============================
+  // Auth / helpers (TOKEN)
+  // =============================
+  function getToken() {
+    const t = localStorage.getItem('token');
+    if (!t) {
+      alert('Tu sesión expiró. Iniciá sesión nuevamente.');
+      window.location.href = '/admin.html';
+      throw new Error('No token');
+    }
+    return t;
   }
-
-  return { res, data };
-}
 
   function getActiveClubId() {
     const c = localStorage.getItem('activeClubId');
-    if (!c) { alert('No hay club activo.'); window.location.href = '/club.html'; throw new Error('No activeClubId'); }
+    if (!c) {
+      alert('No hay club activo seleccionado.');
+      window.location.href = '/club.html';
+      throw new Error('No activeClubId');
+    }
     return c;
   }
 
@@ -56,21 +44,25 @@ async function fetchAuth(url, options = {}) {
     headers['Authorization'] = 'Bearer ' + getToken();
     if (options.json) headers['Content-Type'] = 'application/json';
 
-    const res = await fetch(url, { ...options, headers });
+    const { json, ...rest } = options;
+
+    const res = await fetch(url, { ...rest, headers });
+
     if (res.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('activeClubId');
-      alert('Sesión inválida.');
+      alert('Sesión inválida o expirada.');
       window.location.href = '/admin.html';
       throw new Error('401');
     }
+
     return res;
   }
 
   async function safeJson(res) {
     const text = await res.text();
     try { return JSON.parse(text); }
-    catch { return { ok:false, error:text }; }
+    catch { return { ok: false, error: text }; }
   }
 
   function escapeHtml(str) {
@@ -90,7 +82,10 @@ async function fetchAuth(url, options = {}) {
     const res = await fetchAuth(`/club/${clubId}/config/cuotas`);
     const data = await safeJson(res);
 
-    if (!res.ok || !data.ok) { alert(data.error || 'Error cargando cuotas'); return; }
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error cargando cuotas');
+      return;
+    }
 
     const map = new Map();
     (data.cuotas || []).forEach(c => map.set(Number(c.mes), c.monto));
@@ -131,7 +126,10 @@ async function fetchAuth(url, options = {}) {
       json: true
     });
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) alert(data.error || 'Error guardando cuota');
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error guardando cuota');
+    }
   }
 
   // ============================================================
@@ -145,7 +143,12 @@ async function fetchAuth(url, options = {}) {
   async function loadCategorias() {
     const res = await fetchAuth(categoriasUrl());
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) { alert(data.error || 'Error cargando categorías'); return; }
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error cargando categorías');
+      return;
+    }
+
     renderCategorias(data.categorias || []);
   }
 
@@ -166,19 +169,27 @@ async function fetchAuth(url, options = {}) {
   }
 
   async function createCategoria(nombre) {
-    const res = await fetchAuth(categoriasUrl(), { method:'POST', body: JSON.stringify({ nombre }), json:true });
+    const res = await fetchAuth(categoriasUrl(), {
+      method: 'POST',
+      body: JSON.stringify({ nombre }),
+      json: true
+    });
     const data = await safeJson(res);
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error creando categoría');
   }
 
   async function updateCategoria(id, nombre) {
-    const res = await fetchAuth(`${categoriasUrl()}/${id}`, { method:'PUT', body: JSON.stringify({ nombre }), json:true });
+    const res = await fetchAuth(`${categoriasUrl()}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ nombre }),
+      json: true
+    });
     const data = await safeJson(res);
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error guardando categoría');
   }
 
   async function deleteCategoria(id) {
-    const res = await fetchAuth(`${categoriasUrl()}/${id}`, { method:'DELETE' });
+    const res = await fetchAuth(`${categoriasUrl()}/${id}`, { method: 'DELETE' });
     const data = await safeJson(res);
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error eliminando categoría');
   }
@@ -194,7 +205,12 @@ async function fetchAuth(url, options = {}) {
   async function loadTiposGasto() {
     const res = await fetchAuth(tiposGastoUrl());
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) { alert(data.error || 'Error cargando tipos de gasto'); return; }
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error cargando tipos de gasto');
+      return;
+    }
+
     renderTiposGasto(data.tipos || []);
   }
 
@@ -215,19 +231,27 @@ async function fetchAuth(url, options = {}) {
   }
 
   async function createTipoGasto(nombre) {
-    const res = await fetchAuth(tiposGastoUrl(), { method:'POST', body: JSON.stringify({ nombre }), json:true });
+    const res = await fetchAuth(tiposGastoUrl(), {
+      method: 'POST',
+      body: JSON.stringify({ nombre }),
+      json: true
+    });
     const data = await safeJson(res);
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error creando tipo de gasto');
   }
 
   async function updateTipoGasto(id, nombre) {
-    const res = await fetchAuth(`${tiposGastoUrl()}/${id}`, { method:'PUT', body: JSON.stringify({ nombre }), json:true });
+    const res = await fetchAuth(`${tiposGastoUrl()}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ nombre }),
+      json: true
+    });
     const data = await safeJson(res);
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error guardando tipo de gasto');
   }
 
   async function deleteTipoGasto(id) {
-    const res = await fetchAuth(`${tiposGastoUrl()}/${id}`, { method:'DELETE' });
+    const res = await fetchAuth(`${tiposGastoUrl()}/${id}`, { method: 'DELETE' });
     const data = await safeJson(res);
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error eliminando tipo de gasto');
   }
@@ -243,7 +267,12 @@ async function fetchAuth(url, options = {}) {
   async function loadResponsables() {
     const res = await fetchAuth(responsablesUrl());
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) { alert(data.error || 'Error cargando responsables'); return; }
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error cargando responsables');
+      return;
+    }
+
     renderResponsables(data.responsables || []);
   }
 
@@ -264,19 +293,27 @@ async function fetchAuth(url, options = {}) {
   }
 
   async function createResponsable(nombre) {
-    const res = await fetchAuth(responsablesUrl(), { method:'POST', body: JSON.stringify({ nombre }), json:true });
+    const res = await fetchAuth(responsablesUrl(), {
+      method: 'POST',
+      body: JSON.stringify({ nombre }),
+      json: true
+    });
     const data = await safeJson(res);
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error creando responsable');
   }
 
   async function updateResponsable(id, nombre) {
-    const res = await fetchAuth(`${responsablesUrl()}/${id}`, { method:'PUT', body: JSON.stringify({ nombre }), json:true });
+    const res = await fetchAuth(`${responsablesUrl()}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ nombre }),
+      json: true
+    });
     const data = await safeJson(res);
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error guardando responsable');
   }
 
   async function deleteResponsable(id) {
-    const res = await fetchAuth(`${responsablesUrl()}/${id}`, { method:'DELETE' });
+    const res = await fetchAuth(`${responsablesUrl()}/${id}`, { method: 'DELETE' });
     const data = await safeJson(res);
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error eliminando responsable');
   }

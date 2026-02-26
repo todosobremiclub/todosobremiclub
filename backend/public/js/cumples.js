@@ -1,43 +1,57 @@
 (() => {
+  const $ = (id) => document.getElementById(id);
 
-  const $ = id => document.getElementById(id);
-
-  function getToken() { return null; } // cookie session
-
-async function fetchAuth(url) {
-  const res = await fetch(url, { credentials: 'include' });
-  if (res.status === 401) {
-    localStorage.removeItem('activeClubId');
-    alert('Sesión inválida o expirada.');
-    window.location.href = '/admin.html';
-    throw new Error('401');
+  // =============================
+  // Auth / helpers (TOKEN)
+  // =============================
+  function getToken() {
+    const t = localStorage.getItem('token');
+    if (!t) {
+      alert('Tu sesión expiró. Iniciá sesión nuevamente.');
+      window.location.href = '/admin.html';
+      throw new Error('No token');
+    }
+    return t;
   }
-  return res.json();
-}
-
 
   function getActiveClubId() {
     const c = localStorage.getItem('activeClubId');
     if (!c) {
       alert('No hay club seleccionado');
+      // no redirijo acá porque club.html puede estar cargando el selector,
+      // pero si preferís, podés mandar a /club.html:
+      // window.location.href = '/club.html';
+      return null;
     }
     return c;
   }
 
-  async function fetchAuth(url) {
+  async function fetchAuthJson(url) {
     const res = await fetch(url, {
       headers: {
         Authorization: 'Bearer ' + getToken()
       }
     });
-    return res.json();
+
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('activeClubId');
+      alert('Sesión inválida o expirada.');
+      window.location.href = '/admin.html';
+      throw new Error('401');
+    }
+
+    return res.json().catch(() => ({ ok: false, error: 'Respuesta inválida del servidor' }));
   }
 
+  // =============================
+  // Carga Cumples
+  // =============================
   async function loadCumples(mesYYYYMM) {
     const clubId = getActiveClubId();
     if (!clubId) return;
 
-    const data = await fetchAuth(`/club/${clubId}/cumples?mes=${mesYYYYMM}`);
+    const data = await fetchAuthJson(`/club/${clubId}/cumples?mes=${mesYYYYMM}`);
 
     if (!data.ok) {
       console.error('Error cargando cumpleaños:', data.error);
@@ -63,15 +77,15 @@ async function fetchAuth(url) {
       return;
     }
 
-    lista.forEach(s => {
+    lista.forEach((s) => {
       const foto = s.foto_url || '/img/user-placeholder.png';
 
       cont.innerHTML += `
         <div class="cumple-item">
-          <img src="${foto}" class="cumple-foto" alt="${s.nombre}" />
+          <img src="${foto}" class="cumple-foto" alt="${(s.nombre || '')}" onerror="this.src='/img/user-placeholder.png'" />
           <div class="cumple-info">
-            <span class="cumple-nombre">${s.nombre} ${s.apellido}</span>
-            <span class="cumple-detalle">${s.categoria} — ${s.edad} años</span>
+            <span class="cumple-nombre">${s.nombre || ''} ${s.apellido || ''}</span>
+            <span class="cumple-detalle">${s.categoria || ''} — ${s.edad ?? ''} años</span>
           </div>
         </div>
       `;
@@ -84,7 +98,7 @@ async function fetchAuth(url) {
 
     calendarEl.innerHTML = '';
 
-    // ✅ GUARD CLAVE
+    // ✅ Guard: FullCalendar cargado
     if (!window.FullCalendar || !window.FullCalendar.Calendar) {
       console.error('❌ FullCalendar no está definido. Revisar CDN y orden de scripts.');
       calendarEl.innerHTML = `
@@ -114,4 +128,12 @@ async function fetchAuth(url) {
   // ✅ expuesto para club.js
   window.initCumplesSection = initCumplesSection;
 
+  // Si esta sección se usa standalone, inicializa sola
+  document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('calendar') || document.getElementById('cumplesHoyContainer')) {
+      // Nota: en el panel club esto se invoca desde club.js al cargar sección,
+      // acá solo cubrimos el caso de abrir cumples.html directo.
+      // initCumplesSection();
+    }
+  });
 })();

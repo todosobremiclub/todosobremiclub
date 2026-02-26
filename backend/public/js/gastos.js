@@ -2,28 +2,18 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  function getToken() { return null; } // cookie session
-
-async function fetchAuth(url, options = {}) {
-  const headers = options.headers || {};
-  if (options.json) headers['Content-Type'] = 'application/json';
-
-  const { json, ...rest } = options;
-
-  const res = await fetch(url, {
-    ...rest,
-    headers,
-    credentials: 'include'
-  });
-
-  if (res.status === 401) {
-    localStorage.removeItem('activeClubId');
-    alert('Sesión inválida o expirada.');
-    window.location.href = '/admin.html';
-    throw new Error('401');
+  // =============================
+  // Auth / helpers (TOKEN)
+  // =============================
+  function getToken() {
+    const t = localStorage.getItem('token');
+    if (!t) {
+      alert('Tu sesión expiró. Iniciá sesión nuevamente.');
+      window.location.href = '/admin.html';
+      throw new Error('No token');
+    }
+    return t;
   }
-  return res;
-}
 
   function getActiveClubId() {
     const c = localStorage.getItem('activeClubId');
@@ -40,7 +30,9 @@ async function fetchAuth(url, options = {}) {
     headers['Authorization'] = 'Bearer ' + getToken();
     if (options.json) headers['Content-Type'] = 'application/json';
 
-    const res = await fetch(url, { ...options, headers });
+    const { json, ...rest } = options;
+
+    const res = await fetch(url, { ...rest, headers });
 
     if (res.status === 401) {
       localStorage.removeItem('token');
@@ -58,6 +50,18 @@ async function fetchAuth(url, options = {}) {
     catch { return { ok: false, error: text }; }
   }
 
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  // =============================
+  // Formato / helpers UI
+  // =============================
   const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
 
   function todayYYYYMM() {
@@ -78,7 +82,7 @@ async function fetchAuth(url, options = {}) {
     if (!modal) return;
 
     $('formGasto')?.reset();
-    $('gastoPeriodo').value = todayYYYYMM();
+    if ($('gastoPeriodo')) $('gastoPeriodo').value = todayYYYYMM();
 
     modal.classList.remove('hidden');
   }
@@ -103,7 +107,7 @@ async function fetchAuth(url, options = {}) {
       const monto = Number(g.monto ?? 0);
 
       tr.innerHTML = `
-        <td>${periodo}</td>
+        <td>${escapeHtml(periodo)}</td>
         <td>${escapeHtml(tipo)}</td>
         <td>${escapeHtml(responsable)}</td>
         <td><strong>${money.format(monto)}</strong></td>
@@ -121,15 +125,9 @@ async function fetchAuth(url, options = {}) {
     el.textContent = money.format(Number(total || 0));
   }
 
-  function escapeHtml(str) {
-    return String(str ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
-  }
-
+  // =============================
+  // Loads
+  // =============================
   async function loadTipos() {
     const clubId = getActiveClubId();
     const sel = $('gastoTipo');
@@ -190,7 +188,8 @@ async function fetchAuth(url, options = {}) {
     if (desde) qs.set('desde', desde);
     if (hasta) qs.set('hasta', hasta);
 
-    const res = await fetchAuth(`/club/${clubId}/gastos${qs.toString() ? `?${qs.toString()}` : ''}`);
+    const url = `/club/${clubId}/gastos${qs.toString() ? `?${qs.toString()}` : ''}`;
+    const res = await fetchAuth(url);
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
@@ -202,6 +201,9 @@ async function fetchAuth(url, options = {}) {
     setTotal(data.total);
   }
 
+  // =============================
+  // Actions
+  // =============================
   async function createGasto() {
     const clubId = getActiveClubId();
 
@@ -268,6 +270,9 @@ async function fetchAuth(url, options = {}) {
     await loadGastos();
   }
 
+  // =============================
+  // Bind
+  // =============================
   function bindOnce() {
     const root = document.querySelector('.section-gastos');
     if (!root) return;
@@ -278,8 +283,6 @@ async function fetchAuth(url, options = {}) {
     $('btnGastoCancel')?.addEventListener('click', closeModal);
 
     $('btnFiltrarGastos')?.addEventListener('click', loadGastos);
-    $('filtroDesde')?.addEventListener('change', () => {});
-    $('filtroHasta')?.addEventListener('change', () => {});
 
     $('formGasto')?.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -289,6 +292,7 @@ async function fetchAuth(url, options = {}) {
     $('gastosTableBody')?.addEventListener('click', async (ev) => {
       const btn = ev.target.closest('button[data-act]');
       if (!btn) return;
+
       if (btn.dataset.act === 'del') {
         const id = btn.dataset.id;
         if (!id) return;

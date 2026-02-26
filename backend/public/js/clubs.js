@@ -8,43 +8,50 @@
     box.textContent = text;
   }
 
- function getTokenOrRedirect() { return null; } // cookie session
-
-async function fetchAuthClubs(url, options = {}) {
-  const res = await fetch(url, {
-    ...options,
-    credentials: 'include'
-  });
-
-  if (res.status === 401) {
-    alert('Sesión inválida o expirada.');
-    window.location.href = '/admin.html';
-    throw new Error('401');
+  // =============================
+  // Auth (JWT token)
+  // =============================
+  function getTokenOrRedirect() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Sesión expirada. Iniciá sesión nuevamente.');
+      window.location.href = '/admin.html';
+      throw new Error('Sin token');
+    }
+    return token;
   }
 
-  return res;
-}
-
-
-  // ✅ Fetch auth SOLO para CLUBS (no pisa nada global)
+  // ✅ Fetch auth SOLO para /admin/clubs (token Bearer)
+  // - No setea Content-Type si mandamos FormData (browser lo arma)
   async function fetchAuthClubs(url, options = {}) {
     const token = getTokenOrRedirect();
+
     const headers = options.headers || {};
     headers['Authorization'] = 'Bearer ' + token;
 
-    // ⚠️ NO seteamos Content-Type cuando mandamos FormData
-    // si options.body es FormData, el browser lo arma solo
-    const res = await fetch(url, { ...options, headers });
+    // Si explícitamente mandamos JSON (no es el caso principal acá), seteamos Content-Type
+    // pero OJO: si body es FormData, NO hay que setearlo.
+    const isFormData = (typeof FormData !== 'undefined') && (options.body instanceof FormData);
+    if (options.json && !isFormData) headers['Content-Type'] = 'application/json';
+
+    const { json, ...rest } = options;
+
+    const res = await fetch(url, { ...rest, headers });
 
     if (res.status === 401) {
       localStorage.removeItem('token');
-      alert('Sesión expirada');
+      localStorage.removeItem('activeClubId');
+      alert('Sesión inválida o expirada.');
       window.location.href = '/admin.html';
       throw new Error('401');
     }
+
     return res;
   }
 
+  // =============================
+  // Estado / UI
+  // =============================
   let clubsCache = [];
 
   function setEditMode(on) {
@@ -77,9 +84,13 @@ async function fetchAuthClubs(url, options = {}) {
     `;
   }
 
+  // =============================
+  // API calls
+  // =============================
   async function loadClubs() {
     const tbody = $('clubs-table');
     if (!tbody) return;
+
     tbody.innerHTML = `<tr><td colspan="5">Cargando...</td></tr>`;
 
     const res = await fetchAuthClubs('/admin/clubs');
@@ -147,7 +158,7 @@ async function fetchAuthClubs(url, options = {}) {
   }
 
   function startEdit(id) {
-    const c = clubsCache.find(x => x.id === id);
+    const c = clubsCache.find(x => String(x.id) === String(id));
     if (!c) return;
 
     $('club_id').value = c.id;
@@ -162,7 +173,7 @@ async function fetchAuthClubs(url, options = {}) {
   }
 
   async function delClub(id) {
-    const c = clubsCache.find(x => x.id === id);
+    const c = clubsCache.find(x => String(x.id) === String(id));
     if (!confirm(`¿Eliminar el club "${c?.name || id}"?`)) return;
 
     const res = await fetchAuthClubs(`/admin/clubs/${id}`, { method: 'DELETE' });
@@ -178,8 +189,12 @@ async function fetchAuthClubs(url, options = {}) {
     await loadClubs();
   }
 
+  // =============================
+  // Bind
+  // =============================
   document.addEventListener('DOMContentLoaded', () => {
     $('formClub')?.addEventListener('submit', saveClub);
+
     $('club_cancel_btn')?.addEventListener('click', () => {
       resetClubForm();
       showClubMsg('Edición cancelada', true);

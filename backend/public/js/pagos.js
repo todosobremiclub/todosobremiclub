@@ -1,5 +1,5 @@
 (() => {
-  const $ = id => document.getElementById(id);
+  const $ = (id) => document.getElementById(id);
 
   const MESES = [
     { n: 1, label: 'Ene' }, { n: 2, label: 'Feb' }, { n: 3, label: 'Mar' }, { n: 4, label: 'Abr' },
@@ -8,37 +8,17 @@
   ];
 
   /* =============================
-   * Helpers auth / club
+   * Helpers auth / club (TOKEN)
    * ============================= */
-  function getToken() { return null; } // cookie session
-
-async function fetchAuth(url, options = {}) {
-  const headers = options.headers || {};
-  if (options.json) headers['Content-Type'] = 'application/json';
-
-  const { json, ...rest } = options;
-
-  const res = await fetch(url, {
-    ...rest,
-    headers,
-    credentials: 'include'
-  });
-
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); }
-  catch { data = { ok: false, error: text }; }
-
-  if (res.status === 401) {
-    localStorage.removeItem('activeClubId');
-    alert('Sesión inválida o expirada.');
-    window.location.href = '/admin.html';
-    throw new Error('401');
+  function getToken() {
+    const t = localStorage.getItem('token');
+    if (!t) {
+      alert('Tu sesión expiró. Iniciá sesión nuevamente.');
+      window.location.href = '/admin.html';
+      throw new Error('No token');
+    }
+    return t;
   }
-
-  return { res, data };
-}
-
 
   function getActiveClubId() {
     const c = localStorage.getItem('activeClubId');
@@ -51,14 +31,27 @@ async function fetchAuth(url, options = {}) {
 
   async function fetchAuth(url, options = {}) {
     const headers = options.headers || {};
-    headers.Authorization = 'Bearer ' + getToken();
+    headers['Authorization'] = 'Bearer ' + getToken();
     if (options.json) headers['Content-Type'] = 'application/json';
 
-    const res = await fetch(url, { ...options, headers });
+    const { json, ...rest } = options;
+
+    const res = await fetch(url, { ...rest, headers });
+
+    // Parse robusto (por si el backend devuelve texto ante error)
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); }
     catch { data = { ok: false, error: text }; }
+
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('activeClubId');
+      alert('Sesión inválida o expirada.');
+      window.location.href = '/admin.html';
+      throw new Error('401');
+    }
+
     return { res, data };
   }
 
@@ -153,9 +146,9 @@ async function fetchAuth(url, options = {}) {
     mesesPagados.clear();
     mesesSeleccionados.clear();
 
-    $('modalSocioSearch') && ($('modalSocioSearch').value = '');
-    $('modalFechaPago') && ($('modalFechaPago').value = todayISO());
-    $('modalAnioLabel') && ($('modalAnioLabel').textContent = String(selectedYear));
+    if ($('modalSocioSearch')) $('modalSocioSearch').value = '';
+    if ($('modalFechaPago')) $('modalFechaPago').value = todayISO();
+    if ($('modalAnioLabel')) $('modalAnioLabel').textContent = String(selectedYear);
 
     renderSociosList();
     renderMesesGrid();
@@ -184,8 +177,7 @@ async function fetchAuth(url, options = {}) {
       btn.type = 'button';
       btn.className = 'navbtn';
       btn.style.margin = '4px 0';
-      btn.style.background =
-        String(s.id) === String(selectedSocioId) ? '#2563eb' : '#1f2937';
+      btn.style.background = String(s.id) === String(selectedSocioId) ? '#2563eb' : '#1f2937';
       btn.textContent = `${s.apellido ?? ''} ${s.nombre ?? ''} - ${s.dni ?? ''}`;
 
       btn.addEventListener('click', async () => {
@@ -399,13 +391,14 @@ async function fetchAuth(url, options = {}) {
 
   function setSelectedYear(y) {
     selectedYear = Number(y);
-    $('modalAnioLabel') && ($('modalAnioLabel').textContent = String(selectedYear));
-    $('pagosAnioSelect') && ($('pagosAnioSelect').value = String(selectedYear));
+    if ($('modalAnioLabel')) $('modalAnioLabel').textContent = String(selectedYear);
+    if ($('pagosAnioSelect')) $('pagosAnioSelect').value = String(selectedYear);
   }
 
   function bindOnce() {
     const root = document.querySelector('.section-pagos');
-    if (!root || root.dataset.bound === '1') return;
+    if (!root) return;
+    if (root.dataset.bound === '1') return;
     root.dataset.bound = '1';
 
     $('btnPagoAdd')?.addEventListener('click', openModal);
@@ -431,14 +424,14 @@ async function fetchAuth(url, options = {}) {
       await loadResumen();
     });
 
-    $('pagosAnioSelect')?.addEventListener('change', async e => {
+    $('pagosAnioSelect')?.addEventListener('change', async (e) => {
       setSelectedYear(e.target.value);
       await refreshMesesPagados();
       renderMesesGrid();
       await loadResumen();
     });
 
-    $('pagosTableBody')?.addEventListener('click', ev => {
+    $('pagosTableBody')?.addEventListener('click', (ev) => {
       const btn = ev.target.closest('button[data-act]');
       if (!btn) return;
       if (btn.dataset.act === 'details') {
@@ -448,11 +441,11 @@ async function fetchAuth(url, options = {}) {
 
     $('btnDetClose')?.addEventListener('click', closeDetallesUI);
     $('btnDetOk')?.addEventListener('click', closeDetallesUI);
-    $('modalPagoDetalles')?.addEventListener('click', ev => {
+    $('modalPagoDetalles')?.addEventListener('click', (ev) => {
       if (ev.target?.id === 'modalPagoDetalles') closeDetallesUI();
     });
 
-    document.addEventListener('keydown', ev => {
+    document.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape') {
         if (!$('modalPago')?.classList.contains('hidden')) closeModal();
         if (!$('modalPagoDetalles')?.classList.contains('hidden')) closeDetallesUI();
