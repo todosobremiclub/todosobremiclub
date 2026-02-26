@@ -248,6 +248,104 @@ router.delete('/:clubId/config/tipos-gasto/:id', requireAuth, requireClubAccess,
 });
 
 /* ============================================================
+   TIPOS DE INGRESO
+   GET /club/:clubId/config/tipos-ingreso
+   POST /club/:clubId/config/tipos-ingreso
+   PUT /club/:clubId/config/tipos-ingreso/:id
+   DELETE /club/:clubId/config/tipos-ingreso/:id
+============================================================ */
+
+router.get('/:clubId/config/tipos-ingreso', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const r = await db.query(
+      `SELECT id, nombre
+       FROM tipos_ingreso
+       WHERE club_id = $1 AND activo = true
+       ORDER BY nombre ASC`,
+      [clubId]
+    );
+    res.json({ ok: true, tipos: r.rows });
+  } catch (e) {
+    console.error('❌ get tipos-ingreso', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/:clubId/config/tipos-ingreso', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { nombre } = req.body || {};
+  try {
+    if (!nombre?.trim()) {
+      return res.status(400).json({ ok: false, error: 'Falta nombre' });
+    }
+
+    const r = await db.query(
+      `INSERT INTO tipos_ingreso (id, club_id, nombre, activo, created_at)
+       VALUES (gen_random_uuid(), $1, $2, true, NOW())
+       RETURNING id, nombre`,
+      [clubId, nombre.trim()]
+    );
+
+    res.json({ ok: true, tipo: r.rows[0] });
+  } catch (e) {
+    if (e.code === '23505') {
+      return res.status(409).json({ ok: false, error: 'El tipo ya existe' });
+    }
+    console.error('❌ create tipo-ingreso', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.put('/:clubId/config/tipos-ingreso/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  const { nombre } = req.body || {};
+  try {
+    if (!nombre?.trim()) {
+      return res.status(400).json({ ok: false, error: 'Falta nombre' });
+    }
+
+    const r = await db.query(
+      `UPDATE tipos_ingreso
+       SET nombre = $1
+       WHERE id = $2 AND club_id = $3
+       RETURNING id, nombre`,
+      [nombre.trim(), id, clubId]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'No encontrado' });
+    }
+
+    res.json({ ok: true, tipo: r.rows[0] });
+  } catch (e) {
+    console.error('❌ update tipo-ingreso', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.delete('/:clubId/config/tipos-ingreso/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    const r = await db.query(
+      `UPDATE tipos_ingreso
+       SET activo = false
+       WHERE id = $1 AND club_id = $2`,
+      [id, clubId]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'No encontrado' });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ delete tipo-ingreso', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+/* ============================================================
    RESPONSABLES DEL GASTO
    GET/POST/PUT/DELETE /club/:clubId/config/responsables
 ============================================================ */

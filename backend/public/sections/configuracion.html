@@ -68,6 +68,49 @@
     </table>
   </div>
 
+<!-- =========================
+     TIPOS DE INGRESO
+========================= -->
+<div class="card" style="margin-top:16px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+    <h3 style="margin:0;">Tipos de Ingreso</h3>
+    <button id="btnTipoIngresoAdd" class="btn btn-primary">
+      ➕ Nuevo tipo
+    </button>
+  </div>
+
+  <div class="muted" style="margin-top:6px;">
+    Se utilizan para registrar ingresos no asociados a socios (cantina, sponsors, eventos, etc.)
+  </div>
+
+  <div class="table-wrapper" style="margin-top:10px;">
+    <table class="socios-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th style="width:140px;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tiposIngresoTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL TIPO INGRESO -->
+<div id="modalTipoIngreso" class="modal hidden">
+  <div class="modal-content" style="max-width:420px;">
+    <h3 id="tipoIngresoTitle">Nuevo tipo de ingreso</h3>
+
+    <label>Nombre</label>
+    <input id="tipoIngresoNombre" type="text" placeholder="Ej: Cantina" />
+
+    <div class="modal-actions" style="margin-top:14px;">
+      <button id="btnTipoIngresoCancel" class="btn btn-secondary">Cancelar</button>
+      <button id="btnTipoIngresoSave" class="btn btn-primary">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ========================= -->
   <!-- RESPONSABLES DEL GASTO -->
   <!-- ========================= -->

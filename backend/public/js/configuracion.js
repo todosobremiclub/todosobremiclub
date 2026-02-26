@@ -256,6 +256,139 @@
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error eliminando tipo de gasto');
   }
 
+/* ============================================================
+   TIPOS DE INGRESO
+============================================================ */
+let editingTipoIngresoId = null;
+
+async function loadTiposIngreso() {
+  const clubId = localStorage.getItem('activeClubId');
+  const { res, data } = await fetchJsonAuth(
+    `/club/${clubId}/config/tipos-ingreso`
+  );
+
+  const tbody = document.getElementById('tiposIngresoTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (!res.ok || !data.ok || !data.tipos.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="2" class="muted">No hay tipos de ingreso cargados.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  data.tipos.forEach(t => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${t.nombre}</td>
+      <td>
+        <button class="btn btn-secondary btn-sm" data-edit="${t.id}">
+          ✏️ Editar
+        </button>
+        <button class="btn btn-danger btn-sm" data-del="${t.id}">
+          🗑️ Eliminar
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function openTipoIngresoModal(tipo = null) {
+  editingTipoIngresoId = tipo?.id || null;
+  document.getElementById('tipoIngresoNombre').value = tipo?.nombre || '';
+  document.getElementById('tipoIngresoTitle').textContent =
+    editingTipoIngresoId ? 'Editar tipo de ingreso' : 'Nuevo tipo de ingreso';
+
+  document.getElementById('modalTipoIngreso').classList.remove('hidden');
+}
+
+function closeTipoIngresoModal() {
+  document.getElementById('modalTipoIngreso').classList.add('hidden');
+}
+
+async function saveTipoIngreso() {
+  const nombre = document.getElementById('tipoIngresoNombre').value.trim();
+  if (!nombre) return alert('Ingresá un nombre');
+
+  const clubId = localStorage.getItem('activeClubId');
+  const method = editingTipoIngresoId ? 'PUT' : 'POST';
+  const url = editingTipoIngresoId
+    ? `/club/${clubId}/config/tipos-ingreso/${editingTipoIngresoId}`
+    : `/club/${clubId}/config/tipos-ingreso`;
+
+  const { res, data } = await fetchJsonAuth(url, {
+    method,
+    json: true,
+    body: JSON.stringify({ nombre })
+  });
+
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'Error guardando tipo de ingreso');
+    return;
+  }
+
+  closeTipoIngresoModal();
+  loadTiposIngreso();
+}
+
+async function deleteTipoIngreso(id) {
+  if (!confirm('¿Eliminar este tipo de ingreso?')) return;
+
+  const clubId = localStorage.getItem('activeClubId');
+  const { res, data } = await fetchJsonAuth(
+    `/club/${clubId}/config/tipos-ingreso/${id}`,
+    { method: 'DELETE' }
+  );
+
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'Error eliminando tipo');
+    return;
+  }
+
+  loadTiposIngreso();
+}
+
+/* Bind */
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'btnTipoIngresoAdd') {
+    openTipoIngresoModal();
+  }
+
+  if (e.target.id === 'btnTipoIngresoCancel') {
+    closeTipoIngresoModal();
+  }
+
+  if (e.target.id === 'btnTipoIngresoSave') {
+    saveTipoIngreso();
+  }
+
+  if (e.target.dataset.edit) {
+    const tr = e.target.closest('tr');
+    openTipoIngresoModal({
+      id: e.target.dataset.edit,
+      nombre: tr.children[0].textContent
+    });
+  }
+
+  if (e.target.dataset.del) {
+    deleteTipoIngreso(e.target.dataset.del);
+  }
+});
+
+/* Hook al init de Configuración */
+if (window.initConfiguracionSection) {
+  const prevInit = window.initConfiguracionSection;
+  window.initConfiguracionSection = async function () {
+    await prevInit();
+    await loadTiposIngreso();
+  };
+}
+
   // ============================================================
   // RESPONSABLES DEL GASTO
   // ============================================================
