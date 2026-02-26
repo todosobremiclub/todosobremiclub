@@ -14,10 +14,20 @@ router.get('/:clubId', requireAuth, async (req, res) => {
     if (!allowed) return res.status(403).json({ ok: false, error: 'No autorizado para este club' });
 
     const r = await db.query(
-      `SELECT id, name, address, city, province, logo_url, background_url
-       FROM clubs
-       WHERE id = $1
-       LIMIT 1`,
+      SELECT
+  id,
+  name,
+  address,
+  city,
+  province,
+  logo_url,
+  background_url,
+  color_primary,
+  color_secondary,
+  color_accent
+FROM clubs
+WHERE id = $1
+LIMIT 1,
       [clubId]
     );
 

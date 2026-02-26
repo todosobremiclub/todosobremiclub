@@ -18,10 +18,8 @@
     if (options.json) headers['Content-Type'] = 'application/json';
 
     const { json, ...rest } = options;
-
     const res = await fetch(url, { ...rest, headers });
 
-    // Si el backend devuelve 401, limpiamos y redirigimos
     if (res.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('activeClubId');
@@ -92,7 +90,9 @@
 
     const club = await fetchClubInfo(match.club_id);
 
-    // ✅ Título con nombre del club
+    // ===============================
+    // Título / info
+    // ===============================
     const titleEl = document.getElementById('clubTitle');
     if (titleEl) titleEl.textContent = club.name || 'Panel del Club';
     document.title = club.name ? `Club • ${club.name}` : 'Panel del Club';
@@ -102,13 +102,18 @@
       infoEl.innerHTML = `${club.name}<br>${club.city || ''} ${club.province || ''}`;
     }
 
+    // ===============================
+    // Logo
+    // ===============================
     const logo = document.getElementById('clubLogo');
     if (logo) {
       if (club.logo_url) logo.src = club.logo_url;
       else logo.removeAttribute('src');
     }
 
+    // ===============================
     // Fondo
+    // ===============================
     if (club.background_url) {
       document.body.style.backgroundImage = `url('${club.background_url}')`;
       document.body.style.backgroundSize = 'cover';
@@ -118,7 +123,27 @@
       document.body.style.backgroundImage = 'none';
     }
 
-    // Recargar la sección actual si existía
+    // ===============================
+    // ✅ COLORES DEL CLUB (THEME)
+    // ===============================
+    const root = document.documentElement;
+
+    root.style.setProperty(
+      '--color-primary',
+      club.color_primary || '#2563eb'
+    );
+    root.style.setProperty(
+      '--color-secondary',
+      club.color_secondary || '#1e40af'
+    );
+    root.style.setProperty(
+      '--color-accent',
+      club.color_accent || '#facc15'
+    );
+
+    // ===============================
+    // Recargar sección actual
+    // ===============================
     if (window.currentSection) {
       loadSection(window.currentSection);
     }
@@ -136,14 +161,12 @@
     try {
       window.currentSection = sectionName;
 
-      // Las secciones HTML son estáticas (public/sections/...)
       const res = await fetch(`/sections/${sectionName}.html`);
       if (!res.ok) throw new Error('No se pudo cargar la sección');
 
       const html = await res.text();
       container.innerHTML = html;
 
-      // Inicializadores por sección
       if (sectionName === 'socios' && window.initSociosSection) {
         await window.initSociosSection();
       }
@@ -169,7 +192,6 @@
   // ===============================
   let user;
   try {
-    // ✅ si no hay token, se corta acá y redirige
     user = await fetchMe();
 
     if (!user.roles || user.roles.length === 0) {
@@ -181,7 +203,6 @@
       return;
     }
 
-    // superadmin no entra al panel de club
     if (user.roles.some(r => r.role === 'superadmin')) {
       window.location.href = '/superadmin.html';
       return;
@@ -189,7 +210,6 @@
 
     fillSelect(user.roles);
 
-    // ✅ Aplica automáticamente al cambiar el select
     const clubSelect = document.getElementById('clubSelect');
     if (clubSelect) {
       clubSelect.addEventListener('change', () =>
@@ -197,17 +217,14 @@
       );
     }
 
-    // Aplica el club seleccionado por defecto
     await applySelected(user.roles, user);
 
-    // Botones menú (secciones)
     document.querySelectorAll('[data-section]').forEach(btn => {
       btn.addEventListener('click', () =>
         loadSection(btn.dataset.section)
       );
     });
 
-    // Default
     loadSection('socios');
   } catch (e) {
     console.error(e);
