@@ -863,15 +863,19 @@ async function loadSocios() {
   currentPage = 1; // ✅ reset
 
   const res = await fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`);
-    const data = await safeJson(res);
+  const data = await safeJson(res);
 
-    if (!res.ok || !data.ok) {
-      alert(data.error || 'Error cargando socios');
-      return;
-    }
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'Error cargando socios');
+    return;
+  }
 
-    
-    
+  // ✅ acá faltaba esto:
+  // (si querés el filtro de categoría por configuración, NO llames refreshCategoriaOptions)
+  refreshAnioOptions(data.socios || []);
+  renderSocios(data.socios || []);
+} // ✅ ESTA LLAVE ES LA CLAVE (cierra loadSocios)
+     
   async function saveSocio() {
     const clubId = getActiveClubId();
 
