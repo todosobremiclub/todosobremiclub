@@ -2,19 +2,22 @@
 
   <h2 style="margin-bottom: 12px;">Configuración del Sistema</h2>
 
-  <!-- CUOTAS -->
-  <div class="config-section collapsed">
+  <!-- ========================= -->
+  <!-- CUOTAS MENSUALES -->
+  <!-- ========================= -->
+  <div class="config-card config-collapsible collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3>💰 Monto de cuota por mes</h3>
+      <h3 style="margin:0;">💰 Monto de cuota por mes</h3>
     </div>
-    <div class="config-body">
+
+    <div class="config-content">
       <table class="config-table">
         <thead>
           <tr>
-            <th style="width:30%;">Mes</th>
-            <th style="width:40%;">Monto ($)</th>
-            <th style="width:30%;">Guardar</th>
+            <th style="width: 30%;">Mes</th>
+            <th style="width: 40%;">Monto ($)</th>
+            <th style="width: 30%;">Guardar</th>
           </tr>
         </thead>
         <tbody id="cuotasTableBody"></tbody>
@@ -22,17 +25,21 @@
     </div>
   </div>
 
+  <!-- ========================= -->
   <!-- CATEGORÍAS -->
-  <div class="config-section collapsed">
+  <!-- ========================= -->
+  <div class="config-card config-collapsible collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3>🏷️ Categorías deportivas</h3>
+      <h3 style="margin:0;">🏷️ Categorías deportivas</h3>
     </div>
-    <div class="config-body">
-      <div class="inline-add">
-        <input id="newCategoriaNombre" placeholder="Nombre">
+
+    <div class="config-content">
+      <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+        <input id="newCategoriaNombre" placeholder="Nombre" />
         <button id="btnCategoriaAdd" class="btn-add">➕ Agregar</button>
       </div>
+
       <table class="config-table">
         <thead>
           <tr>
@@ -46,17 +53,21 @@
     </div>
   </div>
 
+  <!-- ========================= -->
   <!-- TIPOS DE GASTO -->
-  <div class="config-section collapsed">
+  <!-- ========================= -->
+  <div class="config-card config-collapsible collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3>🧾 Tipos de gasto</h3>
+      <h3 style="margin:0;">🧾 Tipos de gasto</h3>
     </div>
-    <div class="config-body">
-      <div class="inline-add">
-        <input id="newTipoGastoNombre" placeholder="Nombre">
+
+    <div class="config-content">
+      <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+        <input id="newTipoGastoNombre" placeholder="Nombre" />
         <button id="btnTipoGastoAdd" class="btn-add">➕ Agregar</button>
       </div>
+
       <table class="config-table">
         <thead>
           <tr>
@@ -70,17 +81,21 @@
     </div>
   </div>
 
+  <!-- ========================= -->
   <!-- TIPOS DE INGRESO -->
-  <div class="config-section collapsed">
+  <!-- ========================= -->
+  <div class="config-card config-collapsible collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3>💵 Tipos de ingreso</h3>
+      <h3 style="margin:0;">💵 Tipos de ingreso</h3>
     </div>
-    <div class="config-body">
-      <div class="inline-add">
-        <input id="newTipoIngresoNombre" placeholder="Nombre">
+
+    <div class="config-content">
+      <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+        <input id="newTipoIngresoNombre" placeholder="Nombre" />
         <button id="btnTipoIngresoAdd" class="btn-add">➕ Agregar</button>
       </div>
+
       <table class="config-table">
         <thead>
           <tr>
@@ -93,17 +108,21 @@
     </div>
   </div>
 
+  <!-- ========================= -->
   <!-- RESPONSABLES -->
-  <div class="config-section collapsed">
+  <!-- ========================= -->
+  <div class="config-card config-collapsible collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3>👤 Responsables</h3>
+      <h3 style="margin:0;">👤 Responsables (quién realizó el gasto)</h3>
     </div>
-    <div class="config-body">
-      <div class="inline-add">
-        <input id="newResponsableNombre" placeholder="Nombre">
+
+    <div class="config-content">
+      <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+        <input id="newResponsableNombre" placeholder="Nombre" />
         <button id="btnResponsableAdd" class="btn-add">➕ Agregar</button>
       </div>
+
       <table class="config-table">
         <thead>
           <tr>
@@ -120,54 +139,41 @@
 </section>
 
 <style>
-.config-section {
-  background: rgba(255,255,255,.92);
-  border-radius: 12px;
-  margin-top: 16px;
-  border: 1px solid #e5e7eb;
-  max-width: 950px;
-}
+/* === SOLO LO NECESARIO PARA COLAPSAR === */
+
 .config-header {
   display:flex;
   align-items:center;
   gap:10px;
-  padding:14px 16px;
   cursor:pointer;
-  background:#f9fafb;
 }
-.config-header .arrow {
+
+.config-collapsible .arrow {
   transition: transform .2s ease;
 }
-.config-section.collapsed .arrow { transform: rotate(0deg); }
-.config-section:not(.collapsed) .arrow { transform: rotate(90deg); }
-.config-body { padding:16px; }
-.config-section.collapsed .config-body { display:none; }
-.inline-add { display:flex; gap:8px; margin-bottom:12px; }
-.inline-add input { flex:1; padding:8px; }
-.btn-add {
-  background:#2563eb;
-  color:#fff;
-  border:none;
-  padding:8px 14px;
-  border-radius:8px;
-  font-weight:700;
-  cursor:pointer;
+
+.config-collapsible.collapsed .arrow {
+  transform: rotate(0deg);
 }
-.btn-add:hover { background:#1d4ed8; }
-.config-table { width:100%; border-collapse:collapse; }
-.config-table th { background:#0b3c7a; color:#fff; padding:10px; }
-.config-table td { padding:10px; border-bottom:1px solid #e5e7eb; }
+
+.config-collapsible:not(.collapsed) .arrow {
+  transform: rotate(90deg);
+}
+
+.config-collapsible.collapsed .config-content {
+  display: none;
+}
 </style>
 
 <script>
-/* ✅ EVENT DELEGATION: funciona aunque la sección se cargue dinámicamente */
+/* ✅ EVENT DELEGATION – FUNCIONA SIEMPRE */
 document.addEventListener('click', function (e) {
   const header = e.target.closest('.config-header');
   if (!header) return;
 
-  const section = header.closest('.config-section');
-  if (!section) return;
+  const card = header.closest('.config-collapsible');
+  if (!card) return;
 
-  section.classList.toggle('collapsed');
+  card.classList.toggle('collapsed');
 });
 </script>
