@@ -2,52 +2,43 @@
 
   <h2 style="margin-bottom: 12px;">Configuración del Sistema</h2>
 
-  <!-- ========================= -->
-  <!-- CUOTAS MENSUALES -->
-  <!-- ========================= -->
+  <!-- CUOTAS -->
   <div class="config-section collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
       <h3>💰 Monto de cuota por mes</h3>
     </div>
-
     <div class="config-body">
       <table class="config-table">
         <thead>
           <tr>
-            <th style="width: 30%;">Mes</th>
-            <th style="width: 40%;">Monto ($)</th>
-            <th style="width: 30%;">Guardar</th>
+            <th style="width:30%;">Mes</th>
+            <th style="width:40%;">Monto ($)</th>
+            <th style="width:30%;">Guardar</th>
           </tr>
         </thead>
-        <tbody id="cuotasTableBody">
-          <!-- Renderizado por configuracion.js -->
-        </tbody>
+        <tbody id="cuotasTableBody"></tbody>
       </table>
     </div>
   </div>
 
-  <!-- ========================= -->
-  <!-- CATEGORÍAS DEPORTIVAS -->
-  <!-- ========================= -->
+  <!-- CATEGORÍAS -->
   <div class="config-section collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
       <h3>🏷️ Categorías deportivas</h3>
     </div>
-
     <div class="config-body">
       <div class="inline-add">
-        <input id="newCategoriaNombre" type="text" placeholder="Nombre" />
+        <input id="newCategoriaNombre" placeholder="Nombre">
         <button id="btnCategoriaAdd" class="btn-add">➕ Agregar</button>
       </div>
-
       <table class="config-table">
         <thead>
           <tr>
             <th>Nombre</th>
-            <th style="width:90px;text-align:center;">Guardar</th>
-            <th style="width:90px;text-align:center;">Eliminar</th>
+            <th style="width:90px;">Guardar</th>
+            <th style="width:90px;">Eliminar</th>
           </tr>
         </thead>
         <tbody id="categoriasTableBody"></tbody>
@@ -55,27 +46,23 @@
     </div>
   </div>
 
-  <!-- ========================= -->
   <!-- TIPOS DE GASTO -->
-  <!-- ========================= -->
   <div class="config-section collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
       <h3>🧾 Tipos de gasto</h3>
     </div>
-
     <div class="config-body">
       <div class="inline-add">
-        <input id="newTipoGastoNombre" type="text" placeholder="Nombre" />
+        <input id="newTipoGastoNombre" placeholder="Nombre">
         <button id="btnTipoGastoAdd" class="btn-add">➕ Agregar</button>
       </div>
-
       <table class="config-table">
         <thead>
           <tr>
             <th>Nombre</th>
-            <th style="width:90px;text-align:center;">Guardar</th>
-            <th style="width:90px;text-align:center;">Eliminar</th>
+            <th style="width:90px;">Guardar</th>
+            <th style="width:90px;">Eliminar</th>
           </tr>
         </thead>
         <tbody id="tiposGastoTableBody"></tbody>
@@ -83,26 +70,22 @@
     </div>
   </div>
 
-  <!-- ========================= -->
   <!-- TIPOS DE INGRESO -->
-  <!-- ========================= -->
   <div class="config-section collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
       <h3>💵 Tipos de ingreso</h3>
     </div>
-
     <div class="config-body">
       <div class="inline-add">
-        <input id="newTipoIngresoNombre" type="text" placeholder="Nombre" />
+        <input id="newTipoIngresoNombre" placeholder="Nombre">
         <button id="btnTipoIngresoAdd" class="btn-add">➕ Agregar</button>
       </div>
-
       <table class="config-table">
         <thead>
           <tr>
             <th>Nombre</th>
-            <th style="width:90px;text-align:center;">Eliminar</th>
+            <th style="width:90px;">Eliminar</th>
           </tr>
         </thead>
         <tbody id="tiposIngresoTableBody"></tbody>
@@ -110,27 +93,23 @@
     </div>
   </div>
 
-  <!-- ========================= -->
   <!-- RESPONSABLES -->
-  <!-- ========================= -->
   <div class="config-section collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3>👤 Responsables (quién realizó el gasto)</h3>
+      <h3>👤 Responsables</h3>
     </div>
-
     <div class="config-body">
       <div class="inline-add">
-        <input id="newResponsableNombre" type="text" placeholder="Nombre" />
+        <input id="newResponsableNombre" placeholder="Nombre">
         <button id="btnResponsableAdd" class="btn-add">➕ Agregar</button>
       </div>
-
       <table class="config-table">
         <thead>
           <tr>
             <th>Nombre</th>
-            <th style="width:90px;text-align:center;">Guardar</th>
-            <th style="width:90px;text-align:center;">Eliminar</th>
+            <th style="width:90px;">Guardar</th>
+            <th style="width:90px;">Eliminar</th>
           </tr>
         </thead>
         <tbody id="responsablesTableBody"></tbody>
@@ -141,108 +120,54 @@
 </section>
 
 <style>
-/* =========================
-   CONFIGURACIÓN
-   ========================= */
-
 .config-section {
-  background: rgba(255,255,255,0.92);
+  background: rgba(255,255,255,.92);
   border-radius: 12px;
   margin-top: 16px;
-  max-width: 950px;
   border: 1px solid #e5e7eb;
-  overflow: hidden;
+  max-width: 950px;
 }
-
 .config-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  cursor: pointer;
-  user-select: none;
-  background: #f9fafb;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:14px 16px;
+  cursor:pointer;
+  background:#f9fafb;
 }
-
-.config-header h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
 .config-header .arrow {
-  font-size: 14px;
   transition: transform .2s ease;
 }
-
-.config-section.collapsed .arrow {
-  transform: rotate(0deg);
-}
-.config-section:not(.collapsed) .arrow {
-  transform: rotate(90deg);
-}
-
-.config-body {
-  padding: 16px;
-}
-
-.config-section.collapsed .config-body {
-  display: none;
-}
-
-/* inline add */
-.inline-add {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.inline-add input {
-  flex: 1;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-}
-
-/* tables */
-.config-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.config-table thead th {
-  background: #0b3c7a;
-  color: #fff;
-  padding: 10px;
-  text-align: left;
-}
-
-.config-table tbody td {
-  border-bottom: 1px solid #e5e7eb;
-  padding: 10px;
-}
-
-/* buttons */
+.config-section.collapsed .arrow { transform: rotate(0deg); }
+.config-section:not(.collapsed) .arrow { transform: rotate(90deg); }
+.config-body { padding:16px; }
+.config-section.collapsed .config-body { display:none; }
+.inline-add { display:flex; gap:8px; margin-bottom:12px; }
+.inline-add input { flex:1; padding:8px; }
 .btn-add {
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-weight: 700;
-  cursor: pointer;
+  background:#2563eb;
+  color:#fff;
+  border:none;
+  padding:8px 14px;
+  border-radius:8px;
+  font-weight:700;
+  cursor:pointer;
 }
 .btn-add:hover { background:#1d4ed8; }
-
-@media (max-width:720px){
-  .config-body { padding:12px; }
-}
+.config-table { width:100%; border-collapse:collapse; }
+.config-table th { background:#0b3c7a; color:#fff; padding:10px; }
+.config-table td { padding:10px; border-bottom:1px solid #e5e7eb; }
 </style>
 
 <script>
-/* toggle secciones */
-document.querySelectorAll('.config-header').forEach(h => {
-  h.addEventListener('click', () => {
-    h.closest('.config-section').classList.toggle('collapsed');
-  });
+/* ✅ EVENT DELEGATION: funciona aunque la sección se cargue dinámicamente */
+document.addEventListener('click', function (e) {
+  const header = e.target.closest('.config-header');
+  if (!header) return;
+
+  const section = header.closest('.config-section');
+  if (!section) return;
+
+  section.classList.toggle('collapsed');
 });
 </script>
