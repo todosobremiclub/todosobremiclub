@@ -49,6 +49,106 @@
     catch { return { ok: false, error: text }; }
   }
 
+// =============================
+// Filtro Categoría (toolbar) desde Configuración
+// =============================
+let categoriasToolbarCache = [];
+
+// Carga desde /config/categorias y llena el select #filtroCategoria
+async function loadCategoriasToolbar() {
+  const clubId = getActiveClubId();
+  const res = await fetchAuth(`/club/${clubId}/config/categorias`);
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    console.warn('No se pudieron cargar categorías (toolbar):', data.error);
+    categoriasToolbarCache = [];
+    fillFiltroCategoria([]); // deja "Todas"
+    return;
+  }
+
+  categoriasToolbarCache = data.categorias || [];
+  fillFiltroCategoria(categoriasToolbarCache);
+}
+
+// Renderiza options en #filtroCategoria preservando selección si existe
+function fillFiltroCategoria(items) {
+  const sel = $('filtroCategoria');
+  if (!sel) return;
+
+  const current = sel.value; // preservar selección actual si sigue existiendo
+
+  // Opción default
+  sel.innerHTML = `<option value="">Todas las categorías</option>`;
+
+  // Si no hay items, dejamos solo "Todas"
+  if (!items || items.length === 0) {
+    sel.value = '';
+    return;
+  }
+
+  // Agregar categorías (usamos nombre como value porque el backend de socios filtra por s.categoria = string)
+  items.forEach(c => {
+    const nombre = String(c.nombre || '').trim();
+    if (!nombre) return;
+    const opt = document.createElement('option');
+    opt.value = nombre;
+    opt.textContent = nombre;
+    sel.appendChild(opt);
+  });
+
+  // Restaurar selección si existe aún
+  const exists = [...sel.options].some(o => o.value === current);
+  sel.value = exists ? current : '';
+}
+
+// =============================
+// Categorías deportivas (config)
+// =============================
+let categoriasConfigCache = [];
+
+async function loadCategoriasConfig() {
+  const clubId = getActiveClubId();
+  const res = await fetchAuth(`/club/${clubId}/config/categorias`);
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    console.warn('No se pudieron cargar categorías:', data.error);
+    categoriasConfigCache = [];
+    fillCategoriaSelect([]);
+    return;
+  }
+  categoriasConfigCache = data.categorias || [];
+  fillCategoriaSelect(categoriasConfigCache);
+}
+
+function fillCategoriaSelect(items) {
+  const sel = $('socioCategoria'); // ahora es <select> con mismo id
+  if (!sel) return;
+
+  if (!items || items.length === 0) {
+    sel.innerHTML = `<option value="">(No hay categorías cargadas)</option>`;
+    return;
+  }
+
+  sel.innerHTML = `<option value="">Seleccionar...</option>` +
+    items.map(c => `<option value="${String(c.nombre)}">${String(c.nombre)}</option>`).join('');
+}
+
+// Si al editar viene una categoría que no existe más en config, la agregamos como opción
+function ensureCategoriaOption(value) {
+  const sel = $('socioCategoria');
+  if (!sel) return;
+  const v = (value || '').trim();
+  if (!v) return;
+  const exists = [...sel.options].some(o => o.value === v);
+  if (!exists) {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v + ' (no está en Configuración)';
+    sel.appendChild(opt);
+  }
+}
+
   // ✅ FIX: escapeHtml correcto (tu versión estaba doble-escapando por entidades HTML)
   function escapeHtml(str) {
   return String(str ?? '')
@@ -288,6 +388,10 @@ const pageSize = 50;
     editingId = null;
     setDraftPhoto(null);
 
+// Asegurar categorías cargadas
+  if (!categoriasConfigCache.length) loadCategoriasConfig().catch(()=>{});
+
+
     $('modalSocioTitle').textContent = 'Nuevo socio';
     $('socioNumero').value = '';
     $('socioDni').value = '';
@@ -306,13 +410,14 @@ const pageSize = 50;
   function openModalEdit(socio) {
     editingId = socio.id;
     setDraftPhoto(null);
+if (!categoriasConfigCache.length) loadCategoriasConfig().catch(()=>{});
 
     $('modalSocioTitle').textContent = 'Editar socio';
     $('socioNumero').value = socio.numero_socio ?? '';
     $('socioDni').value = socio.dni ?? '';
     $('socioNombre').value = socio.nombre ?? '';
     $('socioApellido').value = socio.apellido ?? '';
-    $('socioCategoria').value = socio.categoria ?? '';
+    $('socioCategoria').value = socio.categoria ?? '';ensureCategoriaOption(socio.categoria);
     $('socioTelefono').value = socio.telefono ?? '';
     $('socioNacimiento').value = (socio.fecha_nacimiento || '').slice(0, 10);
     $('socioIngreso').value = (socio.fecha_ingreso || '').slice(0, 10);
@@ -765,11 +870,8 @@ async function loadSocios() {
       return;
     }
 
-    refreshCategoriaOptions(data.socios || []);
-    refreshAnioOptions(data.socios || []);
-    renderSocios(data.socios || []);
-  }
-
+    
+    
   async function saveSocio() {
     const clubId = getActiveClubId();
 
@@ -946,9 +1048,10 @@ bindSorting();
   }
 
   async function initSociosSection() {
-    bindOnce();
-    await loadSocios();
-  }
+  bindOnce();
+  await loadCategoriasConfig().catch(()=>{});
+  await loadSocios();
+}
 
   window.initSociosSection = initSociosSection;
 

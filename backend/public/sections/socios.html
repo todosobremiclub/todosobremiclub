@@ -70,60 +70,69 @@
     <div class="modal-content">
       <h3 id="modalSocioTitle">Nuevo socio</h3>
 
-      <div class="form-grid">
-        <div>
-          <label>N° Socio</label>
-          <input type="number" id="socioNumero" placeholder="Automático si se deja vacío" />
-        </div>
+     <div class="modal-body">
+  <div class="form-grid">
+    <div>
+      <label>N° Socio</label>
+      <input type="number" id="socioNumero" placeholder="Automático si se deja vacío" />
+    </div>
 
-        <div>
-          <label>DNI *</label>
-          <input type="text" id="socioDni" required />
-        </div>
+    <div>
+      <label>DNI *</label>
+      <input type="text" id="socioDni" required />
+    </div>
 
-        <div>
-          <label>Nombre *</label>
-          <input type="text" id="socioNombre" required />
-        </div>
+    <div>
+      <label>Nombre *</label>
+      <input type="text" id="socioNombre" required />
+    </div>
 
-        <div>
-          <label>Apellido *</label>
-          <input type="text" id="socioApellido" required />
-        </div>
+    <div>
+      <label>Apellido *</label>
+      <input type="text" id="socioApellido" required />
+    </div>
 
-        <div>
-          <label>Categoría *</label>
-          <input type="text" id="socioCategoria" required />
-        </div>
-
-        <div>
-          <label>Teléfono</label>
-          <input type="text" id="socioTelefono" />
-        </div>
-
-        <div>
-          <label>Fecha de nacimiento *</label>
-          <input type="date" id="socioNacimiento" required />
-        </div>
-
-        <div>
-          <label>Fecha de ingreso</label>
-          <input type="date" id="socioIngreso" />
-        </div>
-
-        <div class="checkbox">
-          <label><input type="checkbox" id="socioActivo" checked /> Activo</label>
-        </div>
-
-        <div class="checkbox">
-          <label><input type="checkbox" id="socioBecado" /> Becado</label>
-        </div>
+    <!-- ✅ CAMBIO: ahora es select -->
+    <div>
+      <label>Categoría *</label>
+      <select id="socioCategoria" required>
+        <option value="">Cargando...</option>
+      </select>
+      <div class="muted" style="margin-top:6px;">
+        *Las categorías se administran en Configuración.
       </div>
+    </div>
 
-      <div class="modal-actions">
-        <button id="btnCancelarSocio">Cancelar</button>
-        <button id="btnGuardarSocio">Guardar</button>
-      </div>
+    <div>
+      <label>Teléfono</label>
+      <input type="text" id="socioTelefono" />
+    </div>
+
+    <div>
+      <label>Fecha de nacimiento *</label>
+      <input type="date" id="socioNacimiento" required />
+    </div>
+
+    <div>
+      <label>Fecha de ingreso</label>
+      <input type="date" id="socioIngreso" />
+    </div>
+
+    <div class="checkbox">
+      <label><input type="checkbox" id="socioActivo" checked /> Activo</label>
+    </div>
+
+    <div class="checkbox">
+      <label><input type="checkbox" id="socioBecado" /> Becado</label>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ Footer fijo y horizontal -->
+<div class="modal-actions modal-footer">
+  <button id="btnCancelarSocio" class="btn btn-secondary" type="button">Cancelar</button>
+  <button id="btnGuardarSocio" class="btn btn-primary" type="button">Guardar</button>
+</div>
     </div>
   </div>
 
@@ -207,6 +216,104 @@
       background:#111827;
       color:#fff;
     }
+
+/* =========================
+   MODAL SOCIO - UX + THEME
+   ========================= */
+
+/* Modal content con layout vertical para evitar que acciones se vayan abajo */
+#modalSocio .modal-content{
+  display:flex;
+  flex-direction:column;
+  max-height: 86vh;
+  overflow:hidden; /* el scroll va en .modal-body */
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+
+/* Body scrolleable */
+#modalSocio .modal-body{
+  overflow:auto;
+  padding-right: 4px;
+}
+
+/* Footer sticky (siempre visible) */
+#modalSocio .modal-footer{
+  position: sticky;
+  bottom: 0;
+  background: rgba(255,255,255,0.96);
+  border-top: 1px solid rgba(0,0,0,0.08);
+  padding-top: 10px;
+  margin-top: 10px;
+
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap; /* en mobile baja a 2 filas si hace falta */
+}
+
+/* Botones con theme del club (usa variables de club.js) */
+.btn{
+  height: 38px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-primary{
+  background: var(--color-primary);
+  color: #fff;
+}
+.btn-primary:hover{ background: var(--color-secondary); }
+
+.btn-secondary{
+  background: #eef2ff;
+  color: #111827;
+  border-color: rgba(0,0,0,0.12);
+}
+.btn-secondary:hover{
+  border-color: var(--color-primary);
+}
+
+/* Inputs/selects: borde y foco con color del club */
+#modalSocio input,
+#modalSocio select,
+#modalSocio textarea{
+  width:100%;
+  border-radius:10px;
+  border: 1px solid rgba(0,0,0,0.18);
+  padding: 10px 12px;
+  outline: none;
+}
+
+#modalSocio input:focus,
+#modalSocio select:focus,
+#modalSocio textarea:focus{
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+/* Título del modal con acento */
+#modalSocio h3{
+  margin-top: 0;
+  color: var(--color-secondary);
+}
+
+/* Ajustes responsive */
+@media (max-width: 720px){
+  #modalSocio .modal-content{
+    width: min(720px, 94vw);
+    padding: 14px;
+  }
+  #modalSocio .modal-footer{
+    justify-content: stretch;
+  }
+  #modalSocio .modal-footer .btn{
+    flex:1;
+  }
+}
   </style>
 
 </section>
