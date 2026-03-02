@@ -1,3 +1,4 @@
+
 <section id="socios-section" class="section-socios">
 
   <!-- ✅ TOOLBAR EN UNA SOLA LÍNEA -->
@@ -68,6 +69,7 @@
 
   <!-- ✅ PAGINACIÓN -->
   <div id="sociosPagination" class="pagination"></div>
+
 
   <!-- ================= MODAL SOCIO ================= -->
   <div id="modalSocio" class="modal hidden">
@@ -153,9 +155,10 @@
     </div>
   </div>
 
-  <!-- ================= MODAL CARNET ================= -->
+  
+<!-- ================= MODAL CARNET ================= -->
   <div id="modalCarnet" class="modal hidden">
-    <div class="modal-content" style="max-width: 560px;">
+    <div class="modal-content" style="max-width:560px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">Carnet digital</h3>
         <button id="btnCarnetClose">✕</button>
@@ -164,7 +167,7 @@
       <div style="display:flex; gap:12px; margin-top:12px;">
         <img
           id="carnetFoto"
-          style="width:90px; height:90px; border-radius:12px; object-fit:cover; border:1px solid #ddd;"
+          style="width:90px; height:90px; border-radius:12px; object-fit:cover;"
         />
         <div>
           <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
@@ -174,12 +177,7 @@
         </div>
       </div>
 
-      <!-- ✅ ÚNICO AGREGADO: acá el JS renderiza TODOS los datos -->
-      <div
-        id="carnetExtra"
-        class="muted"
-        style="margin-top:12px; font-size:13px; line-height:1.4;"
-      ></div>
+      <div id="carnetExtra" class="muted"></div>
 
       <div class="modal-actions">
         <button id="btnCarnetEdit">✏️ Editar</button>
@@ -188,61 +186,65 @@
     </div>
   </div>
 
-/* =========================
-   CARNET DIGITAL - MEJORAS
-   ========================= */
-
-#modalCarnet .modal-content{
-  border: 2px solid var(--color-primary);
-  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
-}
-
-#carnetNombre{
-  color: var(--color-secondary);
-}
-
-#carnetPago{
-  display:inline-block;
-  padding:4px 10px;
-  border-radius:999px;
-  font-weight:800;
-  font-size:13px;
-  background: color-mix(in srgb, var(--color-primary) 15%, white);
-  color: var(--color-secondary);
-}
-
-/* Grilla de datos */
-#carnetExtra{
-  margin-top:14px;
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap:6px 14px;
-}
-
-/* Cada fila */
-#carnetExtra > div{
-  font-size:13px;
-  padding:6px 8px;
-  border-radius:8px;
-  background: #f9fafb;
-  border-left: 3px solid var(--color-primary);
-}
-
-/* Títulos */
-#carnetExtra b{
-  color: #374151;
-}
-
-/* Responsive */
-@media (max-width: 520px){
-  #carnetExtra{
-    grid-template-columns: 1fr;
-  }
-}
-
-
-  <!-- ✅ ESTILOS LOCALES -->
+  <!-- ✅ ESTILOS -->
   <style>
+
+    /* =========================
+       CARNET DIGITAL - MEJORAS
+       ========================= */
+
+    #modalCarnet .modal-content{
+      border: 2px solid var(--color-primary);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+    }
+
+    #carnetFoto{
+      border: 3px solid var(--color-primary);
+    }
+
+    #carnetNombre{
+      color: var(--color-secondary);
+    }
+
+    #carnetPago{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      font-weight:800;
+      font-size:13px;
+      background: color-mix(in srgb, var(--color-primary) 15%, white);
+      color: var(--color-secondary);
+    }
+
+    #carnetExtra{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:8px 14px;
+    }
+
+    #carnetExtra > div{
+      padding:6px 8px;
+      border-radius:8px;
+      background:#f9fafb;
+      border-left:3px solid var(--color-primary);
+      font-size:13px;
+    }
+
+    #carnetExtra b{
+      color:#374151;
+    }
+
+    @media (max-width:520px){
+      #carnetExtra{
+        grid-template-columns:1fr;
+      }
+    }
+
+    /* =========================
+       RESTO DE TUS ESTILOS
+       ========================= */
+
     .socios-toolbar{
       display:flex;
       justify-content:space-between;
@@ -275,13 +277,7 @@
       cursor:pointer;
       user-select:none;
     }
-    th.sortable:hover{
-      background:#eee;
-    }
-    th.sortable .sort-ind{
-      margin-left:6px;
-      font-size:12px;
-    }
+    th.sortable:hover{ background:#eee; }
 
     .pagination{
       display:flex;
@@ -289,100 +285,7 @@
       gap:8px;
       margin-top:10px;
     }
-    .pagination button.active{
-      background:#111827;
-      color:#fff;
-    }
 
-    /* =========================
-       MODAL SOCIO - UX + THEME
-       ========================= */
-
-    #modalSocio .modal-content{
-      display:flex;
-      flex-direction:column;
-      max-height: 86vh;
-      overflow:hidden;
-      border: 1px solid rgba(0,0,0,0.08);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-    }
-
-    #modalSocio .modal-body{
-      overflow:auto;
-      padding-right: 4px;
-    }
-
-    #modalSocio .modal-footer{
-      position: sticky;
-      bottom: 0;
-      background: rgba(255,255,255,0.96);
-      border-top: 1px solid rgba(0,0,0,0.08);
-      padding-top: 10px;
-      margin-top: 10px;
-      display:flex;
-      justify-content:flex-end;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .btn{
-      height: 38px;
-      padding: 8px 14px;
-      border-radius: 10px;
-      border: 1px solid transparent;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    .btn-primary{
-      background: var(--color-primary);
-      color: #fff;
-    }
-    .btn-primary:hover{ background: var(--color-secondary); }
-
-    .btn-secondary{
-      background: #eef2ff;
-      color: #111827;
-      border-color: rgba(0,0,0,0.12);
-    }
-    .btn-secondary:hover{
-      border-color: var(--color-primary);
-    }
-
-    #modalSocio input,
-    #modalSocio select,
-    #modalSocio textarea{
-      width:100%;
-      border-radius:10px;
-      border: 1px solid rgba(0,0,0,0.18);
-      padding: 10px 12px;
-      outline: none;
-    }
-
-    #modalSocio input:focus,
-    #modalSocio select:focus,
-    #modalSocio textarea:focus{
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
-    }
-
-    #modalSocio h3{
-      margin-top: 0;
-      color: var(--color-secondary);
-    }
-
-    @media (max-width: 720px){
-      #modalSocio .modal-content{
-        width: min(720px, 94vw);
-        padding: 14px;
-      }
-      #modalSocio .modal-footer{
-        justify-content: stretch;
-      }
-      #modalSocio .modal-footer .btn{
-        flex:1;
-      }
-    }
   </style>
 
 </section>
