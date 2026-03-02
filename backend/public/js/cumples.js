@@ -18,9 +18,6 @@
     const c = localStorage.getItem('activeClubId');
     if (!c) {
       alert('No hay club seleccionado');
-      // no redirijo acá porque club.html puede estar cargando el selector,
-      // pero si preferís, podés mandar a /club.html:
-      // window.location.href = '/club.html';
       return null;
     }
     return c;
@@ -41,7 +38,10 @@
       throw new Error('401');
     }
 
-    return res.json().catch(() => ({ ok: false, error: 'Respuesta inválida del servidor' }));
+    return res.json().catch(() => ({
+      ok: false,
+      error: 'Respuesta inválida del servidor'
+    }));
   }
 
   // =============================
@@ -82,7 +82,8 @@
 
       cont.innerHTML += `
         <div class="cumple-item">
-          <img src="${foto}" class="cumple-foto" alt="${(s.nombre || '')}" onerror="this.src='/img/user-placeholder.png'" />
+          <img src="${foto}" class="cumple-foto" alt="${(s.nombre || '')}"
+               onerror="this.src='/img/user-placeholder.png'" />
           <div class="cumple-info">
             <span class="cumple-nombre">${s.nombre || ''} ${s.apellido || ''}</span>
             <span class="cumple-detalle">${s.categoria || ''} — ${s.edad ?? ''} años</span>
@@ -92,48 +93,54 @@
     });
   }
 
+  // =============================
+  // Calendario FullCalendar
+  // =============================
   function renderCalendar(eventos, mesInicial) {
-  const calendarEl = $('calendar');
-  if (!calendarEl) return;
+    const calendarEl = $('calendar');
+    if (!calendarEl) return;
 
-  calendarEl.innerHTML = '';
+    calendarEl.innerHTML = '';
 
-  const calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: 'dayGridMonth',
-    initialDate: mesInicial + '-01',
-    events: eventos,
-    height: 'auto',
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      initialDate: mesInicial + '-01',
+      events: eventos,
+      height: 'auto',
 
-    // 👇 ESTE CALLBACK ES LA CLAVE
-    datesSet: async (info) => {
-      const y = info.start.getFullYear();
-      const m = String(info.start.getMonth() + 1).padStart(2, '0');
-      await loadCumples(`${y}-${m}`);
-    }
-  });
+      // 🚀 Cargar automáticamente el mes navegado
+      datesSet: async (info) => {
+        const y = info.start.getFullYear();
+        const m = String(info.start.getMonth() + 1).padStart(2, '0');
+        await loadCumples(`${y}-${m}`);
+      }
+    });
 
-  calendar.render();
-}
-
-  async function initCumplesSection() {
-    // Forzar fecha según GMT-3
-const ahora = new Date();
-const hoy = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
-
-const hoyMes = hoy.getMonth() + 1;
-const hoyDia = hoy.getDate();
-
+    calendar.render();
   }
 
-  // ✅ expuesto para club.js
+  // =============================
+  // Init Section
+  // =============================
+  async function initCumplesSection() {
+    // Forzar fecha según GMT‑3
+    const ahora = new Date();
+    const hoy = new Date(
+      ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
+    );
+
+    const mes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+
+    await loadCumples(mes);
+  }
+
   window.initCumplesSection = initCumplesSection;
 
-  // Si esta sección se usa standalone, inicializa sola
+  // Para el caso de abrir cumples.html directo
   document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('calendar') || document.getElementById('cumplesHoyContainer')) {
-      // Nota: en el panel club esto se invoca desde club.js al cargar sección,
-      // acá solo cubrimos el caso de abrir cumples.html directo.
-      // initCumplesSection();
+    if (document.getElementById('calendar') &&
+        document.getElementById('cumplesHoyContainer')) {
+      initCumplesSection();
     }
   });
 })();
