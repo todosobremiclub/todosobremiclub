@@ -92,37 +92,37 @@
     });
   }
 
-  function renderCalendar(eventos, mes) {
-    const calendarEl = $('calendar');
-    if (!calendarEl) return;
+  function renderCalendar(eventos, mesInicial) {
+  const calendarEl = $('calendar');
+  if (!calendarEl) return;
 
-    calendarEl.innerHTML = '';
+  calendarEl.innerHTML = '';
 
-    // ✅ Guard: FullCalendar cargado
-    if (!window.FullCalendar || !window.FullCalendar.Calendar) {
-      console.error('❌ FullCalendar no está definido. Revisar CDN y orden de scripts.');
-      calendarEl.innerHTML = `
-        <div class="msg err">
-          No se pudo cargar el calendario de cumpleaños.
-        </div>
-      `;
-      return;
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    initialDate: mesInicial + '-01',
+    events: eventos,
+    height: 'auto',
+
+    // 👇 ESTE CALLBACK ES LA CLAVE
+    datesSet: async (info) => {
+      const y = info.start.getFullYear();
+      const m = String(info.start.getMonth() + 1).padStart(2, '0');
+      await loadCumples(`${y}-${m}`);
     }
+  });
 
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: 'dayGridMonth',
-      initialDate: mes + '-01',
-      events: eventos,
-      height: 'auto'
-    });
-
-    calendar.render();
-  }
+  calendar.render();
+}
 
   async function initCumplesSection() {
-    const hoy = new Date();
-    const mes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
-    await loadCumples(mes);
+    // Forzar fecha según GMT-3
+const ahora = new Date();
+const hoy = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+
+const hoyMes = hoy.getMonth() + 1;
+const hoyDia = hoy.getDate();
+
   }
 
   // ✅ expuesto para club.js
