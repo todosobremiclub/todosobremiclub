@@ -11,12 +11,17 @@
       />
 
       <select id="filtroCategoria">
-        <option value="">Todas las categorías</option>
-      </select>
+  <option value="">Todas las categorías</option>
+</select>
 
-      <select id="filtroAnio">
-        <option value="">Todos los años</option>
-      </select>
+<select id="filtroActividad">
+  <option value="">Todas las actividades</option>
+</select>
+
+<select id="filtroAnio">
+  <option value="">Todos los años</option>
+</select>
+``
 
       <label class="checkbox">
         <input type="checkbox" id="verInactivos" />
@@ -43,19 +48,20 @@
       <thead>
         <tr>
           <th class="sortable" data-sort="pago">Pago</th>
-          <th class="sortable" data-sort="numero">N°</th>
-          <th class="sortable" data-sort="dni">DNI</th>
-          <th class="sortable" data-sort="nombre">Nombre</th>
-          <th class="sortable" data-sort="apellido">Apellido</th>
-          <th class="sortable" data-sort="categoria">Categoría</th>
-          <th>Teléfono</th>
-          <th>Nacimiento</th>
-          <th class="sortable" data-sort="anio">Año</th>
-          <th>Ingreso</th>
-          <th class="sortable" data-sort="activo">Activo</th>
-          <th class="sortable" data-sort="becado">Becado</th>
-          <th>Foto</th>
-          <th>Acciones</th>
+<th class="sortable" data-sort="numero">N°</th>
+<th class="sortable" data-sort="dni">DNI</th>
+<th class="sortable" data-sort="nombre">Nombre</th>
+<th class="sortable" data-sort="apellido">Apellido</th>
+<th class="sortable" data-sort="actividad">Actividad</th>   <!-- NUEVO -->
+<th class="sortable" data-sort="categoria">Categoría</th>
+<th>Teléfono</th>
+<th>Dirección</th>                                         <!-- NUEVO -->
+<th class="sortable" data-sort="anio">Año</th>
+<th>Ingreso</th>
+<th class="sortable" data-sort="activo">Activo</th>
+<th class="sortable" data-sort="becado">Becado</th>
+<th>Foto</th>
+<th>Acciones</th>
         </tr>
       </thead>
       <tbody id="sociosTableBody"></tbody>
@@ -83,35 +89,44 @@
     </div>
 
     <div>
-      <label>Nombre *</label>
-      <input type="text" id="socioNombre" required />
-    </div>
-
-    <div>
-      <label>Apellido *</label>
-      <input type="text" id="socioApellido" required />
-    </div>
-
-    <!-- ✅ CAMBIO: ahora es select -->
-    <div>
-      <label>Categoría *</label>
-      <select id="socioCategoria" required>
-        <option value="">Cargando...</option>
-      </select>
-      <div class="muted" style="margin-top:6px;">
-        *Las categorías se administran en Configuración.
-      </div>
-    </div>
-
-    <div>
-      <label>Teléfono</label>
-      <input type="text" id="socioTelefono" />
-    </div>
-
-    <div>
-      <label>Fecha de nacimiento *</label>
-      <input type="date" id="socioNacimiento" required />
-    </div>
+  <label>Nombre *</label>
+  <input type="text" id="socioNombre" required />
+</div>
+<div>
+  <label>Apellido *</label>
+  <input type="text" id="socioApellido" required />
+</div>
+<div>
+  <label>Actividad *</label>
+  <select id="socioActividad" required>
+    <option value="">Cargando...</option>
+  </select>
+  <div class="muted" style="margin-top:6px;">
+    *Las actividades se administran en Configuración.
+  </div>
+</div>
+<div>
+  <label>Categoría *</label>
+  <select id="socioCategoria" required>
+    <option value="">Cargando...</option>
+  </select>
+  <div class="muted" style="margin-top:6px;">
+    *Las categorías se administran en Configuración.
+  </div>
+</div>
+...
+<div>
+  <label>Teléfono</label>
+  <input type="text" id="socioTelefono" />
+</div>
+<div>
+  <label>Dirección</label>
+  <input type="text" id="socioDireccion" />
+</div>
+<div>
+  <label>Fecha de nacimiento *</label>
+  <input type="date" id="socioNacimiento" required />
+</div>
 
     <div>
       <label>Fecha de ingreso</label>

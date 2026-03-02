@@ -225,6 +225,69 @@
     if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando categoría');
   }
 
+function actividadesUrl() {
+  return `/club/${getActiveClubId()}/config/actividades`;
+}
+
+async function loadActividades() {
+  const res = await fetchAuth(actividadesUrl());
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    alert(data.error ?? 'Error cargando actividades');
+    const tbody = document.getElementById('actividadesTableBody');
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="3" class="muted">Error cargando actividades.</td></tr>';
+    }
+    return;
+  }
+  renderActividades(data.actividades ?? []);
+}
+
+function renderActividades(items) {
+  const tbody = document.getElementById('actividadesTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  items.forEach(a => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" id="act_${a.id}" value="${escapeHtml(a.nombre)}" /></td>
+      <td style="text-align:center">
+        <button class="btn-save" data-act="save-act" data-id="${a.id}">💾</button>
+      </td>
+      <td style="text-align:center">
+        <button class="btn-del" data-act="del-act" data-id="${a.id}">🗑️</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function createActividad(nombre) {
+  const res = await fetchAuth(actividadesUrl(), {
+    method: 'POST',
+    json: true,
+    body: JSON.stringify({ nombre })
+  });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando actividad');
+}
+
+async function updateActividad(id, nombre) {
+  const res = await fetchAuth(`${actividadesUrl()}/${id}`, {
+    method: 'PUT',
+    json: true,
+    body: JSON.stringify({ nombre })
+  });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error guardando actividad');
+}
+
+async function deleteActividad(id) {
+  const res = await fetchAuth(`${actividadesUrl()}/${id}`, { method: 'DELETE' });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando actividad');
+}
+
   /* ============================================================
      TIPOS DE GASTO
   ============================================================ */
@@ -632,12 +695,65 @@
     });
   }
 
+document
+  .getElementById('actividadesTableBody')
+  ?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const act = btn.dataset.act;
+    const id = btn.dataset.id;
+
+    if (act === 'save-act') {
+      const nombre = (document.getElementById(`act_${id}`)?.value ?? '').trim();
+      if (!nombre) return alert('Nombre vacío');
+      btn.disabled = true;
+      try {
+        await updateActividad(id, nombre);
+        await loadActividades();
+      } catch (err) {
+        alert(err.message ?? 'Error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    if (act === 'del-act') {
+      if (!confirm('¿Eliminar actividad?')) return;
+      btn.disabled = true;
+      try {
+        await deleteActividad(id);
+        await loadActividades();
+      } catch (err) {
+        alert(err.message ?? 'Error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  });
+
+document
+  .getElementById('btnActividadAdd')
+  ?.addEventListener('click', async () => {
+    const input = document.getElementById('newActividadNombre');
+    const nombre = (input?.value ?? '').trim();
+    if (!nombre) return alert('Ingresá un nombre para la actividad');
+    try {
+      await createActividad(nombre);
+      if (input) input.value = '';
+      await loadActividades();
+    } catch (err) {
+      alert(err.message ?? 'Error creando actividad');
+    }
+  });
+
+
   async function initConfiguracionSection() {
     await loadCuotas();
     await loadCategorias();
     await loadTiposGasto();
     await loadTiposIngreso();   // 👈 importante para que se llene la tabla
     await loadResponsables();
+    await loadActividades();
     bindEvents();
   }
 

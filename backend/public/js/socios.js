@@ -103,6 +103,75 @@ function fillFiltroCategoria(items) {
 }
 
 // =============================
+// Actividades (config) y filtro
+// =============================
+let actividadesConfigCache = [];
+
+async function loadActividadesConfig() {
+  const clubId = getActiveClubId();
+  const res = await fetchAuth(`/club/${clubId}/config/actividades`);
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    console.warn('No se pudieron cargar actividades:', data.error);
+    actividadesConfigCache = [];
+    fillActividadSelect([]);
+    fillFiltroActividad([]);
+    return;
+  }
+  actividadesConfigCache = data.actividades ?? [];
+  fillActividadSelect(actividadesConfigCache);
+  fillFiltroActividad(actividadesConfigCache);
+}
+
+function fillActividadSelect(items) {
+  const sel = $('socioActividad');
+  if (!sel) return;
+  if (!items || items.length === 0) {
+    sel.innerHTML = `<option value="">(No hay actividades cargadas)</option>`;
+    return;
+  }
+  sel.innerHTML =
+    `<option value="">Seleccionar...</option>` +
+    items.map(a => `<option value="${String(a.nombre)}">${String(a.nombre)}</option>`).join('');
+}
+
+function fillFiltroActividad(items) {
+  const sel = $('filtroActividad');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = `<option value="">Todas las actividades</option>`;
+  if (!items || items.length === 0) {
+    sel.value = '';
+    return;
+  }
+  items.forEach(a => {
+    const nombre = String(a.nombre ?? '').trim();
+    if (!nombre) return;
+    const opt = document.createElement('option');
+    opt.value = nombre;
+    opt.textContent = nombre;
+    sel.appendChild(opt);
+  });
+  const exists = [...sel.options].some(o => o.value === current);
+  sel.value = exists ? current : '';
+}
+
+// Si al editar viene una actividad que ya no está en config
+function ensureActividadOption(value) {
+  const sel = $('socioActividad');
+  if (!sel) return;
+  const v = (value ?? '').trim();
+  if (!v) return;
+  const exists = [...sel.options].some(o => o.value === v);
+  if (!exists) {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v + ' (no está en Configuración)';
+    sel.appendChild(opt);
+  }
+}
+
+// =============================
 // Categorías deportivas (config)
 // =============================
 let categoriasConfigCache = [];
@@ -417,6 +486,11 @@ if (!categoriasConfigCache.length) loadCategoriasConfig().catch(()=>{});
     $('socioDni').value = socio.dni ?? '';
     $('socioNombre').value = socio.nombre ?? '';
     $('socioApellido').value = socio.apellido ?? '';
+
+$('socioActividad').value = socio.actividad ?? '';
+ensureActividadOption(socio.actividad);
+$('socioDireccion').value = socio.direccion ?? '';
+
     $('socioCategoria').value = socio.categoria ?? '';ensureCategoriaOption(socio.categoria);
     $('socioTelefono').value = socio.telefono ?? '';
     $('socioNacimiento').value = (socio.fecha_nacimiento || '').slice(0, 10);
@@ -566,16 +640,20 @@ if (elCat) elCat.textContent = `Categoría: ${socio.categoria ?? '—'}`;
     }
 
     const extraEl = modal.querySelector('#carnetExtra');
-    if (extraEl) {
-      extraEl.innerHTML = `
-        <div><b>N° Socio:</b> ${escapeHtml(socio.numero_socio ?? '—')}</div>
-        <div><b>Teléfono:</b> ${escapeHtml(socio.telefono ?? '—')}</div>
-        <div><b>Nacimiento:</b> ${escapeHtml(fmtDMY(socio.fecha_nacimiento))}</div>
-        <div><b>Ingreso:</b> ${escapeHtml(fmtDMY(socio.fecha_ingreso))}</div>
-        <div><b>Activo:</b> ${socio.activo ? 'Sí' : 'No'}</div>
-        <div><b>Becado:</b> ${socio.becado ? 'Sí' : 'No'}</div>
-      `;
-    }
+if (extraEl) {
+  extraEl.innerHTML = `
+    <div><b>Nº Socio:</b> ${escapeHtml(socio.numero_socio ?? '—')}</div>
+    <div><b>DNI:</b> ${escapeHtml(socio.dni ?? '—')}</div>
+    <div><b>Actividad:</b> ${escapeHtml(socio.actividad ?? '—')}</div>
+    <div><b>Categoría:</b> ${escapeHtml(socio.categoria ?? '—')}</div>
+    <div><b>Teléfono:</b> ${escapeHtml(socio.telefono ?? '—')}</div>
+    <div><b>Dirección:</b> ${escapeHtml(socio.direccion ?? '—')}</div>
+    <div><b>Nacimiento:</b> ${escapeHtml(fmtDMY(socio.fecha_nacimiento))}</div>
+    <div><b>Ingreso:</b> ${escapeHtml(fmtDMY(socio.fecha_ingreso))}</div>
+    <div><b>Activo:</b> ${socio.activo ? 'Sí' : 'No'}</div>
+    <div><b>Becado:</b> ${socio.becado ? 'Sí' : 'No'}</div>
+  `;
+}
 
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
@@ -609,6 +687,8 @@ function getSortValue(s, key) {
     case 'dni': return String(s.dni ?? '');
     case 'nombre': return String(s.nombre ?? '');
     case 'apellido': return String(s.apellido ?? '');
+case 'actividad':
+  return String(s.actividad ?? '');
     case 'categoria': return String(s.categoria ?? '');
     case 'anio': {
       const y = s.anio_nacimiento ?? (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0,4)) : 0);
@@ -764,24 +844,27 @@ function bindSorting() {
     tr.dataset.id = s.id;
 
     tr.innerHTML = `
-      <td>${renderPagoPill(s)}</td>
-      <td>${fmtSocioNumero(s.numero_socio)}</td>
-      <td>${escapeHtml(s.dni ?? '')}</td>
-      <td>${escapeHtml(s.nombre ?? '')}</td>
-      <td>${escapeHtml(s.apellido ?? '')}</td>
-      <td>${escapeHtml(s.categoria ?? '')}</td>
-      <td>${escapeHtml(s.telefono ?? '')}</td>
-      <td>${fmtDMY(s.fecha_nacimiento)}</td>
-      <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
-      <td>${fmtDMY(s.fecha_ingreso)}</td>
-      <td>${s.activo ? 'Sí' : 'No'}</td>
-      <td>${s.becado ? 'Sí' : 'No'}</td>
-      <td>${fotoHtml}</td>
-      <td style="white-space:nowrap;">
-        <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
-        <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
-      </td>
-    `;
+  <td>${renderPagoPill(s)}</td>
+  <td>${fmtSocioNumero(s.numero_socio)}</td>
+  <td>${escapeHtml(s.dni ?? '')}</td>
+  <td>${escapeHtml(s.nombre ?? '')}</td>
+  <td>${escapeHtml(s.apellido ?? '')}</td>
+  <td>${escapeHtml(s.actividad ?? '')}</td>          <!-- NUEVO -->
+  <td>${escapeHtml(s.categoria ?? '')}</td>
+  <td>${escapeHtml(s.telefono ?? '')}</td>
+  <td>${escapeHtml(s.direccion ?? '')}</td>          <!-- NUEVO -->
+  <td>${fmtDMY(s.fecha_nacimiento)}</td>
+  <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
+  <td>${fmtDMY(s.fecha_ingreso)}</td>
+  <td>${s.activo ? 'Sí' : 'No'}</td>
+  <td>${s.becado ? 'Sí' : 'No'}</td>
+  <td>${fotoHtml}</td>
+  <td style="white-space:nowrap;">
+    <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
+    <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
+  </td>
+`;
+
 
     tbody.appendChild(tr);
   });
@@ -841,19 +924,21 @@ function bindSorting() {
   // API
   // =============================
   function buildQueryParams() {
-    const q = new URLSearchParams();
-    const search = $('sociosSearch')?.value?.trim();
-    const categoria = $('filtroCategoria')?.value;
-    const anio = $('filtroAnio')?.value;
-    const verInactivos = $('verInactivos')?.checked;
+  const q = new URLSearchParams();
+  const search = $('sociosSearch')?.value?.trim();
+  const categoria = $('filtroCategoria')?.value;
+  const actividad = $('filtroActividad')?.value;  // 👈 NUEVO
+  const anio = $('filtroAnio')?.value;
+  const verInactivos = $('verInactivos')?.checked;
 
-    if (search) q.set('search', search);
-    if (categoria) q.set('categoria', categoria);
-    if (anio) q.set('anio', anio);
-    if (!verInactivos) q.set('activo', '1');
+  if (search) q.set('search', search);
+  if (categoria) q.set('categoria', categoria);
+  if (actividad) q.set('actividad', actividad);    // 👈 NUEVO
+  if (anio) q.set('anio', anio);
+  if (!verInactivos) q.set('activo', '1');
 
-    return q.toString();
-  }
+  return q.toString();
+}
 
   
 async function loadSocios() {
@@ -881,22 +966,25 @@ async function loadSocios() {
 
     const numeroRaw = $('socioNumero').value.trim();
     const payload = {
-      numero_socio: numeroRaw ? Number(numeroRaw) : null,
-      dni: $('socioDni').value.trim(),
-      nombre: $('socioNombre').value.trim(),
-      apellido: $('socioApellido').value.trim(),
-      categoria: $('socioCategoria').value.trim(),
-      telefono: $('socioTelefono').value.trim() || null,
-      fecha_nacimiento: $('socioNacimiento').value,
-      fecha_ingreso: $('socioIngreso').value || null,
-      activo: $('socioActivo').checked,
-      becado: $('socioBecado').checked
-    };
+  numero_socio: numeroRaw ? Number(numeroRaw) : null,
+  dni: $('socioDni').value.trim(),
+  nombre: $('socioNombre').value.trim(),
+  apellido: $('socioApellido').value.trim(),
+  categoria: $('socioCategoria').value.trim(),
+  actividad: $('socioActividad').value.trim(),           // 👈 NUEVO
+  telefono: $('socioTelefono').value.trim() || null,
+  direccion: $('socioDireccion').value.trim() || null,   // 👈 NUEVO
+  fecha_nacimiento: $('socioNacimiento').value,
+  fecha_ingreso: $('socioIngreso').value || null,
+  activo: $('socioActivo').checked,
+  becado: $('socioBecado').checked
+};
 
-    if (!payload.dni || !payload.nombre || !payload.apellido || !payload.categoria || !payload.fecha_nacimiento) {
-      alert('Completá DNI, Nombre, Apellido, Categoría y Fecha de nacimiento.');
-      return;
-    }
+    if (!payload.dni || !payload.nombre || !payload.apellido ||
+    !payload.categoria || !payload.actividad || !payload.fecha_nacimiento) {
+  alert('Completá DNI, Nombre, Apellido, Categoría, Actividad y Fecha de nacimiento.');
+  return;
+}
 
     const creating = !editingId;
     const url = creating ? `/club/${clubId}/socios` : `/club/${clubId}/socios/${editingId}`;
@@ -996,12 +1084,16 @@ async function loadSocios() {
 bindSorting();
 
 
+    $('filtroActividad')?.addEventListener('change', loadSocios);
     $('btnNuevoSocio')?.addEventListener('click', openModalNew);
     $('btnCancelarSocio')?.addEventListener('click', closeModalSocio);
     $('btnGuardarSocio')?.addEventListener('click', saveSocio);
 
     $('btnBuscarSocios')?.addEventListener('click', loadSocios);
     $('btnExportSocios')?.addEventListener('click', exportSocios);
+
+$('socioActividad').value = '';
+$('socioDireccion').value = '';
 
     $('sociosSearch')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') loadSocios();
@@ -1053,8 +1145,9 @@ bindSorting();
 
   async function initSociosSection() {
   bindOnce();
-  await loadCategoriasConfig().catch(()=>{});
-  await loadSocios();
+await loadCategoriasConfig().catch(() => {});
+await loadActividadesConfig().catch(() => {});  // 👈 NUEVO
+await loadSocios();
 }
 
   window.initSociosSection = initSociosSection;

@@ -161,6 +161,111 @@ router.delete('/:clubId/config/categorias/:id', requireAuth, requireClubAccess, 
 });
 
 /* ============================================================
+   ACTIVIDADES (por club)
+   GET/POST/PUT/DELETE /club/:clubId/config/actividades
+============================================================ */
+router.get('/:clubId/config/actividades', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const r = await db.query(
+      `
+      SELECT id, nombre
+      FROM actividades
+      WHERE club_id = $1 AND activo = true
+      ORDER BY nombre ASC
+      `,
+      [clubId]
+    );
+    res.json({ ok: true, actividades: r.rows });
+  } catch (e) {
+    if (isMissingRelation(e)) return res.json({ ok: true, actividades: [] });
+    console.error('❌ get actividades', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/:clubId/config/actividades', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { nombre } = req.body ?? {};
+  try {
+    if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
+
+    const r = await db.query(
+      `
+      INSERT INTO actividades (id, club_id, nombre, activo, updated_at)
+      VALUES (gen_random_uuid(), $1, $2, true, NOW())
+      RETURNING id, nombre
+      `,
+      [clubId, nombre.trim()]
+    );
+    res.json({ ok: true, actividad: r.rows[0] });
+  } catch (e) {
+    if (isMissingRelation(e)) {
+      return res.status(500).json({ ok: false, error: 'Falta tabla actividades en la DB' });
+    }
+    console.error('❌ create actividad', e);
+    if (e.code === '23505') {
+      return res.status(409).json({ ok: false, error: 'La actividad ya existe' });
+    }
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  const { nombre } = req.body ?? {};
+  try {
+    if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
+
+    const r = await db.query(
+      `
+      UPDATE actividades
+      SET nombre = $1, updated_at = NOW()
+      WHERE id = $2 AND club_id = $3
+      RETURNING id, nombre
+      `,
+      [nombre.trim(), id, clubId]
+    );
+    if (!r.rowCount) return res.status(404).json({ ok: false, error: 'No encontrada' });
+
+    res.json({ ok: true, actividad: r.rows[0] });
+  } catch (e) {
+    if (isMissingRelation(e)) {
+      return res.status(500).json({ ok: false, error: 'Falta tabla actividades en la DB' });
+    }
+    console.error('❌ update actividad', e);
+    if (e.code === '23505') {
+      return res.status(409).json({ ok: false, error: 'La actividad ya existe' });
+    }
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.delete('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    const r = await db.query(
+      `
+      UPDATE actividades
+      SET activo = false, updated_at = NOW()
+      WHERE id = $1 AND club_id = $2
+      `,
+      [id, clubId]
+    );
+    if (!r.rowCount) return res.status(404).json({ ok: false, error: 'No encontrada' });
+
+    res.json({ ok: true });
+  } catch (e) {
+    if (isMissingRelation(e)) {
+      return res.status(500).json({ ok: false, error: 'Falta tabla actividades en la DB' });
+    }
+    console.error('❌ delete actividad', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
+/* ============================================================
    TIPOS DE GASTO
    GET/POST/PUT/DELETE /club/:clubId/config/tipos-gasto
 ============================================================ */
