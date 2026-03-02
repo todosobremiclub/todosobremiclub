@@ -652,19 +652,33 @@ if (elCat) elCat.textContent = `Categoría: ${socio.categoria ?? '—'}`;
 
     const extraEl = modal.querySelector('#carnetExtra');
 if (extraEl) {
-  extraEl.innerHTML = `
-    <div><b>Nº Socio:</b> ${escapeHtml(socio.numero_socio ?? '—')}</div>
-    <div><b>DNI:</b> ${escapeHtml(socio.dni ?? '—')}</div>
-    <div><b>Actividad:</b> ${escapeHtml(socio.actividad ?? '—')}</div>
-    <div><b>Categoría:</b> ${escapeHtml(socio.categoria ?? '—')}</div>
-    <div><b>Teléfono:</b> ${escapeHtml(socio.telefono ?? '—')}</div>
-    <div><b>Dirección:</b> ${escapeHtml(socio.direccion ?? '—')}</div>
-    <div><b>Nacimiento:</b> ${escapeHtml(fmtDMY(socio.fecha_nacimiento))}</div>
-    <div><b>Ingreso:</b> ${escapeHtml(fmtDMY(socio.fecha_ingreso))}</div>
-    <div><b>Activo:</b> ${socio.activo ? 'Sí' : 'No'}</div>
-    <div><b>Becado:</b> ${socio.becado ? 'Sí' : 'No'}</div>
-  `;
+  const est = pagoEstado(socio); // ya lo usás arriba
+  const foto = socio.foto_url || '/img/user-placeholder.png';
+
+  // "Todos los datos de la tabla" (incluye lo que mostraba tu grilla: pago, nro, dni, nombre, etc.)
+  const items = [
+    ['Estado de pago', est.label],
+    ['Nº Socio', socio.numero_socio ?? '—'],
+    ['DNI', socio.dni ?? '—'],
+    ['Nombre', `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim() || '—'],
+    ['Actividad', socio.actividad ?? '—'],
+    ['Categoría', socio.categoria ?? '—'],
+    ['Teléfono', socio.telefono ?? '—'],
+    // Aunque Dirección/Nacimiento no se muestren en la grilla principal, siguen siendo datos del socio:
+    ['Dirección', socio.direccion ?? '—'],
+    ['Nacimiento', fmtDMY(socio.fecha_nacimiento) || '—'],
+    ['Año nacimiento', socio.anio_nacimiento ?? yearFromISO(socio.fecha_nacimiento) ?? '—'],
+    ['Ingreso', fmtDMY(socio.fecha_ingreso) || '—'],
+    ['Activo', socio.activo ? 'Sí' : 'No'],
+    ['Becado', socio.becado ? 'Sí' : 'No'],
+    ['Foto URL', socio.foto_url ?? '—'],
+  ];
+
+  extraEl.innerHTML = items
+    .map(([k, v]) => `<div><b>${escapeHtml(k)}:</b> ${escapeHtml(v)}</div>`)
+    .join('');
 }
+
 
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
@@ -863,8 +877,6 @@ function bindSorting() {
   <td>${escapeHtml(s.actividad ?? '')}</td>          <!-- NUEVO -->
   <td>${escapeHtml(s.categoria ?? '')}</td>
   <td>${escapeHtml(s.telefono ?? '')}</td>
-  <td>${escapeHtml(s.direccion ?? '')}</td>          <!-- NUEVO -->
-  <td>${fmtDMY(s.fecha_nacimiento)}</td>
   <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
   <td>${fmtDMY(s.fecha_ingreso)}</td>
   <td>${s.activo ? 'Sí' : 'No'}</td>
