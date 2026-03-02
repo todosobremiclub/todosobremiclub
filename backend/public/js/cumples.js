@@ -1,8 +1,9 @@
 (() => {
   const $ = (id) => document.getElementById(id);
+  let calendar = null;   // <<--- CALENDARIO GLOBAL (muy importante)
 
   // =============================
-  // Auth / helpers (TOKEN)
+  // Auth
   // =============================
   function getToken() {
     const t = localStorage.getItem('token');
@@ -16,18 +17,13 @@
 
   function getActiveClubId() {
     const c = localStorage.getItem('activeClubId');
-    if (!c) {
-      alert('No hay club seleccionado');
-      return null;
-    }
+    if (!c) return null;
     return c;
   }
 
   async function fetchAuthJson(url) {
     const res = await fetch(url, {
-      headers: {
-        Authorization: 'Bearer ' + getToken()
-      }
+      headers: { Authorization: 'Bearer ' + getToken() }
     });
 
     if (res.status === 401) {
@@ -35,13 +31,10 @@
       localStorage.removeItem('activeClubId');
       alert('Sesión inválida o expirada.');
       window.location.href = '/admin.html';
-      throw new Error('401');
+      throw new Error("401");
     }
 
-    return res.json().catch(() => ({
-      ok: false,
-      error: 'Respuesta inválida del servidor'
-    }));
+    return res.json().catch(() => ({ ok:false, error:"JSON inválido" }));
   }
 
   // =============================
@@ -54,39 +47,46 @@
     const data = await fetchAuthJson(`/club/${clubId}/cumples?mes=${mesYYYYMM}`);
 
     if (!data.ok) {
-      console.error('Error cargando cumpleaños:', data.error);
+      console.error("Error:", data.error);
       return;
     }
 
-    renderHoy(data.hoy || []);
-    renderCalendar(data.eventos || [], mesYYYYMM);
+    renderHoy(data.hoy ?? []);
+
+    // Si el calendario todavía NO existe -> crearlo
+    if (!calendar) {
+      initCalendar(mesYYYYMM, data.eventos ?? []);
+    } else {
+      // Si YA existe -> solo actualizar eventos
+      calendar.removeAllEvents();
+      (data.eventos ?? []).forEach(ev => calendar.addEvent(ev));
+    }
   }
 
+  // =============================
+  // Cumples HOY
+  // =============================
   function renderHoy(lista) {
-    const cont = $('cumplesHoyContainer');
+    const cont = $("cumplesHoyContainer");
     if (!cont) return;
-
-    cont.innerHTML = '';
+    cont.innerHTML = "";
 
     if (!lista.length) {
-      cont.innerHTML = `
-        <div class="cumple-item">
-          <div class="cumple-info">🟡 No hay cumpleaños hoy</div>
-        </div>
-      `;
+      cont.innerHTML = `<div class="cumple-info">🟡 No hay cumpleaños hoy</div>`;
       return;
     }
 
-    lista.forEach((s) => {
-      const foto = s.foto_url || '/img/user-placeholder.png';
+    lista.forEach(s => {
+      const foto = s.foto_url || "/img/user-placeholder.png";
 
       cont.innerHTML += `
         <div class="cumple-item">
-          <img src="${foto}" class="cumple-foto" alt="${(s.nombre || '')}"
-               onerror="this.src='/img/user-placeholder.png'" />
+          <img src="${foto}"
+               onerror="this.src='/img/user-placeholder.png'"
+               class="cumple-foto" />
           <div class="cumple-info">
-            <span class="cumple-nombre">${s.nombre || ''} ${s.apellido || ''}</span>
-            <span class="cumple-detalle">${s.categoria || ''} — ${s.edad ?? ''} años</span>
+            <span class="cumple-nombre">${s.nombre} ${s.apellido}</span>
+            <span class="cumple-detalle">${s.categoria || ''} — ${s.edad} años</span>
           </div>
         </div>
       `;
@@ -94,25 +94,24 @@
   }
 
   // =============================
-  // Calendario FullCalendar
+  // Inicializar Calendario (SOLO UNA VEZ)
   // =============================
-  function renderCalendar(eventos, mesInicial) {
-    const calendarEl = $('calendar');
+  function initCalendar(mesInicial, eventosIniciales) {
+    const calendarEl = $("calendar");
     if (!calendarEl) return;
 
-    calendarEl.innerHTML = '';
+    calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: "dayGridMonth",
+      initialDate: mesInicial + "-01",
+      height: "auto",
 
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: 'dayGridMonth',
-      initialDate: mesInicial + '-01',
-      events: eventos,
-      height: 'auto',
+      events: eventosIniciales,
 
-      // 🚀 Cargar automáticamente el mes navegado
+      // ⬇️ CUANDO CAMBIO DE MES
       datesSet: async (info) => {
         const y = info.start.getFullYear();
-        const m = String(info.start.getMonth() + 1).padStart(2, '0');
-        await loadCumples(`${y}-${m}`);
+        const m = String(info.start.getMonth() + 1).padStart(2, "0");
+        await loadCumples(`${y}-${m}`); // <<-- SOLO carga eventos, NO reinicia el calendario
       }
     });
 
@@ -120,27 +119,26 @@
   }
 
   // =============================
-  // Init Section
+  // Init section
   // =============================
   async function initCumplesSection() {
-    // Forzar fecha según GMT‑3
+    // GMT-3
     const ahora = new Date();
     const hoy = new Date(
-      ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
+      ahora.toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" })
     );
 
-    const mes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+    const mes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2,'0')}`;
 
     await loadCumples(mes);
   }
 
   window.initCumplesSection = initCumplesSection;
 
-  // Para el caso de abrir cumples.html directo
-  document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('calendar') &&
-        document.getElementById('cumplesHoyContainer')) {
+  document.addEventListener("DOMContentLoaded", () => {
+    if ($("calendar") && $("cumplesHoyContainer")) {
       initCumplesSection();
     }
   });
+
 })();
