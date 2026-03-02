@@ -671,7 +671,7 @@ if (extraEl) {
     ['Ingreso', fmtDMY(socio.fecha_ingreso) || '—'],
     ['Activo', socio.activo ? 'Sí' : 'No'],
     ['Becado', socio.becado ? 'Sí' : 'No'],
-    ['Foto URL', socio.foto_url ?? '—'],
+    
   ];
 
   extraEl.innerHTML = items
