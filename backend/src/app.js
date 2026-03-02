@@ -1,7 +1,9 @@
 const express = require('express');
 const app = express();
 
-app.use(express.json());
+// ⬆️ Aumentamos el límite del body para poder enviar fotos en base64 (por ejemplo 5 MB)
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // ✅ SERVIR FRONTEND
 app.use(express.static('public'));
@@ -22,7 +24,6 @@ app.use('/club', configuracionRoutes);
 app.use('/club', require('./routes/gastosRoutes'));
 app.use('/club', require('./routes/cumplesRoutes'));
 app.use('/club', require('./routes/pagosRoutes'));
-
 
 // ===== HEALTH =====
 app.get('/health', (_req, res) => {
