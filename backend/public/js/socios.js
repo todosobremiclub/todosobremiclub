@@ -180,29 +180,40 @@ async function loadCategoriasConfig() {
   const clubId = getActiveClubId();
   const res = await fetchAuth(`/club/${clubId}/config/categorias`);
   const data = await safeJson(res);
+
   if (!res.ok || !data.ok) {
-    console.warn('No se pudieron cargar categorías:', data.error);
-    categoriasConfigCache = [];
+    console.warn("Error cargando categorías:", data.error);
     fillCategoriaSelect([]);
     return;
   }
-  categoriasConfigCache = data.categorias || [];
-  fillCategoriaSelect(categoriasConfigCache);
+
+  fillCategoriaSelect(data.categorias ?? []);
 }
 
 function fillCategoriaSelect(items) {
-  const sel = $('socioCategoria'); // ahora es <select> con mismo id
-  if (!sel) return;
+  const sel = $('socioCategoria');
+  const filtro = $('filtroCategoria');
+  if (!sel || !filtro) return;
 
-  if (!items || items.length === 0) {
-    sel.innerHTML = `<option value="">(No hay categorías cargadas)</option>`;
-    return;
-  }
+  // llenar modal
+  sel.innerHTML = `<option value="">Seleccionar...</option>`;
+  items.forEach(c => {
+    sel.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
+  });
 
-  sel.innerHTML = `<option value="">Seleccionar...</option>` +
-    items.map(c => `<option value="${String(c.nombre)}">${String(c.nombre)}</option>`).join('');
+  // llenar filtro
+  const current = filtro.value;
+  filtro.innerHTML = `<option value="">Todas las categorías</option>`;
+  items.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.nombre;
+    opt.textContent = c.nombre;
+    filtro.appendChild(opt);
+  });
+
+  // mantener selección previa
+  filtro.value = current || '';
 }
-
 // Si al editar viene una categoría que no existe más en config, la agregamos como opción
 function ensureCategoriaOption(value) {
   const sel = $('socioCategoria');
