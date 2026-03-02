@@ -2,64 +2,24 @@
   const $ = (id) => document.getElementById(id);
 
   const MESES = [
-    { n: 1,  nombre: 'Enero' },
-    { n: 2,  nombre: 'Febrero' },
-    { n: 3,  nombre: 'Marzo' },
-    { n: 4,  nombre: 'Abril' },
-    { n: 5,  nombre: 'Mayo' },
-    { n: 6,  nombre: 'Junio' },
-    { n: 7,  nombre: 'Julio' },
-    { n: 8,  nombre: 'Agosto' },
-    { n: 9,  nombre: 'Septiembre' },
+    { n: 1, nombre: 'Enero' },
+    { n: 2, nombre: 'Febrero' },
+    { n: 3, nombre: 'Marzo' },
+    { n: 4, nombre: 'Abril' },
+    { n: 5, nombre: 'Mayo' },
+    { n: 6, nombre: 'Junio' },
+    { n: 7, nombre: 'Julio' },
+    { n: 8, nombre: 'Agosto' },
+    { n: 9, nombre: 'Septiembre' },
     { n: 10, nombre: 'Octubre' },
     { n: 11, nombre: 'Noviembre' },
     { n: 12, nombre: 'Diciembre' }
   ];
 
-/* ===============================
-   Helpers auth (JWT token)
-=============================== */
-function getToken() {
-  const t = localStorage.getItem('token');
-  if (!t) {
-    alert('Tu sesión expiró. Iniciá sesión nuevamente.');
-    window.location.href = '/admin.html';
-    throw new Error('No token');
-  }
-  return t;
-}
+  /* ===============================
+     Helpers auth (JWT token)
+  =============================== */
 
-async function fetchJsonAuth(url, options = {}) {
-  const headers = options.headers || {};
-  headers['Authorization'] = 'Bearer ' + getToken();
-  if (options.json) headers['Content-Type'] = 'application/json';
-
-  const { json, ...rest } = options;
-
-  const res = await fetch(url, { ...rest, headers });
-
-  if (res.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('activeClubId');
-    alert('Sesión inválida o expirada.');
-    window.location.href = '/admin.html';
-    throw new Error('401');
-  }
-
-  const text = await res.text();
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    data = { ok: false, error: text };
-  }
-
-  return { res, data };
-}
-
-  // =============================
-  // Auth / helpers (TOKEN)
-  // =============================
   function getToken() {
     const t = localStorage.getItem('token');
     if (!t) {
@@ -70,18 +30,8 @@ async function fetchJsonAuth(url, options = {}) {
     return t;
   }
 
-  function getActiveClubId() {
-    const c = localStorage.getItem('activeClubId');
-    if (!c) {
-      alert('No hay club activo seleccionado.');
-      window.location.href = '/club.html';
-      throw new Error('No activeClubId');
-    }
-    return c;
-  }
-
-  async function fetchAuth(url, options = {}) {
-    const headers = options.headers || {};
+  async function fetchJsonAuth(url, options = {}) {
+    const headers = options.headers ?? {};
     headers['Authorization'] = 'Bearer ' + getToken();
     if (options.json) headers['Content-Type'] = 'application/json';
 
@@ -97,39 +47,79 @@ async function fetchJsonAuth(url, options = {}) {
       throw new Error('401');
     }
 
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { ok: false, error: text };
+    }
+
+    return { res, data };
+  }
+
+  function getActiveClubId() {
+    const c = localStorage.getItem('activeClubId');
+    if (!c) {
+      alert('No hay club activo seleccionado.');
+      window.location.href = '/club.html';
+      throw new Error('No activeClubId');
+    }
+    return c;
+  }
+
+  async function fetchAuth(url, options = {}) {
+    const headers = options.headers ?? {};
+    headers['Authorization'] = 'Bearer ' + getToken();
+    if (options.json) headers['Content-Type'] = 'application/json';
+    const { json, ...rest } = options;
+
+    const res = await fetch(url, { ...rest, headers });
+
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('activeClubId');
+      alert('Sesión inválida o expirada.');
+      window.location.href = '/admin.html';
+      throw new Error('401');
+    }
     return res;
   }
 
   async function safeJson(res) {
     const text = await res.text();
-    try { return JSON.parse(text); }
-    catch { return { ok: false, error: text }; }
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { ok: false, error: text };
+    }
   }
 
   function escapeHtml(str) {
     return String(str ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
+      .replaceAll('&', '&')
+      .replaceAll('<', '<')
+      .replaceAll('>', '>')
+      .replaceAll('"', '"')
+      .replaceAll("'", "'");
   }
 
-  // ============================================================
-  // CUOTAS
-  // ============================================================
+  /* ============================================================
+     CUOTAS
+  ============================================================ */
+
   async function loadCuotas() {
     const clubId = getActiveClubId();
     const res = await fetchAuth(`/club/${clubId}/config/cuotas`);
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
-      alert(data.error || 'Error cargando cuotas');
+      alert(data.error ?? 'Error cargando cuotas');
       return;
     }
 
     const map = new Map();
-    (data.cuotas || []).forEach(c => map.set(Number(c.mes), c.monto));
+    (data.cuotas ?? []).forEach(c => map.set(Number(c.mes), c.monto));
     renderCuotas(map);
   }
 
@@ -163,22 +153,22 @@ async function fetchJsonAuth(url, options = {}) {
 
     const res = await fetchAuth(`/club/${clubId}/config/cuotas/${mes}`, {
       method: 'POST',
-      body: JSON.stringify({ monto }),
-      json: true
+      json: true,
+      body: JSON.stringify({ monto })
     });
-    const data = await safeJson(res);
 
+    const data = await safeJson(res);
     if (!res.ok || !data.ok) {
-      alert(data.error || 'Error guardando cuota');
+      alert(data.error ?? 'Error guardando cuota');
     }
   }
 
-  // ============================================================
-  // CATEGORÍAS
-  // ============================================================
+  /* ============================================================
+     CATEGORÍAS
+  ============================================================ */
+
   function categoriasUrl() {
-    const clubId = getActiveClubId();
-    return `/club/${clubId}/config/categorias`;
+    return `/club/${getActiveClubId()}/config/categorias`;
   }
 
   async function loadCategorias() {
@@ -186,11 +176,11 @@ async function fetchJsonAuth(url, options = {}) {
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
-      alert(data.error || 'Error cargando categorías');
+      alert(data.error ?? 'Error cargando categorías');
       return;
     }
 
-    renderCategorias(data.categorias || []);
+    renderCategorias(data.categorias ?? []);
   }
 
   function renderCategorias(items) {
@@ -202,8 +192,8 @@ async function fetchJsonAuth(url, options = {}) {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><input type="text" id="cat_${c.id}" value="${escapeHtml(c.nombre)}" /></td>
-        <td style="text-align:center;"><button class="btn-save" data-act="save-cat" data-id="${c.id}">💾</button></td>
-        <td style="text-align:center;"><button class="btn-del" data-act="del-cat" data-id="${c.id}">🗑️</button></td>
+        <td style="text-align:center"><button class="btn-save" data-act="save-cat" data-id="${c.id}">💾</button></td>
+        <td style="text-align:center"><button class="btn-del" data-act="del-cat" data-id="${c.id}">🗑️</button></td>
       `;
       tbody.appendChild(tr);
     });
@@ -212,35 +202,35 @@ async function fetchJsonAuth(url, options = {}) {
   async function createCategoria(nombre) {
     const res = await fetchAuth(categoriasUrl(), {
       method: 'POST',
-      body: JSON.stringify({ nombre }),
-      json: true
+      json: true,
+      body: JSON.stringify({ nombre })
     });
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error creando categoría');
+    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando categoría');
   }
 
   async function updateCategoria(id, nombre) {
     const res = await fetchAuth(`${categoriasUrl()}/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ nombre }),
-      json: true
+      json: true,
+      body: JSON.stringify({ nombre })
     });
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error guardando categoría');
+    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error guardando categoría');
   }
 
   async function deleteCategoria(id) {
     const res = await fetchAuth(`${categoriasUrl()}/${id}`, { method: 'DELETE' });
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error eliminando categoría');
+    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando categoría');
   }
 
-  // ============================================================
-  // TIPOS DE GASTO
-  // ============================================================
+  /* ============================================================
+     TIPOS DE GASTO
+  ============================================================ */
+
   function tiposGastoUrl() {
-    const clubId = getActiveClubId();
-    return `/club/${clubId}/config/tipos-gasto`;
+    return `/club/${getActiveClubId()}/config/tipos-gasto`;
   }
 
   async function loadTiposGasto() {
@@ -248,11 +238,11 @@ async function fetchJsonAuth(url, options = {}) {
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
-      alert(data.error || 'Error cargando tipos de gasto');
+      alert(data.error ?? 'Error cargando tipos de gasto');
       return;
     }
 
-    renderTiposGasto(data.tipos || []);
+    renderTiposGasto(data.tipos ?? []);
   }
 
   function renderTiposGasto(items) {
@@ -264,8 +254,8 @@ async function fetchJsonAuth(url, options = {}) {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><input type="text" id="tg_${t.id}" value="${escapeHtml(t.nombre)}" /></td>
-        <td style="text-align:center;"><button class="btn-save" data-act="save-tg" data-id="${t.id}">💾</button></td>
-        <td style="text-align:center;"><button class="btn-del" data-act="del-tg" data-id="${t.id}">🗑️</button></td>
+        <td style="text-align:center"><button class="btn-save" data-act="save-tg" data-id="${t.id}">💾</button></td>
+        <td style="text-align:center"><button class="btn-del" data-act="del-tg" data-id="${t.id}">🗑️</button></td>
       `;
       tbody.appendChild(tr);
     });
@@ -274,168 +264,123 @@ async function fetchJsonAuth(url, options = {}) {
   async function createTipoGasto(nombre) {
     const res = await fetchAuth(tiposGastoUrl(), {
       method: 'POST',
-      body: JSON.stringify({ nombre }),
-      json: true
+      json: true,
+      body: JSON.stringify({ nombre })
     });
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error creando tipo de gasto');
+    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando tipo de gasto');
   }
 
   async function updateTipoGasto(id, nombre) {
     const res = await fetchAuth(`${tiposGastoUrl()}/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ nombre }),
-      json: true
+      json: true,
+      body: JSON.stringify({ nombre })
     });
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error guardando tipo de gasto');
+    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error guardando tipo de gasto');
   }
 
   async function deleteTipoGasto(id) {
     const res = await fetchAuth(`${tiposGastoUrl()}/${id}`, { method: 'DELETE' });
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error eliminando tipo de gasto');
+    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando tipo de gasto');
   }
 
-/* ============================================================
-   TIPOS DE INGRESO
-============================================================ */
-let editingTipoIngresoId = null;
+  /* ============================================================
+     TIPOS DE INGRESO
+  ============================================================ */
 
-async function loadTiposIngreso() {
-  const clubId = localStorage.getItem('activeClubId');
-  const { res, data } = await fetchJsonAuth(
-    `/club/${clubId}/config/tipos-ingreso`
-  );
+  let editingTipoIngresoId = null;
 
-  const tbody = document.getElementById('tiposIngresoTableBody');
-  if (!tbody) return;
+  async function loadTiposIngreso() {
+    const clubId = localStorage.getItem('activeClubId');
+    const { res, data } = await fetchJsonAuth(`/club/${clubId}/config/tipos-ingreso`);
 
-  tbody.innerHTML = '';
+    const tbody = document.getElementById('tiposIngresoTableBody');
+    if (!tbody) return;
 
-  if (!res.ok || !data.ok || !data.tipos.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="2" class="muted">No hay tipos de ingreso cargados.</td>
-      </tr>
-    `;
-    return;
-  }
+    tbody.innerHTML = '';
 
-  data.tipos.forEach(t => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${t.nombre}</td>
-      <td>
-        <button class="btn btn-secondary btn-sm" data-edit="${t.id}">
-          ✏️ Editar
-        </button>
-        <button class="btn btn-danger btn-sm" data-del="${t.id}">
-          🗑️ Eliminar
-        </button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
+    if (!res.ok || !data.ok || !data.tipos.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="2" class="muted">No hay tipos de ingreso cargados.</td>
+        </tr>`;
+      return;
+    }
 
-function openTipoIngresoModal(tipo = null) {
-  editingTipoIngresoId = tipo?.id || null;
-  document.getElementById('tipoIngresoNombre').value = tipo?.nombre || '';
-  document.getElementById('tipoIngresoTitle').textContent =
-    editingTipoIngresoId ? 'Editar tipo de ingreso' : 'Nuevo tipo de ingreso';
-
-  document.getElementById('modalTipoIngreso').classList.remove('hidden');
-}
-
-function closeTipoIngresoModal() {
-  document.getElementById('modalTipoIngreso').classList.add('hidden');
-}
-
-async function saveTipoIngreso() {
-  const nombre = document.getElementById('tipoIngresoNombre').value.trim();
-  if (!nombre) return alert('Ingresá un nombre');
-
-  const clubId = localStorage.getItem('activeClubId');
-  const method = editingTipoIngresoId ? 'PUT' : 'POST';
-  const url = editingTipoIngresoId
-    ? `/club/${clubId}/config/tipos-ingreso/${editingTipoIngresoId}`
-    : `/club/${clubId}/config/tipos-ingreso`;
-
-  const { res, data } = await fetchJsonAuth(url, {
-    method,
-    json: true,
-    body: JSON.stringify({ nombre })
-  });
-
-  if (!res.ok || !data.ok) {
-    alert(data.error || 'Error guardando tipo de ingreso');
-    return;
-  }
-
-  closeTipoIngresoModal();
-  loadTiposIngreso();
-}
-
-async function deleteTipoIngreso(id) {
-  if (!confirm('¿Eliminar este tipo de ingreso?')) return;
-
-  const clubId = localStorage.getItem('activeClubId');
-  const { res, data } = await fetchJsonAuth(
-    `/club/${clubId}/config/tipos-ingreso/${id}`,
-    { method: 'DELETE' }
-  );
-
-  if (!res.ok || !data.ok) {
-    alert(data.error || 'Error eliminando tipo');
-    return;
-  }
-
-  loadTiposIngreso();
-}
-
-/* Bind */
-document.addEventListener('click', (e) => {
-  if (e.target.id === 'btnTipoIngresoAdd') {
-    openTipoIngresoModal();
-  }
-
-  if (e.target.id === 'btnTipoIngresoCancel') {
-    closeTipoIngresoModal();
-  }
-
-  if (e.target.id === 'btnTipoIngresoSave') {
-    saveTipoIngreso();
-  }
-
-  if (e.target.dataset.edit) {
-    const tr = e.target.closest('tr');
-    openTipoIngresoModal({
-      id: e.target.dataset.edit,
-      nombre: tr.children[0].textContent
+    data.tipos.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${t.nombre}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" data-edit="${t.id}">✏️ Editar</button>
+          <button class="btn btn-danger btn-sm" data-del="${t.id}">🗑️ Eliminar</button>
+        </td>`;
+      tbody.appendChild(tr);
     });
   }
 
-  if (e.target.dataset.del) {
-    deleteTipoIngreso(e.target.dataset.del);
+  function openTipoIngresoModal(tipo = null) {
+    editingTipoIngresoId = tipo?.id ?? null;
+    document.getElementById('tipoIngresoNombre').value = tipo?.nombre ?? '';
+    document.getElementById('tipoIngresoTitle').textContent =
+      editingTipoIngresoId ? 'Editar tipo de ingreso' : 'Nuevo tipo de ingreso';
+    document.getElementById('modalTipoIngreso').classList.remove('hidden');
   }
-});
 
-/* Hook al init de Configuración */
-if (window.initConfiguracionSection) {
-  const prevInit = window.initConfiguracionSection;
-  window.initConfiguracionSection = async function () {
-    await prevInit();
-    await loadTiposIngreso();
-  };
-}
+  function closeTipoIngresoModal() {
+    document.getElementById('modalTipoIngreso').classList.add('hidden');
+  }
 
-  // ============================================================
-  // RESPONSABLES DEL GASTO
-  // ============================================================
+  async function saveTipoIngreso() {
+    const nombre = document.getElementById('tipoIngresoNombre').value.trim();
+    if (!nombre) return alert('Ingresá un nombre');
+
+    const clubId = localStorage.getItem('activeClubId');
+    const method = editingTipoIngresoId ? 'PUT' : 'POST';
+    const url = editingTipoIngresoId
+      ? `/club/${clubId}/config/tipos-ingreso/${editingTipoIngresoId}`
+      : `/club/${clubId}/config/tipos-ingreso`;
+
+    const { res, data } = await fetchJsonAuth(url, {
+      method,
+      json: true,
+      body: JSON.stringify({ nombre })
+    });
+
+    if (!res.ok || !data.ok) {
+      alert(data.error ?? 'Error guardando tipo de ingreso');
+      return;
+    }
+
+    closeTipoIngresoModal();
+    loadTiposIngreso();
+  }
+
+  async function deleteTipoIngreso(id) {
+    if (!confirm('¿Eliminar este tipo de ingreso?')) return;
+
+    const clubId = localStorage.getItem('activeClubId');
+    const { res, data } = await fetchJsonAuth(`/club/${clubId}/config/tipos-ingreso/${id}`, {
+      method: 'DELETE'
+    });
+
+    if (!res.ok || !data.ok) {
+      alert(data.error ?? 'Error eliminando tipo');
+      return;
+    }
+
+    loadTiposIngreso();
+  }
+
+  /* ============================================================
+     RESPONSABLES
+  ============================================================ */
+
   function responsablesUrl() {
-    const clubId = getActiveClubId();
-    return `/club/${clubId}/config/responsables`;
+    return `/club/${getActiveClubId()}/config/responsables`;
   }
 
   async function loadResponsables() {
@@ -443,24 +388,25 @@ if (window.initConfiguracionSection) {
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
-      alert(data.error || 'Error cargando responsables');
+      alert(data.error ?? 'Error cargando responsables');
       return;
     }
 
-    renderResponsables(data.responsables || []);
+    renderResponsables(data.responsables ?? []);
   }
 
   function renderResponsables(items) {
     const tbody = $('responsablesTableBody');
     if (!tbody) return;
+
     tbody.innerHTML = '';
 
     items.forEach(r => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><input type="text" id="resp_${r.id}" value="${escapeHtml(r.nombre)}" /></td>
-        <td style="text-align:center;"><button class="btn-save" data-act="save-resp" data-id="${r.id}">💾</button></td>
-        <td style="text-align:center;"><button class="btn-del" data-act="del-resp" data-id="${r.id}">🗑️</button></td>
+        <td style="text-align:center"><button class="btn-save" data-act="save-resp" data-id="${r.id}">💾</button></td>
+        <td style="text-align:center"><button class="btn-del" data-act="del-resp" data-id="${r.id}">🗑️</button></td>
       `;
       tbody.appendChild(tr);
     });
@@ -469,41 +415,50 @@ if (window.initConfiguracionSection) {
   async function createResponsable(nombre) {
     const res = await fetchAuth(responsablesUrl(), {
       method: 'POST',
-      body: JSON.stringify({ nombre }),
-      json: true
+      json: true,
+      body: JSON.stringify({ nombre })
     });
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error creando responsable');
+    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando responsable');
   }
 
   async function updateResponsable(id, nombre) {
     const res = await fetchAuth(`${responsablesUrl()}/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ nombre }),
-      json: true
+      json: true,
+      body: JSON.stringify({ nombre })
     });
+
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error guardando responsable');
+
+    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error guardando responsable');
   }
 
   async function deleteResponsable(id) {
     const res = await fetchAuth(`${responsablesUrl()}/${id}`, { method: 'DELETE' });
     const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error eliminando responsable');
+    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando responsable');
   }
 
-  // ============================================================
-  // EVENTS
-  // ============================================================
+  /* ============================================================
+     EVENTOS
+  ============================================================ */
+
   function bindEvents() {
+    // cuotas
     $('cuotasTableBody')?.addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-mes]');
       if (!btn) return;
+
       btn.disabled = true;
-      try { await saveCuota(btn.dataset.mes); }
-      finally { btn.disabled = false; }
+      try {
+        await saveCuota(btn.dataset.mes);
+      } finally {
+        btn.disabled = false;
+      }
     });
 
+    // categorías
     $('categoriasTableBody')?.addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-act]');
       if (!btn) return;
@@ -512,30 +467,48 @@ if (window.initConfiguracionSection) {
       const id = btn.dataset.id;
 
       if (act === 'save-cat') {
-        const nombre = ($(`cat_${id}`)?.value || '').trim();
+        const nombre = ($(`cat_${id}`)?.value ?? '').trim();
         if (!nombre) return alert('Nombre vacío');
+
         btn.disabled = true;
-        try { await updateCategoria(id, nombre); await loadCategorias(); }
-        catch (err) { alert(err.message || 'Error'); }
-        finally { btn.disabled = false; }
+        try {
+          await updateCategoria(id, nombre);
+          await loadCategorias();
+        } catch (err) {
+          alert(err.message ?? 'Error');
+        } finally {
+          btn.disabled = false;
+        }
       }
 
       if (act === 'del-cat') {
         if (!confirm('¿Eliminar categoría?')) return;
+
         btn.disabled = true;
-        try { await deleteCategoria(id); await loadCategorias(); }
-        catch (err) { alert(err.message || 'Error'); }
-        finally { btn.disabled = false; }
+        try {
+          await deleteCategoria(id);
+          await loadCategorias();
+        } catch (err) {
+          alert(err.message ?? 'Error');
+        } finally {
+          btn.disabled = false;
+        }
       }
     });
 
     $('btnCategoriaAdd')?.addEventListener('click', async () => {
       const nombre = prompt('Nombre de la categoría');
       if (!nombre) return;
-      try { await createCategoria(nombre.trim()); await loadCategorias(); }
-      catch (err) { alert(err.message || 'Error'); }
+
+      try {
+        await createCategoria(nombre.trim());
+        await loadCategorias();
+      } catch (err) {
+        alert(err.message ?? 'Error');
+      }
     });
 
+    // tipos gasto
     $('tiposGastoTableBody')?.addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-act]');
       if (!btn) return;
@@ -544,30 +517,50 @@ if (window.initConfiguracionSection) {
       const id = btn.dataset.id;
 
       if (act === 'save-tg') {
-        const nombre = ($(`tg_${id}`)?.value || '').trim();
+        const nombre = ($(`tg_${id}`)?.value ?? '').trim();
         if (!nombre) return alert('Nombre vacío');
+
         btn.disabled = true;
-        try { await updateTipoGasto(id, nombre); await loadTiposGasto(); }
-        catch (err) { alert(err.message || 'Error'); }
-        finally { btn.disabled = false; }
+
+        try {
+          await updateTipoGasto(id, nombre);
+          await loadTiposGasto();
+        } catch (err) {
+          alert(err.message ?? 'Error');
+        } finally {
+          btn.disabled = false;
+        }
       }
 
       if (act === 'del-tg') {
         if (!confirm('¿Eliminar tipo de gasto?')) return;
+
         btn.disabled = true;
-        try { await deleteTipoGasto(id); await loadTiposGasto(); }
-        catch (err) { alert(err.message || 'Error'); }
-        finally { btn.disabled = false; }
+
+        try {
+          await deleteTipoGasto(id);
+          await loadTiposGasto();
+        } catch (err) {
+          alert(err.message ?? 'Error');
+        } finally {
+          btn.disabled = false;
+        }
       }
     });
 
     $('btnTipoGastoAdd')?.addEventListener('click', async () => {
       const nombre = prompt('Nombre del tipo de gasto');
       if (!nombre) return;
-      try { await createTipoGasto(nombre.trim()); await loadTiposGasto(); }
-      catch (err) { alert(err.message || 'Error'); }
+
+      try {
+        await createTipoGasto(nombre.trim());
+        await loadTiposGasto();
+      } catch (err) {
+        alert(err.message ?? 'Error');
+      }
     });
 
+    // responsables
     $('responsablesTableBody')?.addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-act]');
       if (!btn) return;
@@ -576,28 +569,45 @@ if (window.initConfiguracionSection) {
       const id = btn.dataset.id;
 
       if (act === 'save-resp') {
-        const nombre = ($(`resp_${id}`)?.value || '').trim();
+        const nombre = ($(`resp_${id}`)?.value ?? '').trim();
         if (!nombre) return alert('Nombre vacío');
+
         btn.disabled = true;
-        try { await updateResponsable(id, nombre); await loadResponsables(); }
-        catch (err) { alert(err.message || 'Error'); }
-        finally { btn.disabled = false; }
+        try {
+          await updateResponsable(id, nombre);
+          await loadResponsables();
+        } catch (err) {
+          alert(err.message ?? 'Error');
+        } finally {
+          btn.disabled = false;
+        }
       }
 
       if (act === 'del-resp') {
         if (!confirm('¿Eliminar responsable?')) return;
+
         btn.disabled = true;
-        try { await deleteResponsable(id); await loadResponsables(); }
-        catch (err) { alert(err.message || 'Error'); }
-        finally { btn.disabled = false; }
+        try {
+          await deleteResponsable(id);
+          await loadResponsables();
+        } catch (err) {
+          alert(err.message ?? 'Error');
+        } finally {
+          btn.disabled = false;
+        }
       }
     });
 
     $('btnResponsableAdd')?.addEventListener('click', async () => {
       const nombre = prompt('Nombre del responsable');
       if (!nombre) return;
-      try { await createResponsable(nombre.trim()); await loadResponsables(); }
-      catch (err) { alert(err.message || 'Error'); }
+
+      try {
+        await createResponsable(nombre.trim());
+        await loadResponsables();
+      } catch (err) {
+        alert(err.message ?? 'Error');
+      }
     });
   }
 
@@ -616,4 +626,20 @@ if (window.initConfiguracionSection) {
       initConfiguracionSection();
     }
   });
+
 })();
+
+/* ============================================================
+   ACORDEÓN (NUEVO) — AHORA SÍ FUNCIONA SIEMPRE
+============================================================ */
+
+document.addEventListener("click", function (e) {
+
+  const header = e.target.closest(".config-header");
+  if (!header) return;
+
+  const card = header.closest(".config-collapsible");
+  if (!card) return;
+
+  card.classList.toggle("collapsed");
+});

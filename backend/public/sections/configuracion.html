@@ -152,16 +152,3 @@
   display: none;
 }
 </style>
-
-<script>
-/* EVENT DELEGATION – FUNCIONA SIEMPRE */
-document.addEventListener('click', function (e) {
-  const header = e.target.closest('.config-header');
-  if (!header) return;
-
-  const card = header.closest('.config-collapsible');
-  if (!card) return;
-
-  card.classList.toggle('collapsed');
-});
-</script>
