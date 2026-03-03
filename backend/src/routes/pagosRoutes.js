@@ -291,4 +291,26 @@ router.post('/:clubId/ingresos', requireAuth, requireClubAccess, async (req, res
   }
 });
 
+// ------------------------------------------------------------
+// DELETE /club/:clubId/ingresos/:id  (soft delete)
+// ------------------------------------------------------------
+router.delete('/:clubId/ingresos/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    const r = await db.query(
+      `UPDATE ingresos_generales
+       SET activo = false
+       WHERE id = $1 AND club_id = $2`,
+      [id, clubId]
+    );
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Ingreso no encontrado' });
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ delete ingreso:', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 module.exports = router;

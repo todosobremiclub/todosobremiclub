@@ -443,14 +443,37 @@ function openModal() {
       const fecha = String(r.fecha || '').slice(0, 10);
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${fecha}</td>
-        <td><strong>${r.tipo_ingreso || ''}</strong></td>
-        <td>${r.observacion || ''}</td>
-        <td><strong>${moneyARS(r.monto)}</strong></td>
-      `;
+  <td>${fecha}</td>
+  <td><strong>${r.tipo_ingreso || ''}</strong></td>
+  <td>${r.observacion || ''}</td>
+  <td><strong>${moneyARS(r.monto)}</strong></td>
+  <td style="text-align:right;">
+    <button class="btn btn-secondary" data-act="del-ingreso" data-id="${r.id}">
+      🗑️
+    </button>
+  </td>
+`;
       tbody.appendChild(tr);
     });
   }
+
+async function deleteIngreso(id) {
+  const clubId = getActiveClubId();
+  if (!id) return;
+
+  if (!confirm('¿Eliminar este ingreso?')) return;
+
+  const { res, data } = await fetchAuth(`/club/${clubId}/ingresos/${id}`, {
+    method: 'DELETE'
+  });
+
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'Error eliminando ingreso');
+    return;
+  }
+
+  await loadIngresos();
+}
 
   async function saveIngreso() {
     const clubId = getActiveClubId();
@@ -572,6 +595,14 @@ function bindAccordion() {
       e.preventDefault();
       await saveIngreso();
     });
+
+$('ingresosTableBody')?.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button[data-act]');
+  if (!btn) return;
+  if (btn.dataset.act === 'del-ingreso') {
+    await deleteIngreso(btn.dataset.id);
+  }
+});
 
     // Año
     $('btnAnioPrev')?.addEventListener('click', async () => {
