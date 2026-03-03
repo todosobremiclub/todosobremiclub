@@ -448,11 +448,12 @@ function bindOnce() {
   root.dataset.bound = '1';
   console.log('bindOnce: inicializando eventos');
 
-  const destinoTipo = $('#notiDestinoTipo');
-  console.log('bindOnce: notiDestinoTipo encontrado?', !!destinoTipo);
+  const destinoTipo = root.querySelector('#notiDestinoTipo');
+console.log('bindOnce: notiDestinoTipo encontrado?', !!destinoTipo);
 
-  const btnPub = $('#btnNoticiaPublicar');
-  console.log('bindOnce: btnNoticiaPublicar encontrado?', !!btnPub);
+const btnPub = root.querySelector('#btnNoticiaPublicar');
+console.log('bindOnce: btnNoticiaPublicar encontrado?', !!btnPub);
+
 
   if (destinoTipo) {
     destinoTipo.addEventListener('change', renderDestinoExtra);
