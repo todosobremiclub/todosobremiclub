@@ -1,0 +1,114 @@
+<section id="reportes-section" class="section-reportes">
+
+  <h2 style="margin-bottom:16px;">📊 Reportes</h2>
+
+  <!-- ===============================
+        MENÚ DE REPORTES (CHIPS)
+  ================================= -->
+  <div class="reportes-chips">
+
+    <div class="chip active" data-reporte="socios-actividad">
+      Cantidad de socios por Actividad
+    </div>
+
+    <div class="chip" data-reporte="socios-actividad-categoria">
+      Socios por Actividad / Categoría
+    </div>
+
+    <div class="chip" data-reporte="socios-nuevos-mes">
+      Socios nuevos por mes
+    </div>
+
+    <div class="chip" data-reporte="ingreso-fecha-pago">
+      Ingreso por fecha de pago
+    </div>
+
+    <div class="chip" data-reporte="ingreso-mes-pagado">
+      Ingreso por mes pagado
+    </div>
+
+    <div class="chip" data-reporte="ingresos-vs-gastos">
+      Ingresos vs Gastos por mes
+    </div>
+
+    <div class="chip" data-reporte="ingresos-por-tipo">
+      Ingresos por Tipo de ingreso
+    </div>
+
+    <div class="chip" data-reporte="gastos-por-tipo">
+      Gastos por Tipo de gasto
+    </div>
+
+    <div class="chip" data-reporte="gastos-responsable-mes">
+      Gastos por Responsable por mes
+    </div>
+
+  </div>
+
+  <!-- ===============================
+        ÁREA DE CONTENIDO DEL REPORTE
+  ================================= -->
+  <div id="reportesContent" class="reportes-content">
+    <div class="muted">
+      Seleccioná un reporte para comenzar.
+    </div>
+  </div>
+
+</section>
+
+<style>
+
+  /* ------------------------------
+      CHIPS – estilo igual imagen
+  ------------------------------ */
+  .reportes-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:18px;
+  }
+
+  .chip{
+    padding:10px 16px;
+    background:#f4dce4;          /* rosa pastel */
+    color:#5a2a3b;               /* vino oscuro */
+    border-radius:20px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition: all .2s ease;
+    box-shadow:0 1px 3px rgba(0,0,0,0.15);
+    white-space:nowrap;
+  }
+
+  .chip:hover{
+    background:#e8c7d2;
+  }
+
+  .chip.active{
+    background:#9a5064 !important;
+    color:white !important;
+  }
+
+  /* ------------------------------
+      CONTENEDOR DEL REPORTE
+  ------------------------------ */
+  .reportes-content{
+    border:1px solid #ddd;
+    background:#fff;
+    padding:16px;
+    border-radius:12px;
+    min-height:120px;
+  }
+
+  /* ------------------------------
+      RESPONSIVE
+  ------------------------------ */
+  @media(max-width:600px){
+    .chip{
+      width:100%;
+      text-align:center;
+    }
+  }
+
+</style>

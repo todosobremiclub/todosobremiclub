@@ -182,6 +182,11 @@
       if (sectionName === 'pagos' && window.initPagosSection) {
         await window.initPagosSection();
       }
+
+if (sectionName === 'reportes' && window.initReportesSection) {
+  await window.initReportesSection();
+}
+
     } catch (e) {
       container.innerHTML = `<pre>Error: ${e.message}</pre>`;
     }
