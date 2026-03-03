@@ -155,7 +155,7 @@ function ensureIngresosUI() {
         </td>
       `;
       tbody.appendChild(tr);
-    }});
+});
 }
 
 /* =============================
