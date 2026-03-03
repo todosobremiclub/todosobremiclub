@@ -5,85 +5,103 @@
   ========================== -->
   <div class="section-header" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
     <h2 style="margin:0;">Gestión de Pagos</h2>
-
-    <button id="btnPagoAdd" class="btn btn-primary">
-      ➕ Registrar Pago
-    </button>
-
-    <button id="btnIngresoAdd" class="btn btn-secondary">
-      ➕ Registrar Ingreso
-    </button>
   </div>
 
   <!-- =========================
-       FILTROS
+       ACORDEÓN PAGOS
   ========================== -->
-  <div class="filters" style="margin-top:10px;">
-    <input
-      id="pagosSearch"
-      type="text"
-      placeholder="Buscar por apellido o DNI"
-    />
+  <div class="accordion">
 
-    <select id="pagosAnioSelect"></select>
-
-    <button id="btnRefreshPagos" class="btn btn-secondary">
-      Actualizar
-    </button>
-  </div>
-
-  <!-- =========================
-       TABLA PAGOS SOCIOS
-  ========================== -->
-  <div class="table-wrapper" style="margin-top:10px;">
-    <table class="socios-table">
-      <thead>
-        <tr>
-          <th>N° Socio</th>
-          <th>Nombre</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="pagosTableBody"></tbody>
-    </table>
-  </div>
-
-  <!-- =========================
-       OTROS INGRESOS (NO SOCIOS)
-  ========================== -->
-  <div
-    id="ingresosBox"
-    style="
-      margin-top: 18px;
-      border: 1px solid var(--color-accent);
-      border-radius: 12px;
-      padding: 14px;
-      background: #fffbeb;
-    "
-  >
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-      <h3 style="margin:0;">🧾 Otros ingresos</h3>
-      <div style="font-weight:700;">
-        Total año: <span id="ingresosTotal">$ 0.00</span>
+    <div class="accordion-header" data-target="pagosPanel">
+      <div class="accordion-left">
+        <span class="accordion-arrow">▶</span>
+        <span>Pagos</span>
       </div>
+
+      <button id="btnPagoAdd" class="btn btn-primary btn-sm" type="button">
+        ➕ Registrar Pago
+      </button>
     </div>
 
-    <div class="muted" style="margin-top:6px;">
-      Ingresos no asociados a socios (cantina, sponsors, eventos, etc.)
+    <div id="pagosPanel" class="accordion-body hidden">
+
+      <!-- FILTROS -->
+      <div class="filters" style="margin-top:10px;">
+        <input
+          id="pagosSearch"
+          type="text"
+          placeholder="Buscar por apellido o DNI"
+        />
+
+        <select id="pagosAnioSelect"></select>
+
+        <button id="btnRefreshPagos" class="btn btn-secondary">
+          Actualizar
+        </button>
+      </div>
+
+      <!-- TABLA PAGOS SOCIOS -->
+      <div class="table-wrapper" style="margin-top:10px;">
+        <table class="socios-table">
+          <thead>
+            <tr>
+              <th>N° Socio</th>
+              <th>Nombre</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="pagosTableBody"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================
+       ACORDEÓN OTROS INGRESOS
+  ========================== -->
+  <div class="accordion" style="margin-top:16px;">
+
+    <div class="accordion-header" data-target="ingresosPanel">
+      <div class="accordion-left">
+        <span class="accordion-arrow">▶</span>
+        <span>Otros ingresos</span>
+      </div>
+
+      <button
+        id="btnIngresoAdd"
+        class="btn btn-secondary btn-sm"
+        type="button"
+      >
+        ➕ Registrar ingreso
+      </button>
     </div>
 
-    <div class="table-wrapper" style="margin-top:10px;">
-      <table class="socios-table">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Tipo</th>
-            <th>Observación</th>
-            <th>Monto</th>
-          </tr>
-        </thead>
-        <tbody id="ingresosTableBody"></tbody>
-      </table>
+    <div id="ingresosPanel" class="accordion-body hidden">
+
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div class="muted">
+          Ingresos no asociados a socios (cantina, sponsors, eventos, etc.)
+        </div>
+        <div style="font-weight:700;">
+          Total año: <span id="ingresosTotal">$ 0.00</span>
+        </div>
+      </div>
+
+      <div class="table-wrapper" style="margin-top:10px;">
+        <table class="socios-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Observación</th>
+              <th>Monto</th>
+            </tr>
+          </thead>
+          <tbody id="ingresosTableBody"></tbody>
+        </table>
+      </div>
+
     </div>
   </div>
 
@@ -178,5 +196,57 @@
       </div>
     </div>
   </div>
+
+  <!-- =========================
+       ESTILOS ACORDEÓN
+  ========================== -->
+  <style>
+    .accordion{
+      border:1px solid rgba(0,0,0,0.08);
+      border-radius:12px;
+      overflow:hidden;
+    }
+
+    .accordion-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
+      background:#f9fafb;
+      cursor:pointer;
+      font-weight:800;
+    }
+
+    .accordion-left{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .accordion-arrow{
+      font-size:12px;
+      transition:transform .2s ease;
+    }
+
+    .accordion.open .accordion-arrow{
+      transform:rotate(90deg);
+    }
+
+    .accordion-body{
+      padding:14px;
+      background:#fff;
+    }
+
+    .hidden{
+      display:none;
+    }
+
+    .btn-sm{
+      height:30px;
+      padding:4px 10px;
+      font-size:13px;
+    }
+  </style>
 
 </section>

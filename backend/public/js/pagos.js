@@ -77,121 +77,12 @@
   let ingresosCache = [];
 
   /* =============================
-   * UI (inyectada): botón + tabla ingresos + modal
-   * ============================= */
-  function ensureIngresosUI() {
-    const root = document.querySelector('.section-pagos');
-    if (!root) return;
-
-    // 1) Botón "+ Registrar Ingreso" en header
-    const header = root.querySelector('.section-header');
-    if (header && !document.getElementById('btnIngresoAdd')) {
-      const btn = document.createElement('button');
-      btn.id = 'btnIngresoAdd';
-      btn.className = 'btn btn-secondary';
-      btn.textContent = '+ Registrar Ingreso';
-      btn.style.marginLeft = '8px';
-      header.appendChild(btn);
-    }
-
-    // 2) Contenedor "Otros ingresos" abajo de la tabla principal
-    if (!document.getElementById('ingresosBox')) {
-      const box = document.createElement('div');
-      box.id = 'ingresosBox';
-      box.style.marginTop = '14px';
-      box.innerHTML = `
-        <div style="
-          margin-top: 12px;
-          border: 1px solid #06b6d4;
-          border-radius: 12px;
-          padding: 12px;
-          background: #ecfeff;
-        ">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-            <h3 style="margin:0;">🧾 Otros ingresos (no socios)</h3>
-            <div style="font-weight:800;">
-              Total año: <span id="ingresosTotal">$ 0.00</span>
-            </div>
-          </div>
-
-          <div class="muted" style="margin-top:6px;">
-            Se muestran ingresos del año seleccionado.
-          </div>
-
-          <div class="table-wrapper" style="margin-top:10px;">
-            <table class="socios-table">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Tipo</th>
-                  <th>Observación</th>
-                  <th>Monto</th>
-                </tr>
-              </thead>
-              <tbody id="ingresosTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-      `;
-
-      const tableWrapper = root.querySelector('.table-wrapper');
-      if (tableWrapper) tableWrapper.insertAdjacentElement('afterend', box);
-      else root.appendChild(box);
-    }
-
-    // 3) Modal de ingreso
-    if (!document.getElementById('modalIngreso')) {
-      const modal = document.createElement('div');
-      modal.id = 'modalIngreso';
-      modal.className = 'modal hidden';
-      modal.innerHTML = `
-        <div class="modal-content" style="max-width: 720px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-            <h3 style="margin:0;">Registrar ingreso</h3>
-            <button id="btnIngresoClose" class="btn btn-secondary">✕</button>
-          </div>
-
-          <form id="formIngreso" style="margin-top:12px;">
-            <div class="row" style="align-items:flex-start;">
-              <div style="min-width:260px; flex:1;">
-                <label>Tipo de ingreso</label>
-                <select id="ingresoTipo" required>
-                  <option value="">Cargando...</option>
-                </select>
-              </div>
-
-              <div style="min-width:200px;">
-                <label>Fecha de pago</label>
-                <input id="ingresoFecha" type="date" required />
-              </div>
-            </div>
-
-            <div class="row" style="margin-top:10px; align-items:flex-start;">
-              <div style="min-width:220px;">
-                <label>Monto (manual)</label>
-                <input id="ingresoMonto" type="number" step="0.01" min="0" required />
-              </div>
-
-              <div style="flex:1;">
-                <label>Observación</label>
-                <input id="ingresoObs" type="text" placeholder="Ej: Venta cantina, Sponsor, Evento..." />
-              </div>
-            </div>
-
-            <div class="modal-actions" style="margin-top:14px; display:flex; justify-content:flex-end; gap:10px;">
-              <button type="button" id="btnIngresoCancel" class="btn btn-secondary">Cancelar</button>
-              <button type="submit" id="btnIngresoSave" class="btn btn-primary">Guardar ingreso</button>
-            </div>
-          </form>
-
-          <div class="muted" style="margin-top:10px;">
-            Este ingreso no está asociado a ningún socio y se mostrará en “Otros ingresos”.
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
-    }
-  }
+ * UI (inyectada): botón + tabla ingresos + modal 
+ * ============================= */ 
+function ensureIngresosUI() {
+  // Ya existe en pagos.html (no inyectar nada)
+  return;
+}
 
   function openIngresoModal() {
     const modal = $('modalIngreso');
@@ -267,7 +158,7 @@
     });
   }
 
-  /* =============================
+  	
    * Modal Registrar Pago (socios)
    * ============================= */
   function openModal() {
@@ -627,14 +518,39 @@
     if ($('pagosAnioSelect')) $('pagosAnioSelect').value = String(selectedYear);
   }
 
+function bindAccordion() {
+  const root = document.querySelector('.section-pagos');
+  if (!root) return;
+  if (root.dataset.accordionBound === '1') return;
+  root.dataset.accordionBound = '1';
+
+  root.addEventListener('click', (e) => {
+    const header = e.target.closest('.accordion-header');
+    if (!header) return;
+
+    // Si clickean un botón dentro del header, NO togglear
+    if (e.target.closest('button')) return;
+
+    const targetId = header.dataset.target;
+    if (!targetId) return;
+
+    const panel = document.getElementById(targetId);
+    const acc = header.closest('.accordion');
+    if (!panel || !acc) return;
+
+    const isOpen = !panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', isOpen);
+    acc.classList.toggle('open', !isOpen);
+  });
+}
+
   function bindOnce() {
     const root = document.querySelector('.section-pagos');
     if (!root) return;
     if (root.dataset.bound === '1') return;
     root.dataset.bound = '1';
 
-    // Asegurar UI de ingresos
-    ensureIngresosUI();
+    
 
     // Pagos socios
     $('btnPagoAdd')?.addEventListener('click', openModal);
@@ -713,16 +629,15 @@
   }
 
   async function initPagosSection() {
-    bindOnce();
-    fillAnios();
-
-    await Promise.all([loadSociosAll(), loadCuotas()]);
-    await loadResumen();
-
-    // Ingresos (debajo)
-    await loadTiposIngreso().catch(() => {}); // no bloquear si aún no hay tipos
-    await loadIngresos().catch(() => {});
-  }
+ bindOnce();
+ bindAccordion(); // ✅ acordeones (Pagos / Otros ingresos)
+ fillAnios(); 
+ await Promise.all([loadSociosAll(), loadCuotas()]); 
+ await loadResumen(); 
+ // Ingresos (debajo) 
+ await loadTiposIngreso().catch(() => {}); // no bloquear si aún no hay tipos 
+ await loadIngresos().catch(() => {}); 
+}
 
   window.initPagosSection = initPagosSection;
 
