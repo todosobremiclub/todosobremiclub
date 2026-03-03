@@ -13,36 +13,15 @@
   <div class="filters">
     <label>
       Período:
-      <input type="month" id="filtroDesde">
+      <input type="month" id="filtroPeriodo">
     </label>
-
-    <span>a</span>
-
-    <label>
-      <input type="month" id="filtroHasta">
-    </label>
-
-    <button id="btnFiltrarGastos" class="btn btn-secondary">
-      Filtrar
-    </button>
+    <button id="btnFiltrarGastos" class="btn btn-secondary">Ver</button>
   </div>
 
-  <!-- Tabla -->
-  <div class="table-container">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Período</th>
-          <th>Tipo de gasto</th>
-          <th>Quién lo hizo</th>
-          <th>Monto</th>
-          <th>Acción</th>
-        </tr>
-      </thead>
-      <tbody id="gastosTableBody">
-        <!-- dinámico -->
-      </tbody>
-    </table>
+  <!-- ✅ CONTENEDOR NUEVO: gastos agrupados por mes -->
+  <!-- (reemplaza la tabla plana, el JS renderiza acá los acordeones) -->
+  <div id="gastosAccordions">
+    <!-- dinámico -->
   </div>
 
   <!-- Total -->
@@ -66,9 +45,10 @@
           </select>
         </label>
 
+        <!-- ✅ Fecha completa día / mes / año -->
         <label>
-          Mes y año del gasto
-          <input type="month" id="gastoPeriodo" required>
+          Fecha del gasto
+          <input type="date" id="gastoFecha" required>
         </label>
 
         <label>
@@ -101,5 +81,75 @@
       </form>
     </div>
   </div>
+
+  <!-- ✅ ESTILOS (solo para acordeones, no rompe nada existente) -->
+  <style>
+    .accordion{
+      border:1px solid rgba(0,0,0,0.08);
+      border-radius:12px;
+      overflow:hidden;
+      margin-top:12px;
+      background:#fff;
+    }
+
+    .accordion-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
+      background:#f9fafb;
+      cursor:pointer;
+      font-weight:800;
+    }
+
+    .accordion-left{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .accordion-arrow{
+      font-size:12px;
+      transition:transform .2s ease;
+    }
+
+    .accordion.open .accordion-arrow{
+      transform:rotate(90deg);
+    }
+
+    .accordion-body{
+      padding:12px 14px;
+    }
+
+    .hidden{
+      display:none;
+    }
+
+    .table-container{
+      overflow:auto;
+      border:1px solid #ddd;
+      border-radius:10px;
+      background:#fff;
+    }
+
+    .table{
+      width:100%;
+      border-collapse:collapse;
+    }
+
+    .table th,
+    .table td{
+      border-bottom:1px solid #eee;
+      padding:8px;
+      font-size:14px;
+      white-space:nowrap;
+      text-align:left;
+    }
+
+    .table th{
+      background:#f7f7f7;
+    }
+  </style>
 
 </section>

@@ -72,20 +72,27 @@
   }
 
   function setDefaultFilters() {
-    const ym = todayYYYYMM();
-    if ($('filtroDesde') && !$('filtroDesde').value) $('filtroDesde').value = ym;
-    if ($('filtroHasta') && !$('filtroHasta').value) $('filtroHasta').value = ym;
-  }
+  const ym = todayYYYYMM();
+  if ($('filtroPeriodo') && !$('filtroPeriodo').value) $('filtroPeriodo').value = ym;
+}
 
   function openModal() {
     const modal = $('modalGasto');
     if (!modal) return;
 
     $('formGasto')?.reset();
-    if ($('gastoPeriodo')) $('gastoPeriodo').value = todayYYYYMM();
+    if ($('gastoFecha')) $('gastoFecha').value = todayISO();
 
     modal.classList.remove('hidden');
   }
+
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
   function closeModal() {
     const modal = $('modalGasto');
@@ -179,27 +186,95 @@
   }
 
   async function loadGastos() {
-    const clubId = getActiveClubId();
+  const clubId = getActiveClubId();
+  const periodo = ($('filtroPeriodo')?.value || '').trim(); // YYYY-MMloadGastos
 
-    const desde = ($('filtroDesde')?.value || '').trim();
-    const hasta = ($('filtroHasta')?.value || '').trim();
-
-    const qs = new URLSearchParams();
-    if (desde) qs.set('desde', desde);
-    if (hasta) qs.set('hasta', hasta);
-
-    const url = `/club/${clubId}/gastos${qs.toString() ? `?${qs.toString()}` : ''}`;
-    const res = await fetchAuth(url);
-    const data = await safeJson(res);
-
-    if (!res.ok || !data.ok) {
-      alert(data.error || 'Error cargando gastos');
-      return;
-    }
-
-    renderGastos(data.gastos || []);
-    setTotal(data.total);
+  const qs = new URLSearchParams();
+  if (periodo) {
+    qs.set('desde', periodo);
+    qs.set('hasta', periodo);
   }
+  const url = `/club/${clubId}/gastos${qs.toString() ? `?${qs.toString()}` : ''}`;
+
+  const res = await fetchAuth(url);
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'Error cargando gastos');
+    return;
+  }
+
+  renderGastosGrouped(data.gastos || []);
+}
+
+function renderGastosGrouped(gastos = []) {
+  const cont = $('gastosAccordions');
+  if (!cont) return;
+  cont.innerHTML = '';
+
+  // agrupar por periodo (YYYY-MM)
+  const groups = new Map();
+  gastos.forEach(g => {
+    const p = (g.periodo || '').toString() || 'Sin período';
+    if (!groups.has(p)) groups.set(p, []);
+    groups.get(p).push(g);
+  });
+
+  // ordenar desc por periodo (YYYY-MM)
+  const periodos = Array.from(groups.keys()).sort((a,b) => b.localeCompare(a));
+
+  let totalGlobal = 0;
+
+  periodos.forEach((p, idx) => {
+    const items = groups.get(p) || [];
+    const totalMes = items.reduce((acc, x) => acc + Number(x.monto || 0), 0);
+    totalGlobal += totalMes;
+
+    const accId = `acc_${p.replace('-', '')}`;
+
+    const rowsHtml = items.map(g => `
+      <tr>
+        <td>${escapeHtml(g.tipo_gasto ?? g.tipo ?? '')}</td>
+        <td>${escapeHtml(g.responsable ?? '')}</td>
+        <td><strong>${money.format(Number(g.monto || 0))}</strong></td>
+        <td style="text-align:right;">
+          <button class="btn-del" data-act="del" data-id="${g.id}" title="Eliminar">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+
+    cont.insertAdjacentHTML('beforeend', `
+      <div class="accordion ${idx === 0 ? 'open' : ''}">
+        <div class="accordion-header" data-target="${accId}">
+          <div class="accordion-left">
+            <span class="accordion-arrow">▶</span>
+            <span>${escapeHtml(p)}</span>
+          </div>
+          <div style="font-weight:800;">Total: ${money.format(totalMes)}</div>
+        </div>
+
+        <div id="${accId}" class="accordion-body ${idx === 0 ? '' : 'hidden'}">
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Tipo de gasto</th>
+                  <th>Quién lo hizo</th>
+                  <th>Monto</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml || `<tr><td colspan="4" class="muted">Sin gastos</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `);
+  });
+
+  setTotal(totalGlobal);
+}
 
   // =============================
   // Actions
@@ -209,14 +284,15 @@
 
     const tipo_gasto_id = $('gastoTipo')?.value;
     const responsable_id = $('gastoResponsable')?.value;
-    const periodo = ($('gastoPeriodo')?.value || '').trim();
+    const fecha_gasto = ($('gastoFecha')?.value || '').trim(); // YYYY-MM-DD
+const periodo = fecha_gasto ? fecha_gasto.slice(0, 7) : ''; // YYYY-MM
     const monto = ($('gastoMonto')?.value || '').trim();
     const descripcion = ($('gastoDescripcion')?.value || '').trim();
 
-    if (!tipo_gasto_id || !responsable_id || !periodo || !monto) {
-      alert('Completá Tipo de gasto, Período, Responsable y Monto.');
-      return;
-    }
+    if (!tipo_gasto_id || !responsable_id || !fecha_gasto || !monto) {
+  alert('Completá Tipo de gasto, Fecha, Responsable y Monto.');
+  return;
+}
 
     const montoNum = Number(monto);
     if (Number.isNaN(montoNum) || montoNum < 0) {
@@ -225,13 +301,13 @@
     }
 
     const payload = {
-      periodo,
-      fecha_gasto: `${periodo}-01`,
-      tipo_gasto_id,
-      responsable_id,
-      monto: montoNum,
-      descripcion: descripcion || null
-    };
+  periodo,
+  fecha_gasto,              // ✅ fecha real seleccionada
+  tipo_gasto_id,
+  responsable_id,
+  monto: montoNum,
+  descripcion: descripcion || null
+};
 
     const btn = document.querySelector('#formGasto button[type="submit"]');
     if (btn) btn.disabled = true;
@@ -289,17 +365,31 @@
       createGasto();
     });
 
-    $('gastosTableBody')?.addEventListener('click', async (ev) => {
-      const btn = ev.target.closest('button[data-act]');
-      if (!btn) return;
+    $('gastosAccordions')?.addEventListener('click', async (ev) => {
+  // toggle acordeón (si clickean header)
+  const header = ev.target.closest('.accordion-header');
+  if (header && !ev.target.closest('button')) {
+    const acc = header.closest('.accordion');
+    const targetId = header.dataset.target;
+    const panel = targetId ? document.getElementById(targetId) : null;
+    if (acc && panel) {
+      const isOpen = !panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', isOpen);
+      acc.classList.toggle('open', !isOpen);
+    }
+    return;
+  }
 
-      if (btn.dataset.act === 'del') {
-        const id = btn.dataset.id;
-        if (!id) return;
-        if (!confirm('¿Eliminar gasto definitivamente?')) return;
-        await deleteGasto(id);
-      }
-    });
+  // delete
+  const btn = ev.target.closest('button[data-act]');
+  if (!btn) return;
+  if (btn.dataset.act === 'del') {
+    const id = btn.dataset.id;
+    if (!id) return;
+    if (!confirm('¿Eliminar gasto definitivamente?')) return;
+    await deleteGasto(id);
+  }
+});
 
     $('modalGasto')?.addEventListener('click', (ev) => {
       if (ev.target && ev.target.id === 'modalGasto') closeModal();
