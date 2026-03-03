@@ -198,6 +198,65 @@
     </div>
   </div>
 
+<!-- =========================================================
+     MODAL REGISTRAR INGRESO (NO SOCIOS)
+========================================================== -->
+<div id="modalIngreso" class="modal hidden">
+  <div class="modal-content" style="max-width: 720px;">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <h3 style="margin:0;">Registrar ingreso</h3>
+      <button id="btnIngresoClose" class="btn btn-secondary">✕</button>
+    </div>
+
+    <form id="formIngreso" style="margin-top:12px;">
+
+      <div class="row" style="align-items:flex-start;">
+        <div style="min-width:260px; flex:1;">
+          <label>Tipo de ingreso</label>
+          <select id="ingresoTipo" required>
+            <option value="">Cargando...</option>
+          </select>
+        </div>
+
+        <div style="min-width:200px;">
+          <label>Fecha de pago</label>
+          <input id="ingresoFecha" type="date" required />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px; align-items:flex-start;">
+        <div style="min-width:220px;">
+          <label>Monto</label>
+          <input id="ingresoMonto" type="number" step="0.01" min="0" required />
+        </div>
+
+        <div style="flex:1;">
+          <label>Observación</label>
+          <input
+            id="ingresoObs"
+            type="text"
+            placeholder="Ej: Venta cantina, Sponsor, Evento..."
+          />
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:14px; display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" id="btnIngresoCancel" class="btn btn-secondary">
+          Cancelar
+        </button>
+        <button type="submit" id="btnIngresoSave" class="btn btn-primary">
+          Guardar ingreso
+        </button>
+      </div>
+    </form>
+
+    <div class="muted" style="margin-top:10px;">
+      Este ingreso no está asociado a ningún socio.
+    </div>
+  </div>
+</div>
+
   <!-- =========================
        ESTILOS ACORDEÓN
   ========================== -->
