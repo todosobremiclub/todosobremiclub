@@ -49,7 +49,8 @@
     return { res, data };
   }
 
-  function escapeHtml(str) {
+  
+function escapeHtml(str) {
   return String(str ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -57,6 +58,7 @@
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
+
 
   function formatDateISOToDMY(iso) {
     if (!iso) return '';
