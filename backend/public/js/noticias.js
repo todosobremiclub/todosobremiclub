@@ -448,15 +448,29 @@ function bindOnce() {
   root.dataset.bound = '1';
   console.log('bindOnce: inicializando eventos');
 
-  $('#notiDestinoTipo')?.addEventListener('change', renderDestinoExtra);
-  $('#btnNoticiaPublicar')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    console.log('click en Publicar noticia');
-    saveNoticia();
-  });
+  const destinoTipo = $('#notiDestinoTipo');
+  console.log('bindOnce: notiDestinoTipo encontrado?', !!destinoTipo);
 
+  const btnPub = $('#btnNoticiaPublicar');
+  console.log('bindOnce: btnNoticiaPublicar encontrado?', !!btnPub);
 
-    $('#noticiasTableBody')?.addEventListener('click', (ev) => {
+  if (destinoTipo) {
+    destinoTipo.addEventListener('change', renderDestinoExtra);
+  }
+
+  if (btnPub) {
+    btnPub.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('bindOnce: click en Publicar noticia');
+      saveNoticia();
+    });
+  } else {
+    console.warn('bindOnce: NO se encontró el botón #btnNoticiaPublicar');
+  }
+
+  const tbody = $('#noticiasTableBody');
+  if (tbody) {
+    tbody.addEventListener('click', (ev) => {
       const btn = ev.target.closest('button[data-act]');
       if (!btn) return;
       const act = btn.dataset.act;
@@ -472,7 +486,7 @@ function bindOnce() {
       }
     });
   }
-
+}
   // =============================
   // Init sección
   // =============================
