@@ -434,17 +434,27 @@ function escapeHtml(str) {
   // =============================
   // Bind de eventos
   // =============================
-  function bindOnce() {
-    const root = document.getElementById('noticias-section');
-    if (!root) return;
-    if (root.dataset.bound === '1') return;
-    root.dataset.bound = '1';
+  
+function bindOnce() {
+  const root = document.getElementById('noticias-section');
+  if (!root) {
+    console.log('bindOnce: no hay #noticias-section');
+    return;
+  }
+  if (root.dataset.bound === '1') {
+    console.log('bindOnce: ya estaba ligado');
+    return;
+  }
+  root.dataset.bound = '1';
+  console.log('bindOnce: inicializando eventos');
 
-    $('#notiDestinoTipo')?.addEventListener('change', renderDestinoExtra);
-    $('#btnNoticiaPublicar')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      saveNoticia();
-    });
+  $('#notiDestinoTipo')?.addEventListener('change', renderDestinoExtra);
+  $('#btnNoticiaPublicar')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    console.log('click en Publicar noticia');
+    saveNoticia();
+  });
+
 
     $('#noticiasTableBody')?.addEventListener('click', (ev) => {
       const btn = ev.target.closest('button[data-act]');
@@ -467,11 +477,12 @@ function escapeHtml(str) {
   // Init sección
   // =============================
   async function initNoticiasSection() {
-    bindOnce();
-    await Promise.all([loadActividades(), loadCategorias()]);
-    renderDestinoExtra();
-    await loadNoticias();
-  }
+  console.log('initNoticiasSection() llamado');
+  bindOnce();
+  await Promise.all([loadActividades(), loadCategorias()]);
+  renderDestinoExtra();
+  await loadNoticias();
+}
 
   // Exponer para club.js
   window.initNoticiasSection = initNoticiasSection;
