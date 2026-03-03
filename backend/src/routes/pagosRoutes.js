@@ -99,51 +99,131 @@ router.get('/:clubId/pagos/:socioId', requireAuth, requireClubAccess, async (req
 // body: { socio_id, anio, meses:[1..12], fecha_pago:"YYYY-MM-DD" }
 // Guarda 1 registro por mes con el monto desde cuotas_mensuales
 // ============================================================
+// ============================================================
+// POST /club/:clubId/pagos
+// body: {
+//   socio_id,
+//   anio,
+//   meses: [1..12],
+//   fecha_pago: "YYYY-MM-DD",
+//   es_parcial?: boolean,
+//   monto_parcial?: number
+// }
+// ============================================================
 router.post('/:clubId/pagos', requireAuth, requireClubAccess, async (req, res) => {
   try {
     const { clubId } = req.params;
     const {
-  socio_id,
-  anio,
-  meses,
-  fecha_pago,
-  es_parcial = false,
-  monto_parcial = null
-} = req.body ?? {};
+      socio_id,
+      anio,
+      meses,
+      fecha_pago,
+      es_parcial = false,
+      monto_parcial = null
+    } = req.body ?? {};
 
-    if (!socio_id || !anio || !Array.isArray(meses) || meses.length === 0 || !fecha_pago) {
+    // Validación básica
+    if (!socio_id ||
+        !anio ||
+        !Array.isArray(meses) ||
+        meses.length === 0 ||
+        !fecha_pago) {
       return res.status(400).json({ ok: false, error: 'Datos incompletos' });
     }
 
     // Validación específica de pago parcial
-const esParcialBool = es_parcial === true || es_parcial === 'true';
+    const esParcialBool = es_parcial === true || es_parcial === 'true';
+    if (esParcialBool) {
+      if (
+        monto_parcial === null ||
+        monto_parcial === '' ||
+        Number.isNaN(Number(monto_parcial)) ||
+        Number(monto_parcial) < 0
+      ) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Para pago parcial debés indicar un monto_parcial válido (>= 0).'
+        });
+      }
+    }
 
-if (esParcialBool) {
-  if (monto_parcial === null || monto_parcial === '' || Number.isNaN(Number(monto_parcial)) || Number(monto_parcial) < 0) {
-    return res.status(400).json({
-      ok: false,
-      error: 'Para pago parcial debés indicar un monto_parcial válido (>= 0).'
-    });
-  }
-}
+    // Validar fecha
     if (!isISODate(fecha_pago)) {
       return res.status(400).json({ ok: false, error: 'fecha_pago inválida (use YYYY-MM-DD)' });
     }
 
+    // Año y meses
     const anioNum = Number(anio);
     const mesesNum = meses.map(Number).filter((m) => m >= 1 && m <= 12);
     if (!anioNum || mesesNum.length === 0) {
       return res.status(400).json({ ok: false, error: 'Año o meses inválidos' });
     }
 
-    
+    // ------------------------------
+    // NUEVA lógica: actividad + precio
+    // ------------------------------
+
+    // Traer socio para conocer su actividad
+    const socioRes = await db.query(
+      `
+      SELECT actividad
+      FROM socios
+      WHERE id = $1 AND club_id = $2
+      LIMIT 1
+      `,
+      [socio_id, clubId]
+    );
+
+    if (!socioRes.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+    }
+
+    const actividadSocio = socioRes.rows[0].actividad;
+
+    // Si NO es pago parcial, la actividad es obligatoria
+    if (!actividadSocio && !esParcialBool) {
+      return res.status(400).json({
+        ok: false,
+        error: 'El socio no tiene actividad asignada. Configurá la actividad antes de registrar el pago.'
+      });
+    }
+
+    let montoPorMes = 0;
+
+    if (esParcialBool) {
+      // Pago parcial: el monto viene del front, se aplica por cada mes
+      montoPorMes = Number(monto_parcial);
+    } else {
+      // Pago normal: monto por actividad
+
+      // Traer precio_mensual de la tabla actividades
+      const rPrecio = await db.query(
+        `
+        SELECT precio_mensual
+        FROM actividades
+        WHERE club_id = $1
+          AND nombre = $2
+          AND activo = true
+        LIMIT 1
+        `,
+        [clubId, actividadSocio]
+      );
+
+      if (rPrecio.rowCount === 0) {
+        // No hay precio configurado: se toma como 0 (según requerimiento)
+        montoPorMes = 0;
+      } else {
+        montoPorMes = Number(rPrecio.rows[0].precio_mensual) || 0;
+      }
+    }
+
+    // ------------------------------
+    // Insertar pagos mensuales
+    // ------------------------------
     await db.query('BEGIN');
 
-    // Insert por mes, evitando duplicados por unique index
     const inserted = [];
     for (const mes of mesesNum) {
-      
-
       const rIns = await db.query(
         `
         INSERT INTO pagos_mensuales (club_id, socio_id, anio, mes, monto, fecha_pago)
@@ -153,10 +233,20 @@ if (esParcialBool) {
         `,
         [clubId, socio_id, anioNum, mes, montoPorMes, fecha_pago]
       );
-
       if (rIns.rowCount) inserted.push(rIns.rows[0]);
     }
 
+    await db.query('COMMIT');
+
+    res.json({ ok: true, insertedCount: inserted.length, inserted });
+  } catch (e) {
+    try {
+      await db.query('ROLLBACK');
+    } catch {}
+    console.error('❌ registrar pagos:', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
 // ------------------------------
 // NUEVA lógica: actividad + precio
 // ------------------------------
