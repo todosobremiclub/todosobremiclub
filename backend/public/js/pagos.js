@@ -155,13 +155,13 @@ function ensureIngresosUI() {
         </td>
       `;
       tbody.appendChild(tr);
-    });
-  }
+    }});
+}
 
-  	
-   * Modal Registrar Pago (socios)
-   * ============================= */
-  function openModal() {
+/* =============================
+ * Modal Registrar Pago (socios)
+ * ============================= */
+function openModal() {
     const modal = $('modalPago');
     if (!modal) return;
 
