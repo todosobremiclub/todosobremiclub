@@ -25,6 +25,7 @@ app.use('/club', require('./routes/gastosRoutes'));
 app.use('/club', require('./routes/cumplesRoutes'));
 app.use('/club', require('./routes/pagosRoutes'));
 app.use('/club', require('./routes/reportesRoutes'));
+app.use('/club', require('./routes/noticiasRoutes'));
 
 // ===== HEALTH =====
 app.get('/health', (_req, res) => {

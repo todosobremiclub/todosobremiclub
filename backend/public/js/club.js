@@ -187,6 +187,9 @@ if (sectionName === 'reportes' && window.initReportesSection) {
   await window.initReportesSection();
 }
 
+if (sectionName === 'noticias' && window.initNoticiasSection) {
+  await window.initNoticiasSection();
+}
     } catch (e) {
       container.innerHTML = `<pre>Error: ${e.message}</pre>`;
     }

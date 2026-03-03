@@ -1,0 +1,129 @@
+<section id="noticias-section" class="section-noticias">
+
+  <h2 style="margin-bottom:16px;">📢 Publicar una noticia</h2>
+
+  <!-- ===============================
+        FORMULARIO DE NOTICIAS
+  ================================== -->
+  <div class="card noticia-form-card">
+
+    <div class="noticia-form">
+
+      <label>Título</label>
+      <input type="text" id="notiTitulo" placeholder="Título de la noticia" />
+
+      <label>Texto</label>
+      <textarea id="notiTexto" rows="4" placeholder="Escribe aquí la noticia..."></textarea>
+
+      <label>Imagen (opcional)</label>
+      <input type="file" id="notiImagen" accept="image/*" />
+
+      <label>Destino</label>
+      <select id="notiDestinoTipo">
+        <option value="todos">Todos los socios</option>
+        <option value="actividad">Por Actividad</option>
+        <option value="categoria">Por Categoría</option>
+        <option value="anio_nac">Por Año de nacimiento</option>
+        <option value="cat_anio">Categoría + Año nacimiento</option>
+      </select>
+
+      <!-- Campos dinámicos (dependen del destino seleccionado) -->
+      <div id="notiDestinoExtra" class="destino-extra"></div>
+
+      <button id="btnNoticiaPublicar" class="btn btn-primary"
+        style="margin-top:14px; width:100%; font-size:15px;">
+        📤 Publicar noticia
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ===============================
+        LISTADO DE NOTICIAS
+  ================================== -->
+  <h3 style="margin-top:24px;">📰 Noticias publicadas</h3>
+
+  <div class="table-wrapper" style="margin-top:12px;">
+    <table class="socios-table">
+      <thead>
+        <tr>
+          <th style="width:90px;">Imagen</th>
+          <th style="width:180px;">Título</th>
+          <th>Texto</th>
+          <th style="width:160px;">Destino</th>
+          <th style="width:120px;">Fecha</th>
+          <th style="width:90px;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="noticiasTableBody"></tbody>
+    </table>
+  </div>
+
+</section>
+
+<style>
+
+  .noticia-form-card {
+    padding:16px;
+  }
+
+  .noticia-form {
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .noticia-form input[type="text"],
+  .noticia-form textarea,
+  .noticia-form select {
+    width:100%;
+    padding:10px;
+    border-radius:8px;
+    border:1px solid #ccc;
+    font-size:14px;
+  }
+
+  .destino-extra {
+    margin-top:6px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .destino-extra select,
+  .destino-extra input {
+    padding:8px;
+    border-radius:8px;
+    border:1px solid #ccc;
+  }
+
+  /* Tarjeta de imagen miniatura */
+  .noticia-img-mini {
+    width:65px;
+    height:65px;
+    object-fit:cover;
+    border-radius:8px;
+    border:1px solid #ddd;
+  }
+
+  @media(max-width:768px){
+
+    .noticia-form-card {
+      padding:12px;
+    }
+
+    table {
+      font-size:12px;
+    }
+
+    th, td {
+      padding:6px;
+    }
+
+    .noticia-img-mini {
+      width:48px;
+      height:48px;
+    }
+  }
+
+</style>
