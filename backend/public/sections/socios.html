@@ -1,7 +1,6 @@
-
 <section id="socios-section" class="section-socios">
 
-  <!-- ✅ TOOLBAR EN UNA SOLA LÍNEA -->
+  <!-- ✅ TOOLBAR -->
   <div class="socios-toolbar">
     <div class="socios-filters-inline">
       <input
@@ -37,12 +36,12 @@
     </div>
   </div>
 
-  <!-- ✅ INFO -->
+  <!-- INFO -->
   <div class="socios-info">
     <span id="sociosActivosCount">Socios activos: 0</span>
   </div>
 
-  <!-- ✅ TABLA -->
+  <!-- TABLA -->
   <div class="table-wrapper">
     <table class="socios-table">
       <thead>
@@ -67,9 +66,7 @@
     </table>
   </div>
 
-  <!-- ✅ PAGINACIÓN -->
   <div id="sociosPagination" class="pagination"></div>
-
 
   <!-- ================= MODAL SOCIO ================= -->
   <div id="modalSocio" class="modal hidden">
@@ -155,8 +152,7 @@
     </div>
   </div>
 
-  
-<!-- ================= MODAL CARNET ================= -->
+  <!-- ================= MODAL CARNET ================= -->
   <div id="modalCarnet" class="modal hidden">
     <div class="modal-content" style="max-width:560px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -186,27 +182,23 @@
     </div>
   </div>
 
-  <!-- ✅ ESTILOS -->
+  <!-- ================= ESTILOS ================= -->
   <style>
 
-    /* =========================
-       CARNET DIGITAL - MEJORAS
-       ========================= */
-
-    #modalCarnet .modal-content{
+    /* -----------------------
+       CARNET DIGITAL
+    ----------------------- */
+    #modalCarnet .modal-content {
       border: 2px solid var(--color-primary);
       box-shadow: 0 20px 50px rgba(0,0,0,0.25);
     }
-
-    #carnetFoto{
+    #carnetFoto {
       border: 3px solid var(--color-primary);
     }
-
-    #carnetNombre{
+    #carnetNombre {
       color: var(--color-secondary);
     }
-
-    #carnetPago{
+    #carnetPago {
       display:inline-block;
       padding:4px 10px;
       border-radius:999px;
@@ -215,75 +207,109 @@
       background: color-mix(in srgb, var(--color-primary) 15%, white);
       color: var(--color-secondary);
     }
-
-    #carnetExtra{
+    #carnetExtra {
       margin-top:14px;
       display:grid;
       grid-template-columns: repeat(2, 1fr);
       gap:8px 14px;
     }
-
-    #carnetExtra > div{
+    #carnetExtra > div {
       padding:6px 8px;
       border-radius:8px;
       background:#f9fafb;
       border-left:3px solid var(--color-primary);
       font-size:13px;
     }
-
-    #carnetExtra b{
-      color:#374151;
-    }
-
     @media (max-width:520px){
-      #carnetExtra{
-        grid-template-columns:1fr;
-      }
+      #carnetExtra { grid-template-columns:1fr; }
     }
 
-    /* =========================
-       RESTO DE TUS ESTILOS
-       ========================= */
-
-    .socios-toolbar{
+    /* -----------------------
+       FILTROS / TOOLBAR
+    ----------------------- */
+    .socios-toolbar {
       display:flex;
       justify-content:space-between;
       align-items:center;
       gap:12px;
       flex-wrap:wrap;
-      margin-bottom:8px;
+      margin-bottom:10px;
     }
 
-    .socios-filters-inline{
+    .socios-filters-inline {
       display:flex;
       align-items:center;
       gap:10px;
-      flex-wrap:nowrap;
+      flex-wrap:wrap;
     }
 
     .socios-filters-inline input,
     .socios-filters-inline select,
-    .socios-filters-inline button{
+    .socios-filters-inline button {
       height:32px;
       padding:4px 10px;
     }
 
-    .socios-actions-inline{
+    .socios-actions-inline {
       display:flex;
       gap:8px;
     }
 
-    th.sortable{
+    /* -----------------------
+       TABLA
+    ----------------------- */
+    th.sortable {
       cursor:pointer;
       user-select:none;
     }
-    th.sortable:hover{ background:#eee; }
+    th.sortable:hover { background:#eee; }
 
-    .pagination{
+    .pagination {
       display:flex;
       justify-content:center;
       gap:8px;
-      margin-top:10px;
+      margin-top:12px;
+    }
+
+    /* -----------------------
+       RESPONSIVE
+    ----------------------- */
+    @media (max-width:768px){
+
+      .socios-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .socios-filters-inline {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .socios-actions-inline {
+        justify-content: flex-start;
+      }
+
+      table {
+        font-size:12px;
+      }
+
+      th, td {
+        padding:6px;
+      }
+
+      .modal-content {
+        width: 100%;
+        max-width: 92vw;
+      }
+
+      .form-grid {
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+      }
     }
 
   </style>

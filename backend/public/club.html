@@ -7,16 +7,26 @@
 
   <style>
     :root {
-      /* ✅ Colores por defecto (pisados dinámicamente por club.js) */
       --color-primary: #2563eb;
       --color-secondary: #1e40af;
       --color-accent: #facc15;
     }
 
-    body {
+    /* =========================
+       RESET + BASE
+    ========================= */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #f3f4f6;
       font-family: Arial, sans-serif;
-      margin:0;
-      padding:0;
     }
 
     /* =========================
@@ -30,9 +40,9 @@
 
     .content {
       width: 100%;
-      max-width: 1600px;
+      max-width: 1280px; /* 💡 Ideal para pantallas de 14" */
       margin: 0 auto;
-      padding: 14px;
+      padding: 12px 14px 18px;
     }
 
     /* =========================
@@ -49,14 +59,9 @@
       font-size:14px;
       white-space: nowrap;
     }
-
-    .navbtn:hover {
-      background: var(--color-secondary);
-    }
+    .navbtn:hover { background: var(--color-secondary); }
 
     .navbtn--top {
-      width:auto;
-      margin:0;
       padding:8px 12px;
       font-size:13px;
     }
@@ -64,7 +69,6 @@
     .navbtn--logout {
       background:#ef4444;
     }
-
     .navbtn--logout:hover {
       background:#dc2626;
     }
@@ -77,14 +81,11 @@
       justify-content:space-between;
       align-items:center;
       gap:16px;
-      padding: 10px 14px;
+      padding: 12px 14px;
       border-radius: 12px;
-      background: linear-gradient(
-        135deg,
-        var(--color-primary),
-        var(--color-secondary)
-      );
+      background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
       border: 1px solid rgba(255,255,255,0.18);
+      color:#fff;
     }
 
     .topbar-left {
@@ -101,7 +102,6 @@
       border:1px solid rgba(255,255,255,0.35);
       background: #fff;
       padding: 2px;
-      box-sizing: border-box;
     }
 
     .topbar-titles {
@@ -109,13 +109,11 @@
       flex-direction:column;
       line-height:1.15;
     }
-
     .club-name {
       font-size:18px;
       font-weight:700;
       color:#fff;
     }
-
     .club-user {
       font-size:13px;
       color:rgba(255,255,255,0.9);
@@ -152,7 +150,7 @@
       align-items:center;
       justify-content:space-between;
       gap:10px;
-      margin-top:10px;
+      margin-top:12px;
     }
 
     .topnav__center {
@@ -161,7 +159,7 @@
       justify-content:center;
       gap:8px;
       overflow-x:auto;
-      padding: 2px 0;
+      padding: 4px 0;
     }
 
     /* =========================
@@ -171,7 +169,7 @@
       border:1px solid #ddd;
       border-radius:12px;
       padding:14px;
-      margin-top:12px;
+      margin-top:14px;
       background:#fff;
     }
 
@@ -199,80 +197,111 @@
       text-align:left;
     }
 
-/* =========================
-   FORMULARIOS
-========================= */
-.row {
-  display:flex;
-  gap:12px;
-  align-items:center;
-  flex-wrap: wrap;
-}
+    /* =========================
+       FORMULARIOS
+    ========================= */
+    .row {
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap: wrap;
+    }
 
-label {
-  display:block;
-  font-size: 0.85rem;
-  color:#444;
-  margin-bottom:6px;
-}
+    label {
+      display:block;
+      font-size: 0.85rem;
+      color:#444;
+      margin-bottom:6px;
+    }
 
-input,
-select,
-button {
-  padding: 8px;
-  border-radius:6px;
-  border:1px solid #ccc;
-  font-size:14px;
-}
+    input, select, button {
+      padding: 8px;
+      border-radius:6px;
+      border:1px solid #ccc;
+      font-size:14px;
+    }
 
-input[type="checkbox"] {
-  width:auto;
-}
+    .muted {
+      color:#6b7280;
+      font-size:13px;
+    }
 
-/* Texto auxiliar */
-.muted {
-  color:#6b7280;
-  font-size:13px;
-}
+    /* =========================
+       MODAL
+    ========================= */
+    .modal.hidden { display:none; }
 
-/* =========================
-   MODAL
-========================= */
-.modal.hidden {
-  display:none;
-}
+    .modal {
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.45);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:999;
+    }
 
-.modal {
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.45);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:999;
-}
-
-.modal-content {
-  width:min(780px, 92vw);
-  background:#fff;
-  border-radius:12px;
-  padding:16px;
-}
-
+    .modal-content {
+      width:min(780px, 95vw);
+      background:#fff;
+      border-radius:12px;
+      padding:16px;
+    }
 
     /* =========================
        RESPONSIVE
     ========================= */
-    @media (max-width: 720px) {
+    @media (max-width: 768px) {
       .topbar {
         flex-direction: column;
         align-items:flex-start;
+        padding: 12px;
       }
 
       .topbar-right {
-        align-self: flex-end;
+        align-self: stretch;
+        justify-content: flex-start;
+      }
+
+      .topnav {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .topnav__center {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+      }
+
+      .content {
+        padding: 10px;
+      }
+
+      .navbtn--top {
+        font-size:12px;
+        padding:6px 8px;
+      }
+
+      table {
+        font-size:12px;
+      }
+
+      th, td {
+        padding:6px;
+      }
+
+      .modal-content {
+        width: 100%;
+        max-width: 95vw;
+        padding:12px;
+      }
+
+      .row {
+        flex-direction: column;
+        align-items: stretch;
       }
     }
+
   </style>
 
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
@@ -291,6 +320,7 @@ input[type="checkbox"] {
             <div class="club-user" id="meLabel"></div>
           </div>
         </div>
+
         <div class="topbar-right">
           <select id="clubSelect" class="club-select"></select>
           <span class="badge" id="roleBadge">Rol: —</span>
@@ -307,6 +337,7 @@ input[type="checkbox"] {
           <button class="navbtn navbtn--top" data-section="cumples">🎂 Cumpleaños</button>
           <button class="navbtn navbtn--top" data-section="configuracion">⚙️ Configuración</button>
         </div>
+
         <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
       </nav>
 

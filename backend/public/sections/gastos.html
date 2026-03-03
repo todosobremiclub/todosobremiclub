@@ -1,7 +1,7 @@
 <!-- sections/gastos.html -->
 <section class="section-gastos">
 
-  <div class="section-header">
+  <div class="section-header gastos-header">
     <h2>Gestión de Gastos</h2>
 
     <button id="btnGastoAdd" class="btn btn-primary">
@@ -9,34 +9,34 @@
     </button>
   </div>
 
-  <!-- Filtros -->
-  <div class="filters">
-    <label>
+  <!-- FILTROS -->
+  <div class="filters filtros-gastos">
+    <label class="label-inline">
       Período:
       <input type="month" id="filtroPeriodo">
     </label>
     <button id="btnFiltrarGastos" class="btn btn-secondary">Ver</button>
   </div>
 
-  <!-- ✅ CONTENEDOR NUEVO: gastos agrupados por mes -->
-  <!-- (reemplaza la tabla plana, el JS renderiza acá los acordeones) -->
-  <div id="gastosAccordions">
-    <!-- dinámico -->
-  </div>
+  <!-- CONTENEDOR DE ACORDEONES -->
+  <div id="gastosAccordions"></div>
 
-  <!-- Total -->
+  <!-- TOTAL -->
   <div class="total-periodo">
     <span>Total período:</span>
     <strong id="totalPeriodo">$ 0,00</strong>
   </div>
 
-  <!-- MODAL REGISTRAR GASTO -->
+
+  <!-- ===============================
+       MODAL REGISTRAR GASTO
+  ================================ -->
   <div id="modalGasto" class="modal hidden">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width:620px;">
 
-      <h3>Registrar Gasto</h3>
+      <h3 style="margin:0 0 10px 0;">Registrar Gasto</h3>
 
-      <form id="formGasto">
+      <form id="formGasto" class="modal-form">
 
         <label>
           Tipo de gasto
@@ -45,7 +45,6 @@
           </select>
         </label>
 
-        <!-- ✅ Fecha completa día / mes / año -->
         <label>
           Fecha del gasto
           <input type="date" id="gastoFecha" required>
@@ -69,21 +68,60 @@
         </label>
 
         <div class="modal-actions">
-          <button type="button" id="btnGastoCancel" class="btn btn-secondary">
-            Cancelar
-          </button>
-
-          <button type="submit" class="btn btn-primary">
-            Guardar
-          </button>
+          <button type="button" id="btnGastoCancel" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
 
       </form>
     </div>
   </div>
 
-  <!-- ✅ ESTILOS (solo para acordeones, no rompe nada existente) -->
+
+  <!-- ===============================
+       ESTILOS MEJORADOS
+  ================================ -->
   <style>
+
+    /* ------------------------------------
+       HEADER
+    ------------------------------------ */
+    .gastos-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:12px;
+    }
+
+    /* ------------------------------------
+       FILTROS
+    ------------------------------------ */
+    .filtros-gastos{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:12px;
+      margin-bottom:12px;
+    }
+
+    .label-inline{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      white-space:nowrap;
+    }
+
+    .filtros-gastos input,
+    .filtros-gastos button{
+      height:32px;
+      padding:4px 10px;
+    }
+
+
+    /* ------------------------------------
+       ACORDEONES DE GASTOS
+    ------------------------------------ */
     .accordion{
       border:1px solid rgba(0,0,0,0.08);
       border-radius:12px;
@@ -122,10 +160,12 @@
       padding:12px 14px;
     }
 
-    .hidden{
-      display:none;
-    }
+    .hidden{ display:none; }
 
+
+    /* ------------------------------------
+       TABLAS DENTRO DE ACORDEONES
+    ------------------------------------ */
     .table-container{
       overflow:auto;
       border:1px solid #ddd;
@@ -150,6 +190,66 @@
     .table th{
       background:#f7f7f7;
     }
+
+
+    /* ------------------------------------
+       TOTAL PERÍODO
+    ------------------------------------ */
+    .total-periodo{
+      margin-top:16px;
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+      font-size:16px;
+    }
+
+
+    /* ------------------------------------
+       MODAL
+    ------------------------------------ */
+    .modal-form{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      margin-top:8px;
+    }
+
+    .modal-content{
+      width:min(600px, 94vw);
+      padding:16px;
+    }
+
+    .modal textarea{
+      resize:vertical;
+    }
+
+
+    /* ------------------------------------
+       RESPONSIVE
+    ------------------------------------ */
+    @media(max-width:768px){
+
+      .gastos-header{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+
+      .filtros-gastos{
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      .table th, .table td{
+        padding:6px;
+        font-size:12px;
+      }
+
+      .modal-content{
+        width:100%;
+        max-width:94vw;
+      }
+    }
+
   </style>
 
 </section>

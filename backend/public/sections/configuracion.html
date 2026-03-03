@@ -2,11 +2,13 @@
 
   <h2 style="margin-bottom: 12px;">Configuración del Sistema</h2>
 
-  <!-- CUOTAS -->
+  <!-- =========================================================
+       CUOTAS
+  ========================================================== -->
   <div class="config-card config-collapsible collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3 style="margin:0;">💰 Monto de cuota por mes</h3>
+      <h3 class="config-title">💰 Monto de cuota por mes</h3>
     </div>
 
     <div class="config-content">
@@ -23,15 +25,18 @@
     </div>
   </div>
 
-  <!-- CATEGORÍAS -->
+  <!-- =========================================================
+       CATEGORÍAS
+  ========================================================== -->
   <div class="config-card config-collapsible collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3 style="margin:0;">🏷️ Categorías deportivas</h3>
+      <h3 class="config-title">🏷️ Categorías deportivas</h3>
     </div>
 
     <div class="config-content">
-      <div style="display:flex; gap:8px; margin-bottom:10px;">
+
+      <div class="config-input-row">
         <input id="newCategoriaNombre" placeholder="Nombre">
         <button id="btnCategoriaAdd" class="btn-add">➕ Agregar</button>
       </div>
@@ -49,39 +54,47 @@
     </div>
   </div>
 
-<!-- ACTIVIDADES -->
-<div class="config-card config-collapsible collapsed">
-  <div class="config-header">
-    <span class="arrow">▶</span>
-    <h3 style="margin:0;">🏃‍♂️ Actividades</h3>
-  </div>
-  <div class="config-content">
-    <div style="display:flex; gap:8px; margin-bottom:10px;">
-      <input id="newActividadNombre" placeholder="Nombre" />
-      <button id="btnActividadAdd" class="btn-add">➕ Agregar</button>
-    </div>
-    <table class="config-table">
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th style="width:90px;">Guardar</th>
-          <th style="width:90px;">Eliminar</th>
-        </tr>
-      </thead>
-      <tbody id="actividadesTableBody"></tbody>
-    </table>
-  </div>
-</div>
-
-  <!-- TIPOS DE GASTO -->
+  <!-- =========================================================
+       ACTIVIDADES
+  ========================================================== -->
   <div class="config-card config-collapsible collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3 style="margin:0;">🧾 Tipos de gasto</h3>
+      <h3 class="config-title">🏃‍♂️ Actividades</h3>
     </div>
 
     <div class="config-content">
-      <div style="display:flex; gap:8px; margin-bottom:10px;">
+
+      <div class="config-input-row">
+        <input id="newActividadNombre" placeholder="Nombre" />
+        <button id="btnActividadAdd" class="btn-add">➕ Agregar</button>
+      </div>
+
+      <table class="config-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th style="width:90px;">Guardar</th>
+            <th style="width:90px;">Eliminar</th>
+          </tr>
+        </thead>
+        <tbody id="actividadesTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       TIPOS DE GASTO
+  ========================================================== -->
+  <div class="config-card config-collapsible collapsed">
+    <div class="config-header">
+      <span class="arrow">▶</span>
+      <h3 class="config-title">🧾 Tipos de gasto</h3>
+    </div>
+
+    <div class="config-content">
+
+      <div class="config-input-row">
         <input id="newTipoGastoNombre" placeholder="Nombre">
         <button id="btnTipoGastoAdd" class="btn-add">➕ Agregar</button>
       </div>
@@ -99,15 +112,18 @@
     </div>
   </div>
 
-  <!-- TIPOS DE INGRESO -->
+  <!-- =========================================================
+       TIPOS DE INGRESO
+  ========================================================== -->
   <div class="config-card config-collapsible collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3 style="margin:0;">💵 Tipos de ingreso</h3>
+      <h3 class="config-title">💵 Tipos de ingreso</h3>
     </div>
 
     <div class="config-content">
-      <div style="display:flex; gap:8px; margin-bottom:10px;">
+
+      <div class="config-input-row">
         <input id="newTipoIngresoNombre" placeholder="Nombre">
         <button id="btnTipoIngresoAdd" class="btn-add">➕ Agregar</button>
       </div>
@@ -121,18 +137,22 @@
         </thead>
         <tbody id="tiposIngresoTableBody"></tbody>
       </table>
+
     </div>
   </div>
 
-  <!-- RESPONSABLES -->
+  <!-- =========================================================
+       RESPONSABLES
+  ========================================================== -->
   <div class="config-card config-collapsible collapsed">
     <div class="config-header">
       <span class="arrow">▶</span>
-      <h3 style="margin:0;">👤 Responsables (quién realizó el gasto)</h3>
+      <h3 class="config-title">👤 Responsables (quién realizó el gasto)</h3>
     </div>
 
     <div class="config-content">
-      <div style="display:flex; gap:8px; margin-bottom:10px;">
+
+      <div class="config-input-row">
         <input id="newResponsableNombre" placeholder="Nombre">
         <button id="btnResponsableAdd" class="btn-add">➕ Agregar</button>
       </div>
@@ -147,32 +167,147 @@
         </thead>
         <tbody id="responsablesTableBody"></tbody>
       </table>
+
     </div>
   </div>
+
 
 </section>
 
 <style>
-.config-header {
-  display:flex;
-  align-items:center;
-  gap:10px;
-  cursor:pointer;
-}
 
-.config-collapsible .arrow {
-  transition: transform .2s ease;
-}
+  /* --------------------------------------
+     TARJETAS / CONTENEDORES
+  -------------------------------------- */
+  #configuracion-section {
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
 
-.config-collapsible.collapsed .arrow {
-  transform: rotate(0deg);
-}
+  .config-card {
+    border:1px solid rgba(0,0,0,0.1);
+    border-radius:12px;
+    padding:14px;
+    background:#fff;
+  }
 
-.config-collapsible:not(.collapsed) .arrow {
-  transform: rotate(90deg);
-}
+  .config-header {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    padding:4px 0;
+  }
 
-.config-collapsible.collapsed .config-content {
-  display: none;
-}
+  .config-title {
+    margin:0;
+    font-size:18px;
+  }
+
+  /* Flechita */
+  .arrow {
+    transition: transform .2s ease;
+    font-size:14px;
+  }
+
+  .config-collapsible.collapsed .arrow {
+    transform: rotate(0deg);
+  }
+
+  .config-collapsible:not(.collapsed) .arrow {
+    transform: rotate(90deg);
+  }
+
+  .config-collapsible.collapsed .config-content {
+    display: none;
+  }
+
+  /* --------------------------------------
+     INPUTS Y BOTONES
+  -------------------------------------- */
+  .config-input-row {
+    display:flex;
+    gap:8px;
+    margin-bottom:10px;
+    flex-wrap:wrap;
+  }
+
+  .config-input-row input {
+    padding:8px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    font-size:14px;
+    flex:1;
+    min-width:180px;
+  }
+
+  .btn-add {
+    background: var(--color-primary);
+    color:#fff;
+    border:0;
+    padding:8px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:14px;
+  }
+
+  .btn-add:hover {
+    background: var(--color-secondary);
+  }
+
+  /* --------------------------------------
+     TABLAS
+  -------------------------------------- */
+  .config-table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:14px;
+  }
+
+  .config-table th,
+  .config-table td {
+    border-bottom:1px solid #eee;
+    padding:8px;
+    text-align:left;
+    white-space:nowrap;
+  }
+
+  .config-table th {
+    background:#f7f7f7;
+    font-weight:600;
+  }
+
+  /* Botones de tabla */
+  .config-table button {
+    padding:6px 10px;
+    font-size:13px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+
+  /* --------------------------------------
+     RESPONSIVE
+  -------------------------------------- */
+  @media(max-width:768px){
+
+    .config-input-row {
+      flex-direction:column;
+      align-items:stretch;
+    }
+
+    .config-table {
+      font-size:12px;
+    }
+
+    .config-table th,
+    .config-table td {
+      padding:6px;
+    }
+
+    .config-title {
+      font-size:16px;
+    }
+  }
+
 </style>
