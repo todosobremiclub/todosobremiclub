@@ -169,7 +169,10 @@ router.get('/:clubId/config/actividades', requireAuth, requireClubAccess, async 
   try {
     const r = await db.query(
       `
-      SELECT id, nombre
+      SELECT
+        id,
+        nombre,
+        precio_mensual
       FROM actividades
       WHERE club_id = $1 AND activo = true
       ORDER BY nombre ASC
@@ -186,18 +189,44 @@ router.get('/:clubId/config/actividades', requireAuth, requireClubAccess, async 
 
 router.post('/:clubId/config/actividades', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { nombre } = req.body ?? {};
+  const { nombre, precio_mensual } = req.body ?? {};
   try {
     if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
 
+let precioNum = null;
+if (precio_mensual !== undefined && precio_mensual !== null && String(precio_mensual).trim() !== '') {
+  const parsed = Number(precio_mensual);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return res.status(400).json({ ok: false, error: 'precio_mensual inválido (debe ser número >= 0)' });
+  }
+  precioNum = parsed;
+}
+
     const r = await db.query(
-      `
-      INSERT INTO actividades (id, club_id, nombre, activo, updated_at)
-      VALUES (gen_random_uuid(), $1, $2, true, NOW())
-      RETURNING id, nombre
-      `,
-      [clubId, nombre.trim()]
-    );
+  `
+  INSERT INTO actividades (
+    id,
+    club_id,
+    nombre,
+    precio_mensual,
+    activo,
+    updated_at
+  )
+  VALUES (
+    gen_random_uuid(),
+    $1,
+    $2,
+    $3,
+    true,
+    NOW()
+  )
+  RETURNING
+    id,
+    nombre,
+    precio_mensual
+  `,
+  [clubId, nombre.trim(), precioNum]
+);
     res.json({ ok: true, actividad: r.rows[0] });
   } catch (e) {
     if (isMissingRelation(e)) {
@@ -213,19 +242,34 @@ router.post('/:clubId/config/actividades', requireAuth, requireClubAccess, async
 
 router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
-  const { nombre } = req.body ?? {};
+  const { nombre, precio_mensual } = req.body ?? {};
   try {
     if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
 
+let precioNum = null;
+if (precio_mensual !== undefined && precio_mensual !== null && String(precio_mensual).trim() !== '') {
+  const parsed = Number(precio_mensual);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return res.status(400).json({ ok: false, error: 'precio_mensual inválido (debe ser número >= 0)' });
+  }
+  precioNum = parsed;
+}
+
     const r = await db.query(
-      `
-      UPDATE actividades
-      SET nombre = $1, updated_at = NOW()
-      WHERE id = $2 AND club_id = $3
-      RETURNING id, nombre
-      `,
-      [nombre.trim(), id, clubId]
-    );
+  `
+  UPDATE actividades
+  SET
+    nombre = $1,
+    precio_mensual = $2,
+    updated_at = NOW()
+  WHERE id = $3 AND club_id = $4
+  RETURNING
+    id,
+    nombre,
+    precio_mensual
+  `,
+  [nombre.trim(), precioNum, id, clubId]
+);
     if (!r.rowCount) return res.status(404).json({ ok: false, error: 'No encontrada' });
 
     res.json({ ok: true, actividad: r.rows[0] });

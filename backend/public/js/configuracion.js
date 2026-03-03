@@ -253,44 +253,84 @@
   }
 
   function renderActividades(items) {
-    const tbody = document.getElementById('actividadesTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+  const tbody = document.getElementById('actividadesTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
 
-    items.forEach(a => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><input type="text" id="act_${a.id}" value="${escapeHtml(a.nombre)}" /></td>
-        <td style="text-align:center">
-          <button class="btn-save" data-act="save-act" data-id="${a.id}">💾</button>
-        </td>
-        <td style="text-align:center">
-          <button class="btn-del" data-act="del-act" data-id="${a.id}">🗑️</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
+  items.forEach(a => {
+    const tr = document.createElement('tr');
 
-  async function createActividad(nombre) {
-    const res = await fetchAuth(actividadesUrl(), {
-      method: 'POST',
-      json: true,
-      body: JSON.stringify({ nombre })
-    });
-    const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando actividad');
-  }
+    // Tomamos precio_mensual si viene desde el backend; si no, 0 o vacío
+    const precio = (typeof a.precio_mensual === 'number')
+      ? a.precio_mensual
+      : (a.precio_mensual ? Number(a.precio_mensual) : 0);
 
-  async function updateActividad(id, nombre) {
-    const res = await fetchAuth(`${actividadesUrl()}/${id}`, {
-      method: 'PUT',
-      json: true,
-      body: JSON.stringify({ nombre })
-    });
-    const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error guardando actividad');
+    tr.innerHTML = `
+      <td>
+        <input
+          type="text"
+          id="act_${a.id}"
+          value="${escapeHtml(a.nombre)}"
+        />
+      </td>
+      <td>
+        <input
+          type="number"
+          id="act_precio_${a.id}"
+          min="0"
+          step="0.01"
+          value="${Number.isFinite(precio) ? precio : 0}"
+          style="max-width:140px;"
+        />
+      </td>
+      <td style="text-align:center">
+        <button class="btn-save" data-act="save-act" data-id="${a.id}">💾</button>
+      </td>
+      <td style="text-align:center">
+        <button class="btn-del" data-act="del-act" data-id="${a.id}">🗑️</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+  async function createActividad(nombre, precio_mensual) {
+  const payload = {
+    nombre,
+    // En DB definimos NUMERIC, si viene vacío lo mandamos como null
+    precio_mensual: (precio_mensual === '' || precio_mensual == null)
+      ? null
+      : Number(precio_mensual)
+  };
+
+  const res = await fetchAuth(actividadesUrl(), {
+    method: 'POST',
+    json: true,
+    body: JSON.stringify(payload)
+  });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando actividad');
+}
+
+async function updateActividad(id, nombre, precio_mensual) {
+  const payload = {
+    nombre,
+    precio_mensual: (precio_mensual === '' || precio_mensual == null)
+      ? null
+      : Number(precio_mensual)
+  };
+
+  const res = await fetchAuth(`${actividadesUrl()}/${id}`, {
+    method: 'PUT',
+    json: true,
+    body: JSON.stringify(payload)
+  });
+
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error guardando actividad');
   }
+}
 
   async function deleteActividad(id) {
     const res = await fetchAuth(`${actividadesUrl()}/${id}`, { method: 'DELETE' });
@@ -705,58 +745,74 @@
     });
 
     // ACTIVIDADES: guardar / eliminar
-    document
-      .getElementById('actividadesTableBody')
-      ?.addEventListener('click', async (e) => {
-        const btn = e.target.closest('button[data-act]');
-        if (!btn) return;
-        const act = btn.dataset.act;
-        const id = btn.dataset.id;
+document
+  .getElementById('actividadesTableBody')
+  ?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const act = btn.dataset.act;
+    const id = btn.dataset.id;
 
-        if (act === 'save-act') {
-          const nombre = (document.getElementById(`act_${id}`)?.value ?? '').trim();
-          if (!nombre) return alert('Nombre vacío');
-          btn.disabled = true;
-          try {
-            await updateActividad(id, nombre);
-            await loadActividades();
-          } catch (err) {
-            alert(err.message ?? 'Error');
-          } finally {
-            btn.disabled = false;
-          }
-        }
+    if (act === 'save-act') {
+      const nombre = (document.getElementById(`act_${id}`)?.value ?? '').trim();
+      const precioStr = document.getElementById(`act_precio_${id}`)?.value ?? '';
+      const precioNum = precioStr === '' ? null : Number(precioStr);
 
-        if (act === 'del-act') {
-          if (!confirm('¿Eliminar actividad?')) return;
-          btn.disabled = true;
-          try {
-            await deleteActividad(id);
-            await loadActividades();
-          } catch (err) {
-            alert(err.message ?? 'Error');
-          } finally {
-            btn.disabled = false;
-          }
-        }
-      });
+      if (!nombre) return alert('Nombre vacío');
+      if (precioStr !== '' && (Number.isNaN(precioNum) || precioNum < 0)) {
+        return alert('Ingresá un precio mensual válido (>= 0).');
+      }
 
-    // ACTIVIDADES: Agregar
-    document
-      .getElementById('btnActividadAdd')
-      ?.addEventListener('click', async () => {
-        const input = document.getElementById('newActividadNombre');
-        const nombre = (input?.value ?? '').trim();
-        if (!nombre) return alert('Ingresá un nombre para la actividad');
-        try {
-          await createActividad(nombre);
-          if (input) input.value = '';
-          await loadActividades();
-        } catch (err) {
-          alert(err.message ?? 'Error creando actividad');
-        }
-      });
-  }
+      btn.disabled = true;
+      try {
+        await updateActividad(id, nombre, precioStr);
+        await loadActividades();
+      } catch (err) {
+        alert(err.message ?? 'Error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    if (act === 'del-act') {
+      if (!confirm('¿Eliminar actividad?')) return;
+      btn.disabled = true;
+      try {
+        await deleteActividad(id);
+        await loadActividades();
+      } catch (err) {
+        alert(err.message ?? 'Error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  });
+
+// ACTIVIDADES: Agregar
+document
+  .getElementById('btnActividadAdd')
+  ?.addEventListener('click', async () => {
+    const inputNombre = document.getElementById('newActividadNombre');
+    const inputPrecio = document.getElementById('newActividadPrecio');
+
+    const nombre = (inputNombre?.value ?? '').trim();
+    const precioStr = (inputPrecio?.value ?? '').trim();
+    const precioNum = precioStr === '' ? null : Number(precioStr);
+
+    if (!nombre) return alert('Ingresá un nombre para la actividad');
+    if (precioStr !== '' && (Number.isNaN(precioNum) || precioNum < 0)) {
+      return alert('Ingresá un precio mensual válido (>= 0).');
+    }
+
+    try {
+      await createActividad(nombre, precioStr);
+      if (inputNombre) inputNombre.value = '';
+      if (inputPrecio) inputPrecio.value = '';
+      await loadActividades();
+    } catch (err) {
+      alert(err.message ?? 'Error creando actividad');
+    }
+  });
 
   async function initConfiguracionSection() {
     await loadCuotas();

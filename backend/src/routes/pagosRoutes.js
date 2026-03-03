@@ -102,11 +102,30 @@ router.get('/:clubId/pagos/:socioId', requireAuth, requireClubAccess, async (req
 router.post('/:clubId/pagos', requireAuth, requireClubAccess, async (req, res) => {
   try {
     const { clubId } = req.params;
-    const { socio_id, anio, meses, fecha_pago } = req.body || {};
+    const {
+  socio_id,
+  anio,
+  meses,
+  fecha_pago,
+  es_parcial = false,
+  monto_parcial = null
+} = req.body ?? {};
 
     if (!socio_id || !anio || !Array.isArray(meses) || meses.length === 0 || !fecha_pago) {
       return res.status(400).json({ ok: false, error: 'Datos incompletos' });
     }
+
+    // Validación específica de pago parcial
+const esParcialBool = es_parcial === true || es_parcial === 'true';
+
+if (esParcialBool) {
+  if (monto_parcial === null || monto_parcial === '' || Number.isNaN(Number(monto_parcial)) || Number(monto_parcial) < 0) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Para pago parcial debés indicar un monto_parcial válido (>= 0).'
+    });
+  }
+}
     if (!isISODate(fecha_pago)) {
       return res.status(400).json({ ok: false, error: 'fecha_pago inválida (use YYYY-MM-DD)' });
     }
@@ -117,33 +136,13 @@ router.post('/:clubId/pagos', requireAuth, requireClubAccess, async (req, res) =
       return res.status(400).json({ ok: false, error: 'Año o meses inválidos' });
     }
 
-    // Traer montos configurados (cuotas_mensuales)
-    const rCuotas = await db.query(
-      `
-      SELECT mes, monto
-      FROM cuotas_mensuales
-      WHERE club_id = $1
-      `,
-      [clubId]
-    );
-
-    const mapMonto = new Map(rCuotas.rows.map((r) => [Number(r.mes), Number(r.monto)]));
-
-    // Validar que existan montos para todos los meses seleccionados
-    const sinMonto = mesesNum.filter((m) => !mapMonto.has(m));
-    if (sinMonto.length) {
-      return res.status(400).json({
-        ok: false,
-        error: `Falta configurar monto para los meses: ${sinMonto.join(', ')}`,
-      });
-    }
-
+    
     await db.query('BEGIN');
 
     // Insert por mes, evitando duplicados por unique index
     const inserted = [];
     for (const mes of mesesNum) {
-      const monto = mapMonto.get(mes);
+      
 
       const rIns = await db.query(
         `
@@ -152,11 +151,74 @@ router.post('/:clubId/pagos', requireAuth, requireClubAccess, async (req, res) =
         ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING
         RETURNING id, anio, mes, monto, fecha_pago
         `,
-        [clubId, socio_id, anioNum, mes, monto, fecha_pago]
+        [clubId, socio_id, anioNum, mes, montoPorMes, fecha_pago]
       );
 
       if (rIns.rowCount) inserted.push(rIns.rows[0]);
     }
+
+// ------------------------------
+// NUEVA lógica: actividad + precio
+// ------------------------------
+const anioNum = Number(anio);
+const mesesNum = meses.map(Number).filter((m) => m >= 1 && m <= 12);
+if (!anioNum || mesesNum.length === 0) {
+  return res.status(400).json({ ok: false, error: 'Año o meses inválidos' });
+}
+
+// Traer socio para conocer su actividad
+const socioRes = await db.query(
+  `
+  SELECT actividad
+  FROM socios
+  WHERE id = $1 AND club_id = $2
+  LIMIT 1
+  `,
+  [socio_id, clubId]
+);
+
+if (!socioRes.rowCount) {
+  return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+}
+
+const actividadSocio = socioRes.rows[0].actividad;
+
+// Si NO es pago parcial, la actividad es obligatoria
+if (!actividadSocio && !esParcialBool) {
+  return res.status(400).json({
+    ok: false,
+    error: 'El socio no tiene actividad asignada. Configurá la actividad antes de registrar el pago.'
+  });
+}
+
+let montoPorMes = 0;
+
+if (esParcialBool) {
+  // Pago parcial: el monto viene del front, se aplica por cada mes
+  montoPorMes = Number(monto_parcial);
+} else {
+  // Pago normal: monto por actividad
+
+  // Traer precio_mensual de la tabla actividades
+  const rPrecio = await db.query(
+    `
+    SELECT precio_mensual
+    FROM actividades
+    WHERE club_id = $1
+      AND nombre = $2
+      AND activo = true
+    LIMIT 1
+    `,
+    [clubId, actividadSocio]
+  );
+
+  if (rPrecio.rowCount === 0) {
+    // No hay precio configurado: se toma como 0 (según requerimiento)
+    montoPorMes = 0;
+  } else {
+    montoPorMes = Number(rPrecio.rows[0].precio_mensual) || 0;
+  }
+}
 
     await db.query('COMMIT');
     res.json({ ok: true, insertedCount: inserted.length, inserted });

@@ -5,25 +5,44 @@
   <!-- =========================================================
        CUOTAS
   ========================================================== -->
-  <div class="config-card config-collapsible collapsed">
-    <div class="config-header">
-      <span class="arrow">▶</span>
-      <h3 class="config-title">💰 Monto de cuota por mes</h3>
-    </div>
+  <div class="config-card">
+  <div class="config-header">Actividades deportivas</div>
 
-    <div class="config-content">
-      <table class="config-table">
-        <thead>
-          <tr>
-            <th style="width:30%;">Mes</th>
-            <th style="width:40%;">Monto ($)</th>
-            <th style="width:30%;">Guardar</th>
-          </tr>
-        </thead>
-        <tbody id="cuotasTableBody"></tbody>
-      </table>
+  <div class="config-body">
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>Actividad</th>
+          <th>Precio mensual</th>
+          <th style="width:80px;">Guardar</th>
+          <th style="width:80px;">Eliminar</th>
+        </tr>
+      </thead>
+      <tbody id="actividadesTableBody"></tbody>
+    </table>
+
+    <!-- Alta de nueva actividad -->
+    <div class="config-add" style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+      <input
+        id="newActividadNombre"
+        type="text"
+        placeholder="Nueva actividad..."
+        style="flex:1;"
+      />
+
+      <input
+        id="newActividadPrecio"
+        type="number"
+        min="0"
+        step="0.01"
+        placeholder="Precio mensual"
+        style="width:150px;"
+      />
+
+      <button id="btnActividadAdd" class="btn btn-primary">Agregar</button>
     </div>
   </div>
+</div>
 
   <!-- =========================================================
        CATEGORÍAS

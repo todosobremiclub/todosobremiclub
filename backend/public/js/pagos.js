@@ -76,6 +76,15 @@
   let tiposIngresoCache = [];
   let ingresosCache = [];
 
+function getPagoParcialState() {
+  const chk = $('pagoParcialChk');
+  const input = $('pagoParcialMonto');
+  const esParcial = !!(chk && chk.checked);
+  const montoStr = input ? input.value.trim() : '';
+  const montoNum = montoStr === '' ? NaN : Number(montoStr);
+  return { esParcial, montoStr, montoNum };
+}
+
   /* =============================
  * UI (inyectada): botón + tabla ingresos + modal 
  * ============================= */ 
@@ -162,22 +171,28 @@ function ensureIngresosUI() {
  * Modal Registrar Pago (socios)
  * ============================= */
 function openModal() {
-    const modal = $('modalPago');
-    if (!modal) return;
+  const modal = $('modalPago');
+  if (!modal) return;
+  selectedSocioId = null;
+  mesesPagados.clear();
+  mesesSeleccionados.clear();
+  if ($('modalSocioSearch')) $('modalSocioSearch').value = '';
+  if ($('modalFechaPago')) $('modalFechaPago').value = todayISO();
+  if ($('modalAnioLabel')) $('modalAnioLabel').textContent = String(selectedYear);
 
-    selectedSocioId = null;
-    mesesPagados.clear();
-    mesesSeleccionados.clear();
-
-    if ($('modalSocioSearch')) $('modalSocioSearch').value = '';
-    if ($('modalFechaPago')) $('modalFechaPago').value = todayISO();
-    if ($('modalAnioLabel')) $('modalAnioLabel').textContent = String(selectedYear);
-
-    renderSociosList();
-    renderMesesGrid();
-    modal.classList.remove('hidden');
+  // Reset estado de pago parcial
+  const chkParcial = $('pagoParcialChk');
+  const inpParcial = $('pagoParcialMonto');
+  if (chkParcial) chkParcial.checked = false;
+  if (inpParcial) {
+    inpParcial.value = '';
+    inpParcial.disabled = true;
   }
 
+  renderSociosList();
+  renderMesesGrid(); // esto a su vez llama a renderMontoHint()
+  modal.classList.remove('hidden');
+}
   function closeModal() {
     $('modalPago')?.classList.add('hidden');
   }
@@ -260,66 +275,95 @@ function openModal() {
   }
 
   function renderMontoHint() {
-    const el = $('montoHint');
-    if (!el) return;
+  const el = $('montoHint');
+  if (!el) return;
 
-    if (!mesesSeleccionados.size) {
-      el.textContent = selectedSocioId
-        ? 'Seleccioná uno o más meses para ver el total.'
-        : 'Seleccioná un socio para habilitar meses.';
-      return;
-    }
-
-    let total = 0;
-    const faltan = [];
-    mesesSeleccionados.forEach(m => {
-      const monto = cuotasMap.get(m);
-      if (monto == null) faltan.push(m);
-      else total += Number(monto);
-    });
-
-    if (faltan.length) {
-      el.textContent = `Falta configurar monto para meses: ${faltan.join(', ')}`;
-      return;
-    }
-
-    el.textContent = `Total estimado: $ ${total.toFixed(2)} (según Configuración)`;
+  // Sin meses seleccionados
+  if (!mesesSeleccionados.size) {
+    el.textContent = selectedSocioId
+      ? 'Seleccioná uno o más meses para ver el total.'
+      : 'Seleccioná un socio para habilitar meses.';
+    return;
   }
+
+  // Estado de pago parcial
+  const { esParcial, montoNum } = getPagoParcialState();
+
+  if (esParcial) {
+    if (Number.isNaN(montoNum) || montoNum < 0) {
+      el.textContent = 'Ingresá un monto parcial válido (>= 0).';
+      return;
+    }
+    const totalParcial = montoNum * mesesSeleccionados.size;
+    el.textContent = `Total estimado parcial: $ ${totalParcial.toFixed(2)} (${mesesSeleccionados.size} mes/es x $ ${montoNum.toFixed(2)})`;
+    return;
+  }
+
+  // Modo normal (no parcial): lógica anterior basada en cuotas por mes
+  let total = 0;
+  const faltan = [];
+  mesesSeleccionados.forEach((m) => {
+    const monto = cuotasMap.get(m);
+    if (monto == null) faltan.push(m);
+    else total += Number(monto);
+  });
+
+  if (faltan.length) {
+    el.textContent = `Falta configurar monto para meses: ${faltan.join(', ')}`;
+    return;
+  }
+
+  el.textContent = `Total estimado: $ ${total.toFixed(2)} (según Configuración)`;
+}
 
   async function savePago() {
-    if (!selectedSocioId) return alert('Seleccioná un socio');
-    if (!mesesSeleccionados.size) return alert('Seleccioná al menos un mes');
+  if (!selectedSocioId) return alert('Seleccioná un socio');
+  if (!mesesSeleccionados.size) return alert('Seleccioná al menos un mes');
 
-    const fecha = $('modalFechaPago')?.value;
-    if (!fecha) return alert('Seleccioná fecha de pago');
+  const fecha = $('modalFechaPago')?.value;
+  if (!fecha) return alert('Seleccioná fecha de pago');
 
-    const clubId = getActiveClubId();
-    const body = {
-      socio_id: selectedSocioId,
-      anio: selectedYear,
-      meses: Array.from(mesesSeleccionados),
-      fecha_pago: fecha
-    };
+  const { esParcial, montoNum } = getPagoParcialState();
 
-    const btn = $('btnPagoSave');
-    if (btn) btn.disabled = true;
-    try {
-      const { res, data } = await fetchAuth(`/club/${clubId}/pagos`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-        json: true
-      });
-      if (!res.ok || !data.ok) {
-        alert(data.error || 'Error guardando pago');
-        return;
-      }
-      alert(`✅ Pagos guardados: ${data.insertedCount}`);
-      closeModal();
-      await loadResumen();
-    } finally {
-      if (btn) btn.disabled = false;
+  if (esParcial) {
+    if (Number.isNaN(montoNum) || montoNum < 0) {
+      alert('Ingresá un monto parcial válido (>= 0).');
+      return;
     }
   }
+
+  const clubId = getActiveClubId();
+  const body = {
+    socio_id: selectedSocioId,
+    anio: selectedYear,
+    meses: Array.from(mesesSeleccionados),
+    fecha_pago: fecha,
+    es_parcial: esParcial
+  };
+
+  if (esParcial) {
+    body.monto_parcial = montoNum;
+  }
+
+  const btn = $('btnPagoSave');
+  if (btn) btn.disabled = true;
+  try {
+    const { res, data } = await fetchAuth(`/club/${clubId}/pagos`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      json: true
+    });
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error guardando pago');
+      return;
+    }
+    alert(`✅ Pagos guardados: ${data.insertedCount}`);
+    closeModal();
+    await loadResumen();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
 
   /* =============================
    * Modal Detalles (socios)
@@ -584,8 +628,31 @@ function bindAccordion() {
     $('btnRefreshPagos')?.addEventListener('click', async () => { await loadResumen(); await loadIngresos(); });
     $('pagosSearch')?.addEventListener('input', loadResumen);
 
+// Pago parcial: checkbox + monto
+  const chkParcial = $('pagoParcialChk');
+  const inpParcial = $('pagoParcialMonto');
+
+  if (chkParcial) {
+    chkParcial.addEventListener('change', () => {
+      if (inpParcial) {
+        inpParcial.disabled = !chkParcial.checked;
+        if (!chkParcial.checked) {
+          inpParcial.value = '';
+        }
+      }
+      renderMontoHint();
+    });
+  }
+
+  if (inpParcial) {
+    inpParcial.addEventListener('input', () => {
+      renderMontoHint();
+    });
+  }
+
     // Botón ingreso + modal ingreso
     $('btnIngresoAdd')?.addEventListener('click', async () => {
+
       await loadTiposIngreso();
       openIngresoModal();
     });
