@@ -234,7 +234,7 @@ function renderSociosMini(query){
         nombreInput.value = `${s.apellido ?? ''} ${s.nombre ?? ''} - ${s.dni ?? ''}`;
       }
       $('modalElegirSocio')?.classList.add('hidden');
-      refreshMesesPagados();
+      await refreshMesesPagados();
       renderMesesGrid();
     };
 
