@@ -298,9 +298,10 @@
   const payload = {
     nombre,
     // En DB definimos NUMERIC, si viene vacío lo mandamos como null
-    precio_mensual: (precio_mensual === '' || precio_mensual == null)
-      ? null
-      : Number(precio_mensual)
+    precio_mensual: (
+      precio_mensual === '' ||
+      precio_mensual == null
+    ) ? null : Number(precio_mensual)
   };
 
   const res = await fetchAuth(actividadesUrl(), {
@@ -315,9 +316,10 @@
 async function updateActividad(id, nombre, precio_mensual) {
   const payload = {
     nombre,
-    precio_mensual: (precio_mensual === '' || precio_mensual == null)
-      ? null
-      : Number(precio_mensual)
+    precio_mensual: (
+      precio_mensual === '' ||
+      precio_mensual == null
+    ) ? null : Number(precio_mensual)
   };
 
   const res = await fetchAuth(`${actividadesUrl()}/${id}`, {
@@ -325,13 +327,11 @@ async function updateActividad(id, nombre, precio_mensual) {
     json: true,
     body: JSON.stringify(payload)
   });
-
   const data = await safeJson(res);
   if (!res.ok || !data.ok) {
     throw new Error(data.error ?? 'Error guardando actividad');
   }
 }
-
   async function deleteActividad(id) {
     const res = await fetchAuth(`${actividadesUrl()}/${id}`, { method: 'DELETE' });
     const data = await safeJson(res);
