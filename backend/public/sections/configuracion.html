@@ -5,44 +5,31 @@
   <!-- =========================================================
        CUOTAS
   ========================================================== -->
-  <div class="config-card">
-  <div class="config-header">Actividades deportivas</div>
+ <div class="config-card config-collapsible">
+  <div class="config-header">🏋️ Actividades deportivas</div>
 
-  <div class="config-body">
+  <div class="config-body collapsed">
+    <!-- TU TABLA DE ACTIVIDADES -->
     <table class="config-table">
       <thead>
         <tr>
           <th>Actividad</th>
           <th>Precio mensual</th>
-          <th style="width:80px;">Guardar</th>
-          <th style="width:80px;">Eliminar</th>
+          <th>Guardar</th>
+          <th>Eliminar</th>
         </tr>
       </thead>
       <tbody id="actividadesTableBody"></tbody>
     </table>
 
-    <!-- Alta de nueva actividad -->
     <div class="config-add" style="margin-top:12px; display:flex; gap:10px; align-items:center;">
-      <input
-        id="newActividadNombre"
-        type="text"
-        placeholder="Nueva actividad..."
-        style="flex:1;"
-      />
-
-      <input
-        id="newActividadPrecio"
-        type="number"
-        min="0"
-        step="0.01"
-        placeholder="Precio mensual"
-        style="width:150px;"
-      />
-
+      <input id="newActividadNombre" type="text" placeholder="Nueva actividad..." style="flex:1;" />
+      <input id="newActividadPrecio" type="number" min="0" step="0.01" placeholder="Precio mensual" style="width:150px;" />
       <button id="btnActividadAdd" class="btn btn-primary">Agregar</button>
     </div>
   </div>
 </div>
+
 
   <!-- =========================================================
        CATEGORÍAS
@@ -73,35 +60,7 @@
     </div>
   </div>
 
-  <!-- =========================================================
-       ACTIVIDADES
-  ========================================================== -->
-  <div class="config-card config-collapsible collapsed">
-    <div class="config-header">
-      <span class="arrow">▶</span>
-      <h3 class="config-title">🏃‍♂️ Actividades</h3>
-    </div>
-
-    <div class="config-content">
-
-      <div class="config-input-row">
-        <input id="newActividadNombre" placeholder="Nombre" />
-        <button id="btnActividadAdd" class="btn-add">➕ Agregar</button>
-      </div>
-
-      <table class="config-table">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th style="width:90px;">Guardar</th>
-            <th style="width:90px;">Eliminar</th>
-          </tr>
-        </thead>
-        <tbody id="actividadesTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-
+  
   <!-- =========================================================
        TIPOS DE GASTO
   ========================================================== -->
