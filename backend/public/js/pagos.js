@@ -212,9 +212,10 @@ function renderSociosMini(query){
   const q = String(query || '').toLowerCase();
 
   const list = sociosCache.filter(s => {
-    if (!q) return true;
-    return String(s.apellido || '').toLowerCase().includes(q)
-        || String(s.dni || '').includes(query);
+    return (
+      s.apellido.toLowerCase().includes(q) ||
+      String(s.dni).includes(q)
+    );
   });
 
   cont.innerHTML = '';
@@ -225,26 +226,21 @@ function renderSociosMini(query){
     b.style.display = 'block';
     b.style.width = '100%';
     b.style.margin = '4px 0';
-    b.textContent = `${s.apellido ?? ''} ${s.nombre ?? ''} - ${s.dni ?? ''}`;
+    b.textContent = `${s.apellido} ${s.nombre} - ${s.dni}`;
 
-    // 🔴 Si tenés "b.onclick = () => {" acá, está mal
-
-    b.onclick = async () => {       // ✅ MARCARLA async
+    b.onclick = async () => {
       selectedSocioId = s.id;
-
-      const nombreInput = $('socioSeleccionadoNombre');
-      if (nombreInput) {
-        nombreInput.value = `${s.apellido ?? ''} ${s.nombre ?? ''} - ${s.dni ?? ''}`;
-      }
-
+      $('socioSeleccionadoNombre').value =
+        `${s.apellido} ${s.nombre} - ${s.dni}`;
       $('modalElegirSocio')?.classList.add('hidden');
 
-      await refreshMesesPagados();  // ✅ ahora este await es válido
+      await refreshMesesPagados();
       renderMesesGrid();
     };
+
+    cont.appendChild(b);
   });
 }
-
 // 🔼 FIN DE LA FUNCIÓN NUEVA 🔼
 
 
@@ -700,23 +696,17 @@ function bindAccordion() {
   root.dataset.accordionBound = '1';
 
   root.addEventListener('click', (e) => {
-    const header = e.target.closest('.accordion-header');
-    if (!header) return;
+  const header = e.target.closest('.accordion-header');
+  if (!header) return;
+  if (e.target.closest('button')) return;
+  const targetId = header.dataset.target;
+  const panel = document.getElementById(targetId);
+  const acc = header.closest('.accordion');
+  const isOpen = !panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', isOpen);
+  acc.classList.toggle('open', !isOpen);
+});
 
-    // Si clickean un botón dentro del header, NO togglear
-    if (e.target.closest('button')) return;
-
-    const targetId = header.dataset.target;
-    if (!targetId) return;
-
-    const panel = document.getElementById(targetId);
-    const acc = header.closest('.accordion');
-    if (!panel || !acc) return;
-
-    const isOpen = !panel.classList.contains('hidden');
-    panel.classList.toggle('hidden', isOpen);
-    acc.classList.toggle('open', !isOpen);
-  });
 }
 
   function bindOnce() {
@@ -746,7 +736,42 @@ function bindAccordion() {
 
   if (chkParcial) {
     chkParcial.addEventListener('change', () => {
-      if (inpParcial) {
+      if (inpParcial) {function renderSociosMini(query){
+  const cont = $('listaSociosMini');
+  if (!cont) return;
+
+  const q = String(query || '').toLowerCase();
+
+  const list = sociosCache.filter(s => {
+    return (
+      s.apellido.toLowerCase().includes(q) ||
+      String(s.dni).includes(q)
+    );
+  });
+
+  cont.innerHTML = '';
+
+  list.forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'navbtn';
+    b.style.display = 'block';
+    b.style.width = '100%';
+    b.style.margin = '4px 0';
+    b.textContent = `${s.apellido} ${s.nombre} - ${s.dni}`;
+
+    b.onclick = async () => {
+      selectedSocioId = s.id;
+      $('socioSeleccionadoNombre').value =
+        `${s.apellido} ${s.nombre} - ${s.dni}`;
+      $('modalElegirSocio')?.classList.add('hidden');
+
+      await refreshMesesPagados();
+      renderMesesGrid();
+    };
+
+    cont.appendChild(b);
+  });
+}
         inpParcial.disabled = !chkParcial.checked;
         if (!chkParcial.checked) {
           inpParcial.value = '';

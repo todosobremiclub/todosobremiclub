@@ -29,7 +29,7 @@
       <div class="filters filtros-pagos">
         <input id="pagosSearch" type="text" placeholder="Buscar por apellido o DNI" />
         <select id="pagosAnioSelect"></select>
-        <button id="btnRefreshPagos" class="btn btn-secondary">Actualizar</button>
+        
       </div>
 
       <!-- TABLA -->
@@ -408,18 +408,19 @@
       z-index:90000 !important;
     }
 
-.total-ingresos {
-  font-weight: 800 !important;
-  font-size: 16px !important;
-  color: #111 !important;
-}
 
-.ingresos-top {
+
+.ingresos-top{
   display:flex;
-  justify-content:flex-start !important;
-  gap:20px !important;
+  justify-content:space-between !important;
+  align-items:center;
+  width:100%;
 }
-
+.total-ingresos{
+  font-weight: 800 !important;
+  font-size: 17px !important;
+  color:#111 !important;
+}
   </style>
 
 </section>
