@@ -201,34 +201,48 @@ function openModal() {
   }
 
   function renderSociosList() {
-    const cont = $('modalSocioList');
-    if (!cont) return;
+  // ... (función tal como la tenés)
+}  // ← cierre de renderSociosList
 
-    const q = (($('modalSocioSearch')?.value) || '').trim().toLowerCase();
-    const list = sociosCache.filter(s => {
-      if (!q) return true;
-      return String(s.apellido || '').toLowerCase().includes(q) || String(s.dni || '').includes(q);
-    });
+// 🔽 PEGAR ACÁ LA NUEVA FUNCIÓN 🔽
+function renderSociosMini(query){
+  const cont = $('listaSociosMini');
+  if (!cont) return;
 
-    cont.innerHTML = '';
-    list.forEach(s => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'navbtn';
-      btn.style.margin = '4px 0';
-      btn.style.background = String(s.id) === String(selectedSocioId) ? '#2563eb' : '#1f2937';
-      btn.textContent = `${s.apellido ?? ''} ${s.nombre ?? ''} - ${s.dni ?? ''}`;
+  const q = String(query || '').toLowerCase();
 
-      btn.addEventListener('click', async () => {
-        selectedSocioId = s.id;
-        await refreshMesesPagados();
-        renderSociosList();
-        renderMesesGrid();
-      });
+  const list = sociosCache.filter(s => {
+    if (!q) return true;
+    return String(s.apellido || '').toLowerCase().includes(q)
+        || String(s.dni || '').includes(query);
+  });
 
-      cont.appendChild(btn);
-    });
-  }
+  cont.innerHTML = '';
+
+  list.forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'navbtn';
+    b.style.display = 'block';
+    b.style.width = '100%';
+    b.style.margin = '4px 0';
+    b.textContent = `${s.apellido ?? ''} ${s.nombre ?? ''} - ${s.dni ?? ''}`;
+
+    b.onclick = () => {
+      selectedSocioId = s.id;
+      const nombreInput = $('socioSeleccionadoNombre');
+      if (nombreInput) {
+        nombreInput.value = `${s.apellido ?? ''} ${s.nombre ?? ''} - ${s.dni ?? ''}`;
+      }
+      $('modalElegirSocio')?.classList.add('hidden');
+      refreshMesesPagados();
+      renderMesesGrid();
+    };
+
+    cont.appendChild(b);
+  });
+}
+// 🔼 FIN DE LA FUNCIÓN NUEVA 🔼
+
 
   async function refreshMesesPagados() {
     mesesPagados.clear();
@@ -778,6 +792,23 @@ $('ingresosTableBody')?.addEventListener('click', async (ev) => {
     if (arrow) arrow.textContent = open ? '▶' : '▼';
     return;
   }
+
+// abrir selector socio
+$('btnAbrirSelectorSocios')?.addEventListener('click', () => {
+  $('modalElegirSocio')?.classList.remove('hidden');
+  $('buscarSocioMini').value = '';
+  renderSociosMini('');
+});
+
+// cerrar selector socio
+$('btnElegirSocioClose')?.addEventListener('click', () => {
+  $('modalElegirSocio')?.classList.add('hidden');
+});
+
+// buscar socios mini
+$('buscarSocioMini')?.addEventListener('input', (e) => {
+  renderSociosMini(e.target.value);
+});
 
   // ✅ Click en botón borrar
   const btn = ev.target.closest('button[data-act]');

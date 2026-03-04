@@ -95,6 +95,21 @@
     </div>
   </div>
 
+<!-- MODAL: ELEGIR SOCIO -->
+<div id="modalElegirSocio" class="modal hidden">
+  <div class="modal-content" style="max-width:480px;">
+    <div class="modal-header-row">
+      <h3>Elegir socio</h3>
+      <button id="btnElegirSocioClose" class="btn btn-secondary">✕</button>
+    </div>
+
+    <label>Buscar socio</label>
+    <input id="buscarSocioMini" type="text" placeholder="Apellido o DNI" />
+
+    <div id="listaSociosMini" class="modal-socio-list" style="margin-top:10px;"></div>
+  </div>
+</div>
+
   <!-- =========================================
        MODAL: REGISTRAR PAGO
   ============================================== -->
@@ -107,11 +122,13 @@
       </div>
 
       <div class="modal-block">
-        <label>Buscar socio por Apellido o DNI</label>
-        <input id="modalSocioSearch" type="text" placeholder="Ej: Pérez" />
+  <label>Socio</label>
 
-        <div id="modalSocioList" class="modal-socio-list"></div>
-      </div>
+  <div style="display:flex; gap:8px;">
+    <input id="socioSeleccionadoNombre" type="text" disabled placeholder="Seleccionar socio..." style="flex:1;" />
+    <button id="btnAbrirSelectorSocios" class="btn btn-secondary" type="button">Buscar</button>
+  </div>
+</div>
 
       <div class="row modal-row">
         <div class="mini-block">
@@ -430,6 +447,23 @@
         max-width:94vw;
       }
     }
+
+/* MODAL PAGO — compacto */
+#modalPago .modal-content{
+  max-width: 620px !important;
+  padding: 18px 20px;
+}
+
+#modalElegirSocio .modal-content{
+  padding: 18px;
+}
+
+/* Input del socio deshabilitado */
+#socioSeleccionadoNombre{
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
 
   </style>
 
