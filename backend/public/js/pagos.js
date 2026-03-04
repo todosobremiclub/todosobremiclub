@@ -76,6 +76,9 @@
   let tiposIngresoCache = [];
   let ingresosCache = [];
 
+// Responsables / Cuentas
+let responsablesCache = [];
+
 function getPagoParcialState() {
   const chk = $('pagoParcialChk');
   const input = $('pagoParcialMonto');
@@ -343,6 +346,11 @@ function openModal() {
 
   if (esParcial) {
     body.monto_parcial = montoNum;
+const cuentaId = $('pagoCuenta')?.value;
+if (!cuentaId) return alert('Seleccioná una cuenta');
+
+body.cuenta_id = cuentaId;
+
   }
 
   const btn = $('btnPagoSave');
@@ -459,6 +467,34 @@ function openModal() {
       }
     }
   }
+
+async function loadResponsables() {
+  const clubId = getActiveClubId();
+  const { res, data } = await fetchAuth(`/club/${clubId}/config/responsables`);
+  if (!res.ok || !data.ok) {
+    console.error('Error cargando responsables', data.error);
+    responsablesCache = [];
+    return;
+  }
+  responsablesCache = data.responsables || data.items || [];
+}
+
+function fillCuentasSelects() {
+  const selects = [
+    $('ingresoCuenta'),
+    $('pagoCuenta')
+  ].filter(Boolean);
+
+  selects.forEach(sel => {
+    sel.innerHTML = '<option value="">Seleccionar...</option>';
+    responsablesCache.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = r.nombre;
+      sel.appendChild(opt);
+    });
+  });
+}
 
   async function loadIngresos() {
     ensureIngresosUI();
@@ -577,6 +613,11 @@ async function deleteIngreso(id) {
     const fecha = $('ingresoFecha')?.value;
     const monto = $('ingresoMonto')?.value;
     const obs = $('ingresoObs')?.value;
+const cuentaId = $('ingresoCuenta')?.value;
+if (!cuentaId) return alert('Seleccioná una cuenta');
+
+cuenta_id: cuentaId,
+
 
     if (!tipo) return alert('Seleccioná un tipo de ingreso');
     if (!fecha) return alert('Seleccioná una fecha');
@@ -672,7 +713,11 @@ function bindAccordion() {
     
 
     // Pagos socios
-    $('btnPagoAdd')?.addEventListener('click', openModal);
+    $('btnPagoAdd')?.addEventListener('click', async () => {
+  await loadResponsables();
+  fillCuentasSelects();
+  openModal();
+});
     $('btnPagoClose')?.addEventListener('click', closeModal);
     $('btnPagoCancel')?.addEventListener('click', closeModal);
     $('btnPagoSave')?.addEventListener('click', savePago);
@@ -704,10 +749,11 @@ function bindAccordion() {
 
     // Botón ingreso + modal ingreso
     $('btnIngresoAdd')?.addEventListener('click', async () => {
-
-      await loadTiposIngreso();
-      openIngresoModal();
-    });
+  await loadTiposIngreso();
+  await loadResponsables();
+  fillCuentasSelects();
+  openIngresoModal();
+});
     $('btnIngresoClose')?.addEventListener('click', closeIngresoModal);
     $('btnIngresoCancel')?.addEventListener('click', closeIngresoModal);
     $('formIngreso')?.addEventListener('submit', async (e) => {
