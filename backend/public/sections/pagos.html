@@ -49,22 +49,22 @@
     </div> <!-- cierre pagosPanel -->
   </div> <!-- cierre accordion Pagos -->
 
-<!-- =========================
-     MODAL: ELEGIR SOCIO (Mini)
-=========================== -->
-<div id="modalElegirSocio" class="modal hidden">
-  <div class="modal-content" style="max-width:480px;">
-    <div class="modal-header-row">
-      <h3>Elegir socio</h3>
-      <button id="btnElegirSocioClose" class="btn btn-secondary">✕</button>
+  <!-- =========================
+       MODAL: ELEGIR SOCIO (Mini)
+  ========================== -->
+  <div id="modalElegirSocio" class="modal hidden">
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header-row">
+        <h3>Elegir socio</h3>
+        <button id="btnElegirSocioClose" class="btn btn-secondary">✕</button>
+      </div>
+
+      <label>Buscar socio</label>
+      <input id="buscarSocioMini" type="text" placeholder="Apellido o DNI" />
+
+      <div id="listaSociosMini" class="modal-socio-list" style="margin-top:10px;"></div>
     </div>
-
-    <label>Buscar socio</label>
-    <input id="buscarSocioMini" type="text" placeholder="Apellido o DNI" />
-
-    <div id="listaSociosMini" class="modal-socio-list" style="margin-top:10px;"></div>
   </div>
-</div>
 
   <!-- =========================
        ACORDEÓN: OTROS INGRESOS
@@ -112,27 +112,10 @@
   </div>
 
   <!-- =========================
-       MODAL: ELEGIR SOCIO (Mini)
-  ========================== -->
-  <div id="modalElegirSocio" class="modal hidden">
-    <div class="modal-content" style="max-width:480px;">
-      <div class="modal-header-row">
-        <h3>Elegir socio</h3>
-        <button id="btnElegirSocioClose" class="btn btn-secondary">✕</button>
-      </div>
-
-      <label>Buscar socio</label>
-      <input id="buscarSocioMini" type="text" placeholder="Apellido o DNI" />
-
-      <div id="listaSociosMini" class="modal-socio-list" style="margin-top:10px;"></div>
-    </div>
-  </div>
-
-  <!-- =========================
        MODAL: REGISTRAR PAGO
   ========================== -->
   <div id="modalPago" class="modal hidden">
-    <div class="modal-content" style="max-width:620px;">
+    <div class="modal-content" style="max-width:540px;">
 
       <div class="modal-header-row">
         <h3>Registrar Pago</h3>
@@ -333,9 +316,7 @@
       padding:14px;
       background:#fff;
     }
-    .hidden{ display:none; }
 
-    /* FILTROS */
     .filtros-pagos{
       display:flex;
       gap:10px;
@@ -344,7 +325,6 @@
       margin-top:10px;
     }
 
-    /* Modales */
     .modal-header-row{
       display:flex;
       justify-content:space-between;
@@ -389,14 +369,10 @@
       gap:10px;
     }
 
-    /* ACHICADO DEL MODAL */
+    /* MODAL PAGO COMPACTO */
     #modalPago .modal-content{
       max-width:540px !important;
       padding:16px 18px !important;
-    }
-
-    #modalElegirSocio .modal-content{
-      padding:18px;
     }
 
     #socioSeleccionadoNombre{
@@ -405,30 +381,32 @@
       border-radius:8px;
     }
 
-/* FORZAR modalElegirSocio a estar SIEMPRE encima */
-#modalElegirSocio {
-  position: fixed !important;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 99999 !important;
-  background: rgba(0,0,0,0.45) !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+    /* MODAL ELEGIR SOCIO */
+    #modalElegirSocio{
+      position:fixed !important;
+      top:0;
+      left:0;
+      width:100vw;
+      height:100vh;
+      z-index:99999 !important;
+      background:rgba(0,0,0,0.45) !important;
+      display:none; /* OCULTO por defecto */
+      align-items:center;
+      justify-content:center;
+    }
 
-/* El contenido del modal mini */
-#modalElegirSocio .modal-content {
-  z-index: 100000 !important;
-  position: relative;
-}
+    #modalElegirSocio:not(.hidden){
+      display:flex !important;
+    }
 
-/* Evitar que el modalPago tape al mini */
-#modalPago {
-  z-index: 90000 !important;
-}
+    #modalElegirSocio .modal-content{
+      z-index:100000 !important;
+      position:relative;
+    }
+
+    #modalPago{
+      z-index:90000 !important;
+    }
 
   </style>
 
