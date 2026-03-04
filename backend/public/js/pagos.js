@@ -765,6 +765,24 @@ function bindAccordion() {
   fillCuentasSelects();
   openIngresoModal();
 });
+
+// Abrir selector de socio (modal mini)
+$('btnAbrirSelectorSocios')?.addEventListener('click', () => {
+  $('modalElegirSocio')?.classList.remove('hidden');
+  $('buscarSocioMini').value = '';
+  renderSociosMini('');
+});
+
+// Cerrar selector socio
+$('btnElegirSocioClose')?.addEventListener('click', () => {
+  $('modalElegirSocio')?.classList.add('hidden');
+});
+
+// Buscar dentro del selector
+$('buscarSocioMini')?.addEventListener('input', (e) => {
+  renderSociosMini(e.target.value);
+});
+
     $('btnIngresoClose')?.addEventListener('click', closeIngresoModal);
     $('btnIngresoCancel')?.addEventListener('click', closeIngresoModal);
     $('formIngreso')?.addEventListener('submit', async (e) => {

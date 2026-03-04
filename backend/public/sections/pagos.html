@@ -8,47 +8,46 @@
   </div>
 
   <!-- =========================
-     ACORDEÓN: PAGOS
-========================== -->
-<div class="accordion">
+       ACORDEÓN: PAGOS
+  ========================== -->
+  <div class="accordion">
 
-  <div class="accordion-header" data-target="pagosPanel">
-    <div class="accordion-left">
-      <span class="accordion-arrow">▶</span>
-      <span>Pagos</span>
+    <div class="accordion-header" data-target="pagosPanel">
+      <div class="accordion-left">
+        <span class="accordion-arrow">▶</span>
+        <span>Pagos</span>
+      </div>
+
+      <button id="btnPagoAdd" class="btn btn-primary btn-sm" type="button">
+        ➕ Registrar Pago
+      </button>
     </div>
 
-    <button id="btnPagoAdd" class="btn btn-primary btn-sm" type="button">
-      ➕ Registrar Pago
-    </button>
-  </div>
+    <div id="pagosPanel" class="accordion-body hidden">
 
-  <div id="pagosPanel" class="accordion-body hidden">
+      <!-- FILTROS -->
+      <div class="filters filtros-pagos">
+        <input id="pagosSearch" type="text" placeholder="Buscar por apellido o DNI" />
+        <select id="pagosAnioSelect"></select>
+        <button id="btnRefreshPagos" class="btn btn-secondary">Actualizar</button>
+      </div>
 
-    <!-- FILTROS -->
-    <div class="filters filtros-pagos">
-      <input id="pagosSearch" type="text" placeholder="Buscar por apellido o DNI" />
-      <select id="pagosAnioSelect"></select>
-      <button id="btnRefreshPagos" class="btn btn-secondary">Actualizar</button>
-    </div>
+      <!-- TABLA -->
+      <div class="table-wrapper" style="margin-top:10px;">
+        <table class="socios-table">
+          <thead>
+            <tr>
+              <th>N° Socio</th>
+              <th>Nombre</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="pagosTableBody"></tbody>
+        </table>
+      </div>
 
-    <!-- TABLA -->
-    <div class="table-wrapper" style="margin-top:10px;">
-      <table class="socios-table">
-        <thead>
-          <tr>
-            <th>N° Socio</th>
-            <th>Nombre</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="pagosTableBody"></tbody>
-      </table>
-    </div>
-
-  </div> <!-- ✅ cierre pagosPanel -->
-</div> <!-- ✅ cierre accordion Pagos -->
-
+    </div> <!-- cierre pagosPanel -->
+  </div> <!-- cierre accordion Pagos -->
 
   <!-- =========================
        ACORDEÓN: OTROS INGRESOS
@@ -95,26 +94,28 @@
     </div>
   </div>
 
-<!-- MODAL: ELEGIR SOCIO -->
-<div id="modalElegirSocio" class="modal hidden">
-  <div class="modal-content" style="max-width:480px;">
-    <div class="modal-header-row">
-      <h3>Elegir socio</h3>
-      <button id="btnElegirSocioClose" class="btn btn-secondary">✕</button>
+  <!-- =========================
+       MODAL: ELEGIR SOCIO (Mini)
+  ========================== -->
+  <div id="modalElegirSocio" class="modal hidden">
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header-row">
+        <h3>Elegir socio</h3>
+        <button id="btnElegirSocioClose" class="btn btn-secondary">✕</button>
+      </div>
+
+      <label>Buscar socio</label>
+      <input id="buscarSocioMini" type="text" placeholder="Apellido o DNI" />
+
+      <div id="listaSociosMini" class="modal-socio-list" style="margin-top:10px;"></div>
     </div>
-
-    <label>Buscar socio</label>
-    <input id="buscarSocioMini" type="text" placeholder="Apellido o DNI" />
-
-    <div id="listaSociosMini" class="modal-socio-list" style="margin-top:10px;"></div>
   </div>
-</div>
 
-  <!-- =========================================
+  <!-- =========================
        MODAL: REGISTRAR PAGO
-  ============================================== -->
+  ========================== -->
   <div id="modalPago" class="modal hidden">
-    <div class="modal-content" style="max-width: 820px;">
+    <div class="modal-content" style="max-width:620px;">
 
       <div class="modal-header-row">
         <h3>Registrar Pago</h3>
@@ -122,13 +123,12 @@
       </div>
 
       <div class="modal-block">
-  <label>Socio</label>
-
-  <div style="display:flex; gap:8px;">
-    <input id="socioSeleccionadoNombre" type="text" disabled placeholder="Seleccionar socio..." style="flex:1;" />
-    <button id="btnAbrirSelectorSocios" class="btn btn-secondary" type="button">Buscar</button>
-  </div>
-</div>
+        <label>Socio</label>
+        <div style="display:flex; gap:8px;">
+          <input id="socioSeleccionadoNombre" type="text" disabled placeholder="Seleccionar socio..." style="flex:1;" />
+          <button id="btnAbrirSelectorSocios" class="btn btn-secondary" type="button">Buscar</button>
+        </div>
+      </div>
 
       <div class="row modal-row">
         <div class="mini-block">
@@ -146,12 +146,12 @@
         </div>
       </div>
 
-<div class="modal-block">
-  <label>Cuenta</label>
-  <select id="pagoCuenta" required>
-    <option value="">Cargando...</option>
-  </select>
-</div>
+      <div class="modal-block">
+        <label>Cuenta</label>
+        <select id="pagoCuenta" required>
+          <option value="">Cargando...</option>
+        </select>
+      </div>
 
       <div class="modal-block">
         <label>Meses a pagar</label>
@@ -159,29 +159,25 @@
         <div class="muted" id="montoHint"></div>
       </div>
 
-<!-- ================================
-     NUEVO: Pago parcial
-================================ -->
-<div class="modal-block" id="pagoParcialContainer" style="margin-top: 12px;">
+      <div class="modal-block" id="pagoParcialContainer" style="margin-top:12px;">
+        <label class="checkbox" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="pagoParcialChk" />
+          Pago parcial (monto fijo por mes)
+        </label>
 
-  <label class="checkbox" style="display:flex; align-items:center; gap:8px;">
-    <input type="checkbox" id="pagoParcialChk" />
-    Pago parcial (monto fijo por mes)
-  </label>
-
-  <div class="mini-block" style="margin-top:6px;">
-    <label>Monto parcial</label>
-    <input
-      id="pagoParcialMonto"
-      type="number"
-      step="0.01"
-      min="0"
-      placeholder="Ej: 1500"
-      disabled
-      style="max-width:160px;"
-    />
-  </div>
-</div>
+        <div class="mini-block" style="margin-top:6px;">
+          <label>Monto parcial</label>
+          <input
+            id="pagoParcialMonto"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Ej: 1500"
+            disabled
+            style="max-width:160px;"
+          />
+        </div>
+      </div>
 
       <div class="modal-actions">
         <button id="btnPagoCancel" class="btn btn-secondary">Cancelar</button>
@@ -191,9 +187,9 @@
     </div>
   </div>
 
-  <!-- =========================================
+  <!-- =========================
        MODAL: DETALLES DEL PAGO
-  ============================================== -->
+  ========================== -->
   <div id="modalPagoDetalles" class="modal hidden">
     <div class="modal-content" style="max-width:820px;">
 
@@ -217,7 +213,7 @@
         </table>
       </div>
 
-      <div class="row" style="justify-content: space-between; margin-top: 10px;">
+      <div class="row" style="justify-content: space-between; margin-top:10px;">
         <strong id="detTotal"></strong>
         <button id="btnDetOk" class="btn btn-primary">Aceptar</button>
       </div>
@@ -225,9 +221,9 @@
     </div>
   </div>
 
-  <!-- =========================================
+  <!-- =========================
        MODAL: REGISTRAR INGRESO
-  ============================================== -->
+  ========================== -->
   <div id="modalIngreso" class="modal hidden">
     <div class="modal-content" style="max-width:720px;">
 
@@ -258,12 +254,12 @@
             <input id="ingresoMonto" type="number" step="0.01" min="0" required />
           </div>
 
-<div class="mini-block flex-1">
-  <label>Cuenta</label>
-  <select id="ingresoCuenta" required>
-    <option value="">Cargando...</option>
-  </select>
-</div>
+          <div class="mini-block flex-1">
+            <label>Cuenta</label>
+            <select id="ingresoCuenta" required>
+              <option value="">Cargando...</option>
+            </select>
+          </div>
 
           <div class="mini-block flex-1">
             <label>Observación</label>
@@ -281,6 +277,7 @@
       <div class="muted" style="margin-top:10px;">
         Este ingreso no está asociado a ningún socio.
       </div>
+
     </div>
   </div>
 
@@ -289,9 +286,6 @@
   ========================== -->
   <style>
 
-    /* ------------------------------------
-       ACORDEÓN
-    ------------------------------------ */
     .accordion{
       border:1px solid rgba(0,0,0,0.08);
       border-radius:12px;
@@ -324,9 +318,7 @@
     }
     .hidden{ display:none; }
 
-    /* ------------------------------------
-       FILTROS PAGOS
-    ------------------------------------ */
+    /* FILTROS */
     .filtros-pagos{
       display:flex;
       gap:10px;
@@ -334,30 +326,8 @@
       flex-wrap:wrap;
       margin-top:10px;
     }
-    .filtros-pagos input,
-    .filtros-pagos select,
-    .filtros-pagos button{
-      height:32px;
-      padding:4px 10px;
-    }
 
-    /* ------------------------------------
-       INGRESOS TOP
-    ------------------------------------ */
-    .ingresos-top{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-    .total-ingresos{
-      font-weight:700;
-    }
-
-    /* ------------------------------------
-       MODALES
-    ------------------------------------ */
+    /* Modales */
     .modal-header-row{
       display:flex;
       justify-content:space-between;
@@ -396,74 +366,27 @@
 
     .flex-1{ flex:1; }
 
-    .anio-selector{
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-
-    /* ------------------------------------
-       GRID DE MESES
-    ------------------------------------ */
     .meses-grid{
       display:grid;
       grid-template-columns: repeat(4, 1fr);
       gap:10px;
     }
 
-    /* ------------------------------------
-       RESPONSIVE
-    ------------------------------------ */
-    @media(max-width:768px){
-
-      .meses-grid{
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      @media(max-width:480px){
-        .meses-grid{
-          grid-template-columns:1fr;
-        }
-      }
-
-      .accordion-header{
-        flex-direction:column;
-        align-items:flex-start;
-        gap:6px;
-      }
-
-      .filtros-pagos{
-        flex-direction:column;
-        align-items:stretch;
-      }
-
-      .ingresos-top{
-        flex-direction:column;
-        align-items:flex-start;
-      }
-
-      .modal-content{
-        width:100%;
-        max-width:94vw;
-      }
+    /* ACHICADO DEL MODAL */
+    #modalPago .modal-content{
+      max-width:540px !important;
+      padding:16px 18px !important;
     }
 
-/* MODAL PAGO — compacto */
-#modalPago .modal-content{
-  max-width: 620px !important;
-  padding: 18px 20px;
-}
+    #modalElegirSocio .modal-content{
+      padding:18px;
+    }
 
-#modalElegirSocio .modal-content{
-  padding: 18px;
-}
-
-/* Input del socio deshabilitado */
-#socioSeleccionadoNombre{
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-}
+    #socioSeleccionadoNombre{
+      background:#f3f4f6;
+      border:1px solid #d1d5db;
+      border-radius:8px;
+    }
 
   </style>
 
