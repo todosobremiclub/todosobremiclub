@@ -74,7 +74,7 @@
       <h3 id="modalSocioTitle">Nuevo socio</h3>
 
       <div class="modal-body">
-        <div class="form-grid">
+        <div class="form-grid socios-form-grid">
           <div>
             <label>N° Socio</label>
             <input type="number" id="socioNumero" placeholder="Automático si se deja vacío" />
@@ -135,13 +135,15 @@
             <input type="date" id="socioIngreso" />
           </div>
 
-          <div class="checkbox">
-            <label><input type="checkbox" id="socioActivo" checked /> Activo</label>
-          </div>
+          <div class="col-span-3 checks-row">
+  <label class="checkbox-inline">
+    <input type="checkbox" id="socioActivo" checked /> Activo
+  </label>
 
-          <div class="checkbox">
-            <label><input type="checkbox" id="socioBecado" /> Becado</label>
-          </div>
+  <label class="checkbox-inline">
+    <input type="checkbox" id="socioBecado" /> Becado
+  </label>
+</div>
         </div>
       </div>
 
@@ -311,6 +313,56 @@
         gap:12px;
       }
     }
+
+/* ===============================
+FORMULARIO SOCIOS – HORIZONTAL
+=============================== */
+
+.socios-form-grid{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.col-span-3{
+  grid-column: span 3;
+}
+
+.checks-row{
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding-top: 4px;
+}
+
+.checkbox-inline{
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+}
+
+/* Modal más ancho pero más bajo */
+#modalSocio .modal-content{
+  max-width: 820px;
+}
+
+/* Responsive: en mobile vuelve a 1 columna */
+@media (max-width: 768px){
+  .socios-form-grid{
+    grid-template-columns: 1fr;
+  }
+
+  .col-span-3{
+    grid-column: auto;
+  }
+
+  .checks-row{
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
 
   </style>
 

@@ -43,6 +43,17 @@
     return res;
   }
 
+// =============================
+// Debounce (para búsqueda en vivo)
+// =============================
+function debounce(fn, wait = 250) {
+  let t = null;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
   async function safeJson(res) {
     const text = await res.text();
     try { return JSON.parse(text); }
@@ -1113,6 +1124,8 @@ bindSorting();
     $('btnGuardarSocio')?.addEventListener('click', saveSocio);
 
     $('btnBuscarSocios')?.addEventListener('click', loadSocios);
+const debouncedLoadSocios = debounce(loadSocios, 250);
+$('sociosSearch')?.addEventListener('input', debouncedLoadSocios);
     $('btnExportSocios')?.addEventListener('click', exportSocios);
 
 $('socioActividad').value = '';
