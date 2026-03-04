@@ -8,41 +8,46 @@
   </div>
 
   <!-- =========================
-       ACORDEÓN: PAGOS
-  ========================== -->
-  <div class="accordion">
+     ACORDEÓN: PAGOS
+========================== -->
+<div class="accordion">
 
-    <div class="accordion-header" data-target="pagosPanel">
-      <div class="accordion-left">
-        <span class="accordion-arrow">▶</span>
-        <span>Pagos</span>
-      </div>
-
-      <button id="btnPagoAdd" class="btn btn-primary btn-sm" type="button">➕ Registrar Pago</button>
+  <div class="accordion-header" data-target="pagosPanel">
+    <div class="accordion-left">
+      <span class="accordion-arrow">▶</span>
+      <span>Pagos</span>
     </div>
 
-    <div id="pagosPanel" class="accordion-body hidden">
+    <button id="btnPagoAdd" class="btn btn-primary btn-sm" type="button">
+      ➕ Registrar Pago
+    </button>
+  </div>
 
-      <!-- FILTROS -->
-      <div class="filters filtros-pagos">
-        <input id="pagosSearch" type="text" placeholder="Buscar por apellido o DNI" />
-        <select id="pagosAnioSelect"></select>
-        <button id="btnRefreshPagos" class="btn btn-secondary">Actualizar</button>
-      </div>
+  <div id="pagosPanel" class="accordion-body hidden">
 
-      <!-- TABLA -->
-      <div class="table-wrapper" style="margin-top:10px;">
-        <table class="socios-table">
-          <thead>
-            <tr>
-              <th>N° Socio</th>
-              <th>Nombre</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="pagosTableBody"></tbody>
-        </table>
-      </div>
+    <!-- FILTROS -->
+    <div class="filters filtros-pagos">
+      <input id="pagosSearch" type="text" placeholder="Buscar por apellido o DNI" />
+      <select id="pagosAnioSelect"></select>
+      <button id="btnRefreshPagos" class="btn btn-secondary">Actualizar</button>
+    </div>
+
+    <!-- TABLA -->
+    <div class="table-wrapper" style="margin-top:10px;">
+      <table class="socios-table">
+        <thead>
+          <tr>
+            <th>N° Socio</th>
+            <th>Nombre</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="pagosTableBody"></tbody>
+      </table>
+    </div>
+
+  </div> <!-- ✅ cierre pagosPanel -->
+</div> <!-- ✅ cierre accordion Pagos -->
 
 
   <!-- =========================
