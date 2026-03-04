@@ -45,6 +45,21 @@
       padding: 12px 14px 18px;
     }
 
+/* ===============================
+IDENTIDAD DEL CLUB – SECCIONES
+=============================== */
+
+/* Todas las secciones principales */
+section[class^="section-"],
+section.section{
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, #d1d5db);
+  border-left: 4px solid var(--color-primary);
+  border-radius: 14px;
+  padding: 14px;
+  background: #ffffff;
+  margin-bottom: 16px;
+}
+
     /* =========================
        BOTONES
     ========================= */
@@ -226,6 +241,36 @@
       font-size:13px;
     }
 
+/* ===============================
+BOTONES – COLOR DEL CLUB
+=============================== */
+
+button,
+.btn{
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, #d1d5db);
+  background: #ffffff;
+  color: #111827;
+  transition: all .15s ease;
+}
+
+button:hover,
+.btn:hover{
+  border-color: var(--color-primary);
+}
+
+/* Botón principal */
+.btn-primary{
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff;
+}
+
+.btn-primary:hover{
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+}
+
     /* =========================
        MODAL
     ========================= */
@@ -301,6 +346,18 @@
         align-items: stretch;
       }
     }
+
+/* ===============================
+FOCUS – COLOR DEL CLUB
+=============================== */
+
+input:focus,
+select:focus,
+textarea:focus{
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
 
   </style>
 

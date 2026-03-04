@@ -345,8 +345,10 @@ FORMULARIO SOCIOS – HORIZONTAL
 /* Modal más ancho pero más bajo */
 #modalSocio .modal-content{
   max-width: 820px;
+  border: 2px solid color-mix(in srgb, var(--color-primary) 35%, #d1d5db);
+  border-top: 5px solid var(--color-primary);
+  border-radius: 16px;
 }
-
 /* Responsive: en mobile vuelve a 1 columna */
 @media (max-width: 768px){
   .socios-form-grid{
@@ -362,6 +364,27 @@ FORMULARIO SOCIOS – HORIZONTAL
     align-items: flex-start;
     gap: 10px;
   }
+}
+
+/* ===============================
+IDENTIDAD VISUAL – SOCIOS
+=============================== */
+
+/* Borde de la sección socios */
+#socios-section{
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, #d1d5db);
+  border-left: 4px solid var(--color-primary);
+  border-radius: 14px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+/* Inputs del formulario con foco del club */
+#modalSocio input:focus,
+#modalSocio select:focus{
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
   </style>
