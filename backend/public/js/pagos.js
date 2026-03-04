@@ -471,35 +471,78 @@ function openModal() {
   }
 
   function renderIngresos(rows, total) {
-    const tbody = $('ingresosTableBody');
-    const totalEl = $('ingresosTotal');
-    if (totalEl) totalEl.textContent = moneyARS(total);
+  const tbody = $('ingresosTableBody');
+  const totalEl = $('ingresosTotal');
+  if (totalEl) totalEl.textContent = moneyARS(total);
+  if (!tbody) return;
 
-    if (!tbody) return;
-    tbody.innerHTML = '';
+  tbody.innerHTML = '';
 
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="muted">No hay ingresos cargados para este año.</td></tr>`;
-      return;
-    }
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">No hay ingresos cargados para este año.</td></tr>`;
+    return;
+  }
 
-    rows.forEach(r => {
+  // Helpers de agrupación YYYY-MM
+  const MONTHS_FULL = [
+    'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+  ];
+  const ymKey = (iso) => String(iso || '').slice(0, 7); // "YYYY-MM"
+  const ymLabel = (key) => {
+    const [y, m] = String(key || '').split('-');
+    const mi = Number(m) - 1;
+    const nombre = MONTHS_FULL[mi] || key;
+    return `${nombre} ${y || ''}`.trim();
+  };
+
+  // Agrupar por mes/año + subtotal
+  const groups = new Map();
+  rows.forEach(r => {
+    const key = ymKey(r.fecha);
+    if (!groups.has(key)) groups.set(key, { items: [], subtotal: 0 });
+    const g = groups.get(key);
+    g.items.push(r);
+    g.subtotal += Number(r.monto || 0);
+  });
+
+  // Orden desc por YYYY-MM (string funciona para este formato)
+  const keys = Array.from(groups.keys()).sort((a, b) => b.localeCompare(a));
+
+  keys.forEach((key) => {
+    const g = groups.get(key);
+
+    // Encabezado del grupo (Mes Año + total del mes)
+    const trGroup = document.createElement('tr');
+    trGroup.innerHTML = `
+      <td colspan="5" style="
+        background: color-mix(in srgb, var(--color-primary) 8%, #ffffff);
+        border-left: 4px solid var(--color-primary);
+        font-weight: 800;
+        padding: 10px;
+      ">
+        📅 ${ymLabel(key)} — Total: ${moneyARS(g.subtotal)}
+      </td>
+    `;
+    tbody.appendChild(trGroup);
+
+    // Filas del grupo
+    g.items.forEach(r => {
       const fecha = String(r.fecha || '').slice(0, 10);
       const tr = document.createElement('tr');
       tr.innerHTML = `
-  <td>${fecha}</td>
-  <td><strong>${r.tipo_ingreso || ''}</strong></td>
-  <td>${r.observacion || ''}</td>
-  <td><strong>${moneyARS(r.monto)}</strong></td>
-  <td style="text-align:right;">
-    <button class="btn btn-secondary" data-act="del-ingreso" data-id="${r.id}">
-      🗑️
-    </button>
-  </td>
-`;
+        <td>${fecha}</td>
+        <td><strong>${r.tipo_ingreso || ''}</strong></td>
+        <td>${r.observacion || ''}</td>
+        <td><strong>${moneyARS(r.monto)}</strong></td>
+        <td style="text-align:right;">
+          <button class="btn btn-secondary" data-act="del-ingreso" data-id="${r.id}">🗑️</button>
+        </td>
+      `;
       tbody.appendChild(tr);
     });
-  }
+  });
+}
 
 async function deleteIngreso(id) {
   const clubId = getActiveClubId();
