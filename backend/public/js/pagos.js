@@ -227,20 +227,24 @@ function renderSociosMini(query){
     b.style.margin = '4px 0';
     b.textContent = `${s.apellido ?? ''} ${s.nombre ?? ''} - ${s.dni ?? ''}`;
 
-    b.onclick = () => {
+    // 🔴 Si tenés "b.onclick = () => {" acá, está mal
+
+    b.onclick = async () => {       // ✅ MARCARLA async
       selectedSocioId = s.id;
+
       const nombreInput = $('socioSeleccionadoNombre');
       if (nombreInput) {
         nombreInput.value = `${s.apellido ?? ''} ${s.nombre ?? ''} - ${s.dni ?? ''}`;
       }
+
       $('modalElegirSocio')?.classList.add('hidden');
-      await refreshMesesPagados();
+
+      await refreshMesesPagados();  // ✅ ahora este await es válido
       renderMesesGrid();
     };
-
-    cont.appendChild(b);
   });
 }
+
 // 🔼 FIN DE LA FUNCIÓN NUEVA 🔼
 
 
