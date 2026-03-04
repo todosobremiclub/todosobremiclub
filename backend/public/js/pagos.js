@@ -506,14 +506,19 @@ function openModal() {
     g.subtotal += Number(r.monto || 0);
   });
 
-  // Orden desc por YYYY-MM (string funciona para este formato)
+  // Orden desc por YYYY-MM
   const keys = Array.from(groups.keys()).sort((a, b) => b.localeCompare(a));
 
   keys.forEach((key) => {
     const g = groups.get(key);
 
-    // Encabezado del grupo (Mes Año + total del mes)
+    // ✅ Fila encabezado (colapsable) — SOLO mes/año + total
     const trGroup = document.createElement('tr');
+    trGroup.dataset.groupHeader = "1";
+    trGroup.dataset.group = key;
+    trGroup.dataset.open = "0";
+    trGroup.style.cursor = "pointer";
+
     trGroup.innerHTML = `
       <td colspan="5" style="
         background: color-mix(in srgb, var(--color-primary) 8%, #ffffff);
@@ -521,15 +526,18 @@ function openModal() {
         font-weight: 800;
         padding: 10px;
       ">
+        <span class="ing-group-arrow" style="display:inline-block; width:18px;">▶</span>
         📅 ${ymLabel(key)} — Total: ${moneyARS(g.subtotal)}
       </td>
     `;
     tbody.appendChild(trGroup);
 
-    // Filas del grupo
+    // ✅ Filas detalle (arrancan OCULTAS)
     g.items.forEach(r => {
       const fecha = String(r.fecha || '').slice(0, 10);
       const tr = document.createElement('tr');
+      tr.className = 'ingreso-detalle hidden';
+      tr.dataset.group = key;
       tr.innerHTML = `
         <td>${fecha}</td>
         <td><strong>${r.tipo_ingreso || ''}</strong></td>
@@ -543,6 +551,7 @@ function openModal() {
     });
   });
 }
+
 
 async function deleteIngreso(id) {
   const clubId = getActiveClubId();
@@ -707,13 +716,33 @@ function bindAccordion() {
     });
 
 $('ingresosTableBody')?.addEventListener('click', async (ev) => {
+  // ✅ Click en encabezado Mes/Año -> toggle detalles
+  const header = ev.target.closest('tr[data-group-header="1"]');
+  if (header && !ev.target.closest('button')) {
+    const key = header.dataset.group;
+    const open = header.dataset.open === '1';
+    const tbody = $('ingresosTableBody');
+    if (!tbody || !key) return;
+
+    // Toggle filas detalle del grupo
+    tbody.querySelectorAll(`tr.ingreso-detalle[data-group="${key}"]`).forEach(tr => {
+      tr.classList.toggle('hidden', open); // si estaba abierto, ocultar
+    });
+
+    // Toggle estado + flecha
+    header.dataset.open = open ? '0' : '1';
+    const arrow = header.querySelector('.ing-group-arrow');
+    if (arrow) arrow.textContent = open ? '▶' : '▼';
+    return;
+  }
+
+  // ✅ Click en botón borrar
   const btn = ev.target.closest('button[data-act]');
   if (!btn) return;
   if (btn.dataset.act === 'del-ingreso') {
     await deleteIngreso(btn.dataset.id);
   }
 });
-
     // Año
     $('btnAnioPrev')?.addEventListener('click', async () => {
       setSelectedYear(selectedYear - 1);
