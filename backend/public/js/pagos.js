@@ -344,14 +344,13 @@ function openModal() {
     es_parcial: esParcial
   };
 
-  if (esParcial) {
-    body.monto_parcial = montoNum;
-const cuentaId = $('pagoCuenta')?.value;
+  const cuentaId = $('pagoCuenta')?.value;
 if (!cuentaId) return alert('Seleccioná una cuenta');
-
 body.cuenta_id = cuentaId;
 
-  }
+if (esParcial) {
+  body.monto_parcial = montoNum;
+}
 
   const btn = $('btnPagoSave');
   if (btn) btn.disabled = true;
@@ -612,14 +611,11 @@ async function deleteIngreso(id) {
     const tipo = $('ingresoTipo')?.value;
     const fecha = $('ingresoFecha')?.value;
     const monto = $('ingresoMonto')?.value;
-    const obs = $('ingresoObs')?.value;
+ const obs = $('ingresoObs')?.value;
 const cuentaId = $('ingresoCuenta')?.value;
 if (!cuentaId) return alert('Seleccioná una cuenta');
-
-cuenta_id: cuentaId,
-
-
-    if (!tipo) return alert('Seleccioná un tipo de ingreso');
+if (!tipo) return alert('Seleccioná un tipo de ingreso');
+;
     if (!fecha) return alert('Seleccioná una fecha');
     if (monto === '' || monto == null) return alert('Ingresá un monto');
 
@@ -634,11 +630,12 @@ cuenta_id: cuentaId,
         method: 'POST',
         json: true,
         body: JSON.stringify({
-          tipo_ingreso_id: tipo,
-          fecha,
-          monto: montoNum,
-          observacion: (obs || '').trim() || null
-        })
+  tipo_ingreso_id: tipo,
+  fecha,
+  monto: montoNum,
+  observacion: (obs || '').trim() || null,
+  cuenta_id: cuentaId
+})
       });
 
       if (!res.ok || !data.ok) {
