@@ -388,6 +388,31 @@
       border-radius:8px;
     }
 
+/* FORZAR modalElegirSocio a estar SIEMPRE encima */
+#modalElegirSocio {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999 !important;
+  background: rgba(0,0,0,0.45) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* El contenido del modal mini */
+#modalElegirSocio .modal-content {
+  z-index: 100000 !important;
+  position: relative;
+}
+
+/* Evitar que el modalPago tape al mini */
+#modalPago {
+  z-index: 90000 !important;
+}
+
   </style>
 
 </section>
