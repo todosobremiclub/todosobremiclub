@@ -1,4 +1,5 @@
-(() => {
+// IIFE removida para simplificar (antes: (() => { )
+// (() => {
   const $ = (id) => document.getElementById(id);
 
   const MESES = [
@@ -832,7 +833,8 @@ document
     }
   });
 
-})();
+// })();
+/* IIFE cerrada comentada para evitar conflicto de sintaxis
 
 /* ============================================================
    ACORDEÓN (NUEVO) — AHORA SÍ FUNCIONA SIEMPRE
