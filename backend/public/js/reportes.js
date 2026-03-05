@@ -308,163 +308,143 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
       });
     });
 
-    // Doble click sobre filas de datos -> detalle
+    // Doble click sobre filas de datos -> detalle (modal JSON)
     const content = $('reportesContent');
-    if (content) {
-      content.addEventListener('dblclick', (ev) => {
-        const tr = ev.target.closest('tr[data-id][data-reporte]');
-        if (!tr) return;
+    if (!content) return;
 
-        const reporteId = tr.dataset.reporte;
-        const id = tr.dataset.id;
-        const label = tr.dataset.label || '';
-        const extra = tr.dataset.extra || '';
+    content.addEventListener('dblclick', (ev) => {
+      const tr = ev.target.closest('tr[data-id][data-reporte]');
+      if (!tr) return;
 
-        // Podés enriquecer payload con más info si el backend la trae
-        const payload = { id, label, extra };
+      const reporteId = tr.dataset.reporte;
+      const id    = tr.dataset.id;
+      const label = tr.dataset.label || '';
+      const extra = tr.dataset.extra || '';
 
-        openDetalleModal(reporteId, payload);
-      });
+      const payload = { id, label, extra };
+      openDetalleModal(reporteId, payload);
+    });
 
-      // 👇👉 PEGÁ ESTE BLOQUE NUEVO ACÁ, DENTRO DEL if (content) { ... }
+    // Click en flecha ▶ para desplegar detalle (subtabla)
+    content.addEventListener('click', async (ev) => {
+      const toggle = ev.target.closest('.toggle');
+      if (!toggle) return;
 
-      if (content) {
-      content.addEventListener('dblclick', (ev) => {
-        const tr = ev.target.closest('tr[data-id][data-reporte]');
-        if (!tr) return;
+      const tr = toggle.closest('tr.main-row');
+      if (!tr) return;
 
-        const reporteId = tr.dataset.reporte;
-        const id = tr.dataset.id;
-        const label = tr.dataset.label || '';
-        const extra = tr.dataset.extra || '';
+      const hasChildren = tr.dataset.hasChildren === '1';
+      if (!hasChildren) return;
 
-        const payload = { id, label, extra };
-        openDetalleModal(reporteId, payload);
-      });
+      const rowId     = tr.dataset.id;
+      const reporteId = tr.dataset.reporte;
+      const actividad = tr.dataset.actividad;
+      const anio      = tr.dataset.anio;
+      const childRow  = document.getElementById(`child-${rowId}`);
+      const childContainer = childRow.querySelector('.child-container');
 
-     // click en flecha ▶ para desplegar detalle
-      content.addEventListener('click', async (ev) => {
-        const toggle = ev.target.closest('.toggle');
-        if (!toggle) return;
+      // Toggle UI
+      const isOpen = !childRow.classList.contains('hidden');
+      if (isOpen) {
+        childRow.classList.add('hidden');
+        toggle.textContent = '▶';
+        return;
+      }
 
-        const tr = toggle.closest('tr.main-row');
-        if (!tr) return;
+      // Abrir
+      toggle.textContent = '▼';
+      childRow.classList.remove('hidden');
+      childContainer.innerHTML = '<div class="muted">Cargando...</div>';
 
-        const hasChildren = tr.dataset.hasChildren === '1';
-        if (!hasChildren) return;
+      const clubId = getActiveClubId();
+      let url = '';
 
-        const rowId     = tr.dataset.id;
-        const reporteId = tr.dataset.reporte;
-        const actividad = tr.dataset.actividad;
-        const anio      = tr.dataset.anio;
-        const childRow  = document.getElementById(`child-${rowId}`);
-        const childContainer = childRow.querySelector('.child-container');
+      // Elegimos endpoint según el reporte
+      if (reporteId === 'socios-actividad-categoria') {
+        url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
+      } else if (reporteId === 'socios-nuevos-mes') {
+        url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`;
+      } else if (reporteId === 'ingreso-fecha-pago') {
+        url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`;
+      } else {
+        childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
+        return;
+      }
 
-        // Toggle UI
-        const isOpen = !childRow.classList.contains('hidden');
-        if (isOpen) {
-          childRow.classList.add('hidden');
-          toggle.textContent = '▶';
-          return;
-        }
+      const { data } = await fetchAuth(url);
+      if (!data.ok) {
+        childContainer.innerHTML = '<div class="muted" style="color:#b91c1c">Error al cargar detalle</div>';
+        return;
+      }
 
-        // Abrir
-        toggle.textContent = '▼';
-        childRow.classList.remove('hidden');
-        childContainer.innerHTML = '<div class="muted">Cargando...</div>';
+      if (!data.rows.length) {
+        childContainer.innerHTML = '<div class="muted">Sin datos</div>';
+        return;
+      }
 
-        const clubId = getActiveClubId();
-        let url = '';
+      let html = '';
 
-        // Elegimos endpoint según el reporte
-        if (reporteId === 'socios-actividad-categoria') {
-          url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
-        } else if (reporteId === 'socios-nuevos-mes') {
-          url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`;
-        } else if (reporteId === 'ingreso-fecha-pago') {
-          url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`;
-        } else {
-          childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
-          return;
-        }
-
-        const { data } = await fetchAuth(url);
-        if (!data.ok) {
-          childContainer.innerHTML = '<div class="muted" style="color:#b91c1c">Error al cargar detalle</div>';
-          return;
-        }
-
-        if (!data.rows.length) {
-          childContainer.innerHTML = '<div class="muted">Sin datos</div>';
-          return;
-        }
-
-        let html = '';
-
-        if (reporteId === 'socios-actividad-categoria') {
-          html = `
-            <table class="socios-table" style="background:#fafafa;">
-              <thead>
+      if (reporteId === 'socios-actividad-categoria') {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>Categoría</th>
+                <th>Cantidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
                 <tr>
-                  <th>Categoría</th>
-                  <th>Cantidad</th>
+                  <td>${r.categoria}</td>
+                  <td>${r.cantidad}</td>
                 </tr>
-              </thead>
-              <tbody>
-                ${data.rows.map(r => `
-                  <tr>
-                    <td>${r.categoria}</td>
-                    <td>${r.cantidad}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          `;
-        } else if (reporteId === 'socios-nuevos-mes') {
-          html = `
-            <table class="socios-table" style="background:#fafafa;">
-              <thead>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (reporteId === 'socios-nuevos-mes') {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th>Cantidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
                 <tr>
-                  <th>Mes</th>
-                  <th>Cantidad</th>
+                  <td>${r.mes}</td>
+                  <td>${r.cantidad}</td>
                 </tr>
-              </thead>
-              <tbody>
-                ${data.rows.map(r => `
-                  <tr>
-                    <td>${r.mes}</td>
-                    <td>${r.cantidad}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          `;
-        } else if (reporteId === 'ingreso-fecha-pago') {
-          html = `
-            <table class="socios-table" style="background:#fafafa;">
-              <thead>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (reporteId === 'ingreso-fecha-pago') {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th>Total (ARS)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
                 <tr>
-                  <th>Mes</th>
-                  <th>Total (ARS)</th>
+                  <td>${r.mes}</td>
+                  <td>${r.total}</td>
                 </tr>
-              </thead>
-              <tbody>
-                ${data.rows.map(r => `
-                  <tr>
-                    <td>${r.mes}</td>
-                    <td>${r.total}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          `;
-        }
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
 
-        childContainer.innerHTML = html;
-      });
-
-      
-    } // ← cierra if (content)
+      childContainer.innerHTML = html;
+    });
 
   } // ← cierra function bindChips()
 
