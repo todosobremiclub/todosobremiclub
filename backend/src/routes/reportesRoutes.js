@@ -390,11 +390,9 @@ router.get('/:clubId/reportes/ingreso-mes-pagado/meses', requireAuth, requireClu
 });
 
 // ===============================
-// 5) Ingresos vs Gastos por mes (vista por AÑO)
-// GET /club/:clubId/reportes/ingresos-vs-gastos
+// 5) Ingresos vs Gastos por año (cuotas + otros ingresos)
 // ===============================
-router.get(
-  '/:clubId/reportes/ingresos-vs-gastos',
+router.get('/:clubId/reportes/ingresos-vs-gastos',
   requireAuth,
   requireClubAccess,
   async (req, res) => {
@@ -402,14 +400,30 @@ router.get(
 
     try {
       const q = `
-        WITH ingresos AS (
+        WITH cuotas AS (
           SELECT
             EXTRACT(YEAR FROM pm.fecha_pago)::int AS anio,
-            SUM(pm.monto) AS total_ingresos
+            SUM(pm.monto) AS total
           FROM pagos_mensuales pm
           WHERE pm.club_id = $1
-          GROUP BY
-            EXTRACT(YEAR FROM pm.fecha_pago)
+          GROUP BY EXTRACT(YEAR FROM pm.fecha_pago)
+        ),
+        otros AS (
+          SELECT
+            EXTRACT(YEAR FROM ig.fecha)::int AS anio,
+            SUM(ig.monto) AS total
+          FROM ingresos_generales ig
+          WHERE ig.club_id = $1
+            AND ig.activo = true
+          GROUP BY EXTRACT(YEAR FROM ig.fecha)
+        ),
+        ingresos AS (
+          SELECT
+            COALESCE(c.anio, o.anio) AS anio,
+            COALESCE(c.total, 0) + COALESCE(o.total, 0) AS total_ingresos
+          FROM cuotas c
+          FULL OUTER JOIN otros o
+            ON o.anio = c.anio
         ),
         gastos AS (
           SELECT
@@ -418,13 +432,12 @@ router.get(
           FROM gastos g
           WHERE g.club_id = $1
             AND g.activo = true
-          GROUP BY
-            EXTRACT(YEAR FROM g.periodo)
+          GROUP BY EXTRACT(YEAR FROM g.periodo)
         )
         SELECT
           COALESCE(i.anio, g.anio) AS anio,
           COALESCE(i.total_ingresos, 0) AS ingresos,
-          COALESCE(g.total_gastos,  0) AS gastos
+          COALESCE(g.total_gastos, 0)   AS gastos
         FROM ingresos i
         FULL OUTER JOIN gastos g
           ON g.anio = i.anio
@@ -437,14 +450,13 @@ router.get(
         anio: row.anio,
         ingresos: Number(row.ingresos),
         gastos: Number(row.gastos),
-        _hasChildren: true   // 👈 importante para que el front muestre la flechita
+        _hasChildren: true
       }));
 
       res.json({
         ok: true,
         title: 'Ingresos vs Gastos por año',
-        description:
-          'Totales anuales de ingresos y gastos. Hacé clic en un año para ver el detalle por mes.',
+        description: 'Totales anuales de ingresos y gastos. Hacé clic en un año para ver el detalle por mes.',
         columns: [
           { key: 'anio',     label: 'Año' },
           { key: 'ingresos', label: 'Ingresos (ARS)' },
@@ -452,13 +464,13 @@ router.get(
         ],
         rows
       });
+
     } catch (e) {
-      console.error('❌ reporte ingresos-vs-gastos', e);
+      console.error('❌ ingresos-vs-gastos (anual)', e);
       res.status(500).json({ ok: false, error: e.message });
     }
   }
 );
-
 // ===============================
 // DETALLE: Ingresos vs Gastos → meses
 // GET /club/:clubId/reportes/ingresos-vs-gastos/meses?anio=2024
