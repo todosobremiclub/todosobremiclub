@@ -472,9 +472,7 @@ router.get(
     const anio = Number(req.query.anio);
 
     if (!anio) {
-      return res
-        .status(400)
-        .json({ ok: false, error: 'Falta parámetro anio' });
+      return res.status(400).json({ ok: false, error: 'Falta parámetro anio' });
     }
 
     const MESES = [
@@ -484,15 +482,32 @@ router.get(
 
     try {
       const q = `
-        WITH ingresos AS (
+        WITH cuotas AS (
           SELECT
             EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes_num,
-            SUM(pm.monto) AS total_ingresos
+            SUM(pm.monto) AS total
           FROM pagos_mensuales pm
           WHERE pm.club_id = $1
             AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
-          GROUP BY
-            EXTRACT(MONTH FROM pm.fecha_pago)
+          GROUP BY EXTRACT(MONTH FROM pm.fecha_pago)
+        ),
+        otros AS (
+          SELECT
+            EXTRACT(MONTH FROM ig.fecha)::int AS mes_num,
+            SUM(ig.monto) AS total
+          FROM ingresos_generales ig
+          WHERE ig.club_id = $1
+            AND ig.activo = true
+            AND EXTRACT(YEAR FROM ig.fecha) = $2
+          GROUP BY EXTRACT(MONTH FROM ig.fecha)
+        ),
+        ingresos AS (
+          SELECT
+            COALESCE(c.mes_num, o.mes_num) AS mes_num,
+            COALESCE(c.total, 0) + COALESCE(o.total, 0) AS total_ingresos
+          FROM cuotas c
+          FULL OUTER JOIN otros o
+            ON o.mes_num = c.mes_num
         ),
         gastos AS (
           SELECT
@@ -502,13 +517,12 @@ router.get(
           WHERE g.club_id = $1
             AND g.activo = true
             AND EXTRACT(YEAR FROM g.periodo) = $2
-          GROUP BY
-            EXTRACT(MONTH FROM g.periodo)
+          GROUP BY EXTRACT(MONTH FROM g.periodo)
         )
         SELECT
           COALESCE(i.mes_num, g.mes_num) AS mes_num,
-          COALESCE(i.total_ingresos, 0)   AS ingresos,
-          COALESCE(g.total_gastos,  0)   AS gastos
+          COALESCE(i.total_ingresos, 0) AS ingresos,
+          COALESCE(g.total_gastos, 0) AS gastos
         FROM ingresos i
         FULL OUTER JOIN gastos g
           ON g.mes_num = i.mes_num
@@ -525,6 +539,7 @@ router.get(
           gastos: Number(row.gastos)
         }))
       });
+
     } catch (e) {
       console.error('❌ ingresos-vs-gastos/meses', e);
       res.status(500).json({ ok: false, error: e.message });
