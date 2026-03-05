@@ -366,12 +366,14 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
           url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`; 
         } else if (reporteId === 'ingreso-fecha-pago') { 
           url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`; 
-        } else if (reporteId === 'ingreso-mes-pagado') { 
-          url = `/club/${clubId}/reportes/ingreso-mes-pagado/meses?anio=${encodeURIComponent(anio)}`; 
-        } else { 
-          childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>'; 
-          return; 
-        }
+        } else if (reporteId === 'ingreso-mes-pagado') {
+  url = `/club/${clubId}/reportes/ingreso-mes-pagado/meses?anio=${encodeURIComponent(anio)}`;
+} else if (reporteId === 'ingresos-vs-gastos') {                           // 👈 NUEVO
+  url = `/club/${clubId}/reportes/ingresos-vs-gastos/meses?anio=${encodeURIComponent(anio)}`;
+} else {
+  childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
+  return;
+}
 
 
       const { data } = await fetchAuth(url);
@@ -388,44 +390,71 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
       let html = '';
 
       if (reporteId === 'socios-actividad-categoria') {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Categoría</th>
-                <th>Cantidad</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
-                <tr>
-                  <td>${r.categoria}</td>
-                  <td>${r.cantidad}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      } else if (reporteId === 'socios-nuevos-mes') {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th>Cantidad</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
-                <tr>
-                  <td>${r.mes}</td>
-                  <td>${r.cantidad}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      } else if (reporteId === 'ingreso-fecha-pago') {
+  html = `
+    <table class="socios-table" style="background:#fafafa;">
+      <thead>
+        <tr>
+          <th>Categoría</th>
+          <th>Cantidad</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.rows.map(r => `
+          <tr>
+            <td>${r.categoria}</td>
+            <td>${r.cantidad}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+} else if (reporteId === 'socios-nuevos-mes') {
+  // ...
+} else if (reporteId === 'ingreso-fecha-pago') {
+  // ...
+} else if (reporteId === 'ingreso-mes-pagado') {
+  html = `
+    <table class="socios-table" style="background:#fafafa;">
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th>Total (ARS)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.rows.map(r => `
+          <tr>
+            <td>${r.mes}</td>
+            <td>${r.total}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+} else if (reporteId === 'ingresos-vs-gastos') {              // 👈 NUEVO
+  html = `
+    <table class="socios-table" style="background:#fafafa;">
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th>Ingresos (ARS)</th>
+          <th>Gastos (ARS)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.rows.map(r => `
+          <tr>
+            <td>${r.mes}</td>
+            <td>${r.ingresos}</td>
+            <td>${r.gastos}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+else if (reporteId === 'ingreso-fecha-pago') {
         html = `
           <table class="socios-table" style="background:#fafafa;">
             <thead>
