@@ -359,21 +359,24 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
       const clubId = getActiveClubId();
       let url = '';
 
-     // Elegimos endpoint según el reporte
-        if (reporteId === 'socios-actividad-categoria') { 
-          url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`; 
-        } else if (reporteId === 'socios-nuevos-mes') { 
-          url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`; 
-        } else if (reporteId === 'ingreso-fecha-pago') { 
-          url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`; 
-        } else if (reporteId === 'ingreso-mes-pagado') {
+    // Elegimos endpoint según el reporte
+if (reporteId === 'socios-actividad-categoria') {
+  url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
+} else if (reporteId === 'socios-nuevos-mes') {
+  url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`;
+} else if (reporteId === 'ingreso-fecha-pago') {
+  url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`;
+} else if (reporteId === 'ingreso-mes-pagado') {
   url = `/club/${clubId}/reportes/ingreso-mes-pagado/meses?anio=${encodeURIComponent(anio)}`;
-} else if (reporteId === 'ingresos-vs-gastos') {                           // 👈 NUEVO
+} else if (reporteId === 'ingresos-vs-gastos') {
   url = `/club/${clubId}/reportes/ingresos-vs-gastos/meses?anio=${encodeURIComponent(anio)}`;
+} else if (reporteId === 'ingresos-por-tipo') {        // ← 👈 AGREGADO
+  url = `/club/${clubId}/reportes/ingresos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
 } else {
   childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
   return;
 }
+
 
 
       const { data } = await fetchAuth(url);
@@ -431,7 +434,7 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
       </tbody>
     </table>
   `;
-} else if (reporteId === 'ingresos-vs-gastos') {              // 👈 NUEVO
+} else if (reporteId === 'ingresos-vs-gastos') {
   html = `
     <table class="socios-table" style="background:#fafafa;">
       <thead>
@@ -447,6 +450,25 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
             <td>${r.mes}</td>
             <td>${r.ingresos}</td>
             <td>${r.gastos}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+} else if (reporteId === 'ingresos-por-tipo') {           // ← 👈 AGREGADO
+  html = `
+    <table class="socios-table" style="background:#fafafa;">
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th>Total (ARS)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.rows.map(r => `
+          <tr>
+            <td>${r.mes}</td>
+            <td>${r.total}</td>
           </tr>
         `).join('')}
       </tbody>

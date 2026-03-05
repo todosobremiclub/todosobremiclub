@@ -471,6 +471,8 @@ router.get('/:clubId/reportes/ingresos-vs-gastos',
     }
   }
 );
+
+
 // ===============================
 // DETALLE: Ingresos vs Gastos → meses
 // GET /club/:clubId/reportes/ingresos-vs-gastos/meses?anio=2024
@@ -559,60 +561,216 @@ router.get(
   }
 );
 
+
 // ===============================
-// 6) Ingresos por Tipo de ingreso (incluye cuotas)
-// GET /club/:clubId/reportes/ingresos-por-tipo
+// DETALLE: Ingresos por Tipo → MESES
+// GET /club/:clubId/reportes/ingresos-por-tipo/meses?anio=2024
 // ===============================
-router.get('/:clubId/reportes/ingresos-por-tipo', requireAuth, requireClubAccess, async (req, res) => {
-  const { clubId } = req.params;
+router.get(
+  '/:clubId/reportes/ingresos-por-tipo/meses',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
 
-  try {
-    const q = `
-      WITH cuotas AS (
+    if (!anio)
+      return res.status(400).json({ ok: false, error: 'Falta parámetro anio' });
+
+    const MESES = [
+      'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+    ];
+
+    try {
+      const q = `
+        WITH cuotas AS (
+          SELECT
+            EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes,
+            'Cuotas'::text AS tipo,
+            SUM(pm.monto) AS total
+          FROM pagos_mensuales pm
+          WHERE pm.club_id = $1 AND pm.anio = $2
+          GROUP BY mes
+        ),
+        otros AS (
+          SELECT
+            EXTRACT(MONTH FROM ig.fecha)::int AS mes,
+            COALESCE(ti.nombre, 'Otros') AS tipo,
+            SUM(ig.monto) AS total
+          FROM ingresos_generales ig
+          LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+          WHERE ig.club_id = $1
+            AND ig.activo = true
+            AND EXTRACT(YEAR FROM ig.fecha) = $2
+          GROUP BY mes, tipo
+        ),
+        unidos AS (
+          SELECT * FROM cuotas
+          UNION ALL
+          SELECT * FROM otros
+        )
         SELECT
-          'Cuotas'::text AS tipo,
-          SUM(pm.monto) AS total
-        FROM pagos_mensuales pm
-        WHERE pm.club_id = $1
-      ),
-      otros AS (
-        SELECT
-          COALESCE(ti.nombre, 'Otros') AS tipo,
-          SUM(ig.monto) AS total
-        FROM ingresos_generales ig
-        LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
-        WHERE ig.club_id = $1
-          AND ig.activo = true
-        GROUP BY tipo
-      )
-      SELECT tipo, SUM(total) AS total
-      FROM (
-        SELECT * FROM cuotas
-        UNION ALL
-        SELECT * FROM otros
-      ) t
-      GROUP BY tipo
-      ORDER BY tipo;
-    `;
+          mes,
+          SUM(total) AS total_mes
+        FROM unidos
+        GROUP BY mes
+        ORDER BY mes;
+      `;
 
-    const r = await db.query(q, [clubId]);
+      const r = await db.query(q, [clubId, anio]);
 
-    res.json({
-      ok: true,
-      title: 'Ingresos por Tipo de ingreso',
-      description: 'Total de ingresos agrupados por tipo de ingreso (cuotas y otros).',
-      columns: [
-        { key: 'tipo',  label: 'Tipo de ingreso' },
-        { key: 'total', label: 'Total (ARS)' }
-      ],
-      rows: r.rows
-    });
+      res.json({
+        ok: true,
+        rows: r.rows.map(row => ({
+          mes: MESES[row.mes - 1],
+          total: Number(row.total_mes),
+          mes_num: row.mes,
+          _hasChildren: true
+        }))
+      });
 
-  } catch (e) {
-    console.error('❌ reporte ingresos-por-tipo', e);
-    res.status(500).json({ ok: false, error: e.message });
+    } catch (e) {
+      console.error('❌ ingresos-por-tipo/meses', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
   }
-});
+);
+
+// ===============================
+// DETALLE: Ingresos por Tipo → MESES
+// GET /club/:clubId/reportes/ingresos-por-tipo/meses?anio=2024
+// ===============================
+router.get(
+  '/:clubId/reportes/ingresos-por-tipo/meses',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+
+    if (!anio)
+      return res.status(400).json({ ok: false, error: 'Falta parámetro anio' });
+
+    const MESES = [
+      'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+    ];
+
+    try {
+      const q = `
+        WITH cuotas AS (
+          SELECT
+            EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes,
+            'Cuotas'::text AS tipo,
+            SUM(pm.monto) AS total
+          FROM pagos_mensuales pm
+          WHERE pm.club_id = $1 AND pm.anio = $2
+          GROUP BY mes
+        ),
+        otros AS (
+          SELECT
+            EXTRACT(MONTH FROM ig.fecha)::int AS mes,
+            COALESCE(ti.nombre, 'Otros') AS tipo,
+            SUM(ig.monto) AS total
+          FROM ingresos_generales ig
+          LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+          WHERE ig.club_id = $1
+            AND ig.activo = true
+            AND EXTRACT(YEAR FROM ig.fecha) = $2
+          GROUP BY mes, tipo
+        ),
+        unidos AS (
+          SELECT * FROM cuotas
+          UNION ALL
+          SELECT * FROM otros
+        )
+        SELECT
+          mes,
+          SUM(total) AS total_mes
+        FROM unidos
+        GROUP BY mes
+        ORDER BY mes;
+      `;
+
+      const r = await db.query(q, [clubId, anio]);
+
+      res.json({
+        ok: true,
+        rows: r.rows.map(row => ({
+          mes: MESES[row.mes - 1],
+          total: Number(row.total_mes),
+          mes_num: row.mes,
+          _hasChildren: true
+        }))
+      });
+
+    } catch (e) {
+      console.error('❌ ingresos-por-tipo/meses', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
+// DETALLE: Ingresos por Tipo → TIPOS dentro del mes
+// GET /club/:clubId/reportes/ingresos-por-tipo/tipos?anio=2024&mes=3
+// ===============================
+router.get(
+  '/:clubId/reportes/ingresos-por-tipo/tipos',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes  = Number(req.query.mes);
+
+    if (!anio || !mes)
+      return res.status(400).json({ ok: false, error: 'Faltan parámetros' });
+
+    try {
+      const q = `
+        WITH cuotas AS (
+          SELECT
+            'Cuotas'::text AS tipo,
+            SUM(pm.monto) AS total
+          FROM pagos_mensuales pm
+          WHERE pm.club_id = $1 AND pm.anio = $2 AND pm.mes = $3
+          GROUP BY tipo
+        ),
+        otros AS (
+          SELECT
+            COALESCE(ti.nombre, 'Otros') AS tipo,
+            SUM(ig.monto) AS total
+          FROM ingresos_generales ig
+          LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+          WHERE ig.club_id = $1
+            AND ig.activo = true
+            AND EXTRACT(YEAR FROM ig.fecha) = $2
+            AND EXTRACT(MONTH FROM ig.fecha) = $3
+          GROUP BY tipo
+        ),
+        unidos AS (
+          SELECT * FROM cuotas
+          UNION ALL
+          SELECT * FROM otros
+        )
+        SELECT tipo, SUM(total) AS total
+        FROM unidos
+        GROUP BY tipo
+        ORDER BY tipo;
+      `;
+
+      const r = await db.query(q, [clubId, anio, mes]);
+
+      res.json({ ok: true, rows: r.rows });
+
+    } catch (e) {
+      console.error('❌ ingresos-por-tipo/tipos', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
 
 // ===============================
 // 7) Gastos por Tipo de gasto
