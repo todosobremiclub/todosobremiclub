@@ -1,6 +1,7 @@
 // public/js/noticias.js
 (() => {
-  const $ = (id) => document.getElementById(id);
+ 
+const $ = (selector) => document.querySelector(selector);
 
   // =============================
   // Auth / helpers comunes
