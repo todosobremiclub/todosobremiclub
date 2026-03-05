@@ -663,7 +663,7 @@ router.get(
             SUM(pm.monto) AS total
           FROM pagos_mensuales pm
           WHERE pm.club_id = $1 AND pm.anio = $2
-          GROUP BY mes
+          GROUP BY EXTRACT(MONTH FROM pm.fecha_pago)
         ),
         otros AS (
           SELECT
@@ -675,7 +675,7 @@ router.get(
           WHERE ig.club_id = $1
             AND ig.activo = true
             AND EXTRACT(YEAR FROM ig.fecha) = $2
-          GROUP BY mes, tipo
+          GROUP BY EXTRACT(MONTH FROM ig.fecha), tipo
         ),
         unidos AS (
           SELECT * FROM cuotas
@@ -686,7 +686,7 @@ router.get(
           mes,
           SUM(total) AS total_mes
         FROM unidos
-        GROUP BY mes
+        GROUP BY EXTRACT(MONTH FROM pm.fecha_pago)
         ORDER BY mes;
       `;
 
