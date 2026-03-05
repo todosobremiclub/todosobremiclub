@@ -574,38 +574,38 @@ router.get(
 
     try {
       const q = `
-        WITH cuotas AS (
-          SELECT
-            EXTRACT(YEAR FROM pm.fecha_pago)::int AS anio,
-            'Cuotas'::text AS tipo,
-            SUM(pm.monto) AS total
-          FROM pagos_mensuales pm
-          WHERE pm.club_id = $1
-          GROUP BY anio
-        ),
-        otros AS (
-          SELECT
-            EXTRACT(YEAR FROM ig.fecha)::int AS anio,
-            COALESCE(ti.nombre, 'Otros') AS tipo,
-            SUM(ig.monto) AS total
-          FROM ingresos_generales ig
-          LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
-          WHERE ig.club_id = $1
-            AND ig.activo = true
-          GROUP BY anio, tipo
-        ),
-        unificados AS (
-          SELECT * FROM cuotas
-          UNION ALL
-          SELECT * FROM otros
-        )
-        SELECT
-          anio,
-          SUM(total) AS total_ingresos
-        FROM unificados
-        GROUP BY anio
-        ORDER BY anio;
-      `;
+  WITH cuotas AS (
+    SELECT
+      EXTRACT(YEAR FROM pm.fecha_pago)::int AS anio,
+      'Cuotas'::text AS tipo,
+      SUM(pm.monto) AS total
+    FROM pagos_mensuales pm
+    WHERE pm.club_id = $1
+    GROUP BY EXTRACT(YEAR FROM pm.fecha_pago)
+  ),
+  otros AS (
+    SELECT
+      EXTRACT(YEAR FROM ig.fecha)::int AS anio,
+      COALESCE(ti.nombre, 'Otros') AS tipo,
+      SUM(ig.monto) AS total
+    FROM ingresos_generales ig
+    LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+    WHERE ig.club_id = $1
+      AND ig.activo = true
+    GROUP BY EXTRACT(YEAR FROM ig.fecha), tipo
+  ),
+  unificados AS (
+    SELECT * FROM cuotas
+    UNION ALL
+    SELECT * FROM otros
+  )
+  SELECT
+    anio,
+    SUM(total) AS total_ingresos
+  FROM unificados
+  GROUP BY anio
+  ORDER BY anio;
+`;
 
       const r = await db.query(q, [clubId]);
 
