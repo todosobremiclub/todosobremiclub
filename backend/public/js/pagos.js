@@ -735,51 +735,16 @@ function bindAccordion() {
   const inpParcial = $('pagoParcialMonto');
 
   if (chkParcial) {
-    chkParcial.addEventListener('change', () => {
-      if (inpParcial) {function renderSociosMini(query){
-  const cont = $('listaSociosMini');
-  if (!cont) return;
-
-  const q = String(query || '').toLowerCase();
-
-  const list = sociosCache.filter(s => {
-    return (
-      s.apellido.toLowerCase().includes(q) ||
-      String(s.dni).includes(q)
-    );
-  });
-
-  cont.innerHTML = '';
-
-  list.forEach(s => {
-    const b = document.createElement('button');
-    b.className = 'navbtn';
-    b.style.display = 'block';
-    b.style.width = '100%';
-    b.style.margin = '4px 0';
-    b.textContent = `${s.apellido} ${s.nombre} - ${s.dni}`;
-
-    b.onclick = async () => {
-      selectedSocioId = s.id;
-      $('socioSeleccionadoNombre').value =
-        `${s.apellido} ${s.nombre} - ${s.dni}`;
-      $('modalElegirSocio')?.classList.add('hidden');
-
-      await refreshMesesPagados();
-      renderMesesGrid();
-    };
-
-    cont.appendChild(b);
+  chkParcial.addEventListener('change', () => {
+    if (inpParcial) {
+      inpParcial.disabled = !chkParcial.checked;
+      if (!chkParcial.checked) {
+        inpParcial.value = '';
+      }
+    }
+    renderMontoHint();
   });
 }
-        inpParcial.disabled = !chkParcial.checked;
-        if (!chkParcial.checked) {
-          inpParcial.value = '';
-        }
-      }
-      renderMontoHint();
-    });
-  }
 
   if (inpParcial) {
     inpParcial.addEventListener('input', () => {
