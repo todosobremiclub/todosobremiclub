@@ -407,38 +407,54 @@ router.get('/:clubId/reportes/ingresos-por-tipo', requireAuth, requireClubAccess
   }
 });
 
-/// ===============================
+// ===============================
 // 8) Gastos por Tipo de gasto
 // GET /club/:clubId/reportes/gastos-por-tipo
 // ===============================
 router.get('/:clubId/reportes/gastos-por-tipo', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
 
+  const MESES = [
+    'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+  ];
+
   try {
     const r = await db.query(
       `
       SELECT
-        COALESCE(tg.nombre, 'Sin tipo') AS tipo_gasto,
-        SUM(g.monto) AS total
+        EXTRACT(YEAR FROM g.periodo)::int  AS anio,
+        EXTRACT(MONTH FROM g.periodo)::int AS mes_num,
+        COALESCE(tg.nombre, 'Sin tipo')    AS tipo_gasto,
+        SUM(g.monto)                       AS total
       FROM gastos g
       LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
       WHERE g.club_id = $1
         AND g.activo = true
-      GROUP BY tipo_gasto
-      ORDER BY tipo_gasto
+      GROUP BY anio, mes_num, tipo_gasto
+      ORDER BY anio, mes_num, tipo_gasto
       `,
       [clubId]
     );
 
+    const filas = r.rows.map(row => ({
+      anio: row.anio,
+      mes: MESES[row.mes_num - 1],
+      tipo_gasto: row.tipo_gasto,
+      total: Number(row.total)
+    }));
+
     res.json({
       ok: true,
       title: 'Gastos por Tipo de gasto',
-      description: 'Total de gastos agrupados por tipo de gasto.',
+      description: 'Total de gastos agrupados por año, mes y tipo de gasto.',
       columns: [
+        { key: 'anio',       label: 'Año' },
+        { key: 'mes',        label: 'Mes' },
         { key: 'tipo_gasto', label: 'Tipo de gasto' },
-        { key: 'total', label: 'Total (ARS)' }
+        { key: 'total',      label: 'Total (ARS)' }
       ],
-      rows: r.rows
+      rows: filas
     });
 
   } catch (e) {
