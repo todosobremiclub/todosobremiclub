@@ -302,54 +302,89 @@ router.get('/:clubId/reportes/ingreso-fecha-pago/meses', requireAuth, requireClu
 
 
 // ===============================
-// 4) Ingreso por mes pagado
-// GET /club/:clubId/reportes/ingreso-mes-pagado
+// 5) Ingreso por mes pagado (AÑO → detalle por MES PAGADO)
 // ===============================
 router.get('/:clubId/reportes/ingreso-mes-pagado', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
 
-  // Meses en nombre completo
+  try {
+    const r = await db.query(
+      `
+      SELECT
+        pm.anio AS anio,
+        SUM(pm.monto) AS total
+      FROM pagos_mensuales pm
+      WHERE pm.club_id = $1
+      GROUP BY pm.anio
+      ORDER BY pm.anio
+      `,
+      [clubId]
+    );
+
+    const rows = r.rows.map(row => ({
+      anio: row.anio,
+      total: Number(row.total),
+      _hasChildren: true
+    }));
+
+    res.json({
+      ok: true,
+      title: 'Ingresos por mes pagado (por Año)',
+      description: 'Totales agrupados por año. Hacé clic para ver los montos por mes pagado.',
+      columns: [
+        { key: 'anio',  label: 'Año' },
+        { key: 'total', label: 'Total (ARS)' }
+      ],
+      rows
+    });
+
+  } catch (e) {
+    console.error('❌ ingreso-mes-pagado', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ===============================
+// DETALLE: Ingreso por mes pagado → meses
+// GET /club/:clubId/reportes/ingreso-mes-pagado/meses?anio=2024
+// ===============================
+router.get('/:clubId/reportes/ingreso-mes-pagado/meses', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const anio = Number(req.query.anio);
+
+  if (!anio) {
+    return res.status(400).json({ ok: false, error: 'Falta parámetro anio' });
+  }
+
   const MESES = [
     'Enero','Febrero','Marzo','Abril','Mayo','Junio',
     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
   ];
 
   try {
-    const r = await db.query(
-      `
+    const q = `
       SELECT
-        pm.anio,
         pm.mes AS mes_num,
         SUM(pm.monto) AS total
       FROM pagos_mensuales pm
       WHERE pm.club_id = $1
-      GROUP BY pm.anio, pm.mes
-      ORDER BY pm.anio, pm.mes
-      `,
-      [clubId]
-    );
+        AND pm.anio = $2
+      GROUP BY mes_num
+      ORDER BY mes_num
+    `;
 
-    // Convertir mes_num → nombre del mes
-    const filas = r.rows.map(row => ({
-      anio: row.anio,
-      mes: MESES[row.mes_num - 1],   // ← mes con nombre
-      total: Number(row.total)
-    }));
+    const r = await db.query(q, [clubId, anio]);
 
     res.json({
       ok: true,
-      title: 'Ingreso por mes pagado',
-      description: 'Total de ingresos agrupados por el mes efectivamente pagado (independiente de la fecha del pago).',
-      columns: [
-        { key: 'anio', label: 'Año' },
-        { key: 'mes', label: 'Mes' },
-        { key: 'total', label: 'Total (ARS)' }
-      ],
-      rows: filas
+      rows: r.rows.map(row => ({
+        mes: MESES[row.mes_num - 1],
+        total: Number(row.total)
+      }))
     });
 
   } catch (e) {
-    console.error('❌ reporte ingreso-mes-pagado', e);
+    console.error('❌ ingreso-mes-pagado/meses', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });

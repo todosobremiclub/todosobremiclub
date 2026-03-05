@@ -371,6 +371,11 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         return;
       }
 
+else if (reporteId === 'ingreso-mes-pagado') {
+  url = `/club/${clubId}/reportes/ingreso-mes-pagado/meses?anio=${encodeURIComponent(anio)}`;
+}
+
+
       const { data } = await fetchAuth(url);
       if (!data.ok) {
         childContainer.innerHTML = '<div class="muted" style="color:#b91c1c">Error al cargar detalle</div>';
@@ -442,6 +447,27 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
           </table>
         `;
       }
+
+else if (reporteId === 'ingreso-mes-pagado') {
+  html = `
+    <table class="socios-table" style="background:#fafafa;">
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th>Total (ARS)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.rows.map(r => `
+          <tr>
+            <td>${r.mes}</td>
+            <td>${r.total}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
 
       childContainer.innerHTML = html;
     });
