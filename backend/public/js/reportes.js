@@ -208,7 +208,7 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
           data-actividad="${row.actividad ?? ''}"
           data-has-children="${row._hasChildren ? '1' : '0'}">
 
-        ${row._hasChildren ? `<td class="toggle">▶</td>` : `<td></td>`}
+        ${hasChildren ? (row._hasChildren ? `<td class="toggle">▶</td>` : `<td></td>`) : ''}
         ${cols.map(c => `<td>${row[c.key] ?? ''}</td>`).join('')}
       </tr>
 
