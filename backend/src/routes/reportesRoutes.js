@@ -302,7 +302,7 @@ router.get('/:clubId/reportes/ingreso-fecha-pago/meses', requireAuth, requireClu
 
 
 // ===============================
-// 5) Ingreso por mes pagado (AÑO → detalle por MES PAGADO)
+// 4) Ingreso por mes pagado (AÑO → detalle por MES PAGADO)
 // ===============================
 router.get('/:clubId/reportes/ingreso-mes-pagado', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
@@ -395,8 +395,6 @@ router.get('/:clubId/reportes/ingreso-mes-pagado/meses', requireAuth, requireClu
 // ===============================
 router.get('/:clubId/reportes/ingresos-vs-gastos', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-
-  // Nombres de meses
   const MESES = [
     'Enero','Febrero','Marzo','Abril','Mayo','Junio',
     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
@@ -406,42 +404,45 @@ router.get('/:clubId/reportes/ingresos-vs-gastos', requireAuth, requireClubAcces
     const q = `
       WITH ingresos AS (
         SELECT
-          EXTRACT(YEAR FROM pm.fecha_pago)::int AS anio,
+          EXTRACT(YEAR  FROM pm.fecha_pago)::int AS anio,
           EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes,
           SUM(pm.monto) AS total_ingresos
         FROM pagos_mensuales pm
         WHERE pm.club_id = $1
-        GROUP BY anio, mes
+        GROUP BY
+          EXTRACT(YEAR  FROM pm.fecha_pago),
+          EXTRACT(MONTH FROM pm.fecha_pago)
       ),
       gastos AS (
         SELECT
-          EXTRACT(YEAR FROM g.periodo)::int AS anio,
+          EXTRACT(YEAR  FROM g.periodo)::int AS anio,
           EXTRACT(MONTH FROM g.periodo)::int AS mes,
           SUM(g.monto) AS total_gastos
         FROM gastos g
         WHERE g.club_id = $1
           AND g.activo = true
-        GROUP BY anio, mes
+        GROUP BY
+          EXTRACT(YEAR  FROM g.periodo),
+          EXTRACT(MONTH FROM g.periodo)
       )
       SELECT
         COALESCE(i.anio, g.anio) AS anio,
-        COALESCE(i.mes, g.mes)   AS mes_num,
+        COALESCE(i.mes,  g.mes)  AS mes_num,
         COALESCE(i.total_ingresos, 0) AS ingresos,
-        COALESCE(g.total_gastos, 0)   AS gastos
+        COALESCE(g.total_gastos,  0) AS gastos
       FROM ingresos i
       FULL OUTER JOIN gastos g
         ON g.anio = i.anio AND g.mes = i.mes
-      ORDER BY anio, mes_num
+      ORDER BY anio, mes_num;
     `;
 
     const r = await db.query(q, [clubId]);
 
-    // Convertir mes_num a nombre del mes
     const filas = r.rows.map(row => ({
       anio: row.anio,
-      mes: MESES[row.mes_num - 1],
+      mes:  MESES[row.mes_num - 1],
       ingresos: Number(row.ingresos),
-      gastos: Number(row.gastos)
+      gastos:   Number(row.gastos)
     }));
 
     res.json({
@@ -449,19 +450,92 @@ router.get('/:clubId/reportes/ingresos-vs-gastos', requireAuth, requireClubAcces
       title: 'Ingresos vs Gastos por mes',
       description: 'Comparación mensual entre ingresos y gastos del club.',
       columns: [
-        { key: 'anio', label: 'Año' },
-        { key: 'mes', label: 'Mes' },
+        { key: 'anio',     label: 'Año' },
+        { key: 'mes',      label: 'Mes' },
         { key: 'ingresos', label: 'Ingresos (ARS)' },
-        { key: 'gastos', label: 'Gastos (ARS)' }
+        { key: 'gastos',   label: 'Gastos (ARS)' }
       ],
       rows: filas
     });
-
   } catch (e) {
     console.error('❌ reporte ingresos-vs-gastos', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+// ===============================
+// DETALLE: Ingresos vs Gastos → meses
+// GET /club/:clubId/reportes/ingresos-vs-gastos/meses?anio=2024
+// ===============================
+router.get(
+  '/:clubId/reportes/ingresos-vs-gastos/meses',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+
+    if (!anio) {
+      return res
+        .status(400)
+        .json({ ok: false, error: 'Falta parámetro anio' });
+    }
+
+    const MESES = [
+      'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+    ];
+
+    try {
+      const q = `
+        WITH ingresos AS (
+          SELECT
+            EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes_num,
+            SUM(pm.monto) AS total_ingresos
+          FROM pagos_mensuales pm
+          WHERE pm.club_id = $1
+            AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+          GROUP BY
+            EXTRACT(MONTH FROM pm.fecha_pago)
+        ),
+        gastos AS (
+          SELECT
+            EXTRACT(MONTH FROM g.periodo)::int AS mes_num,
+            SUM(g.monto) AS total_gastos
+          FROM gastos g
+          WHERE g.club_id = $1
+            AND g.activo = true
+            AND EXTRACT(YEAR FROM g.periodo) = $2
+          GROUP BY
+            EXTRACT(MONTH FROM g.periodo)
+        )
+        SELECT
+          COALESCE(i.mes_num, g.mes_num) AS mes_num,
+          COALESCE(i.total_ingresos, 0)   AS ingresos,
+          COALESCE(g.total_gastos,  0)   AS gastos
+        FROM ingresos i
+        FULL OUTER JOIN gastos g
+          ON g.mes_num = i.mes_num
+        ORDER BY mes_num;
+      `;
+
+      const r = await db.query(q, [clubId, anio]);
+
+      res.json({
+        ok: true,
+        rows: r.rows.map(row => ({
+          mes: MESES[row.mes_num - 1],
+          ingresos: Number(row.ingresos),
+          gastos: Number(row.gastos)
+        }))
+      });
+
+    } catch (e) {
+      console.error('❌ ingresos-vs-gastos/meses', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
 
 // ===============================
 // 6) Ingresos por Tipo de ingreso (incluye cuotas)
