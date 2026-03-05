@@ -209,6 +209,11 @@ router.get('/:clubId/reportes/ingreso-fecha-pago', requireAuth, requireClubAcces
   const { clubId } = req.params;
   const { desde, hasta } = req.query;
 
+  const MESES = [
+    'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+  ];
+
   try {
     const where = ['pm.club_id = $1'];
     const params = [clubId];
@@ -223,25 +228,24 @@ router.get('/:clubId/reportes/ingreso-fecha-pago', requireAuth, requireClubAcces
         SUM(pm.monto) AS total
       FROM pagos_mensuales pm
       WHERE ${where.join(' AND ')}
-      GROUP BY anio
-      ORDER BY anio;
+      GROUP BY EXTRACT(YEAR FROM pm.fecha_pago)
+      ORDER BY EXTRACT(YEAR FROM pm.fecha_pago)
     `;
 
     const r = await db.query(q, params);
 
-    // marcas para tabla expandible
-    const rows = r.rows.map(row => ({
-      anio: row.anio,
-      total: Number(row.total),
+    const rows = r.rows.map(x => ({
+      anio: x.anio,
+      total: Number(x.total),
       _hasChildren: true
     }));
 
     res.json({
       ok: true,
-      title: 'Ingreso por fecha de pago (por Año)',
-      description: 'Totales agrupados por año. Hacé clic para ver meses y montos.',
+      title: 'Ingresos por fecha de pago (por Año)',
+      description: 'Hacé clic en un año para ver los montos por mes.',
       columns: [
-        { key: 'anio',  label: 'Año' },
+        { key: 'anio', label: 'Año' },
         { key: 'total', label: 'Total (ARS)' }
       ],
       rows
@@ -252,7 +256,6 @@ router.get('/:clubId/reportes/ingreso-fecha-pago', requireAuth, requireClubAcces
     res.status(500).json({ ok: false, error: e.message });
   }
 });
-
 // ===============================
 // DETALLE: Ingreso por fecha de pago → meses
 // GET /club/:clubId/reportes/ingreso-fecha-pago/meses?anio=2024
