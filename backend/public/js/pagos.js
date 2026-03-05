@@ -79,6 +79,11 @@
 // Responsables / Cuentas
 let responsablesCache = [];
 
+// Paginación de PAGOS (tabla de socios)
+const PAGOS_PAGE_SIZE = 10;
+let pagosRowsAll = [];
+let pagosPageCurrent = 1;
+
 function getPagoParcialState() {
   const chk = $('pagoParcialChk');
   const input = $('pagoParcialMonto');
@@ -150,24 +155,71 @@ function ensureIngresosUI() {
     renderTabla(rows);
   }
 
-  function renderTabla(rows) {
-    const tbody = $('pagosTableBody');
-    if (!tbody) return;
+  // Recibe todas las filas filtradas y prepara la paginación
+function renderTabla(rows) {
+  pagosRowsAll = rows || [];
+  pagosPageCurrent = 1;
+  renderTablaPage();
+}
 
-    tbody.innerHTML = '';
-    rows.forEach(s => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${s.numero_socio ?? ''}</td>
-        <td>${s.nombre ?? ''} ${s.apellido ?? ''}</td>
-        <td>
-          <button class="btn btn-secondary" data-act="details" data-id="${s.socio_id}">
-            Ver detalles
-          </button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-});
+// Dibuja SOLO la página actual (10 filas)
+function renderTablaPage() {
+  const tbody = $('pagosTableBody');
+  const pagDiv = $('pagosPagination');
+  if (!tbody || !pagDiv) return;
+
+  tbody.innerHTML = '';
+
+  const total = pagosRowsAll.length;
+  if (!total) {
+    tbody.innerHTML = '<tr><td colspan="3" class="muted">No hay socios para este filtro.</td></tr>';
+    pagDiv.innerHTML = '';
+    return;
+  }
+
+  const totalPages = Math.ceil(total / PAGOS_PAGE_SIZE);
+  if (pagosPageCurrent > totalPages) pagosPageCurrent = totalPages;
+
+  const start = (pagosPageCurrent - 1) * PAGOS_PAGE_SIZE;
+  const end = start + PAGOS_PAGE_SIZE;
+  const pageRows = pagosRowsAll.slice(start, end);
+
+  pageRows.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${s.numero_socio ?? ''}</td>
+      <td>${s.nombre ?? ''} ${s.apellido ?? ''}</td>
+      <td>
+        <button class="btn btn-secondary" data-act="details" data-id="${s.socio_id}">
+          Ver detalles
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Render controles de paginación
+  pagDiv.innerHTML = '';
+
+  const prevBtn = document.createElement('button');
+  prevBtn.className = 'btn btn-secondary btn-sm';
+  prevBtn.textContent = '‹ Anterior';
+  prevBtn.disabled = pagosPageCurrent <= 1;
+  prevBtn.dataset.page = 'prev';
+  pagDiv.appendChild(prevBtn);
+
+  const info = document.createElement('span');
+  info.textContent = `Página ${pagosPageCurrent} de ${totalPages}`;
+  info.style.fontSize = '12px';
+  info.style.color = '#4b5563';
+  pagDiv.appendChild(info);
+
+  const nextBtn = document.createElement('button');
+  nextBtn.className = 'btn btn-secondary btn-sm';
+  nextBtn.textContent = 'Siguiente ›';
+  nextBtn.disabled = pagosPageCurrent >= totalPages;
+  nextBtn.dataset.page = 'next';
+  pagDiv.appendChild(nextBtn);
 }
 
 /* =============================
@@ -729,6 +781,26 @@ function bindAccordion() {
     $('modalSocioSearch')?.addEventListener('input', renderSociosList);
     $('btnRefreshPagos')?.addEventListener('click', async () => { await loadResumen(); await loadIngresos(); });
     $('pagosSearch')?.addEventListener('input', loadResumen);
+
+// Paginación de la tabla de pagos
+$('pagosPagination')?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button[data-page]');
+  if (!btn) return;
+
+  const action = btn.dataset.page;
+  const total = pagosRowsAll.length;
+  const totalPages = Math.ceil(total / PAGOS_PAGE_SIZE);
+  if (!totalPages) return;
+
+  if (action === 'prev' && pagosPageCurrent > 1) {
+    pagosPageCurrent--;
+    renderTablaPage();
+  } else if (action === 'next' && pagosPageCurrent < totalPages) {
+    pagosPageCurrent++;
+    renderTablaPage();
+  }
+});
+
 
 // Pago parcial: checkbox + monto
   const chkParcial = $('pagoParcialChk');
