@@ -66,37 +66,45 @@ router.get('/:clubId/reportes/socios-actividad', requireAuth, requireClubAccess,
 
 // ===============================
 // 2) Socios por Actividad / Categoría
-// GET /club/:clubId/reportes/socios-actividad-categoria
+// Vista principal: SOLO por Actividad (retraído)
+// El detalle por Categoría se obtiene desde /detalle
 // ===============================
 router.get('/:clubId/reportes/socios-actividad-categoria', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
 
   try {
+    // 1) Obtener totales por ACTIVIDAD
     const r = await db.query(
       `
       SELECT
         COALESCE(actividad, 'Sin actividad') AS actividad,
-        COALESCE(categoria, 'Sin categoría') AS categoria,
-        COUNT(*) AS cantidad
+        COUNT(*) AS total
       FROM socios
       WHERE club_id = $1
         AND activo = true
-      GROUP BY actividad, categoria
-      ORDER BY actividad, categoria
+      GROUP BY actividad
+      ORDER BY actividad
       `,
       [clubId]
     );
 
+    // Formato de salida para tabla dinámica
+    const rows = r.rows.map(row => ({
+      actividad: row.actividad,
+      cantidad: Number(row.total),
+      // Esto le sirve al front para saber que tiene detalle
+      _hasChildren: true    
+    }));
+
     res.json({
       ok: true,
-      title: 'Socios por Actividad / Categoría',
-      description: 'Cantidad de socios activos agrupados por actividad y categoría.',
+      title: 'Socios por Actividad',
+      description: 'Total de socios activos agrupados por actividad. Hacé clic para ver categorías dentro de cada actividad.',
       columns: [
         { key: 'actividad', label: 'Actividad' },
-        { key: 'categoria', label: 'Categoría' },
-        { key: 'cantidad', label: 'Cantidad' }
+        { key: 'cantidad', label: 'Total' }
       ],
-      rows: r.rows
+      rows
     });
 
   } catch (e) {
@@ -104,6 +112,41 @@ router.get('/:clubId/reportes/socios-actividad-categoria', requireAuth, requireC
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+// ===============================
+// DETALLE: Socios por Actividad → Categorías
+// ===============================
+router.get('/:clubId/reportes/socios-actividad-categoria/detalle', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const actividad = req.query.actividad ?? '';
+
+  try {
+    const r = await db.query(
+      `
+      SELECT
+        COALESCE(categoria, 'Sin categoría') AS categoria,
+        COUNT(*) AS cantidad
+      FROM socios
+      WHERE club_id = $1
+        AND activo = true
+        AND COALESCE(actividad, 'Sin actividad') = $2
+      GROUP BY categoria
+      ORDER BY categoria
+      `,
+      [clubId, actividad]
+    );
+
+    res.json({
+      ok: true,
+      rows: r.rows
+    });
+
+  } catch (e) {
+    console.error('❌ detalle socios-actividad-categoria', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 
 // ===============================
 // 3) Socios nuevos x fecha de ingreso x mes
