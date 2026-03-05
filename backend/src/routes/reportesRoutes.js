@@ -390,78 +390,74 @@ router.get('/:clubId/reportes/ingreso-mes-pagado/meses', requireAuth, requireClu
 });
 
 // ===============================
-// 5) Ingresos vs Gastos por mes
+// 5) Ingresos vs Gastos por mes (vista por AÑO)
 // GET /club/:clubId/reportes/ingresos-vs-gastos
 // ===============================
-router.get('/:clubId/reportes/ingresos-vs-gastos', requireAuth, requireClubAccess, async (req, res) => {
-  const { clubId } = req.params;
-  const MESES = [
-    'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
-  ];
+router.get(
+  '/:clubId/reportes/ingresos-vs-gastos',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
 
-  try {
-    const q = `
-      WITH ingresos AS (
+    try {
+      const q = `
+        WITH ingresos AS (
+          SELECT
+            EXTRACT(YEAR FROM pm.fecha_pago)::int AS anio,
+            SUM(pm.monto) AS total_ingresos
+          FROM pagos_mensuales pm
+          WHERE pm.club_id = $1
+          GROUP BY
+            EXTRACT(YEAR FROM pm.fecha_pago)
+        ),
+        gastos AS (
+          SELECT
+            EXTRACT(YEAR FROM g.periodo)::int AS anio,
+            SUM(g.monto) AS total_gastos
+          FROM gastos g
+          WHERE g.club_id = $1
+            AND g.activo = true
+          GROUP BY
+            EXTRACT(YEAR FROM g.periodo)
+        )
         SELECT
-          EXTRACT(YEAR  FROM pm.fecha_pago)::int AS anio,
-          EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes,
-          SUM(pm.monto) AS total_ingresos
-        FROM pagos_mensuales pm
-        WHERE pm.club_id = $1
-        GROUP BY
-          EXTRACT(YEAR  FROM pm.fecha_pago),
-          EXTRACT(MONTH FROM pm.fecha_pago)
-      ),
-      gastos AS (
-        SELECT
-          EXTRACT(YEAR  FROM g.periodo)::int AS anio,
-          EXTRACT(MONTH FROM g.periodo)::int AS mes,
-          SUM(g.monto) AS total_gastos
-        FROM gastos g
-        WHERE g.club_id = $1
-          AND g.activo = true
-        GROUP BY
-          EXTRACT(YEAR  FROM g.periodo),
-          EXTRACT(MONTH FROM g.periodo)
-      )
-      SELECT
-        COALESCE(i.anio, g.anio) AS anio,
-        COALESCE(i.mes,  g.mes)  AS mes_num,
-        COALESCE(i.total_ingresos, 0) AS ingresos,
-        COALESCE(g.total_gastos,  0) AS gastos
-      FROM ingresos i
-      FULL OUTER JOIN gastos g
-        ON g.anio = i.anio AND g.mes = i.mes
-      ORDER BY anio, mes_num;
-    `;
+          COALESCE(i.anio, g.anio) AS anio,
+          COALESCE(i.total_ingresos, 0) AS ingresos,
+          COALESCE(g.total_gastos,  0) AS gastos
+        FROM ingresos i
+        FULL OUTER JOIN gastos g
+          ON g.anio = i.anio
+        ORDER BY anio;
+      `;
 
-    const r = await db.query(q, [clubId]);
+      const r = await db.query(q, [clubId]);
 
-    const filas = r.rows.map(row => ({
-      anio: row.anio,
-      mes:  MESES[row.mes_num - 1],
-      ingresos: Number(row.ingresos),
-      gastos:   Number(row.gastos)
-    }));
+      const rows = r.rows.map(row => ({
+        anio: row.anio,
+        ingresos: Number(row.ingresos),
+        gastos: Number(row.gastos),
+        _hasChildren: true   // 👈 importante para que el front muestre la flechita
+      }));
 
-    res.json({
-      ok: true,
-      title: 'Ingresos vs Gastos por mes',
-      description: 'Comparación mensual entre ingresos y gastos del club.',
-      columns: [
-        { key: 'anio',     label: 'Año' },
-        { key: 'mes',      label: 'Mes' },
-        { key: 'ingresos', label: 'Ingresos (ARS)' },
-        { key: 'gastos',   label: 'Gastos (ARS)' }
-      ],
-      rows: filas
-    });
-  } catch (e) {
-    console.error('❌ reporte ingresos-vs-gastos', e);
-    res.status(500).json({ ok: false, error: e.message });
+      res.json({
+        ok: true,
+        title: 'Ingresos vs Gastos por año',
+        description:
+          'Totales anuales de ingresos y gastos. Hacé clic en un año para ver el detalle por mes.',
+        columns: [
+          { key: 'anio',     label: 'Año' },
+          { key: 'ingresos', label: 'Ingresos (ARS)' },
+          { key: 'gastos',   label: 'Gastos (ARS)' }
+        ],
+        rows
+      });
+    } catch (e) {
+      console.error('❌ reporte ingresos-vs-gastos', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
   }
-});
+);
 
 // ===============================
 // DETALLE: Ingresos vs Gastos → meses
@@ -529,7 +525,6 @@ router.get(
           gastos: Number(row.gastos)
         }))
       });
-
     } catch (e) {
       console.error('❌ ingresos-vs-gastos/meses', e);
       res.status(500).json({ ok: false, error: e.message });
