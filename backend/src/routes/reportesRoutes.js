@@ -561,77 +561,74 @@ router.get(
   }
 );
 
-
 // ===============================
-// DETALLE: Ingresos por Tipo → MESES
-// GET /club/:clubId/reportes/ingresos-por-tipo/meses?anio=2024
+// Ingresos por Tipo de ingreso (vista por AÑO)
+// GET /club/:clubId/reportes/ingresos-por-tipo
 // ===============================
 router.get(
-  '/:clubId/reportes/ingresos-por-tipo/meses',
+  '/:clubId/reportes/ingresos-por-tipo',
   requireAuth,
   requireClubAccess,
   async (req, res) => {
     const { clubId } = req.params;
-    const anio = Number(req.query.anio);
-
-    if (!anio)
-      return res.status(400).json({ ok: false, error: 'Falta parámetro anio' });
-
-    const MESES = [
-      'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
-    ];
 
     try {
       const q = `
         WITH cuotas AS (
           SELECT
-            EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes,
+            EXTRACT(YEAR FROM pm.fecha_pago)::int AS anio,
             'Cuotas'::text AS tipo,
             SUM(pm.monto) AS total
           FROM pagos_mensuales pm
-          WHERE pm.club_id = $1 AND pm.anio = $2
-          GROUP BY mes
+          WHERE pm.club_id = $1
+          GROUP BY anio
         ),
         otros AS (
           SELECT
-            EXTRACT(MONTH FROM ig.fecha)::int AS mes,
+            EXTRACT(YEAR FROM ig.fecha)::int AS anio,
             COALESCE(ti.nombre, 'Otros') AS tipo,
             SUM(ig.monto) AS total
           FROM ingresos_generales ig
           LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
           WHERE ig.club_id = $1
             AND ig.activo = true
-            AND EXTRACT(YEAR FROM ig.fecha) = $2
-          GROUP BY mes, tipo
+          GROUP BY anio, tipo
         ),
-        unidos AS (
+        unificados AS (
           SELECT * FROM cuotas
           UNION ALL
           SELECT * FROM otros
         )
         SELECT
-          mes,
-          SUM(total) AS total_mes
-        FROM unidos
-        GROUP BY mes
-        ORDER BY mes;
+          anio,
+          SUM(total) AS total_ingresos
+        FROM unificados
+        GROUP BY anio
+        ORDER BY anio;
       `;
 
-      const r = await db.query(q, [clubId, anio]);
+      const r = await db.query(q, [clubId]);
+
+      const rows = r.rows.map(row => ({
+        anio: row.anio,
+        ingresos: Number(row.total_ingresos),
+        _hasChildren: true
+      }));
 
       res.json({
         ok: true,
-        rows: r.rows.map(row => ({
-          mes: MESES[row.mes - 1],
-          total: Number(row.total_mes),
-          mes_num: row.mes,
-          _hasChildren: true
-        }))
+        title: 'Ingresos por Tipo de ingreso',
+        description:
+          'Totales agrupados por año. Hacé clic en un año para ver los montos por mes.',
+        columns: [
+          { key: 'anio',     label: 'Año' },
+          { key: 'ingresos', label: 'Total (ARS)' }
+        ],
+        rows
       });
 
     } catch (e) {
-      console.error('❌ ingresos-por-tipo/meses', e);
+      console.error('❌ ingresos-por-tipo', e);
       res.status(500).json({ ok: false, error: e.message });
     }
   }
@@ -711,6 +708,7 @@ router.get(
     }
   }
 );
+
 
 // ===============================
 // DETALLE: Ingresos por Tipo → TIPOS dentro del mes
