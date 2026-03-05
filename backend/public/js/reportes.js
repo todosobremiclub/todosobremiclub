@@ -342,7 +342,7 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         openDetalleModal(reporteId, payload);
       });
 
-      // click en flecha ▶ para desplegar detalle
+     // click en flecha ▶ para desplegar detalle
       content.addEventListener('click', async (ev) => {
         const toggle = ev.target.closest('.toggle');
         if (!toggle) return;
@@ -353,11 +353,11 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         const hasChildren = tr.dataset.hasChildren === '1';
         if (!hasChildren) return;
 
-        const rowId = tr.dataset.id;
+        const rowId     = tr.dataset.id;
         const reporteId = tr.dataset.reporte;
         const actividad = tr.dataset.actividad;
-        const anio = tr.dataset.anio;
-        const childRow = document.getElementById(`child-${rowId}`);
+        const anio      = tr.dataset.anio;
+        const childRow  = document.getElementById(`child-${rowId}`);
         const childContainer = childRow.querySelector('.child-container');
 
         // Toggle UI
@@ -371,7 +371,7 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         // Abrir
         toggle.textContent = '▼';
         childRow.classList.remove('hidden');
-        childContainer.innerHTML = '&lt;div class="muted"&gt;Cargando...&lt;/div&gt;';
+        childContainer.innerHTML = '<div class="muted">Cargando...</div>';
 
         const clubId = getActiveClubId();
         let url = '';
@@ -384,18 +384,18 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         } else if (reporteId === 'ingreso-fecha-pago') {
           url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`;
         } else {
-          childContainer.innerHTML = '&lt;div class="muted"&gt;Detalle no disponible para este reporte.&lt;/div&gt;';
+          childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
           return;
         }
 
-        const { res, data } = await fetchAuth(url);
+        const { data } = await fetchAuth(url);
         if (!data.ok) {
-          childContainer.innerHTML = '&lt;div class="muted" style="color:#b91c1c"&gt;Error al cargar detalle&lt;/div&gt;';
+          childContainer.innerHTML = '<div class="muted" style="color:#b91c1c">Error al cargar detalle</div>';
           return;
         }
 
         if (!data.rows.length) {
-          childContainer.innerHTML = '&lt;div class="muted"&gt;Sin datos&lt;/div&gt;';
+          childContainer.innerHTML = '<div class="muted">Sin datos</div>';
           return;
         }
 
@@ -403,65 +403,67 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
 
         if (reporteId === 'socios-actividad-categoria') {
           html = `
-            &lt;table class="socios-table" style="background:#fafafa;"&gt;
-              &lt;thead&gt;
-                &lt;tr&gt;
-                  &lt;th&gt;Categoría&lt;/th&gt;
-                  &lt;th&gt;Cantidad&lt;/th&gt;
-                &lt;/tr&gt;
-              &lt;/thead&gt;
-              &lt;tbody&gt;
-                ${data.rows.map(r =&gt; `
-                  &lt;tr&gt;
-                    &lt;td&gt;${r.categoria}&lt;/td&gt;
-                    &lt;td&gt;${r.cantidad}&lt;/td&gt;
-                  &lt;/tr&gt;
+            <table class="socios-table" style="background:#fafafa;">
+              <thead>
+                <tr>
+                  <th>Categoría</th>
+                  <th>Cantidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.rows.map(r => `
+                  <tr>
+                    <td>${r.categoria}</td>
+                    <td>${r.cantidad}</td>
+                  </tr>
                 `).join('')}
-              &lt;/tbody&gt;
-            &lt;/table&gt;
+              </tbody>
+            </table>
           `;
         } else if (reporteId === 'socios-nuevos-mes') {
           html = `
-            &lt;table class="socios-table" style="background:#fafafa;"&gt;
-              &lt;thead&gt;
-                &lt;tr&gt;
-                  &lt;th&gt;Mes&lt;/th&gt;
-                  &lt;th&gt;Cantidad&lt;/th&gt;
-                &lt;/tr&gt;
-              &lt;/thead&gt;
-              &lt;tbody&gt;
-                ${data.rows.map(r =&gt; `
-                  &lt;tr&gt;
-                    &lt;td&gt;${r.mes}&lt;/td&gt;
-                    &lt;td&gt;${r.cantidad}&lt;/td&gt;
-                  &lt;/tr&gt;
+            <table class="socios-table" style="background:#fafafa;">
+              <thead>
+                <tr>
+                  <th>Mes</th>
+                  <th>Cantidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.rows.map(r => `
+                  <tr>
+                    <td>${r.mes}</td>
+                    <td>${r.cantidad}</td>
+                  </tr>
                 `).join('')}
-              &lt;/tbody&gt;
-            &lt;/table&gt;
+              </tbody>
+            </table>
           `;
         } else if (reporteId === 'ingreso-fecha-pago') {
           html = `
-            &lt;table class="socios-table" style="background:#fafafa;"&gt;
-              &lt;thead&gt;
-                &lt;tr&gt;
-                  &lt;th&gt;Mes&lt;/th&gt;
-                  &lt;th&gt;Total (ARS)&lt;/th&gt;
-                &lt;/tr&gt;
-              &lt;/thead&gt;
-              &lt;tbody&gt;
-                ${data.rows.map(r =&gt; `
-                  &lt;tr&gt;
-                    &lt;td&gt;${r.mes}&lt;/td&gt;
-                    &lt;td&gt;${r.total}&lt;/td&gt;
-                  &lt;/tr&gt;
+            <table class="socios-table" style="background:#fafafa;">
+              <thead>
+                <tr>
+                  <th>Mes</th>
+                  <th>Total (ARS)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.rows.map(r => `
+                  <tr>
+                    <td>${r.mes}</td>
+                    <td>${r.total}</td>
+                  </tr>
                 `).join('')}
-              &lt;/tbody&gt;
-            &lt;/table&gt;
+              </tbody>
+            </table>
           `;
         }
 
         childContainer.innerHTML = html;
       });
+
+      
     } // ← cierra if (content)
 
   } // ← cierra function bindChips()
