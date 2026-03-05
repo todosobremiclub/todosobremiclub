@@ -885,14 +885,25 @@ $('buscarSocioMini')?.addEventListener('input', (e) => {
   }
 
   async function initPagosSection() {
- bindOnce();
- bindAccordion(); // ✅ acordeones (Pagos / Otros ingresos)
- fillAnios(); 
- await Promise.all([loadSociosAll(), loadCuotas()]); 
- await loadResumen(); 
- // Ingresos (debajo) 
- await loadTiposIngreso().catch(() => {}); // no bloquear si aún no hay tipos 
- await loadIngresos().catch(() => {}); 
+  // Bind de eventos
+  bindOnce();
+  bindAccordion(); // acordeones (Pagos / Otros ingresos)
+
+  // 🔹 FORZAR ESTADO INICIAL RETRAÍDO EN TODOS LOS ACORDEONES DE ESTA SECCIÓN
+  document.querySelectorAll('.section-pagos .accordion-body').forEach(panel => {
+    panel.classList.add('hidden');               // oculta el contenido
+    const acc = panel.closest('.accordion');
+    if (acc) acc.classList.remove('open');       // quita la clase "open" del acordeón
+  });
+
+  // Resto de la inicialización (igual que antes)
+  fillAnios();
+  await Promise.all([loadSociosAll(), loadCuotas()]);
+  await loadResumen();
+
+  // Ingresos (debajo)
+  await loadTiposIngreso().catch(() => {});   // no bloquear si aún no hay tipos
+  await loadIngresos().catch(() => {});
 }
 
   window.initPagosSection = initPagosSection;
