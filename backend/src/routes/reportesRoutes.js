@@ -210,7 +210,6 @@ router.get('/:clubId/reportes/ingreso-fecha-pago', requireAuth, requireClubAcces
   const { clubId } = req.params;
   const { desde, hasta } = req.query; // opcionales
 
-  // Meses en nombre completo
   const MESES = [
     'Enero','Febrero','Marzo','Abril','Mayo','Junio',
     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
@@ -232,21 +231,24 @@ router.get('/:clubId/reportes/ingreso-fecha-pago', requireAuth, requireClubAcces
 
     const q = `
       SELECT
-        EXTRACT(YEAR FROM pm.fecha_pago)::int AS anio,
+        EXTRACT(YEAR  FROM pm.fecha_pago)::int AS anio,
         EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes_num,
         SUM(pm.monto) AS total
       FROM pagos_mensuales pm
       WHERE ${where.join(' AND ')}
-      GROUP BY anio, mes_num
-      ORDER BY anio, mes_num
+      GROUP BY
+        EXTRACT(YEAR  FROM pm.fecha_pago),
+        EXTRACT(MONTH FROM pm.fecha_pago)
+      ORDER BY
+        EXTRACT(YEAR  FROM pm.fecha_pago),
+        EXTRACT(MONTH FROM pm.fecha_pago);
     `;
 
     const r = await db.query(q, params);
 
-    // Convertir mes_num -> nombre del mes
     const filas = r.rows.map(row => ({
       anio: row.anio,
-      mes: MESES[row.mes_num - 1], // ← nombre del mes
+      mes: MESES[row.mes_num - 1],
       total: Number(row.total)
     }));
 
@@ -255,8 +257,8 @@ router.get('/:clubId/reportes/ingreso-fecha-pago', requireAuth, requireClubAcces
       title: 'Ingreso por fecha de pago',
       description: 'Total de ingresos agrupados por el mes y año en que se registró el pago.',
       columns: [
-        { key: 'anio', label: 'Año' },
-        { key: 'mes', label: 'Mes' },
+        { key: 'anio',  label: 'Año' },
+        { key: 'mes',   label: 'Mes' },
         { key: 'total', label: 'Total (ARS)' }
       ],
       rows: filas
