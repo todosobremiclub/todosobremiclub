@@ -359,21 +359,19 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
       const clubId = getActiveClubId();
       let url = '';
 
-      // Elegimos endpoint según el reporte
-      if (reporteId === 'socios-actividad-categoria') {
-        url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
-      } else if (reporteId === 'socios-nuevos-mes') {
-        url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`;
-      } else if (reporteId === 'ingreso-fecha-pago') {
-        url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`;
-      } else {
-        childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
-        return;
-      }
-
-else if (reporteId === 'ingreso-mes-pagado') {
-  url = `/club/${clubId}/reportes/ingreso-mes-pagado/meses?anio=${encodeURIComponent(anio)}`;
-}
+     // Elegimos endpoint según el reporte
+        if (reporteId === 'socios-actividad-categoria') { 
+          url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`; 
+        } else if (reporteId === 'socios-nuevos-mes') { 
+          url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`; 
+        } else if (reporteId === 'ingreso-fecha-pago') { 
+          url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`; 
+        } else if (reporteId === 'ingreso-mes-pagado') { 
+          url = `/club/${clubId}/reportes/ingreso-mes-pagado/meses?anio=${encodeURIComponent(anio)}`; 
+        } else { 
+          childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>'; 
+          return; 
+        }
 
 
       const { data } = await fetchAuth(url);
