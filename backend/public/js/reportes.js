@@ -175,38 +175,61 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
   }
 
   function buildTableHTML(reporteId, data) {
-    const rows = data.rows ?? [];
-    const cols = (data.columns && data.columns.length)
-      ? data.columns
-      : inferColumns(rows);
+  const rows = data.rows ?? [];
+  const cols = (data.columns && data.columns.length)
+    ? data.columns
+    : inferColumns(rows);
 
-    if (!cols.length) {
-      return '<div class="muted">No hay datos para mostrar.</div>';
-    }
-
-    let thead = '<tr>';
-    cols.forEach(c => { thead += `<th>${c.label}</th>`; });
-    thead += '</tr>';
-
-    let tbody = '';
-    rows.forEach((row, idx) => {
-      const rowId = row.id ?? row.socio_id ?? row.key ?? idx;
-      const label = row.label ?? row.nombre ?? row.descripcion ?? '';
-      const extra = row.extra ?? '';
-      tbody += `<tr data-id="${rowId}" data-reporte="${reporteId}" data-label="${label}" data-extra="${extra}">
-        ${cols.map(c => `<td>${row[c.key] ?? ''}</td>`).join('')}
-      </tr>`;
-    });
-
-    return `
-      <div class="table-wrapper">
-        <table class="socios-table">
-          <thead>${thead}</thead>
-          <tbody>${tbody}</tbody>
-        </table>
-      </div>
-    `;
+  if (!cols.length) {
+    return '<div class="muted">No hay datos para mostrar.</div>';
   }
+
+  // Agregamos columna de flecha si hay hijos
+  const hasChildren = rows.some(r => r._hasChildren);
+
+  let thead = '<tr>';
+  if (hasChildren) {
+    thead += '<th></th>';  // columna flecha
+  }
+  cols.forEach(c => { thead += `<th>${c.label}</th>`; });
+  thead += '</tr>';
+
+  let tbody = '';
+
+  rows.forEach((row, idx) => {
+    const rowId = row.id ?? row.actividad ?? ('row-' + idx);
+    const label = row.actividad ?? row.categoria ?? '';
+
+    tbody += `
+      <tr class="main-row" 
+          data-id="${rowId}" 
+          data-reporte="${reporteId}" 
+          data-label="${label}"
+          data-actividad="${row.actividad ?? ''}"
+          data-has-children="${row._hasChildren ? '1' : '0'}">
+
+        ${row._hasChildren ? `<td class="toggle">▶</td>` : `<td></td>`}
+        ${cols.map(c => `<td>${row[c.key] ?? ''}</td>`).join('')}
+      </tr>
+
+      <!-- contenedor donde insertaremos el detalle -->
+      <tr class="child-row hidden" id="child-${rowId}">
+        <td colspan="${cols.length + 1}">
+          <div class="child-container"></div>
+        </td>
+      </tr>
+    `;
+  });
+
+  return `
+    <div class="table-wrapper">
+      <table class="socios-table">
+        <thead>${thead}</thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>
+  `;
+}
 
   function showLoading(container, msg = 'Cargando...') {
     container.innerHTML = `<div class="muted">${msg}</div>`;
@@ -261,7 +284,7 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
     }
   }
 
-  // =============================
+ // =============================
   // Chips / navegación de reportes
   // =============================
   function bindChips() {
@@ -301,22 +324,75 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
 
         openDetalleModal(reporteId, payload);
       });
-    }
-  }
 
-  async function initReportesSection() {
-    bindChips();
+      // 👇👉 PEGÁ ESTE BLOQUE NUEVO ACÁ, DENTRO DEL if (content) { ... }
 
-    // Cargar el primer reporte activo por defecto
-    const activeChip = document.querySelector('#reportes-section .chip.active')
-      || document.querySelector('#reportes-section .chip[data-reporte]');
-    if (activeChip) {
-      const id = activeChip.dataset.reporte;
-      if (id) {
-        await loadReporte(id);
-      }
-    }
-  }
+      content.addEventListener('click', async (ev) => {
+        const toggle = ev.target.closest('.toggle');
+        if (!toggle) return;
+
+        const tr = toggle.closest('tr.main-row');
+        if (!tr) return;
+
+        const hasChildren = tr.dataset.hasChildren === '1';
+        if (!hasChildren) return;
+
+        const rowId = tr.dataset.id;
+        const actividad = tr.dataset.actividad;
+        const childRow = document.getElementById(`child-${rowId}`);
+        const childContainer = childRow.querySelector('.child-container');
+
+        // Toggle UI
+        const isOpen = !childRow.classList.contains('hidden');
+        if (isOpen) {
+          childRow.classList.add('hidden');
+          toggle.textContent = '▶';
+          return;
+        }
+
+        // Abrir
+        toggle.textContent = '▼';
+        childRow.classList.remove('hidden');
+        childContainer.innerHTML = '<div class="muted">Cargando...</div>';
+
+        const clubId = getActiveClubId();
+        const url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
+
+        const { res, data } = await fetchAuth(url);
+        if (!data.ok) {
+          childContainer.innerHTML = '<div class="muted" style="color:#b91c1c">Error al cargar detalle</div>';
+          return;
+        }
+
+        if (!data.rows.length) {
+          childContainer.innerHTML = '<div class="muted">Sin categorías</div>';
+          return;
+        }
+
+        const html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>Categoría</th>
+                <th>Cantidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
+                <tr>
+                  <td>${r.categoria}</td>
+                  <td>${r.cantidad}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+
+        childContainer.innerHTML = html;
+      });
+    } // ← cierra if (content)
+
+  } // ← cierra function bindChips()
 
 async function cargarDetalleDesdeFila(tr) {
   const clubId = getActiveClubId();
