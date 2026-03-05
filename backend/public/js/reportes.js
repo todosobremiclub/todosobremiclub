@@ -201,11 +201,12 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
     const label = row.actividad ?? row.categoria ?? '';
 
     tbody += `
-      <tr class="main-row" 
+      <tr class="main-row"
           data-id="${rowId}" 
           data-reporte="${reporteId}" 
           data-label="${label}"
           data-actividad="${row.actividad ?? ''}"
+          data-anio="${row.anio ?? ''}"
           data-has-children="${row._hasChildren ? '1' : '0'}">
 
         ${hasChildren ? (row._hasChildren ? `<td class="toggle">▶</td>` : `<td></td>`) : ''}
@@ -338,7 +339,9 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         if (!hasChildren) return;
 
         const rowId = tr.dataset.id;
+        const reporteId = tr.dataset.reporte;
         const actividad = tr.dataset.actividad;
+        const anio = tr.dataset.anio;
         const childRow = document.getElementById(`child-${rowId}`);
         const childContainer = childRow.querySelector('.child-container');
 
@@ -356,7 +359,17 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         childContainer.innerHTML = '<div class="muted">Cargando...</div>';
 
         const clubId = getActiveClubId();
-        const url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
+        let url = '';
+        
+        if (reporteId === 'socios-actividad-categoria') {
+          url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
+        } else if (reporteId === 'socios-nuevos-mes') {
+          url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`;
+        } else {
+          // Por ahora solo manejamos estos dos reportes
+          childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
+          return;
+        }
 
         const { res, data } = await fetchAuth(url);
         if (!data.ok) {
@@ -365,28 +378,51 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         }
 
         if (!data.rows.length) {
-          childContainer.innerHTML = '<div class="muted">Sin categorías</div>';
+          childContainer.innerHTML = '<div class="muted">Sin datos</div>';
           return;
         }
 
-        const html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Categoría</th>
-                <th>Cantidad</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
+        let html = '';
+
+        if (reporteId === 'socios-actividad-categoria') {
+          html = `
+            <table class="socios-table" style="background:#fafafa;">
+              <thead>
                 <tr>
-                  <td>${r.categoria}</td>
-                  <td>${r.cantidad}</td>
+                  <th>Categoría</th>
+                  <th>Cantidad</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
+              </thead>
+              <tbody>
+                ${data.rows.map(r => `
+                  <tr>
+                    <td>${r.categoria}</td>
+                    <td>${r.cantidad}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        } else if (reporteId === 'socios-nuevos-mes') {
+          html = `
+            <table class="socios-table" style="background:#fafafa;">
+              <thead>
+                <tr>
+                  <th>Mes</th>
+                  <th>Cantidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.rows.map(r => `
+                  <tr>
+                    <td>${r.mes}</td>
+                    <td>${r.cantidad}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
 
         childContainer.innerHTML = html;
       });

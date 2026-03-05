@@ -26,46 +26,7 @@ function getYearFromQuery(q) {
   return n && n >= 2000 && n <= 2100 ? n : now.getFullYear();
 }
 // ===============================
-// 1) Cantidad de socios por Actividad
-// GET /club/:clubId/reportes/socios-actividad
-// ===============================
-router.get('/:clubId/reportes/socios-actividad', requireAuth, requireClubAccess, async (req, res) => {
-  const { clubId } = req.params;
-
-  try {
-    const r = await db.query(
-      `
-      SELECT
-        COALESCE(actividad, 'Sin actividad') AS actividad,
-        COUNT(*) AS cantidad
-      FROM socios
-      WHERE club_id = $1
-        AND activo = true
-      GROUP BY actividad
-      ORDER BY actividad
-      `,
-      [clubId]
-    );
-
-    res.json({
-      ok: true,
-      title: 'Cantidad de socios por Actividad',
-      description: 'Total de socios activos agrupados por actividad.',
-      columns: [
-        { key: 'actividad', label: 'Actividad' },
-        { key: 'cantidad', label: 'Cantidad' }
-      ],
-      rows: r.rows
-    });
-
-  } catch (e) {
-    console.error('❌ reporte socios-actividad', e);
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
-// ===============================
-// 2) Socios por Actividad / Categoría
+// 1) Socios por Actividad / Categoría
 // Vista principal: SOLO por Actividad (retraído)
 // El detalle por Categoría se obtiene desde /detalle
 // ===============================
@@ -149,51 +110,43 @@ router.get('/:clubId/reportes/socios-actividad-categoria/detalle', requireAuth, 
 
 
 // ===============================
-// 3) Socios nuevos x fecha de ingreso x mes
+// 2) Socios nuevos x fecha de ingreso x AÑO
 // GET /club/:clubId/reportes/socios-nuevos-mes
 // ===============================
 router.get('/:clubId/reportes/socios-nuevos-mes', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-
-  // Array de nombres de meses (1 → Enero)
-  const MESES = [
-    'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
-  ];
 
   try {
     const r = await db.query(
       `
       SELECT
         EXTRACT(YEAR FROM fecha_ingreso)::int AS anio,
-        EXTRACT(MONTH FROM fecha_ingreso)::int AS mes_num,
-        COUNT(*) AS cantidad
+        COUNT(*) AS total
       FROM socios
       WHERE club_id = $1
         AND fecha_ingreso IS NOT NULL
-      GROUP BY anio, mes_num
-      ORDER BY anio, mes_num
+      GROUP BY anio
+      ORDER BY anio
       `,
       [clubId]
     );
 
-    // Convertir el número de mes a nombre de mes
-    const filas = r.rows.map(row => ({
+    // Cada año tendrá flecha (_hasChildren) para desplegar meses
+    const rows = r.rows.map(row => ({
       anio: row.anio,
-      mes: MESES[row.mes_num - 1],   // ← mes con nombre completo
-      cantidad: row.cantidad
+      cantidad: Number(row.total),
+      _hasChildren: true
     }));
 
     res.json({
       ok: true,
-      title: 'Socios nuevos por mes',
-      description: 'Cantidad de socios ingresados por mes según fecha de ingreso.',
+      title: 'Socios nuevos por año',
+      description: 'Cantidad de socios ingresados por año. Hacé clic en un año para ver el detalle por mes.',
       columns: [
-        { key: 'anio', label: 'Año' },
-        { key: 'mes', label: 'Mes' },
+        { key: 'anio',     label: 'Año' },
         { key: 'cantidad', label: 'Cantidad' }
       ],
-      rows: filas
+      rows
     });
 
   } catch (e) {
@@ -203,7 +156,54 @@ router.get('/:clubId/reportes/socios-nuevos-mes', requireAuth, requireClubAccess
 });
 
 // ===============================
-// 4) Ingreso por fecha de pago
+// DETALLE MESES: Socios nuevos por mes dentro de un año
+// GET /club/:clubId/reportes/socios-nuevos-mes/meses?anio=2024
+// ===============================
+router.get('/:clubId/reportes/socios-nuevos-mes/meses', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const anio = Number(req.query.anio);
+
+  if (!anio) {
+    return res.status(400).json({ ok: false, error: 'Parametro "anio" es obligatorio' });
+  }
+
+  const MESES = [
+    'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+  ];
+
+  try {
+    const r = await db.query(
+      `
+      SELECT
+        EXTRACT(MONTH FROM fecha_ingreso)::int AS mes_num,
+        COUNT(*) AS cantidad
+      FROM socios
+      WHERE club_id = $1
+        AND fecha_ingreso IS NOT NULL
+        AND EXTRACT(YEAR FROM fecha_ingreso) = $2
+      GROUP BY mes_num
+      ORDER BY mes_num
+      `,
+      [clubId, anio]
+    );
+
+    const rows = r.rows.map(row => ({
+      mes: MESES[row.mes_num - 1],
+      cantidad: Number(row.cantidad)
+    }));
+
+    res.json({ ok: true, rows });
+
+  } catch (e) {
+    console.error('❌ detalle meses socios-nuevos-mes', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
+// ===============================
+// 3) Ingreso por fecha de pago
 // GET /club/:clubId/reportes/ingreso-fecha-pago?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
 // ===============================
 router.get('/:clubId/reportes/ingreso-fecha-pago', requireAuth, requireClubAccess, async (req, res) => {
@@ -269,7 +269,7 @@ router.get('/:clubId/reportes/ingreso-fecha-pago', requireAuth, requireClubAcces
 });
 
 // ===============================
-// 5) Ingreso por mes pagado
+// 4) Ingreso por mes pagado
 // GET /club/:clubId/reportes/ingreso-mes-pagado
 // ===============================
 router.get('/:clubId/reportes/ingreso-mes-pagado', requireAuth, requireClubAccess, async (req, res) => {
@@ -322,7 +322,7 @@ router.get('/:clubId/reportes/ingreso-mes-pagado', requireAuth, requireClubAcces
 });
 
 // ===============================
-// 6) Ingresos vs Gastos por mes
+// 5) Ingresos vs Gastos por mes
 // GET /club/:clubId/reportes/ingresos-vs-gastos
 // ===============================
 router.get('/:clubId/reportes/ingresos-vs-gastos', requireAuth, requireClubAccess, async (req, res) => {
@@ -396,7 +396,7 @@ router.get('/:clubId/reportes/ingresos-vs-gastos', requireAuth, requireClubAcces
 });
 
 // ===============================
-// 7) Ingresos por Tipo de ingreso (incluye cuotas)
+// 6) Ingresos por Tipo de ingreso (incluye cuotas)
 // GET /club/:clubId/reportes/ingresos-por-tipo
 // ===============================
 router.get('/:clubId/reportes/ingresos-por-tipo', requireAuth, requireClubAccess, async (req, res) => {
@@ -451,7 +451,7 @@ router.get('/:clubId/reportes/ingresos-por-tipo', requireAuth, requireClubAccess
 });
 
 // ===============================
-// 8) Gastos por Tipo de gasto
+// 7) Gastos por Tipo de gasto
 // GET /club/:clubId/reportes/gastos-por-tipo
 // ===============================
 router.get('/:clubId/reportes/gastos-por-tipo', requireAuth, requireClubAccess, async (req, res) => {
@@ -507,7 +507,7 @@ router.get('/:clubId/reportes/gastos-por-tipo', requireAuth, requireClubAccess, 
 });
 
 // ===============================
-// 9) Gastos por Responsable por mes
+// 8) Gastos por Responsable por mes
 // GET /club/:clubId/reportes/gastos-responsable-mes
 // ===============================
 router.get('/:clubId/reportes/gastos-responsable-mes', requireAuth, requireClubAccess, async (req, res) => {
