@@ -394,6 +394,23 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
 
   } // ← cierra function bindChips()
 
+async function initReportesSection() {
+    // Enlazar botones/chips una sola vez
+    bindChips();
+
+    // Cargar el primer reporte activo por defecto
+    const activeChip =
+      document.querySelector('#reportes-section .chip.active') ||
+      document.querySelector('#reportes-section .chip[data-reporte]');
+
+    if (activeChip) {
+      const id = activeChip.dataset.reporte;
+      if (id) {
+        await loadReporte(id);
+      }
+    }
+  }
+
 async function cargarDetalleDesdeFila(tr) {
   const clubId = getActiveClubId();
   const reporteId = tr.dataset.reporte;
