@@ -328,6 +328,21 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
 
       // 👇👉 PEGÁ ESTE BLOQUE NUEVO ACÁ, DENTRO DEL if (content) { ... }
 
+      if (content) {
+      content.addEventListener('dblclick', (ev) => {
+        const tr = ev.target.closest('tr[data-id][data-reporte]');
+        if (!tr) return;
+
+        const reporteId = tr.dataset.reporte;
+        const id = tr.dataset.id;
+        const label = tr.dataset.label || '';
+        const extra = tr.dataset.extra || '';
+
+        const payload = { id, label, extra };
+        openDetalleModal(reporteId, payload);
+      });
+
+      // click en flecha ▶ para desplegar detalle
       content.addEventListener('click', async (ev) => {
         const toggle = ev.target.closest('.toggle');
         if (!toggle) return;
@@ -356,29 +371,31 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         // Abrir
         toggle.textContent = '▼';
         childRow.classList.remove('hidden');
-        childContainer.innerHTML = '<div class="muted">Cargando...</div>';
+        childContainer.innerHTML = '&lt;div class="muted"&gt;Cargando...&lt;/div&gt;';
 
         const clubId = getActiveClubId();
         let url = '';
-        
+
+        // Elegimos endpoint según el reporte
         if (reporteId === 'socios-actividad-categoria') {
           url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
         } else if (reporteId === 'socios-nuevos-mes') {
           url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`;
+        } else if (reporteId === 'ingreso-fecha-pago') {
+          url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`;
         } else {
-          // Por ahora solo manejamos estos dos reportes
-          childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
+          childContainer.innerHTML = '&lt;div class="muted"&gt;Detalle no disponible para este reporte.&lt;/div&gt;';
           return;
         }
 
         const { res, data } = await fetchAuth(url);
         if (!data.ok) {
-          childContainer.innerHTML = '<div class="muted" style="color:#b91c1c">Error al cargar detalle</div>';
+          childContainer.innerHTML = '&lt;div class="muted" style="color:#b91c1c"&gt;Error al cargar detalle&lt;/div&gt;';
           return;
         }
 
         if (!data.rows.length) {
-          childContainer.innerHTML = '<div class="muted">Sin datos</div>';
+          childContainer.innerHTML = '&lt;div class="muted"&gt;Sin datos&lt;/div&gt;';
           return;
         }
 
@@ -386,41 +403,60 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
 
         if (reporteId === 'socios-actividad-categoria') {
           html = `
-            <table class="socios-table" style="background:#fafafa;">
-              <thead>
-                <tr>
-                  <th>Categoría</th>
-                  <th>Cantidad</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.rows.map(r => `
-                  <tr>
-                    <td>${r.categoria}</td>
-                    <td>${r.cantidad}</td>
-                  </tr>
+            &lt;table class="socios-table" style="background:#fafafa;"&gt;
+              &lt;thead&gt;
+                &lt;tr&gt;
+                  &lt;th&gt;Categoría&lt;/th&gt;
+                  &lt;th&gt;Cantidad&lt;/th&gt;
+                &lt;/tr&gt;
+              &lt;/thead&gt;
+              &lt;tbody&gt;
+                ${data.rows.map(r =&gt; `
+                  &lt;tr&gt;
+                    &lt;td&gt;${r.categoria}&lt;/td&gt;
+                    &lt;td&gt;${r.cantidad}&lt;/td&gt;
+                  &lt;/tr&gt;
                 `).join('')}
-              </tbody>
-            </table>
+              &lt;/tbody&gt;
+            &lt;/table&gt;
           `;
         } else if (reporteId === 'socios-nuevos-mes') {
           html = `
-            <table class="socios-table" style="background:#fafafa;">
-              <thead>
-                <tr>
-                  <th>Mes</th>
-                  <th>Cantidad</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.rows.map(r => `
-                  <tr>
-                    <td>${r.mes}</td>
-                    <td>${r.cantidad}</td>
-                  </tr>
+            &lt;table class="socios-table" style="background:#fafafa;"&gt;
+              &lt;thead&gt;
+                &lt;tr&gt;
+                  &lt;th&gt;Mes&lt;/th&gt;
+                  &lt;th&gt;Cantidad&lt;/th&gt;
+                &lt;/tr&gt;
+              &lt;/thead&gt;
+              &lt;tbody&gt;
+                ${data.rows.map(r =&gt; `
+                  &lt;tr&gt;
+                    &lt;td&gt;${r.mes}&lt;/td&gt;
+                    &lt;td&gt;${r.cantidad}&lt;/td&gt;
+                  &lt;/tr&gt;
                 `).join('')}
-              </tbody>
-            </table>
+              &lt;/tbody&gt;
+            &lt;/table&gt;
+          `;
+        } else if (reporteId === 'ingreso-fecha-pago') {
+          html = `
+            &lt;table class="socios-table" style="background:#fafafa;"&gt;
+              &lt;thead&gt;
+                &lt;tr&gt;
+                  &lt;th&gt;Mes&lt;/th&gt;
+                  &lt;th&gt;Total (ARS)&lt;/th&gt;
+                &lt;/tr&gt;
+              &lt;/thead&gt;
+              &lt;tbody&gt;
+                ${data.rows.map(r =&gt; `
+                  &lt;tr&gt;
+                    &lt;td&gt;${r.mes}&lt;/td&gt;
+                    &lt;td&gt;${r.total}&lt;/td&gt;
+                  &lt;/tr&gt;
+                `).join('')}
+              &lt;/tbody&gt;
+            &lt;/table&gt;
           `;
         }
 

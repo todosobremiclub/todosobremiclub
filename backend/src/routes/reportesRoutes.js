@@ -203,12 +203,67 @@ router.get('/:clubId/reportes/socios-nuevos-mes/meses', requireAuth, requireClub
 
 
 // ===============================
-// 3) Ingreso por fecha de pago
-// GET /club/:clubId/reportes/ingreso-fecha-pago?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
+// 3) Ingreso por fecha de pago (AÑO → detalle por MES)
 // ===============================
 router.get('/:clubId/reportes/ingreso-fecha-pago', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { desde, hasta } = req.query; // opcionales
+  const { desde, hasta } = req.query;
+
+  try {
+    const where = ['pm.club_id = $1'];
+    const params = [clubId];
+    let p = 2;
+
+    if (desde) { where.push(`pm.fecha_pago >= $${p++}`); params.push(desde); }
+    if (hasta) { where.push(`pm.fecha_pago <= $${p++}`); params.push(hasta); }
+
+    const q = `
+      SELECT
+        EXTRACT(YEAR FROM pm.fecha_pago)::int AS anio,
+        SUM(pm.monto) AS total
+      FROM pagos_mensuales pm
+      WHERE ${where.join(' AND ')}
+      GROUP BY anio
+      ORDER BY anio;
+    `;
+
+    const r = await db.query(q, params);
+
+    // marcas para tabla expandible
+    const rows = r.rows.map(row => ({
+      anio: row.anio,
+      total: Number(row.total),
+      _hasChildren: true
+    }));
+
+    res.json({
+      ok: true,
+      title: 'Ingreso por fecha de pago (por Año)',
+      description: 'Totales agrupados por año. Hacé clic para ver meses y montos.',
+      columns: [
+        { key: 'anio',  label: 'Año' },
+        { key: 'total', label: 'Total (ARS)' }
+      ],
+      rows
+    });
+
+  } catch (e) {
+    console.error('❌ ingreso-fecha-pago', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ===============================
+// DETALLE: Ingreso por fecha de pago → meses
+// GET /club/:clubId/reportes/ingreso-fecha-pago/meses?anio=2024
+// ===============================
+router.get('/:clubId/reportes/ingreso-fecha-pago/meses', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const anio = Number(req.query.anio);
+
+  if (!anio) {
+    return res.status(400).json({ ok: false, error: 'Falta el parámetro anio' });
+  }
 
   const MESES = [
     'Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -216,59 +271,32 @@ router.get('/:clubId/reportes/ingreso-fecha-pago', requireAuth, requireClubAcces
   ];
 
   try {
-    const where = ['pm.club_id = $1'];
-    const params = [clubId];
-    let p = 2;
-
-    if (desde) {
-      where.push(`pm.fecha_pago >= $${p++}`);
-      params.push(desde);
-    }
-    if (hasta) {
-      where.push(`pm.fecha_pago <= $${p++}`);
-      params.push(hasta);
-    }
-
     const q = `
       SELECT
-        EXTRACT(YEAR  FROM pm.fecha_pago)::int AS anio,
         EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes_num,
         SUM(pm.monto) AS total
       FROM pagos_mensuales pm
-      WHERE ${where.join(' AND ')}
-      GROUP BY
-        EXTRACT(YEAR  FROM pm.fecha_pago),
-        EXTRACT(MONTH FROM pm.fecha_pago)
-      ORDER BY
-        EXTRACT(YEAR  FROM pm.fecha_pago),
-        EXTRACT(MONTH FROM pm.fecha_pago);
+      WHERE pm.club_id = $1
+        AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+      GROUP BY mes_num
+      ORDER BY mes_num;
     `;
 
-    const r = await db.query(q, params);
+    const r = await db.query(q, [clubId, anio]);
 
-    const filas = r.rows.map(row => ({
-      anio: row.anio,
+    const rows = r.rows.map(row => ({
       mes: MESES[row.mes_num - 1],
       total: Number(row.total)
     }));
 
-    res.json({
-      ok: true,
-      title: 'Ingreso por fecha de pago',
-      description: 'Total de ingresos agrupados por el mes y año en que se registró el pago.',
-      columns: [
-        { key: 'anio',  label: 'Año' },
-        { key: 'mes',   label: 'Mes' },
-        { key: 'total', label: 'Total (ARS)' }
-      ],
-      rows: filas
-    });
+    res.json({ ok: true, rows });
 
   } catch (e) {
-    console.error('❌ reporte ingreso-fecha-pago', e);
+    console.error('❌ ingreso-fecha-pago/meses', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+
 
 // ===============================
 // 4) Ingreso por mes pagado
