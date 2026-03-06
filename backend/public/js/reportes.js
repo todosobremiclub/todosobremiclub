@@ -378,10 +378,13 @@ if (reporteId === 'socios-actividad-categoria') {
   url = `/club/${clubId}/reportes/ingresos-vs-gastos/meses?anio=${encodeURIComponent(anio)}`;
 } else if (reporteId === 'ingresos-por-tipo') {        // ← 👈 AGREGADO
   url = `/club/${clubId}/reportes/ingresos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
+} else if (reporteId === 'gastos-por-tipo') {
+  url = `/club/${clubId}/reportes/gastos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
 } else {
   childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
   return;
 }
+
 
 
 
@@ -462,6 +465,8 @@ if (reporteId === 'socios-actividad-categoria') {
       </tbody>
     </table>
   `;
+
+
 } else if (reporteId === 'ingresos-por-tipo') {
   html = `
     <table class="socios-table" style="background:#fafafa;">
@@ -491,7 +496,91 @@ if (reporteId === 'socios-actividad-categoria') {
       </tbody>
     </table>
   `;
+
+} else if (reporteId === 'gastos-por-tipo') {
+  html = `
+    <table class="socios-table" style="background:#fafafa;">
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th>Total (ARS)</th>
+          <th>Detalle</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.rows.map(r => `
+          <tr>
+            <td>${r.mes}</td>
+            <td>${r.total}</td>
+            <td>
+              <button
+                class="btn btn-secondary btn-sm"
+                data-act="ver-tipos-gasto"
+                data-anio="${anio}"
+                data-mes="${r.mes_num}">
+                Ver por tipo
+              </button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
 }
+
+// Click en "Ver por tipo" dentro del detalle de gastos-por-tipo
+content.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button[data-act="ver-tipos-gasto"]');
+  if (!btn) return;
+
+  const clubId = getActiveClubId();
+  const anio = btn.dataset.anio;
+  const mes  = btn.dataset.mes;
+
+  try {
+    const url = `/club/${clubId}/reportes/gastos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
+    const { data } = await fetchAuth(url);
+
+    if (!data.ok) {
+      alert(data.error || 'Error cargando detalle por tipo de gasto');
+      return;
+    }
+
+    const rows = data.rows;
+
+    const html = `
+      <table class="socios-table" style="background:#fafafa;">
+        <thead>
+          <tr>
+            <th>Tipo de gasto</th>
+            <th>Total (ARS)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${r.tipo_gasto}</td>
+              <td>${r.total}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    openDetalleModal('gastos-por-tipo', {
+      label: `Año ${anio} · Mes ${mes}`,
+      raw: {},
+      html
+    });
+
+    // Sobrescribimos el body del modal con la tabla
+    document.querySelector('#repDetBody').innerHTML = html;
+
+  } catch (e) {
+    console.error(e);
+    alert('Error cargando detalle por tipo de gasto');
+  }
+});
 
 else if (reporteId === 'ingreso-fecha-pago') {
         html = `

@@ -771,61 +771,146 @@ router.get(
 );
 
 // ===============================
-// 7) Gastos por Tipo de gasto
+// Gastos por Tipo de gasto (vista por AÑO)
 // GET /club/:clubId/reportes/gastos-por-tipo
 // ===============================
-router.get('/:clubId/reportes/gastos-por-tipo', requireAuth, requireClubAccess, async (req, res) => {
-  const { clubId } = req.params;
+router.get(
+  '/:clubId/reportes/gastos-por-tipo',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
 
-  const MESES = [
-    'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
-  ];
+    try {
+      const q = `
+        SELECT
+          EXTRACT(YEAR FROM g.periodo)::int AS anio,
+          SUM(g.monto) AS total
+        FROM gastos g
+        WHERE g.club_id = $1
+          AND g.activo = true
+        GROUP BY EXTRACT(YEAR FROM g.periodo)
+        ORDER BY anio;
+      `;
 
-  try {
-    const r = await db.query(
-      `
-      SELECT
-        EXTRACT(YEAR FROM g.periodo)::int  AS anio,
-        EXTRACT(MONTH FROM g.periodo)::int AS mes_num,
-        COALESCE(tg.nombre, 'Sin tipo')    AS tipo_gasto,
-        SUM(g.monto)                       AS total
-      FROM gastos g
-      LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
-      WHERE g.club_id = $1
-        AND g.activo = true
-      GROUP BY anio, mes_num, tipo_gasto
-      ORDER BY anio, mes_num, tipo_gasto
-      `,
-      [clubId]
-    );
+      const r = await db.query(q, [clubId]);
 
-    const filas = r.rows.map(row => ({
-      anio: row.anio,
-      mes: MESES[row.mes_num - 1],
-      tipo_gasto: row.tipo_gasto,
-      total: Number(row.total)
-    }));
+      const rows = r.rows.map(row => ({
+        anio: row.anio,
+        total: Number(row.total),
+        _hasChildren: true
+      }));
 
-    res.json({
-      ok: true,
-      title: 'Gastos por Tipo de gasto',
-      description: 'Total de gastos agrupados por año, mes y tipo de gasto.',
-      columns: [
-        { key: 'anio',       label: 'Año' },
-        { key: 'mes',        label: 'Mes' },
-        { key: 'tipo_gasto', label: 'Tipo de gasto' },
-        { key: 'total',      label: 'Total (ARS)' }
-      ],
-      rows: filas
-    });
-
-  } catch (e) {
-    console.error('❌ reporte gastos-por-tipo', e);
-    res.status(500).json({ ok: false, error: e.message });
+      res.json({
+        ok: true,
+        title: 'Gastos por Tipo de gasto',
+        description: 'Totales anuales de gastos. Hacé clic en un año para ver los montos por mes.',
+        columns: [
+          { key: 'anio',  label: 'Año' },
+          { key: 'total', label: 'Total (ARS)' }
+        ],
+        rows
+      });
+    } catch (e) {
+      console.error('❌ reporte gastos-por-tipo (anual)', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
   }
-});
+);
 
+// ===============================
+// DETALLE: Gastos por Tipo → MESES
+// GET /club/:clubId/reportes/gastos-por-tipo/meses?anio=2024
+// ===============================
+router.get(
+  '/:clubId/reportes/gastos-por-tipo/meses',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+
+    if (!anio) {
+      return res.status(400).json({ ok: false, error: 'Falta parámetro anio' });
+    }
+
+    const MESES = [
+      'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+    ];
+
+    try {
+      const q = `
+        SELECT
+          EXTRACT(MONTH FROM g.periodo)::int AS mes,
+          SUM(g.monto) AS total
+        FROM gastos g
+        WHERE g.club_id = $1
+          AND g.activo = true
+          AND EXTRACT(YEAR FROM g.periodo) = $2
+        GROUP BY EXTRACT(MONTH FROM g.periodo)
+        ORDER BY mes;
+      `;
+
+      const r = await db.query(q, [clubId, anio]);
+
+      res.json({
+        ok: true,
+        rows: r.rows.map(row => ({
+          mes: MESES[row.mes - 1],
+          total: Number(row.total),
+          mes_num: row.mes,
+          _hasChildren: true
+        }))
+      });
+    } catch (e) {
+      console.error('❌ gastos-por-tipo/meses', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
+// DETALLE: Gastos por Tipo → TIPOS dentro del mes
+// GET /club/:clubId/reportes/gastos-por-tipo/tipos?anio=2024&mes=3
+// ===============================
+router.get(
+  '/:clubId/reportes/gastos-por-tipo/tipos',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes  = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({ ok: false, error: 'Faltan parámetros' });
+    }
+
+    try {
+      const q = `
+        SELECT
+          COALESCE(tg.nombre, 'Sin tipo') AS tipo_gasto,
+          SUM(g.monto) AS total
+        FROM gastos g
+        LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
+        WHERE g.club_id = $1
+          AND g.activo = true
+          AND EXTRACT(YEAR FROM g.periodo) = $2
+          AND EXTRACT(MONTH FROM g.periodo) = $3
+        GROUP BY COALESCE(tg.nombre, 'Sin tipo')
+        ORDER BY tipo_gasto;
+      `;
+
+      const r = await db.query(q, [clubId, anio, mes]);
+
+      res.json({ ok: true, rows: r.rows });
+    } catch (e) {
+      console.error('❌ gastos-por-tipo/tipos', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
 // ===============================
 // 8) Gastos por Responsable por mes
 // GET /club/:clubId/reportes/gastos-responsable-mes
