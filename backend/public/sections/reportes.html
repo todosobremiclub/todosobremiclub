@@ -16,29 +16,17 @@
       Socios nuevos por mes
     </div>
 
-    <div class="chip" data-reporte="ingreso-fecha-pago">
-      Ingreso por fecha de pago
-    </div>
+    <div class="chip" data-reporte="ingreso-fecha-pago">Cuota por fecha de pago</div>
 
-    <div class="chip" data-reporte="ingreso-mes-pagado">
-      Ingreso por mes pagado
-    </div>
+    <div class="chip" data-reporte="ingreso-mes-pagado">Cuota por mes pagado</div>
 
-    <div class="chip" data-reporte="ingresos-vs-gastos">
-      Ingresos vs Gastos por mes
-    </div>
+    <div class="chip" data-reporte="ingresos-vs-gastos">Ingresos vs Gastos</div>
 
-    <div class="chip" data-reporte="ingresos-por-tipo">
-      Ingresos por Tipo de ingreso
-    </div>
+    <div class="chip" data-reporte="ingresos-por-tipo">Ingresos Totales</div>
 
-    <div class="chip" data-reporte="gastos-por-tipo">
-      Gastos por Tipo de gasto
-    </div>
+    <div class="chip" data-reporte="gastos-por-tipo">Gastos</div>
 
-    <div class="chip" data-reporte="gastos-responsable-mes">
-      Gastos por Responsable por mes
-    </div>
+    <div class="chip" data-reporte="gastos-responsable-mes">Gastos por cuenta</div>
 
   </div>
 
@@ -52,62 +40,63 @@
   </div>
 
 </section>
-
 <style>
 
-  /* ------------------------------
-      CHIPS – estilo igual imagen
-  ------------------------------ */
-  .reportes-chips{
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-    margin-bottom:18px;
-  }
+/* ------------------------------
+    CHIPS – colores del CLUB
+------------------------------ */
+.reportes-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:18px;
+}
 
+.chip{
+  padding:10px 16px;
+  background: var(--color-secondary);   /* color del club */
+  color: white;
+  border-radius:20px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  transition: all .2s ease;
+  box-shadow:0 1px 3px rgba(0,0,0,0.15);
+  white-space:nowrap;
+}
+
+.chip:hover{
+  background: var(--color-primary);     /* hover con color principal */
+  color:white;
+}
+
+.chip.active{
+  background: var(--color-primary) !important;  /* activo = color principal */
+  color:white !important;
+}
+
+/* ------------------------------
+    CONTENEDOR DEL REPORTE
+------------------------------ */
+.reportes-content{
+  border:1px solid #ddd;
+  background:#fff;
+  padding:16px;
+  border-radius:12px;
+  min-height:120px;
+}
+
+/* ------------------------------
+    RESPONSIVE
+------------------------------ */
+@media(max-width:600px){
   .chip{
-    padding:10px 16px;
-    background:#f4dce4;          /* rosa pastel */
-    color:#5a2a3b;               /* vino oscuro */
-    border-radius:20px;
-    font-size:14px;
-    font-weight:600;
-    cursor:pointer;
-    transition: all .2s ease;
-    box-shadow:0 1px 3px rgba(0,0,0,0.15);
-    white-space:nowrap;
+    width:100%;
+    text-align:center;
   }
+}
 
-  .chip:hover{
-    background:#e8c7d2;
-  }
-
-  .chip.active{
-    background:#9a5064 !important;
-    color:white !important;
-  }
-
-  /* ------------------------------
-      CONTENEDOR DEL REPORTE
-  ------------------------------ */
-  .reportes-content{
-    border:1px solid #ddd;
-    background:#fff;
-    padding:16px;
-    border-radius:12px;
-    min-height:120px;
-  }
-
-  /* ------------------------------
-      RESPONSIVE
-  ------------------------------ */
-  @media(max-width:600px){
-    .chip{
-      width:100%;
-      text-align:center;
-    }
-  }
-
+/* Flechita del acordeón */
 .toggle {
   cursor: pointer;
   width: 20px;
@@ -115,13 +104,14 @@
   font-weight: bold;
 }
 
+/* Filas hijas */
 .child-row.hidden {
   display: none;
 }
 
 .child-row td {
   background: #fafafa;
-  border-left: 3px solid #ccc;
+  border-left: 3px solid var(--color-primary);
 }
 
 </style>
