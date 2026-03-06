@@ -53,7 +53,6 @@
 
   // =============================
   // Definición de reportes
-  // (claves deben matchear data-reporte en reportes.html)
   // =============================
   const REPORTS = {
     'socios-actividad': {
@@ -309,7 +308,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
     const content = $('reportesContent');
     if (!content) return;
 
-    // Doble click -> modal JSON (para usos futuros)
+    // Doble click -> modal JSON
     content.addEventListener('dblclick', (ev) => {
       const tr = ev.target.closest('tr[data-id][data-reporte]');
       if (!tr) return;
@@ -367,7 +366,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
         url = `/club/${clubId}/reportes/ingresos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
       } else if (reporteId === 'gastos-por-tipo') {
         url = `/club/${clubId}/reportes/gastos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
-      } else if (reporteId === 'gastos-responsable-mes') {   // 👈 NUEVO
+      } else if (reporteId === 'gastos-responsable-mes') {
         url = `/club/${clubId}/reportes/gastos-responsable-mes/meses?anio=${encodeURIComponent(anio)}`;
       } else {
         childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
@@ -523,9 +522,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
             </tbody>
           </table>
         `;
-      }
-
-} else if (reporteId === 'gastos-responsable-mes') {
+      } else if (reporteId === 'gastos-responsable-mes') {
         html = `
           <table class="socios-table" style="background:#fafafa;">
             <thead>
@@ -555,7 +552,6 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
           </table>
         `;
       }
-
 
       childContainer.innerHTML = html;
     });
@@ -659,9 +655,8 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
         alert('Error cargando detalle');
       }
     });
-  }
 
-// Click en "Ver responsables" - Gastos por Responsable por mes
+    // Click en "Ver responsables" - Gastos por Responsable por mes
     content.addEventListener('click', async (ev) => {
       const btn = ev.target.closest('button[data-act="ver-responsables-gasto"]');
       if (!btn) return;
@@ -710,6 +705,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
         alert('Error cargando detalle por responsable');
       }
     });
+  }
 
   // =============================
   // Init
@@ -729,7 +725,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
     }
   }
 
-  // Stub por compatibilidad (si algún código lo llama)
+  // Stub por compatibilidad
   async function cargarDetalleDesdeFila(tr) {
     const clubId = getActiveClubId();
     const reporteId = tr.dataset.reporte;
