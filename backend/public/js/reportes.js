@@ -164,6 +164,8 @@
 
 modal.classList.remove('hidden');
 
+}
+
   // =============================
   // Render de tablas genéricas
   // Espera un shape de API:
