@@ -434,6 +434,7 @@ if (reporteId === 'socios-actividad-categoria') {
       </tbody>
     </table>
   `;
+
 } else if (reporteId === 'ingresos-vs-gastos') {
   html = `
     <table class="socios-table" style="background:#fafafa;">
@@ -520,6 +521,36 @@ else if (reporteId === 'ingreso-mes-pagado') {
 
       childContainer.innerHTML = html;
     });
+
+// Click en "Ver por tipo" dentro del detalle de ingresos-por-tipo
+  content.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-act="ver-tipos-ingreso"]');
+    if (!btn) return;
+
+    const clubId = getActiveClubId();
+    const anio = btn.dataset.anio;
+    const mes  = btn.dataset.mes;
+    const mesLabel = btn.closest('tr')?.children?.[0]?.textContent ?? '';
+
+    try {
+      const url = `/club/${clubId}/reportes/ingresos-por-tipo/tipos?anio=${encodeURIComponent(anio)}&mes=${encodeURIComponent(mes)}`;
+      const { data } = await fetchAuth(url);
+
+      if (!data.ok) {
+        alert(data.error || 'Error cargando detalle por tipo de ingreso');
+        return;
+      }
+
+      // Usamos el modal genérico pero con info linda
+      openDetalleModal('ingresos-por-tipo', {
+        label: `Año ${anio} · ${mesLabel}`,
+        raw: data.rows
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Error cargando detalle por tipo de ingreso');
+    }
+  });
 
   } // ← cierra function bindChips()
 
