@@ -1,6 +1,87 @@
-// public/js/reportes.js
-(() => {
-  const $ = (id) => document.getElementById(id);
+// Doble click -> detalle del reporte
+content.addEventListener('dblclick', async (ev) => {
+  const tr = ev.target.closest('tr[data-id][data-reporte]');
+  if (!tr) return;
+
+  const reporteId = tr.dataset.reporte;
+  const label = tr.dataset.label || '';
+  const clubId = getActiveClubId();
+
+  try {
+    // === Socios por Actividad / Categoría: detalle de socios por ACTIVIDAD ===
+    if (reporteId === 'socios-actividad-categoria') {
+      const actividad = tr.dataset.actividad || label;
+
+      const params = new URLSearchParams({
+        actividad,
+        activo: '1'
+      });
+
+      const url = `/club/${clubId}/reportes/socios-actividad/detalle?${params.toString()}`;
+      const { data } = await fetchAuth(url);
+
+      if (!data.ok) {
+        alert(data.error || 'Error al cargar el detalle de socios.');
+        return;
+      }
+
+      const rows = data.rows || [];
+
+      let html;
+      if (!rows.length) {
+        html = '<div class="muted">No hay socios para esta actividad.</div>';
+      } else {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>N° Socio</th>
+                <th>DNI</th>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Actividad</th>
+                <th>Categoría</th>
+                <th>Teléfono</th>
+                <th>Fecha ingreso</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(s => `
+                <tr>
+                  <td>${s.numero_socio ?? ''}</td>
+                  <td>${s.dni ?? ''}</td>
+                  <td>${s.nombre ?? ''}</td>
+                  <td>${s.apellido ?? ''}</td>
+                  <td>${s.actividad ?? ''}</td>
+                  <td>${s.categoria ?? ''}</td>
+                  <td>${s.telefono ?? ''}</td>
+                  <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0,10) : ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      openDetalleModal('socios-actividad-categoria', {
+        label: actividad,
+        raw: rows,
+        html
+      });
+
+      return; // 👈 importante: no seguir al fallback
+    }
+
+    // === Fallback para los demás reportes (por ahora) ===
+    const id    = tr.dataset.id;
+    const extra = tr.dataset.extra || '';
+    openDetalleModal(reporteId, { id, label, extra });
+
+  } catch (e) {
+    console.error(e);
+    alert('Error cargando detalle del reporte.');
+  }
+});
 
   // =============================
   // Auth / helpers
