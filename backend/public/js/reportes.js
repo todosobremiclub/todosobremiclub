@@ -401,208 +401,110 @@ if (reporteId === 'socios-actividad-categoria') {
 
       let html = '';
 
-      if (reporteId === 'socios-actividad-categoria') {
-  html = `
-    <table class="socios-table" style="background:#fafafa;">
-      <thead>
-        <tr>
-          <th>Categoría</th>
-          <th>Cantidad</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.rows.map(r => `
-          <tr>
-            <td>${r.categoria}</td>
-            <td>${r.cantidad}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-
-} else if (reporteId === 'ingreso-mes-pagado') {
-  html = `
-    <table class="socios-table" style="background:#fafafa;">
-      <thead>
-        <tr>
-          <th>Mes</th>
-          <th>Total (ARS)</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.rows.map(r => `
-          <tr>
-            <td>${r.mes}</td>
-            <td>${r.total}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-
-} else if (reporteId === 'ingresos-vs-gastos') {
-  html = `
-    <table class="socios-table" style="background:#fafafa;">
-      <thead>
-        <tr>
-          <th>Mes</th>
-          <th>Ingresos (ARS)</th>
-          <th>Gastos (ARS)</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.rows.map(r => `
-          <tr>
-            <td>${r.mes}</td>
-            <td>${r.ingresos}</td>
-            <td>${r.gastos}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-
-
-} else if (reporteId === 'ingresos-por-tipo') {
-  html = `
-    <table class="socios-table" style="background:#fafafa;">
-      <thead>
-        <tr>
-          <th>Mes</th>
-          <th>Total (ARS)</th>
-          <th>Detalle</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.rows.map(r => `
-          <tr>
-            <td>${r.mes}</td>
-            <td>${r.total}</td>
-            <td>
-              <button 
-                class="btn btn-secondary btn-sm"
-                data-act="ver-tipos-ingreso"
-                data-anio="${anio}"
-                data-mes="${r.mes_num}">
-                Ver por tipo
-              </button>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-
-} else if (reporteId === 'gastos-por-tipo') {
-  html = `
-    <table class="socios-table" style="background:#fafafa;">
-      <thead>
-        <tr>
-          <th>Mes</th>
-          <th>Total (ARS)</th>
-          <th>Detalle</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.rows.map(r => `
-          <tr>
-            <td>${r.mes}</td>
-            <td>${r.total}</td>
-            <td>
-              <button
-                class="btn btn-secondary btn-sm"
-                data-act="ver-tipos-gasto"
-                data-anio="${anio}"
-                data-mes="${r.mes_num}">
-                Ver por tipo
-              </button>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-}
-
-// Click en "Ver por tipo" dentro del detalle de gastos-por-tipo
-content.addEventListener('click', async (ev) => {
-  const btn = ev.target.closest('button[data-act="ver-tipos-gasto"]');
-  if (!btn) return;
-
-  const clubId = getActiveClubId();
-  const anio = btn.dataset.anio;
-  const mes  = btn.dataset.mes;
-
-  try {
-    const url = `/club/${clubId}/reportes/gastos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
-    const { data } = await fetchAuth(url);
-
-    if (!data.ok) {
-      alert(data.error || 'Error cargando detalle por tipo de gasto');
-      return;
+    if (reporteId === 'socios-actividad-categoria') {
+      html = `
+        <table class="socios-table" style="background:#fafafa;">
+          <thead>
+            <tr>
+              <th>Categoría</th>
+              <th>Cantidad</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.rows.map(r => `
+              <tr>
+                <td>${r.categoria}</td>
+                <td>${r.cantidad}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else if (reporteId === 'socios-nuevos-mes') {
+      // TODO: acá va tu render de socios-nuevos-mes, si lo tenías
+      // (si no, podés dejarlo vacío o armar una tabla similar)
+        } else if (reporteId === 'ingresos-vs-gastos') {
+      html = `
+        <table class="socios-table" style="background:#fafafa;">
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th>Ingresos (ARS)</th>
+              <th>Gastos (ARS)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.rows.map(r => `
+              <tr>
+                <td>${r.mes}</td>
+                <td>${r.ingresos}</td>
+                <td>${r.gastos}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else if (reporteId === 'ingresos-por-tipo') {
+      html = `
+        <table class="socios-table" style="background:#fafafa;">
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th>Total (ARS)</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.rows.map(r => `
+              <tr>
+                <td>${r.mes}</td>
+                <td>${r.total}</td>
+                <td>
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    data-act="ver-tipos-ingreso"
+                    data-anio="${anio}"
+                    data-mes="${r.mes_num}">
+                    Ver por tipo
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else if (reporteId === 'gastos-por-tipo') {
+      html = `
+        <table class="socios-table" style="background:#fafafa;">
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th>Total (ARS)</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.rows.map(r => `
+              <tr>
+                <td>${r.mes}</td>
+                <td>${r.total}</td>
+                <td>
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    data-act="ver-tipos-gasto"
+                    data-anio="${anio}"
+                    data-mes="${r.mes_num}">
+                    Ver por tipo
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
     }
 
-    const rows = data.rows;
-
-    const html = `
-      <table class="socios-table" style="background:#fafafa;">
-        <thead>
-          <tr>
-            <th>Tipo de gasto</th>
-            <th>Total (ARS)</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r => `
-            <tr>
-              <td>${r.tipo_gasto}</td>
-              <td>${r.total}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
-
-    openDetalleModal('gastos-por-tipo', {
-      label: `Año ${anio} · Mes ${mes}`,
-      raw: {},
-      html
-    });
-
-    // Sobrescribimos el body del modal con la tabla
-    document.querySelector('#repDetBody').innerHTML = html;
-
-  } catch (e) {
-    console.error(e);
-    alert('Error cargando detalle por tipo de gasto');
-  }
-});
-
-else if (reporteId === 'ingreso-fecha-pago') {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th>Total (ARS)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
-                <tr>
-                  <td>${r.mes}</td>
-                  <td>${r.total}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      }
-
-
-      childContainer.innerHTML = html;
-    });
+    childContainer.innerHTML = html;
 
 // Click en "Ver por tipo" dentro del detalle de ingresos-por-tipo
 content.addEventListener('click', async (ev) => {
