@@ -151,16 +151,18 @@
     }
 
     if (bodyEl) {
-      // Por ahora mostramos JSON bonito; luego se puede reemplazar por tabla específica
-      bodyEl.innerHTML = `
-        <pre style="background:#f9fafb; padding:10px; border-radius:8px; font-size:12px; overflow:auto;">
-${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
-        </pre>
-      `;
-    }
-
-    modal.classList.remove('hidden');
+  if (payload.html) {
+    bodyEl.innerHTML = payload.html;
+  } else {
+    bodyEl.innerHTML = `
+      <pre style="background:#f9fafb; padding:10px; border-radius:8px; font-size:12px; overflow:auto;">
+        ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
+      </pre>
+    `;
   }
+}
+
+modal.classList.remove('hidden');
 
   // =============================
   // Render de tablas genéricas
@@ -456,13 +458,14 @@ if (reporteId === 'socios-actividad-categoria') {
       </tbody>
     </table>
   `;
-} else if (reporteId === 'ingresos-por-tipo') {           // ← 👈 AGREGADO
+} else if (reporteId === 'ingresos-por-tipo') {
   html = `
     <table class="socios-table" style="background:#fafafa;">
       <thead>
         <tr>
           <th>Mes</th>
           <th>Total (ARS)</th>
+          <th>Detalle</th>
         </tr>
       </thead>
       <tbody>
@@ -470,6 +473,15 @@ if (reporteId === 'socios-actividad-categoria') {
           <tr>
             <td>${r.mes}</td>
             <td>${r.total}</td>
+            <td>
+              <button 
+                class="btn btn-secondary btn-sm"
+                data-act="ver-tipos-ingreso"
+                data-anio="${anio}"
+                data-mes="${r.mes_num}">
+                Ver por tipo
+              </button>
+            </td>
           </tr>
         `).join('')}
       </tbody>
@@ -523,34 +535,59 @@ else if (reporteId === 'ingreso-mes-pagado') {
     });
 
 // Click en "Ver por tipo" dentro del detalle de ingresos-por-tipo
-  content.addEventListener('click', async (ev) => {
-    const btn = ev.target.closest('button[data-act="ver-tipos-ingreso"]');
-    if (!btn) return;
+content.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button[data-act="ver-tipos-ingreso"]');
+  if (!btn) return;
 
-    const clubId = getActiveClubId();
-    const anio = btn.dataset.anio;
-    const mes  = btn.dataset.mes;
-    const mesLabel = btn.closest('tr')?.children?.[0]?.textContent ?? '';
+  const clubId = getActiveClubId();
+  const anio = btn.dataset.anio;
+  const mes  = btn.dataset.mes;
 
-    try {
-      const url = `/club/${clubId}/reportes/ingresos-por-tipo/tipos?anio=${encodeURIComponent(anio)}&mes=${encodeURIComponent(mes)}`;
-      const { data } = await fetchAuth(url);
+  try {
+    const url = `/club/${clubId}/reportes/ingresos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
+    const { data } = await fetchAuth(url);
 
-      if (!data.ok) {
-        alert(data.error || 'Error cargando detalle por tipo de ingreso');
-        return;
-      }
-
-      // Usamos el modal genérico pero con info linda
-      openDetalleModal('ingresos-por-tipo', {
-        label: `Año ${anio} · ${mesLabel}`,
-        raw: data.rows
-      });
-    } catch (e) {
-      console.error(e);
-      alert('Error cargando detalle por tipo de ingreso');
+    if (!data.ok) {
+      alert(data.error || "Error cargando detalle por tipo");
+      return;
     }
-  });
+
+    // Mostramos tabla en modal (no JSON)
+    const rows = data.rows;
+
+    let html = `
+      <table class="socios-table" style="background:#fafafa;">
+        <thead>
+          <tr>
+            <th>Tipo de Ingreso</th>
+            <th>Total (ARS)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${r.tipo}</td>
+              <td>${r.total}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+
+    openDetalleModal("ingresos-por-tipo", {
+      label: `Año ${anio} · Mes ${mes}`,
+      raw: {},
+      html
+    });
+
+    // Sobrescribimos contenido del modal
+    document.querySelector("#repDetBody").innerHTML = html;
+
+  } catch (e) {
+    console.error(e);
+    alert("Error cargando detalle");
+  }
+});
 
   } // ← cierra function bindChips()
 
