@@ -136,34 +136,36 @@
   }
 
   function openDetalleModal(reporteId, payload) {
-    const meta = REPORTS[reporteId] ?? { titulo: 'Detalle', descripcion: '' };
-    const modal = ensureDetalleModal();
-    const titleEl = modal.querySelector('#repDetTitle');
-    const subEl = modal.querySelector('#repDetSub');
-    const bodyEl = modal.querySelector('#repDetBody');
+  const meta = REPORTS[reporteId] ?? { titulo: 'Detalle', descripcion: '' };
+  const modal = ensureDetalleModal();
+  const titleEl = modal.querySelector('#repDetTitle');
+  const subEl   = modal.querySelector('#repDetSub');
+  const bodyEl  = modal.querySelector('#repDetBody');
 
-    if (titleEl) titleEl.textContent = `Detalle - ${meta.titulo}`;
-    if (subEl) {
-      const info = [];
-      if (payload?.label) info.push(payload.label);
-      if (payload?.extra) info.push(payload.extra);
-      subEl.textContent = info.join(' · ');
-    }
-
-    if (bodyEl) {
-  if (payload.html) {
-    bodyEl.innerHTML = payload.html;
-  } else {
-    bodyEl.innerHTML = `
-      <pre style="background:#f9fafb; padding:10px; border-radius:8px; font-size:12px; overflow:auto;">
-        ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
-      </pre>
-    `;
+  if (titleEl) {
+    titleEl.textContent = `Detalle - ${meta.titulo}`;
   }
-}
 
-modal.classList.remove('hidden');
+  if (subEl) {
+    const info = [];
+    if (payload?.label) info.push(payload.label);
+    if (payload?.extra) info.push(payload.extra);
+    subEl.textContent = info.join(' · ');
+  }
 
+  if (bodyEl) {
+    if (payload.html) {
+      bodyEl.innerHTML = payload.html;
+    } else {
+      bodyEl.innerHTML = `
+        <pre style="background:#f9fafb; padding:10px; border-radius:8px; font-size:12px; overflow:auto;">
+${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
+        </pre>
+      `;
+    }
+  }
+
+  modal.classList.remove('hidden');
 }
 
   // =============================
