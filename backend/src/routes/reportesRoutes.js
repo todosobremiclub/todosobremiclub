@@ -956,7 +956,8 @@ router.get(
       console.error('❌ reporte gastos-responsable-mes (anual)', e);
       res.status(500).json({ ok: false, error: e.message });
     }
-  }
+  }	
+);
 
 // ===============================
 // DETALLE: Gastos por Responsable → MESES
@@ -1052,7 +1053,7 @@ router.get(
   }
 );
 
-);// ============================================================
+// ============================================================
 // DETALLES DE REPORTES
 // ------------------------------------------------------------
 // Todas devuelven:
