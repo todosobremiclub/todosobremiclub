@@ -34,8 +34,11 @@
     const res = await fetch(url, { ...rest, headers });
     const text = await res.text();
     let data;
-    try { data = JSON.parse(text); }
-    catch { data = { ok: false, error: text }; }
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { ok: false, error: text };
+    }
 
     if (res.status === 401) {
       localStorage.removeItem('token');
@@ -92,7 +95,7 @@
   };
 
   // =============================
-  // Modal de detalle (doble click)
+  // Modal de detalle
   // =============================
   function ensureDetalleModal() {
     let modal = document.getElementById('reportesDetalleModal');
@@ -135,44 +138,41 @@
     return modal;
   }
 
-  function openDetalleModal(reporteId, payload) {
-  const meta = REPORTS[reporteId] ?? { titulo: 'Detalle', descripcion: '' };
-  const modal = ensureDetalleModal();
-  const titleEl = modal.querySelector('#repDetTitle');
-  const subEl   = modal.querySelector('#repDetSub');
-  const bodyEl  = modal.querySelector('#repDetBody');
+  function openDetalleModal(reporteId, payload = {}) {
+    const meta = REPORTS[reporteId] ?? { titulo: 'Detalle', descripcion: '' };
+    const modal = ensureDetalleModal();
+    const titleEl = modal.querySelector('#repDetTitle');
+    const subEl   = modal.querySelector('#repDetSub');
+    const bodyEl  = modal.querySelector('#repDetBody');
 
-  if (titleEl) {
-    titleEl.textContent = `Detalle - ${meta.titulo}`;
-  }
-
-  if (subEl) {
-    const info = [];
-    if (payload?.label) info.push(payload.label);
-    if (payload?.extra) info.push(payload.extra);
-    subEl.textContent = info.join(' · ');
-  }
-
-  if (bodyEl) {
-    if (payload.html) {
-      bodyEl.innerHTML = payload.html;
-    } else {
-      bodyEl.innerHTML = `
-        <pre style="background:#f9fafb; padding:10px; border-radius:8px; font-size:12px; overflow:auto;">
-${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
-        </pre>
-      `;
+    if (titleEl) {
+      titleEl.textContent = `Detalle - ${meta.titulo}`;
     }
-  }
 
-  modal.classList.remove('hidden');
-}
+    if (subEl) {
+      const info = [];
+      if (payload.label) info.push(payload.label);
+      if (payload.extra) info.push(payload.extra);
+      subEl.textContent = info.join(' · ');
+    }
+
+    if (bodyEl) {
+      if (payload.html) {
+        bodyEl.innerHTML = payload.html;
+      } else {
+        bodyEl.innerHTML = `
+          <pre style="background:#f9fafb; padding:10px; border-radius:8px; font-size:12px; overflow:auto;">
+${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
+          </pre>
+        `;
+      }
+    }
+
+    modal.classList.remove('hidden');
+  }
 
   // =============================
   // Render de tablas genéricas
-  // Espera un shape de API:
-  // { ok:true, columns:[{key,label}], rows:[{...}] }
-  // Si no vienen columns, se infieren de la primera row.
   // =============================
   function inferColumns(rows) {
     const first = rows && rows[0];
@@ -181,62 +181,60 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
   }
 
   function buildTableHTML(reporteId, data) {
-  const rows = data.rows ?? [];
-  const cols = (data.columns && data.columns.length)
-    ? data.columns
-    : inferColumns(rows);
+    const rows = data.rows ?? [];
+    const cols = (data.columns && data.columns.length)
+      ? data.columns
+      : inferColumns(rows);
 
-  if (!cols.length) {
-    return '<div class="muted">No hay datos para mostrar.</div>';
-  }
+    if (!cols.length) {
+      return '<div class="muted">No hay datos para mostrar.</div>';
+    }
 
-  // Agregamos columna de flecha si hay hijos
-  const hasChildren = rows.some(r => r._hasChildren);
+    const hasChildren = rows.some(r => r._hasChildren);
 
-  let thead = '<tr>';
-  if (hasChildren) {
-    thead += '<th></th>';  // columna flecha
-  }
-  cols.forEach(c => { thead += `<th>${c.label}</th>`; });
-  thead += '</tr>';
+    let thead = '<tr>';
+    if (hasChildren) {
+      thead += '<th></th>'; // columna flecha
+    }
+    cols.forEach(c => { thead += `<th>${c.label}</th>`; });
+    thead += '</tr>';
 
-  let tbody = '';
+    let tbody = '';
 
-  rows.forEach((row, idx) => {
-    const rowId = row.id ?? row.actividad ?? ('row-' + idx);
-    const label = row.actividad ?? row.categoria ?? '';
+    rows.forEach((row, idx) => {
+      const rowId = row.id ?? row.actividad ?? ('row-' + idx);
+      const label = row.actividad ?? row.categoria ?? '';
 
-    tbody += `
-      <tr class="main-row"
-          data-id="${rowId}" 
-          data-reporte="${reporteId}" 
-          data-label="${label}"
-          data-actividad="${row.actividad ?? ''}"
-          data-anio="${row.anio ?? ''}"
-          data-has-children="${row._hasChildren ? '1' : '0'}">
+      tbody += `
+        <tr class="main-row"
+            data-id="${rowId}"
+            data-reporte="${reporteId}"
+            data-label="${label}"
+            data-actividad="${row.actividad ?? ''}"
+            data-anio="${row.anio ?? ''}"
+            data-has-children="${row._hasChildren ? '1' : '0'}">
+          ${hasChildren
+            ? (row._hasChildren ? `<td class="toggle">▶</td>` : `<td></td>`)
+            : ''}
+          ${cols.map(c => `<td>${row[c.key] ?? ''}</td>`).join('')}
+        </tr>
+        <tr class="child-row hidden" id="child-${rowId}">
+          <td colspan="${cols.length + 1}">
+            <div class="child-container"></div>
+          </td>
+        </tr>
+      `;
+    });
 
-        ${hasChildren ? (row._hasChildren ? `<td class="toggle">▶</td>` : `<td></td>`) : ''}
-        ${cols.map(c => `<td>${row[c.key] ?? ''}</td>`).join('')}
-      </tr>
-
-      <!-- contenedor donde insertaremos el detalle -->
-      <tr class="child-row hidden" id="child-${rowId}">
-        <td colspan="${cols.length + 1}">
-          <div class="child-container"></div>
-        </td>
-      </tr>
+    return `
+      <div class="table-wrapper">
+        <table class="socios-table">
+          <thead>${thead}</thead>
+          <tbody>${tbody}</tbody>
+        </table>
+      </div>
     `;
-  });
-
-  return `
-    <div class="table-wrapper">
-      <table class="socios-table">
-        <thead>${thead}</thead>
-        <tbody>${tbody}</tbody>
-      </table>
-    </div>
-  `;
-}
+  }
 
   function showLoading(container, msg = 'Cargando...') {
     container.innerHTML = `<div class="muted">${msg}</div>`;
@@ -263,7 +261,6 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
 
     try {
       const clubId = getActiveClubId();
-      // Endpoint sugerido: /club/:clubId/reportes/:reporteId
       const url = `/club/${clubId}/reportes/${reporteId}`;
       const { res, data } = await fetchAuth(url);
 
@@ -272,8 +269,6 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         return;
       }
 
-      // Esperamos algo como:
-      // { ok:true, title, description, columns, rows }
       const title = data.title ?? meta.titulo;
       const desc  = data.description ?? meta.descripcion ?? '';
 
@@ -291,7 +286,7 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
     }
   }
 
- // =============================
+  // =============================
   // Chips / navegación de reportes
   // =============================
   function bindChips() {
@@ -306,29 +301,23 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         const id = chip.dataset.reporte;
         if (!id) return;
 
-        // Activar visualmente
         chips.forEach(c => c.classList.toggle('active', c === chip));
-
-        // Cargar reporte
         loadReporte(id);
       });
     });
 
-    // Doble click sobre filas de datos -> detalle (modal JSON)
     const content = $('reportesContent');
     if (!content) return;
 
+    // Doble click -> modal JSON (para usos futuros)
     content.addEventListener('dblclick', (ev) => {
       const tr = ev.target.closest('tr[data-id][data-reporte]');
       if (!tr) return;
-
       const reporteId = tr.dataset.reporte;
       const id    = tr.dataset.id;
       const label = tr.dataset.label || '';
       const extra = tr.dataset.extra || '';
-
-      const payload = { id, label, extra };
-      openDetalleModal(reporteId, payload);
+      openDetalleModal(reporteId, { id, label, extra });
     });
 
     // Click en flecha ▶ para desplegar detalle (subtabla)
@@ -349,7 +338,6 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
       const childRow  = document.getElementById(`child-${rowId}`);
       const childContainer = childRow.querySelector('.child-container');
 
-      // Toggle UI
       const isOpen = !childRow.classList.contains('hidden');
       if (isOpen) {
         childRow.classList.add('hidden');
@@ -357,7 +345,6 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
         return;
       }
 
-      // Abrir
       toggle.textContent = '▼';
       childRow.classList.remove('hidden');
       childContainer.innerHTML = '<div class="muted">Cargando...</div>';
@@ -365,28 +352,25 @@ ${JSON.stringify(payload?.raw ?? payload ?? {}, null, 2)}
       const clubId = getActiveClubId();
       let url = '';
 
-    // Elegimos endpoint según el reporte
-if (reporteId === 'socios-actividad-categoria') {
-  url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
-} else if (reporteId === 'socios-nuevos-mes') {
-  url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`;
-} else if (reporteId === 'ingreso-fecha-pago') {
-  url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`;
-} else if (reporteId === 'ingreso-mes-pagado') {
-  url = `/club/${clubId}/reportes/ingreso-mes-pagado/meses?anio=${encodeURIComponent(anio)}`;
-} else if (reporteId === 'ingresos-vs-gastos') {
-  url = `/club/${clubId}/reportes/ingresos-vs-gastos/meses?anio=${encodeURIComponent(anio)}`;
-} else if (reporteId === 'ingresos-por-tipo') {        // ← 👈 AGREGADO
-  url = `/club/${clubId}/reportes/ingresos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
-} else if (reporteId === 'gastos-por-tipo') {
-  url = `/club/${clubId}/reportes/gastos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
-} else {
-  childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
-  return;
-}
-
-
-
+      // Elegimos endpoint según el reporte
+      if (reporteId === 'socios-actividad-categoria') {
+        url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
+      } else if (reporteId === 'socios-nuevos-mes') {
+        url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`;
+      } else if (reporteId === 'ingreso-fecha-pago') {
+        url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`;
+      } else if (reporteId === 'ingreso-mes-pagado') {
+        url = `/club/${clubId}/reportes/ingreso-mes-pagado/meses?anio=${encodeURIComponent(anio)}`;
+      } else if (reporteId === 'ingresos-vs-gastos') {
+        url = `/club/${clubId}/reportes/ingresos-vs-gastos/meses?anio=${encodeURIComponent(anio)}`;
+      } else if (reporteId === 'ingresos-por-tipo') {
+        url = `/club/${clubId}/reportes/ingresos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
+      } else if (reporteId === 'gastos-por-tipo') {
+        url = `/club/${clubId}/reportes/gastos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
+      } else {
+        childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
+        return;
+      }
 
       const { data } = await fetchAuth(url);
       if (!data.ok) {
@@ -401,173 +385,254 @@ if (reporteId === 'socios-actividad-categoria') {
 
       let html = '';
 
-    if (reporteId === 'socios-actividad-categoria') {
-      html = `
-        <table class="socios-table" style="background:#fafafa;">
-          <thead>
-            <tr>
-              <th>Categoría</th>
-              <th>Cantidad</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data.rows.map(r => `
+      if (reporteId === 'socios-actividad-categoria') {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
               <tr>
-                <td>${r.categoria}</td>
-                <td>${r.cantidad}</td>
+                <th>Categoría</th>
+                <th>Cantidad</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    } else if (reporteId === 'socios-nuevos-mes') {
-      // TODO: acá va tu render de socios-nuevos-mes, si lo tenías
-      // (si no, podés dejarlo vacío o armar una tabla similar)
-        } else if (reporteId === 'ingresos-vs-gastos') {
-      html = `
-        <table class="socios-table" style="background:#fafafa;">
-          <thead>
-            <tr>
-              <th>Mes</th>
-              <th>Ingresos (ARS)</th>
-              <th>Gastos (ARS)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data.rows.map(r => `
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
+                <tr>
+                  <td>${r.categoria}</td>
+                  <td>${r.cantidad}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (reporteId === 'socios-nuevos-mes') {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
               <tr>
-                <td>${r.mes}</td>
-                <td>${r.ingresos}</td>
-                <td>${r.gastos}</td>
+                <th>Mes</th>
+                <th>Cantidad</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    } else if (reporteId === 'ingresos-por-tipo') {
-      html = `
-        <table class="socios-table" style="background:#fafafa;">
-          <thead>
-            <tr>
-              <th>Mes</th>
-              <th>Total (ARS)</th>
-              <th>Detalle</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data.rows.map(r => `
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
+                <tr>
+                  <td>${r.mes}</td>
+                  <td>${r.cantidad}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (reporteId === 'ingreso-fecha-pago' || reporteId === 'ingreso-mes-pagado') {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
               <tr>
-                <td>${r.mes}</td>
-                <td>${r.total}</td>
-                <td>
-                  <button
-                    class="btn btn-secondary btn-sm"
-                    data-act="ver-tipos-ingreso"
-                    data-anio="${anio}"
-                    data-mes="${r.mes_num}">
-                    Ver por tipo
-                  </button>
-                </td>
+                <th>Mes</th>
+                <th>Total (ARS)</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    } else if (reporteId === 'gastos-por-tipo') {
-      html = `
-        <table class="socios-table" style="background:#fafafa;">
-          <thead>
-            <tr>
-              <th>Mes</th>
-              <th>Total (ARS)</th>
-              <th>Detalle</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data.rows.map(r => `
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
+                <tr>
+                  <td>${r.mes}</td>
+                  <td>${r.total}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (reporteId === 'ingresos-vs-gastos') {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
               <tr>
-                <td>${r.mes}</td>
-                <td>${r.total}</td>
-                <td>
-                  <button
-                    class="btn btn-secondary btn-sm"
-                    data-act="ver-tipos-gasto"
-                    data-anio="${anio}"
-                    data-mes="${r.mes_num}">
-                    Ver por tipo
-                  </button>
-                </td>
+                <th>Mes</th>
+                <th>Ingresos (ARS)</th>
+                <th>Gastos (ARS)</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    }
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
+                <tr>
+                  <td>${r.mes}</td>
+                  <td>${r.ingresos}</td>
+                  <td>${r.gastos}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (reporteId === 'ingresos-por-tipo') {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th>Total (ARS)</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
+                <tr>
+                  <td>${r.mes}</td>
+                  <td>${r.total}</td>
+                  <td>
+                    <button
+                      class="btn btn-secondary btn-sm"
+                      data-act="ver-tipos-ingreso"
+                      data-anio="${anio}"
+                      data-mes="${r.mes_num}">
+                      Ver por tipo
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (reporteId === 'gastos-por-tipo') {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th>Total (ARS)</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
+                <tr>
+                  <td>${r.mes}</td>
+                  <td>${r.total}</td>
+                  <td>
+                    <button
+                      class="btn btn-secondary btn-sm"
+                      data-act="ver-tipos-gasto"
+                      data-anio="${anio}"
+                      data-mes="${r.mes_num}">
+                      Ver por tipo
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
 
-    childContainer.innerHTML = html;
-
-// Click en "Ver por tipo" dentro del detalle de ingresos-por-tipo
-content.addEventListener('click', async (ev) => {
-  const btn = ev.target.closest('button[data-act="ver-tipos-ingreso"]');
-  if (!btn) return;
-
-  const clubId = getActiveClubId();
-  const anio = btn.dataset.anio;
-  const mes  = btn.dataset.mes;
-
-  try {
-    const url = `/club/${clubId}/reportes/ingresos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
-    const { data } = await fetchAuth(url);
-
-    if (!data.ok) {
-      alert(data.error || "Error cargando detalle por tipo");
-      return;
-    }
-
-    // Mostramos tabla en modal (no JSON)
-    const rows = data.rows;
-
-    let html = `
-      <table class="socios-table" style="background:#fafafa;">
-        <thead>
-          <tr>
-            <th>Tipo de Ingreso</th>
-            <th>Total (ARS)</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r => `
-            <tr>
-              <td>${r.tipo}</td>
-              <td>${r.total}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `;
-
-    openDetalleModal("ingresos-por-tipo", {
-      label: `Año ${anio} · Mes ${mes}`,
-      raw: {},
-      html
+      childContainer.innerHTML = html;
     });
 
-    // Sobrescribimos contenido del modal
-    document.querySelector("#repDetBody").innerHTML = html;
+    // Click en "Ver por tipo" - Ingresos por tipo
+    content.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button[data-act="ver-tipos-ingreso"]');
+      if (!btn) return;
 
-  } catch (e) {
-    console.error(e);
-    alert("Error cargando detalle");
+      const clubId = getActiveClubId();
+      const anio = btn.dataset.anio;
+      const mes  = btn.dataset.mes;
+
+      try {
+        const url = `/club/${clubId}/reportes/ingresos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
+        const { data } = await fetchAuth(url);
+
+        if (!data.ok) {
+          alert(data.error || 'Error cargando detalle por tipo');
+          return;
+        }
+
+        const rows = data.rows;
+
+        const html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>Tipo de ingreso</th>
+                <th>Total (ARS)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${r.tipo}</td>
+                  <td>${r.total}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+
+        openDetalleModal('ingresos-por-tipo', {
+          label: `Año ${anio} · Mes ${mes}`,
+          raw: {},
+          html
+        });
+      } catch (e) {
+        console.error(e);
+        alert('Error cargando detalle');
+      }
+    });
+
+    // Click en "Ver por tipo" - Gastos por tipo
+    content.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button[data-act="ver-tipos-gasto"]');
+      if (!btn) return;
+
+      const clubId = getActiveClubId();
+      const anio = btn.dataset.anio;
+      const mes  = btn.dataset.mes;
+
+      try {
+        const url = `/club/${clubId}/reportes/gastos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
+        const { data } = await fetchAuth(url);
+
+        if (!data.ok) {
+          alert(data.error || 'Error cargando detalle por tipo de gasto');
+          return;
+        }
+
+        const rows = data.rows;
+
+        const html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>Tipo de gasto</th>
+                <th>Total (ARS)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${r.tipo_gasto}</td>
+                  <td>${r.total}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+
+        openDetalleModal('gastos-por-tipo', {
+          label: `Año ${anio} · Mes ${mes}`,
+          raw: {},
+          html
+        });
+      } catch (e) {
+        console.error(e);
+        alert('Error cargando detalle');
+      }
+    });
   }
-});
 
-  } // ← cierra function bindChips()
-
-async function initReportesSection() {
-    // Enlazar botones/chips una sola vez
+  // =============================
+  // Init
+  // =============================
+  async function initReportesSection() {
     bindChips();
 
-    // Cargar el primer reporte activo por defecto
     const activeChip =
       document.querySelector('#reportes-section .chip.active') ||
       document.querySelector('#reportes-section .chip[data-reporte]');
@@ -580,36 +645,33 @@ async function initReportesSection() {
     }
   }
 
-async function cargarDetalleDesdeFila(tr) {
-  const clubId = getActiveClubId();
-  const reporteId = tr.dataset.reporte;
+  // Stub por compatibilidad (si algún código lo llama)
+  async function cargarDetalleDesdeFila(tr) {
+    const clubId = getActiveClubId();
+    const reporteId = tr.dataset.reporte;
+    let url = `/club/${clubId}/reportes/${reporteId}/detalle`;
+    const params = new URLSearchParams();
 
-  let url = `/club/${clubId}/reportes/${reporteId}/detalle`;
-  const params = new URLSearchParams();
+    switch (reporteId) {
+      case 'socios-actividad':
+        params.set('actividad', tr.dataset.actividad);
+        break;
+      default:
+        break;
+    }
 
-  switch (reporteId) {
-    case 'socios-actividad':
-      params.set('actividad', tr.dataset.actividad);
-      break;
-    // ... resto de casos según reporte
+    if ([...params].length) {
+      url += `?${params.toString()}`;
+    }
+
+    await fetchAuth(url);
   }
 
-  if ([...params].length) {
-    url += `?${params.toString()}`;
-  }
-
-  const { res, data } = await fetchAuth(url);
-  // luego mostrás data.rows en el modal
-}
-
-  // Exponer para club.js
   window.initReportesSection = initReportesSection;
 
-  // Por si abren reportes.html directo
   document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('reportes-section')) {
       initReportesSection();
     }
   });
-
 })();
