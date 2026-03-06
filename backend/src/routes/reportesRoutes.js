@@ -656,39 +656,39 @@ router.get(
 
     try {
       const q = `
-        WITH cuotas AS (
-          SELECT
-            EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes,
-            'Cuotas'::text AS tipo,
-            SUM(pm.monto) AS total
-          FROM pagos_mensuales pm
-          WHERE pm.club_id = $1 AND pm.anio = $2
-          GROUP BY EXTRACT(MONTH FROM pm.fecha_pago)
-        ),
-        otros AS (
-          SELECT
-            EXTRACT(MONTH FROM ig.fecha)::int AS mes,
-            COALESCE(ti.nombre, 'Otros') AS tipo,
-            SUM(ig.monto) AS total
-          FROM ingresos_generales ig
-          LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
-          WHERE ig.club_id = $1
-            AND ig.activo = true
-            AND EXTRACT(YEAR FROM ig.fecha) = $2
-          GROUP BY EXTRACT(MONTH FROM ig.fecha), tipo
-        ),
-        unidos AS (
-          SELECT * FROM cuotas
-          UNION ALL
-          SELECT * FROM otros
-        )
-        SELECT
-          mes,
-          SUM(total) AS total_mes
-        FROM unidos
-        GROUP BY EXTRACT(MONTH FROM pm.fecha_pago)
-        ORDER BY mes;
-      `;
+  WITH cuotas AS (
+    SELECT
+      EXTRACT(MONTH FROM pm.fecha_pago)::int AS mes,
+      'Cuotas'::text AS tipo,
+      SUM(pm.monto) AS total
+    FROM pagos_mensuales pm
+    WHERE pm.club_id = $1 AND pm.anio = $2
+    GROUP BY EXTRACT(MONTH FROM pm.fecha_pago)
+  ),
+  otros AS (
+    SELECT
+      EXTRACT(MONTH FROM ig.fecha)::int AS mes,
+      COALESCE(ti.nombre, 'Otros') AS tipo,
+      SUM(ig.monto) AS total
+    FROM ingresos_generales ig
+    LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+    WHERE ig.club_id = $1
+      AND ig.activo = true
+      AND EXTRACT(YEAR FROM ig.fecha) = $2
+    GROUP BY EXTRACT(MONTH FROM ig.fecha), tipo
+  ),
+  unidos AS (
+    SELECT * FROM cuotas
+    UNION ALL
+    SELECT * FROM otros
+  )
+  SELECT
+    mes,
+    SUM(total) AS total_mes
+  FROM unidos
+  GROUP BY mes
+  ORDER BY mes;
+`;
 
       const r = await db.query(q, [clubId, anio]);
 
