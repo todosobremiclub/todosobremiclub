@@ -420,10 +420,7 @@ if (reporteId === 'socios-actividad-categoria') {
       </tbody>
     </table>
   `;
-} else if (reporteId === 'socios-nuevos-mes') {
-  // ...
-} else if (reporteId === 'ingreso-fecha-pago') {
-  // ...
+
 } else if (reporteId === 'ingreso-mes-pagado') {
   html = `
     <table class="socios-table" style="background:#fafafa;">
@@ -603,26 +600,6 @@ else if (reporteId === 'ingreso-fecha-pago') {
         `;
       }
 
-else if (reporteId === 'ingreso-mes-pagado') {
-  html = `
-    <table class="socios-table" style="background:#fafafa;">
-      <thead>
-        <tr>
-          <th>Mes</th>
-          <th>Total (ARS)</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.rows.map(r => `
-          <tr>
-            <td>${r.mes}</td>
-            <td>${r.total}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-}
 
       childContainer.innerHTML = html;
     });
