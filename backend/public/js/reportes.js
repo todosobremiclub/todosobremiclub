@@ -68,25 +68,26 @@
       descripcion: 'Cantidad de socios que ingresan por mes.',
     },
     'ingreso-fecha-pago': {
-      titulo: 'Ingreso por fecha de pago',
-      descripcion: 'Total de ingresos según la fecha del pago (registro).',
-    },
+  titulo: 'Cuota por fecha de pago',
+  descripcion: 'Total de cuotas cobradas según la fecha del pago.',
+},
     'ingreso-mes-pagado': {
-      titulo: 'Ingreso por mes pagado',
-      descripcion: 'Total de ingresos según el mes seleccionado al pagar.',
-    },
+  titulo: 'Cuota por mes pagado',
+  descripcion: 'Total de cuotas cobradas según el mes que corresponde al pago.',
+},
     'ingresos-vs-gastos': {
-      titulo: 'Ingresos vs Gastos por mes',
-      descripcion: 'Comparativo mensual entre ingresos y gastos.',
-    },
+  titulo: 'Ingresos vs Gastos',
+  descripcion: 'Comparativo entre ingresos y gastos.',
+},
     'ingresos-por-tipo': {
-      titulo: 'Ingresos por Tipo de ingreso',
-      descripcion: 'Incluye pagos de cuotas y otros tipos de ingreso.',
-    },
+  titulo: 'Ingresos Totales',
+  descripcion: 'Total de ingresos anuales, con detalle por mes y tipo.',
+},
     'gastos-por-tipo': {
-      titulo: 'Gastos por Tipo de gasto',
-      descripcion: 'Total de gastos agrupados por tipo.',
-    },
+  titulo: 'Gastos',
+  descripcion: 'Total de gastos, con detalle por mes y tipo de gasto.',
+},
+
     'gastos-responsable-mes': {
       titulo: 'Gastos por Responsable por mes',
       descripcion: 'Total de gastos agrupados por responsable y mes.',
