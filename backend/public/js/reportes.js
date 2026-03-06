@@ -367,6 +367,8 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
         url = `/club/${clubId}/reportes/ingresos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
       } else if (reporteId === 'gastos-por-tipo') {
         url = `/club/${clubId}/reportes/gastos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
+      } else if (reporteId === 'gastos-responsable-mes') {   // 👈 NUEVO
+        url = `/club/${clubId}/reportes/gastos-responsable-mes/meses?anio=${encodeURIComponent(anio)}`;
       } else {
         childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
         return;
@@ -523,6 +525,38 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
         `;
       }
 
+} else if (reporteId === 'gastos-responsable-mes') {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th>Total (ARS)</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.rows.map(r => `
+                <tr>
+                  <td>${r.mes}</td>
+                  <td>${r.total}</td>
+                  <td>
+                    <button
+                      class="btn btn-secondary btn-sm"
+                      data-act="ver-responsables-gasto"
+                      data-anio="${anio}"
+                      data-mes="${r.mes_num}">
+                      Ver responsables
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+
       childContainer.innerHTML = html;
     });
 
@@ -626,6 +660,56 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
       }
     });
   }
+
+// Click en "Ver responsables" - Gastos por Responsable por mes
+    content.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button[data-act="ver-responsables-gasto"]');
+      if (!btn) return;
+
+      const clubId = getActiveClubId();
+      const anio = btn.dataset.anio;
+      const mes  = btn.dataset.mes;
+
+      try {
+        const url = `/club/${clubId}/reportes/gastos-responsable-mes/responsables?anio=${anio}&mes=${mes}`;
+        const { data } = await fetchAuth(url);
+
+        if (!data.ok) {
+          alert(data.error || 'Error cargando detalle por responsable');
+          return;
+        }
+
+        const rows = data.rows;
+
+        const html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>Responsable</th>
+                <th>Total (ARS)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${r.responsable}</td>
+                  <td>${r.total}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+
+        openDetalleModal('gastos-responsable-mes', {
+          label: `Año ${anio} · Mes ${mes}`,
+          raw: {},
+          html
+        });
+      } catch (e) {
+        console.error(e);
+        alert('Error cargando detalle por responsable');
+      }
+    });
 
   // =============================
   // Init

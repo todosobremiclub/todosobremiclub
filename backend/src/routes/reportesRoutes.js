@@ -912,63 +912,147 @@ router.get(
   }
 );
 // ===============================
-// 8) Gastos por Responsable por mes
+// Gastos por Responsable por mes (vista por AÑO)
 // GET /club/:clubId/reportes/gastos-responsable-mes
 // ===============================
-router.get('/:clubId/reportes/gastos-responsable-mes', requireAuth, requireClubAccess, async (req, res) => {
-  const { clubId } = req.params;
+router.get(
+  '/:clubId/reportes/gastos-responsable-mes',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
 
-  // Meses en nombre completo
-  const MESES = [
-    'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
-  ];
+    try {
+      const q = `
+        SELECT
+          EXTRACT(YEAR FROM g.periodo)::int AS anio,
+          SUM(g.monto) AS total
+        FROM gastos g
+        WHERE g.club_id = $1
+          AND g.activo = true
+        GROUP BY EXTRACT(YEAR FROM g.periodo)
+        ORDER BY anio;
+      `;
 
-  try {
-    const r = await db.query(
-      `
-      SELECT
-        EXTRACT(YEAR FROM g.periodo)::int AS anio,
-        EXTRACT(MONTH FROM g.periodo)::int AS mes_num,
-        COALESCE(rg.nombre, 'Sin responsable') AS responsable,
-        SUM(g.monto) AS total
-      FROM gastos g
-      LEFT JOIN responsables_gasto rg ON rg.id = g.responsable_id
-      WHERE g.club_id = $1
-        AND g.activo = true
-      GROUP BY anio, mes_num, responsable
-      ORDER BY anio, mes_num, responsable
-      `,
-      [clubId]
-    );
+      const r = await db.query(q, [clubId]);
 
-    // Convertir número de mes → nombre completo
-    const filas = r.rows.map(row => ({
-      anio: row.anio,
-      mes: MESES[row.mes_num - 1],
-      responsable: row.responsable,
-      total: Number(row.total)
-    }));
+      const rows = r.rows.map(row => ({
+        anio: row.anio,
+        total: Number(row.total),
+        _hasChildren: true
+      }));
 
-    res.json({
-      ok: true,
-      title: 'Gastos por Responsable por mes',
-      description: 'Total de gastos agrupados por año, mes y responsable.',
-      columns: [
-        { key: 'anio', label: 'Año' },
-        { key: 'mes', label: 'Mes' },
-        { key: 'responsable', label: 'Responsable' },
-        { key: 'total', label: 'Total (ARS)' }
-      ],
-      rows: filas
-    });
-
-  } catch (e) {
-    console.error('❌ reporte gastos-responsable-mes', e);
-    res.status(500).json({ ok: false, error: e.message });
+      res.json({
+        ok: true,
+        title: 'Gastos por Responsable por mes',
+        description: 'Totales anuales de gastos. Hacé clic en un año para ver los montos por mes.',
+        columns: [
+          { key: 'anio',  label: 'Año' },
+          { key: 'total', label: 'Total (ARS)' }
+        ],
+        rows
+      });
+    } catch (e) {
+      console.error('❌ reporte gastos-responsable-mes (anual)', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
   }
-});
-// ============================================================
+
+// ===============================
+// DETALLE: Gastos por Responsable → MESES
+// GET /club/:clubId/reportes/gastos-responsable-mes/meses?anio=2024
+// ===============================
+router.get(
+  '/:clubId/reportes/gastos-responsable-mes/meses',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+
+    if (!anio) {
+      return res.status(400).json({ ok: false, error: 'Falta parámetro anio' });
+    }
+
+    const MESES = [
+      'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+    ];
+
+    try {
+      const q = `
+        SELECT
+          EXTRACT(MONTH FROM g.periodo)::int AS mes,
+          SUM(g.monto) AS total
+        FROM gastos g
+        WHERE g.club_id = $1
+          AND g.activo = true
+          AND EXTRACT(YEAR FROM g.periodo) = $2
+        GROUP BY EXTRACT(MONTH FROM g.periodo)
+        ORDER BY mes;
+      `;
+
+      const r = await db.query(q, [clubId, anio]);
+
+      res.json({
+        ok: true,
+        rows: r.rows.map(row => ({
+          mes: MESES[row.mes - 1],
+          total: Number(row.total),
+          mes_num: row.mes,
+          _hasChildren: true
+        }))
+      });
+    } catch (e) {
+      console.error('❌ gastos-responsable-mes/meses', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
+// DETALLE: Gastos por Responsable → RESPONSABLES dentro del mes
+// GET /club/:clubId/reportes/gastos-responsable-mes/responsables?anio=2024&mes=3
+// ===============================
+router.get(
+  '/:clubId/reportes/gastos-responsable-mes/responsables',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes  = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({ ok: false, error: 'Faltan parámetros' });
+    }
+
+    try {
+      const q = `
+        SELECT
+          COALESCE(rg.nombre, 'Sin responsable') AS responsable,
+          SUM(g.monto) AS total
+        FROM gastos g
+        LEFT JOIN responsables_gasto rg ON rg.id = g.responsable_id
+        WHERE g.club_id = $1
+          AND g.activo = true
+          AND EXTRACT(YEAR FROM g.periodo) = $2
+          AND EXTRACT(MONTH FROM g.periodo) = $3
+        GROUP BY COALESCE(rg.nombre, 'Sin responsable')
+        ORDER BY responsable;
+      `;
+
+      const r = await db.query(q, [clubId, anio, mes]);
+
+      res.json({ ok: true, rows: r.rows });
+    } catch (e) {
+      console.error('❌ gastos-responsable-mes/responsables', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+);// ============================================================
 // DETALLES DE REPORTES
 // ------------------------------------------------------------
 // Todas devuelven:
