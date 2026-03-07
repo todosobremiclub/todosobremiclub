@@ -1,87 +1,6 @@
-// Doble click -> detalle del reporte
-content.addEventListener('dblclick', async (ev) => {
-  const tr = ev.target.closest('tr[data-id][data-reporte]');
-  if (!tr) return;
-
-  const reporteId = tr.dataset.reporte;
-  const label = tr.dataset.label || '';
-  const clubId = getActiveClubId();
-
-  try {
-    // === Socios por Actividad / Categoría: detalle de socios por ACTIVIDAD ===
-    if (reporteId === 'socios-actividad-categoria') {
-      const actividad = tr.dataset.actividad || label;
-
-      const params = new URLSearchParams({
-        actividad,
-        activo: '1'
-      });
-
-      const url = `/club/${clubId}/reportes/socios-actividad/detalle?${params.toString()}`;
-      const { data } = await fetchAuth(url);
-
-      if (!data.ok) {
-        alert(data.error || 'Error al cargar el detalle de socios.');
-        return;
-      }
-
-      const rows = data.rows || [];
-
-      let html;
-      if (!rows.length) {
-        html = '<div class="muted">No hay socios para esta actividad.</div>';
-      } else {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>N° Socio</th>
-                <th>DNI</th>
-                <th>Nombre</th>
-                <th>Apellido</th>
-                <th>Actividad</th>
-                <th>Categoría</th>
-                <th>Teléfono</th>
-                <th>Fecha ingreso</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(s => `
-                <tr>
-                  <td>${s.numero_socio ?? ''}</td>
-                  <td>${s.dni ?? ''}</td>
-                  <td>${s.nombre ?? ''}</td>
-                  <td>${s.apellido ?? ''}</td>
-                  <td>${s.actividad ?? ''}</td>
-                  <td>${s.categoria ?? ''}</td>
-                  <td>${s.telefono ?? ''}</td>
-                  <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0,10) : ''}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      }
-
-      openDetalleModal('socios-actividad-categoria', {
-        label: actividad,
-        raw: rows,
-        html
-      });
-
-      return; // 👈 importante: no seguir al fallback
-    }
-
-    // === Fallback para los demás reportes (por ahora) ===
-    const id    = tr.dataset.id;
-    const extra = tr.dataset.extra || '';
-    openDetalleModal(reporteId, { id, label, extra });
-
-  } catch (e) {
-    console.error(e);
-    alert('Error cargando detalle del reporte.');
-  }
-});
+// public/js/reportes.js
+(() => {
+  const $ = (id) => document.getElementById(id);
 
   // =============================
   // Auth / helpers
@@ -134,6 +53,7 @@ content.addEventListener('dblclick', async (ev) => {
 
   // =============================
   // Definición de reportes
+  // (claves matchean data-reporte en reportes.html)
   // =============================
   const REPORTS = {
     'socios-actividad': {
@@ -149,29 +69,28 @@ content.addEventListener('dblclick', async (ev) => {
       descripcion: 'Cantidad de socios que ingresan por mes.',
     },
     'ingreso-fecha-pago': {
-  titulo: 'Cuota por fecha de pago',
-  descripcion: 'Total de cuotas cobradas según la fecha del pago.',
-},
+      titulo: 'Cuota por fecha de pago',
+      descripcion: 'Total de cuotas cobradas según la fecha del pago.',
+    },
     'ingreso-mes-pagado': {
-  titulo: 'Cuota por mes pagado',
-  descripcion: 'Total de cuotas cobradas según el mes que corresponde al pago.',
-},
+      titulo: 'Cuota por mes pagado',
+      descripcion: 'Total de cuotas cobradas según el mes que corresponde al pago.',
+    },
     'ingresos-vs-gastos': {
-  titulo: 'Ingresos vs Gastos',
-  descripcion: 'Comparativo entre ingresos y gastos.',
-},
+      titulo: 'Ingresos vs Gastos',
+      descripcion: 'Comparativo entre ingresos y gastos.',
+    },
     'ingresos-por-tipo': {
-  titulo: 'Ingresos Totales',
-  descripcion: 'Total de ingresos anuales, con detalle por mes y tipo.',
-},
+      titulo: 'Ingresos Totales',
+      descripcion: 'Total de ingresos anuales, con detalle por mes y tipo.',
+    },
     'gastos-por-tipo': {
-  titulo: 'Gastos',
-  descripcion: 'Total de gastos, con detalle por mes y tipo de gasto.',
-},
-
+      titulo: 'Gastos',
+      descripcion: 'Total de gastos, con detalle por mes y tipo de gasto.',
+    },
     'gastos-responsable-mes': {
-      titulo: 'Gastos por Responsable por mes',
-      descripcion: 'Total de gastos agrupados por responsable y mes.',
+      titulo: 'Gastos por cuenta',
+      descripcion: 'Total de gastos agrupados por cuenta/responsable y mes.',
     },
   };
 
@@ -284,7 +203,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
 
     rows.forEach((row, idx) => {
       const rowId = row.id ?? row.actividad ?? ('row-' + idx);
-      const label = row.actividad ?? row.categoria ?? '';
+      const label = row.actividad ?? row.categoria ?? row.mes ?? row.anio ?? '';
 
       tbody += `
         <tr class="main-row"
@@ -390,18 +309,96 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
     const content = $('reportesContent');
     if (!content) return;
 
-    // Doble click -> modal JSON
-    content.addEventListener('dblclick', (ev) => {
+    // =============================
+    // Doble click – Detalle
+    // =============================
+    content.addEventListener('dblclick', async (ev) => {
       const tr = ev.target.closest('tr[data-id][data-reporte]');
       if (!tr) return;
+
       const reporteId = tr.dataset.reporte;
-      const id    = tr.dataset.id;
       const label = tr.dataset.label || '';
-      const extra = tr.dataset.extra || '';
-      openDetalleModal(reporteId, { id, label, extra });
+      const clubId = getActiveClubId();
+
+      try {
+        // === Detalle REAL para Socios por Actividad / Categoría ===
+        if (reporteId === 'socios-actividad-categoria') {
+          const actividad = tr.dataset.actividad || label;
+
+          const params = new URLSearchParams({
+            actividad,
+            activo: '1',
+          });
+
+          // usamos el endpoint de detalle por ACTIVIDAD
+          const url = `/club/${clubId}/reportes/socios-actividad/detalle?${params.toString()}`;
+          const { data } = await fetchAuth(url);
+
+          if (!data.ok) {
+            alert(data.error || 'Error al cargar el detalle de socios.');
+            return;
+          }
+
+          const rows = data.rows || [];
+
+          let html;
+          if (!rows.length) {
+            html = '<div class="muted">No hay socios para esta actividad.</div>';
+          } else {
+            html = `
+              <table class="socios-table" style="background:#fafafa;">
+                <thead>
+                  <tr>
+                    <th>N° Socio</th>
+                    <th>DNI</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>Actividad</th>
+                    <th>Categoría</th>
+                    <th>Teléfono</th>
+                    <th>Fecha ingreso</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows.map(s => `
+                    <tr>
+                      <td>${s.numero_socio ?? ''}</td>
+                      <td>${s.dni ?? ''}</td>
+                      <td>${s.nombre ?? ''}</td>
+                      <td>${s.apellido ?? ''}</td>
+                      <td>${s.actividad ?? ''}</td>
+                      <td>${s.categoria ?? ''}</td>
+                      <td>${s.telefono ?? ''}</td>
+                      <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0,10) : ''}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+          }
+
+          openDetalleModal('socios-actividad-categoria', {
+            label: actividad,
+            raw: rows,
+            html,
+          });
+          return; // no seguir al fallback
+        }
+
+        // === Fallback genérico para otros reportes (por ahora) ===
+        const id    = tr.dataset.id;
+        const extra = tr.dataset.extra || '';
+        openDetalleModal(reporteId, { id, label, extra });
+
+      } catch (e) {
+        console.error(e);
+        alert('Error cargando detalle del reporte.');
+      }
     });
 
-    // Click en flecha ▶ para desplegar detalle (subtabla)
+    // =============================
+    // Click en flecha ▶ para desplegar subtabla
+    // =============================
     content.addEventListener('click', async (ev) => {
       const toggle = ev.target.closest('.toggle');
       if (!toggle) return;
@@ -680,7 +677,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
         openDetalleModal('ingresos-por-tipo', {
           label: `Año ${anio} · Mes ${mes}`,
           raw: {},
-          html
+          html,
         });
       } catch (e) {
         console.error(e);
@@ -730,7 +727,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
         openDetalleModal('gastos-por-tipo', {
           label: `Año ${anio} · Mes ${mes}`,
           raw: {},
-          html
+          html,
         });
       } catch (e) {
         console.error(e);
@@ -738,7 +735,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
       }
     });
 
-    // Click en "Ver responsables" - Gastos por Responsable por mes
+    // Click en "Ver responsables" - Gastos por cuenta
     content.addEventListener('click', async (ev) => {
       const btn = ev.target.closest('button[data-act="ver-responsables-gasto"]');
       if (!btn) return;
@@ -780,7 +777,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
         openDetalleModal('gastos-responsable-mes', {
           label: `Año ${anio} · Mes ${mes}`,
           raw: {},
-          html
+          html,
         });
       } catch (e) {
         console.error(e);
