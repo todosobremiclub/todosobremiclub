@@ -313,7 +313,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
     // Doble click – Detalle
     // =============================
     content.addEventListener('dblclick', async (ev) => {
-      const tr = ev.target.closest('tr[data-id][data-reporte]');
+      const tr = ev.target.closest('tr[data-reporte]');
       if (!tr) return;
 
       const reporteId = tr.dataset.reporte;
@@ -330,7 +330,6 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
             activo: '1',
           });
 
-          // usamos el endpoint de detalle por ACTIVIDAD
           const url = `/club/${clubId}/reportes/socios-actividad/detalle?${params.toString()}`;
           const { data } = await fetchAuth(url);
 
@@ -382,7 +381,77 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
             raw: rows,
             html,
           });
-          return; // no seguir al fallback
+          return;
+        }
+
+        // === Detalle REAL para Socios nuevos por mes (por MES) ===
+        if (reporteId === 'socios-nuevos-mes-mes') {
+          const anio = Number(tr.dataset.anio);
+          const mes  = Number(tr.dataset.mes);
+          const mesLabel = label || tr.children[0]?.textContent || '';
+
+          if (!anio || !mes) {
+            alert('No se pudo determinar año o mes para el detalle.');
+            return;
+          }
+
+          const params = new URLSearchParams({
+            anio: String(anio),
+            mes: String(mes),
+          });
+
+          const url = `/club/${clubId}/reportes/socios-nuevos-mes/detalle?${params.toString()}`;
+          const { data } = await fetchAuth(url);
+
+          if (!data.ok) {
+            alert(data.error || 'Error al cargar el detalle de socios nuevos.');
+            return;
+          }
+
+          const rows = data.rows || [];
+
+          let html;
+          if (!rows.length) {
+            html = '<div class="muted">No hay socios nuevos para este mes.</div>';
+          } else {
+            html = `
+              <table class="socios-table" style="background:#fafafa;">
+                <thead>
+                  <tr>
+                    <th>N° Socio</th>
+                    <th>DNI</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>Actividad</th>
+                    <th>Categoría</th>
+                    <th>Teléfono</th>
+                    <th>Fecha ingreso</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows.map(s => `
+                    <tr>
+                      <td>${s.numero_socio ?? ''}</td>
+                      <td>${s.dni ?? ''}</td>
+                      <td>${s.nombre ?? ''}</td>
+                      <td>${s.apellido ?? ''}</td>
+                      <td>${s.actividad ?? ''}</td>
+                      <td>${s.categoria ?? ''}</td>
+                      <td>${s.telefono ?? ''}</td>
+                      <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0,10) : ''}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+          }
+
+          openDetalleModal('socios-nuevos-mes', {
+            label: `Año ${anio} · ${mesLabel}`,
+            raw: rows,
+            html,
+          });
+          return;
         }
 
         // === Fallback genérico para otros reportes (por ahora) ===
@@ -495,7 +564,12 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
             </thead>
             <tbody>
               ${data.rows.map(r => `
-                <tr>
+                <tr
+                  data-reporte="socios-nuevos-mes-mes"
+                  data-anio="${anio}"
+                  data-mes="${r.mes_num}"
+                  data-label="${r.mes}"
+                >
                   <td>${r.mes}</td>
                   <td>${r.cantidad}</td>
                 </tr>
@@ -503,6 +577,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
             </tbody>
           </table>
         `;
+      
       } else if (reporteId === 'ingreso-fecha-pago' || reporteId === 'ingreso-mes-pagado') {
         html = `
           <table class="socios-table" style="background:#fafafa;">

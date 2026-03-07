@@ -190,7 +190,8 @@ router.get('/:clubId/reportes/socios-nuevos-mes/meses', requireAuth, requireClub
 
     const rows = r.rows.map(row => ({
       mes: MESES[row.mes_num - 1],
-      cantidad: Number(row.cantidad)
+      cantidad: Number(row.cantidad),
+      mes_num: row.mes_num        // 👈 NUEVO
     }));
 
     res.json({ ok: true, rows });
