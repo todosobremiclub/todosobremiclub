@@ -326,6 +326,37 @@ content.addEventListener('dblclick', async (ev) => {
     return;
   }
 
+// 🚫 Ignorar doble click sobre el nivel AÑO de "Cuota por fecha de pago"
+  if (reporteId === 'ingreso-fecha-pago') {
+    return;
+  }
+
+// 🚫 Ignorar doble click sobre el nivel AÑO de "Cuota por mes pagado"
+  if (reporteId === 'ingreso-mes-pagado') {
+    return;
+  }
+
+// 🚫 Ignorar doble click sobre el nivel AÑO de "Ingresos vs. Gastos"
+  if (reporteId === 'ingresos-vs-gastos') {
+    return;
+  }
+
+// 🚫 Ignorar doble click sobre el nivel AÑO de "Ingresos Totales"
+  if (reporteId === 'ingresos-por-tipo') {
+    return;
+  }
+// 🚫 Ignorar doble click sobre el nivel AÑO de "Gastos"
+if (reporteId === 'gastos-por-tipo') {
+  return;
+}
+
+// 🚫 Ignorar doble click sobre el nivel AÑO de "Gastos por Cuenta"
+if (reporteId === 'gastos-responsable-mes') {
+  return;
+}
+
+
+
 
       try {
         // === Detalle REAL para Socios por Actividad / Categoría ===
