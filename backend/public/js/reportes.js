@@ -312,13 +312,20 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
     // =============================
     // Doble click – Detalle
     // =============================
-    content.addEventListener('dblclick', async (ev) => {
-      const tr = ev.target.closest('tr[data-reporte]');
-      if (!tr) return;
+    
+content.addEventListener('dblclick', async (ev) => {
+  const tr = ev.target.closest('tr[data-reporte]');
+  if (!tr) return;
 
-      const reporteId = tr.dataset.reporte;
-      const label = tr.dataset.label || '';
-      const clubId = getActiveClubId();
+  const reporteId = tr.dataset.reporte;
+  const label = tr.dataset.label || '';
+  const clubId = getActiveClubId();
+
+  // 🚫 Ignorar doble click sobre el nivel "AÑO" de Socios nuevos
+  if (reporteId === 'socios-nuevos-mes') {
+    return;
+  }
+
 
       try {
         // === Detalle REAL para Socios por Actividad / Categoría ===
