@@ -40,7 +40,7 @@
   .cumples-hoy-container{
  display:flex;
  flex-direction:column;   /* ✅ uno abajo del otro */
- gap:8px;
+ gap:6px;
 }
 
   .cumple-card{
@@ -54,7 +54,6 @@
  border-radius:8px;
 
  width:100%;
- max-width:100%;
 
  box-shadow:0 1px 4px rgba(0,0,0,0.12);
  border-left:3px solid var(--color-accent);
@@ -63,8 +62,8 @@
 
 
 .cumple-card img{
- width:34px;
- height:34px;
+ width:36px;          /* ✅ miniatura */
+ height:36px;
  border-radius:50%;
  object-fit:cover;
  flex-shrink:0;
@@ -78,10 +77,9 @@
 }
 
 .cumple-categoria{
- font-size:11px;
+ font-size:12px;
  color:#555;
 }
-
 
   /* --------------------------------------
      CALENDARIO FULLCALENDAR
