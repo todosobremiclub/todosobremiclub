@@ -4,11 +4,14 @@
   let usersCache = [];
   let clubsCache = [];
 
+  // =============================
+  // Auth helpers
+  // =============================
   function getToken() {
     const t = localStorage.getItem('token');
     if (!t) {
       alert('Tu sesión expiró. Iniciá sesión nuevamente.');
-      window.location.href = '/admin.html';
+      location.href = '/admin.html';
       throw new Error('No token');
     }
     return t;
@@ -16,20 +19,18 @@
 
   async function fetchAuth(url, options = {}) {
     const headers = options.headers || {};
-    headers['Authorization'] = 'Bearer ' + getToken();
+    headers.Authorization = 'Bearer ' + getToken();
     if (options.json) headers['Content-Type'] = 'application/json';
 
     const { json, ...rest } = options;
     const res = await fetch(url, { ...rest, headers });
 
     if (res.status === 401 || res.status === 403) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('activeClubId');
+      localStorage.clear();
       alert(res.status === 403 ? 'No autorizado.' : 'Sesión inválida.');
-      window.location.href = '/admin.html';
+      location.href = '/admin.html';
       throw new Error(String(res.status));
     }
-
     return res;
   }
 
@@ -40,6 +41,47 @@
     box.textContent = text;
   }
 
+  // =============================
+  // ✅ CARGAR CLUBES (ESTE ERA EL FALTANTE)
+  // =============================
+  async function loadClubsIntoUserSelect() {
+    const sel = $('user_club_id');
+    if (!sel) return;
+
+    sel.innerHTML = '<option>Cargando clubes...</option>';
+
+    try {
+      const res = await fetchAuth('/admin/clubs');
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        sel.innerHTML = '<option>Error cargando clubes</option>';
+        return;
+      }
+
+      clubsCache = data.clubs || [];
+      sel.innerHTML = '';
+
+      if (!clubsCache.length) {
+        sel.innerHTML = '<option>No hay clubes</option>';
+        return;
+      }
+
+      clubsCache.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.name}${c.city ? ' - ' + c.city : ''}`;
+        sel.appendChild(opt);
+      });
+    } catch (e) {
+      console.error(e);
+      sel.innerHTML = '<option>Error cargando clubes</option>';
+    }
+  }
+
+  // =============================
+  // Usuarios
+  // =============================
   async function loadUsers() {
     const tbody = $('users-table');
     if (!tbody) return;
@@ -74,6 +116,49 @@
     });
   }
 
+  // =============================
+  // Crear usuario
+  // =============================
+  async function createUser(e) {
+    e.preventDefault();
+
+    const email = $('user_email').value.trim().toLowerCase();
+    const password = $('user_password').value;
+    const role = $('user_role').value;
+    const clubSelect = $('user_club_id');
+    const club_ids = [...clubSelect.selectedOptions].map(o => o.value);
+
+    if (!email || !password || !role || !club_ids.length) {
+      showUserMsg('Completá email, contraseña, rol y al menos un club.', false);
+      return;
+    }
+
+    const payload = {
+      email,
+      password,
+      assignments: club_ids.map(club_id => ({ club_id, role }))
+    };
+
+    const res = await fetchAuth('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      json: true
+    });
+
+    const data = await res.json();
+    if (!data.ok) {
+      showUserMsg(data.error || 'Error creando usuario', false);
+      return;
+    }
+
+    showUserMsg('✅ Usuario creado', true);
+    $('formUser').reset();
+    loadUsers();
+  }
+
+  // =============================
+  // Toggle activo/inactivo
+  // =============================
   window.toggleUser = async (id, isActive) => {
     if (!confirm(`¿Seguro que querés ${isActive ? 'desactivar' : 'activar'} este usuario?`)) return;
 
@@ -89,9 +174,18 @@
       return;
     }
 
-    showUserMsg('✅ Usuario actualizado', true);
     loadUsers();
   };
 
-  document.addEventListener('DOMContentLoaded', loadUsers);
+  window.editUser = window.editUser || (() => {});
+  window.deleteUser = window.deleteUser || (() => {});
+
+  // =============================
+  // Init
+  // =============================
+  document.addEventListener('DOMContentLoaded', async () => {
+    $('formUser')?.addEventListener('submit', createUser);
+    await loadClubsIntoUserSelect(); // ✅ ESTA LÍNEA ES LA CLAVE
+    await loadUsers();
+  });
 })();
