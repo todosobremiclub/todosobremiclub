@@ -172,6 +172,16 @@ router.post('/:clubId/pendientes/:id/aceptar', requireAuth, requireClubAccess, a
 
     const socioId = rIns.rows[0].id;
 
+// 5.b) Copiar foto del pendiente al socio (si existe)
+if (p.foto_url) {
+  await db.query(
+    `UPDATE socios
+     SET foto_url = $1
+     WHERE id = $2`,
+    [p.foto_url, socioId]
+  );
+}
+
     // 6) Marcar pendiente como aceptado
     await db.query(
       `UPDATE socios_pendientes
