@@ -68,6 +68,27 @@
 
   <div id="sociosPagination" class="pagination"></div>
 
+<!-- ✅ CARGA MASIVA (abajo a la derecha) -->
+<div class="socios-bulk-bar">
+  <button id="btnSociosTemplate" class="btn btn-secondary">📥 Excel (plantilla)</button>
+  <button id="btnSociosBulkUpload" class="btn btn-primary">⬆️ Carga masiva</button>
+  <input id="inputSociosBulk" type="file" accept=".xlsx" style="display:none;" />
+</div>
+
+<!-- ✅ MODAL LOG CARGA MASIVA -->
+<div id="modalBulkLog" class="modal hidden">
+  <div class="modal-content" style="max-width:900px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <h3 style="margin:0;">Log carga masiva</h3>
+      <button id="btnBulkLogClose" class="btn btn-secondary">✕</button>
+    </div>
+    <div id="bulkLogBody" style="margin-top:12px; max-height:60vh; overflow:auto;"></div>
+    <div class="modal-actions" style="margin-top:12px; text-align:right;">
+      <button id="btnBulkLogOk" class="btn btn-primary">Aceptar</button>
+    </div>
+  </div>
+</div>
+
   <!-- ================= MODAL SOCIO ================= -->
   <div id="modalSocio" class="modal hidden">
     <div class="modal-content">
@@ -429,6 +450,20 @@ IDENTIDAD VISUAL – SOCIOS
 .wa-phone{
   cursor:pointer;
 }
+
+.socios-bulk-bar{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:10px;
+}
+@media(max-width:768px){
+  .socios-bulk-bar{
+    flex-direction:column;
+    align-items:stretch;
+  }
+}
+
 
 
   </style>

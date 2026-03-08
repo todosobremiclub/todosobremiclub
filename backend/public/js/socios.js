@@ -1275,6 +1275,122 @@ async function loadSocios() {
       }
     });
 
+// =============================
+// Carga masiva: descargar plantilla / subir Excel
+// =============================
+$('btnSociosTemplate')?.addEventListener('click', async () => {
+  const clubId = getActiveClubId();
+  const url = `/club/${clubId}/socios/template.xlsx`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: 'Bearer ' + getToken() }
+  });
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    alert('No se pudo descargar la plantilla. ' + t);
+    return;
+  }
+
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `socios_${clubId}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+});
+
+$('btnSociosBulkUpload')?.addEventListener('click', () => {
+  const inp = $('inputSociosBulk');
+  if (!inp) return;
+  inp.value = '';
+  inp.click();
+});
+
+$('inputSociosBulk')?.addEventListener('change', async () => {
+  const inp = $('inputSociosBulk');
+  const file = inp?.files?.[0];
+  if (!file) return;
+
+  const clubId = getActiveClubId();
+  const fd = new FormData();
+  fd.append('file', file);
+
+  const res = await fetch(`/club/${clubId}/socios/import.xlsx`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + getToken() },
+    body: fd
+  });
+
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = { ok:false, error:text }; }
+
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'Error en carga masiva');
+    return;
+  }
+
+  // refrescar socios y mostrar log
+  await loadSocios();
+  showBulkLog(data);
+});
+
+function showBulkLog(data){
+  const modal = document.getElementById('modalBulkLog');
+  const body = document.getElementById('bulkLogBody');
+  if (!modal || !body) return;
+
+  const ok = Number(data.insertedCount || 0);
+  const err = Number(data.errorCount || 0);
+
+  let html = `
+    <div style="padding:10px; border-radius:10px; background:#f9fafb; border:1px solid #e5e7eb;">
+      <b>Insertados:</b> ${ok} &nbsp;&nbsp; <b>Errores:</b> ${err}
+    </div>
+  `;
+
+  const rows = data.errors || [];
+  if (!rows.length) {
+    html += `<div class="muted" style="margin-top:10px;">Sin errores.</div>`;
+  } else {
+    html += `
+      <div style="margin-top:10px;">
+        <table class="socios-table" style="background:#fff;">
+          <thead>
+            <tr>
+              <th>Fila</th>
+              <th>DNI</th>
+              <th>N° socio</th>
+              <th>Error</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${r.row ?? '-'}</td>
+                <td>${r.dni ?? '-'}</td>
+                <td>${r.numero_socio ?? '-'}</td>
+                <td>${r.error ?? '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  body.innerHTML = html;
+  modal.classList.remove('hidden');
+
+  const close = () => modal.classList.add('hidden');
+  document.getElementById('btnBulkLogClose')?.addEventListener('click', close);
+  document.getElementById('btnBulkLogOk')?.addEventListener('click', close);
+  modal.addEventListener('click', (ev) => { if (ev.target === modal) close(); });
+}
+
     // =============================
     // DOBLE CLICK fila -> abrir Carnet (pero NO si fue WA o Acciones)
     // =============================
