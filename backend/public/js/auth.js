@@ -2,36 +2,32 @@ async function login() {
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
 
-  try {
-    const res = await fetch('/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
+  const res = await fetch('/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
 
-    const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({}));
 
-    if (!res.ok || !data.ok) {
-      alert(data.error || 'Login inválido');
-      return;
-    }
+  if (!res.ok || !data.ok) {
+    // ✅ importante: lanzar error para que doLogin() lo capture
+    throw new Error(data.error || 'Login inválido');
+  }
 
-    // ✅ Guardar token (JWT)
-    if (data.token) localStorage.setItem('token', data.token);
+  // ✅ Guardar token (JWT)
+  if (data.token) localStorage.setItem('token', data.token);
 
-    // (opcional) limpiar club activo previo
-    // localStorage.removeItem('activeClubId');
+  // ✅ SIEMPRE limpiar club activo previo (evita “pegado” a club borrado)
+  localStorage.removeItem('activeClubId');
 
-    const roles = data.user?.roles || [];
-    const hasSuperadmin = roles.some(r => r.role === 'superadmin');
+  const roles = data.user?.roles || [];
+  const hasSuperadmin = roles.some(r => r.role === 'superadmin');
 
-    if (hasSuperadmin) {
-      window.location.href = '/superadmin.html';
-    } else {
-      window.location.href = '/club.html';
-    }
-  } catch (err) {
-    console.error(err);
-    alert('Error de conexión. Intentá nuevamente.');
+  if (hasSuperadmin) {
+    window.location.href = '/superadmin.html';
+  } else {
+    window.location.href = '/club.html';
   }
 }
+
