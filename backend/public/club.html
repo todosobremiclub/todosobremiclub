@@ -40,25 +40,20 @@
 
     .content {
       width: 100%;
-      max-width: 1280px; /* 💡 Ideal para pantallas de 14" */
+      max-width: 1280px;
       margin: 0 auto;
       padding: 12px 14px 18px;
     }
 
-/* ===============================
-IDENTIDAD DEL CLUB – SECCIONES
-=============================== */
-
-/* Todas las secciones principales */
-section[class^="section-"],
-section.section{
-  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, #d1d5db);
-  border-left: 4px solid var(--color-primary);
-  border-radius: 14px;
-  padding: 14px;
-  background: #ffffff;
-  margin-bottom: 16px;
-}
+    section[class^="section-"],
+    section.section{
+      border: 1px solid color-mix(in srgb, var(--color-primary) 22%, #d1d5db);
+      border-left: 4px solid var(--color-primary);
+      border-radius: 14px;
+      padding: 14px;
+      background: #ffffff;
+      margin-bottom: 16px;
+    }
 
     /* =========================
        BOTONES
@@ -178,101 +173,7 @@ section.section{
     }
 
     /* =========================
-       CARDS / TABLAS
-    ========================= */
-    .card {
-      border:1px solid #ddd;
-      border-radius:12px;
-      padding:14px;
-      margin-top:14px;
-      background:#fff;
-    }
-
-    .table-wrapper {
-      overflow:auto;
-      border:1px solid #ddd;
-      border-radius:10px;
-      background:#fff;
-    }
-
-    table {
-      width:100%;
-      border-collapse:collapse;
-    }
-
-    th, td {
-      border-bottom:1px solid #eee;
-      padding:8px;
-      font-size:14px;
-      white-space: nowrap;
-    }
-
-    th {
-      background:#f7f7f7;
-      text-align:left;
-    }
-
-    /* =========================
-       FORMULARIOS
-    ========================= */
-    .row {
-      display:flex;
-      gap:12px;
-      align-items:center;
-      flex-wrap: wrap;
-    }
-
-    label {
-      display:block;
-      font-size: 0.85rem;
-      color:#444;
-      margin-bottom:6px;
-    }
-
-    input, select, button {
-      padding: 8px;
-      border-radius:6px;
-      border:1px solid #ccc;
-      font-size:14px;
-    }
-
-    .muted {
-      color:#6b7280;
-      font-size:13px;
-    }
-
-/* ===============================
-BOTONES – COLOR DEL CLUB
-=============================== */
-
-button,
-.btn{
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, #d1d5db);
-  background: #ffffff;
-  color: #111827;
-  transition: all .15s ease;
-}
-
-button:hover,
-.btn:hover{
-  border-color: var(--color-primary);
-}
-
-/* Botón principal */
-.btn-primary{
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #ffffff;
-}
-
-.btn-primary:hover{
-  background: var(--color-secondary);
-  border-color: var(--color-secondary);
-}
-
-    /* =========================
-       MODAL
+       MODAL QR
     ========================= */
     .modal.hidden { display:none; }
 
@@ -287,78 +188,23 @@ button:hover,
     }
 
     .modal-content {
-      width:min(780px, 95vw);
+      width:min(420px, 95vw);
       background:#fff;
       border-radius:12px;
       padding:16px;
+      text-align:center;
     }
 
-    /* =========================
-       RESPONSIVE
-    ========================= */
     @media (max-width: 768px) {
       .topbar {
         flex-direction: column;
         align-items:flex-start;
-        padding: 12px;
       }
-
-      .topbar-right {
-        align-self: stretch;
-        justify-content: flex-start;
-      }
-
       .topnav {
         flex-direction: column;
         align-items: stretch;
       }
-
-      .topnav__center {
-        flex-wrap: wrap;
-        justify-content: flex-start;
-      }
-
-      .content {
-        padding: 10px;
-      }
-
-      .navbtn--top {
-        font-size:12px;
-        padding:6px 8px;
-      }
-
-      table {
-        font-size:12px;
-      }
-
-      th, td {
-        padding:6px;
-      }
-
-      .modal-content {
-        width: 100%;
-        max-width: 95vw;
-        padding:12px;
-      }
-
-      .row {
-        flex-direction: column;
-        align-items: stretch;
-      }
     }
-
-/* ===============================
-FOCUS – COLOR DEL CLUB
-=============================== */
-
-input:focus,
-select:focus,
-textarea:focus{
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
-}
-
   </style>
 
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
@@ -379,6 +225,7 @@ textarea:focus{
         </div>
 
         <div class="topbar-right">
+          <button id="btnVerQR" class="navbtn navbtn--top">📱 Ver QR</button>
           <select id="clubSelect" class="club-select"></select>
           <span class="badge" id="roleBadge">Rol: —</span>
         </div>
@@ -406,6 +253,19 @@ textarea:focus{
     </main>
   </div>
 
+  <!-- MODAL QR -->
+  <div id="modalQR" class="modal hidden">
+    <div class="modal-content">
+      <h3>📱 Postulación de Socios</h3>
+      <div id="qrContainer" style="margin:16px auto;"></div>
+      <input id="qrLink" type="text" readonly style="width:100%; padding:8px;" />
+      <div style="margin-top:12px; display:flex; gap:10px; justify-content:center;">
+        <button id="btnCopyQR" class="navbtn navbtn--top">📋 Copiar link</button>
+        <button id="btnCloseQR" class="navbtn navbtn--top">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     function logout() {
       localStorage.removeItem('token');
@@ -423,7 +283,6 @@ textarea:focus{
   <script src="/js/reportes.js"></script>
   <script src="/js/noticias.js"></script>
   <script src="/js/pendientes.js"></script>
-
 
 </body>
 </html>

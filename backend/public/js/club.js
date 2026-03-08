@@ -54,6 +54,126 @@
     return data.club;
   }
 
+  // ===============================
+  // QR helpers (Postulación)
+  // ===============================
+  let currentClub = null; // guardamos el club activo para el QR
+
+  function buildApplyLink(club) {
+    // ⚠️ Requiere club.apply_token (si no existe, mostramos mensaje)
+    const token = club?.apply_token;
+    if (!token) return null;
+    return `${window.location.origin}/postularse.html?clubId=${encodeURIComponent(club.id)}&t=${encodeURIComponent(token)}`;
+  }
+
+  function openQRModal() {
+    const modal = document.getElementById('modalQR');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+  }
+
+  function closeQRModal() {
+    const modal = document.getElementById('modalQR');
+    if (!modal) return;
+    modal.classList.add('hidden');
+  }
+
+  async function copyTextToClipboard(text) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {}
+    // fallback
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function renderQR(link) {
+    const qrContainer = document.getElementById('qrContainer');
+    const qrLink = document.getElementById('qrLink');
+    if (!qrContainer || !qrLink) return;
+
+    qrLink.value = link || '';
+    qrContainer.innerHTML = '';
+
+    if (!link) {
+      qrContainer.innerHTML = `<div class="muted">No se pudo generar el QR (falta apply_token).</div>`;
+      return;
+    }
+
+    // QR simple usando servicio público
+    const img = document.createElement('img');
+    img.alt = 'QR Postulación';
+    img.style.width = '250px';
+    img.style.height = '250px';
+    img.style.borderRadius = '12px';
+    img.style.border = '2px solid var(--color-primary)';
+    img.style.background = '#fff';
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(link)}`;
+
+    qrContainer.appendChild(img);
+  }
+
+  function bindQROnce() {
+    const btn = document.getElementById('btnVerQR');
+    const modal = document.getElementById('modalQR');
+    const btnClose = document.getElementById('btnCloseQR');
+    const btnCopy = document.getElementById('btnCopyQR');
+
+    // si no existe alguno, no rompemos
+    if (!btn || !modal) return;
+
+    if (btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+
+    btn.addEventListener('click', async () => {
+      // usar club activo ya cargado
+      if (!currentClub) {
+        alert('No hay club activo cargado todavía.');
+        return;
+      }
+      const link = buildApplyLink(currentClub);
+      renderQR(link);
+      openQRModal();
+    });
+
+    btnClose?.addEventListener('click', closeQRModal);
+
+    btnCopy?.addEventListener('click', async () => {
+      const input = document.getElementById('qrLink');
+      const link = input?.value || '';
+      if (!link) return alert('No hay link para copiar.');
+      const ok = await copyTextToClipboard(link);
+      alert(ok ? '✅ Link copiado' : 'No se pudo copiar el link.');
+    });
+
+    // cerrar tocando fuera
+    modal.addEventListener('click', (ev) => {
+      if (ev.target === modal) closeQRModal();
+    });
+
+    // escape
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && !modal.classList.contains('hidden')) {
+        closeQRModal();
+      }
+    });
+  }
+
+  // ===============================
+  // UI helpers
+  // ===============================
   function fillSelect(roles) {
     const sel = document.getElementById('clubSelect');
     if (!sel) return;
@@ -89,6 +209,8 @@
     if (roleBadge) roleBadge.textContent = `Rol: ${match.role}`;
 
     const club = await fetchClubInfo(match.club_id);
+    currentClub = club; // ✅ guardamos para el QR
+    bindQROnce(); // ✅ asegura que el botón funcione siempre
 
     // ===============================
     // Título / info
@@ -127,19 +249,9 @@
     // ✅ COLORES DEL CLUB (THEME)
     // ===============================
     const root = document.documentElement;
-
-    root.style.setProperty(
-      '--color-primary',
-      club.color_primary || '#2563eb'
-    );
-    root.style.setProperty(
-      '--color-secondary',
-      club.color_secondary || '#1e40af'
-    );
-    root.style.setProperty(
-      '--color-accent',
-      club.color_accent || '#facc15'
-    );
+    root.style.setProperty('--color-primary', club.color_primary || '#2563eb');
+    root.style.setProperty('--color-secondary', club.color_secondary || '#1e40af');
+    root.style.setProperty('--color-accent', club.color_accent || '#facc15');
 
     // ===============================
     // Recargar sección actual
@@ -171,30 +283,33 @@
         await window.initSociosSection();
       }
 
-if (sectionName === 'pendientes' && window.initPendientesSection) {
-  await window.initPendientesSection();
-}
+      if (sectionName === 'pendientes' && window.initPendientesSection) {
+        await window.initPendientesSection();
+      }
 
       if (sectionName === 'configuracion' && window.initConfiguracionSection) {
         await window.initConfiguracionSection();
       }
+
       if (sectionName === 'gastos' && window.initGastosSection) {
         await window.initGastosSection();
       }
+
       if (sectionName === 'cumples' && window.initCumplesSection) {
         await window.initCumplesSection();
       }
+
       if (sectionName === 'pagos' && window.initPagosSection) {
         await window.initPagosSection();
       }
 
-if (sectionName === 'reportes' && window.initReportesSection) {
-  await window.initReportesSection();
-}
+      if (sectionName === 'reportes' && window.initReportesSection) {
+        await window.initReportesSection();
+      }
 
-if (sectionName === 'noticias' && window.initNoticiasSection) {
-  await window.initNoticiasSection();
-}
+      if (sectionName === 'noticias' && window.initNoticiasSection) {
+        await window.initNoticiasSection();
+      }
     } catch (e) {
       container.innerHTML = `<pre>Error: ${e.message}</pre>`;
     }
