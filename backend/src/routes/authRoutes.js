@@ -23,7 +23,7 @@ router.post('/login', async (req, res) => {
        FROM users
        WHERE email = $1
        LIMIT 1`,
-      [email.toLowerCase()]
+      [String(email).toLowerCase()]
     );
 
     if (rUser.rowCount === 0) {
@@ -41,16 +41,20 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ ok: false, error: 'Credenciales incorrectas' });
     }
 
-    // 3) Traer roles/clubs
+    // 3) Traer roles/clubs (FIX: LEFT JOIN para no perder roles si el club fue borrado
+    //    o si superadmin no depende de club)
     const rRoles = await db.query(
-      `SELECT uc.role, uc.club_id, c.name AS club_name
+      `SELECT
+          uc.role,
+          uc.club_id,
+          c.name AS club_name
        FROM user_clubs uc
-       JOIN clubs c ON c.id = uc.club_id
+       LEFT JOIN clubs c ON c.id = uc.club_id
        WHERE uc.user_id = $1`,
       [user.id]
     );
 
-    const roles = rRoles.rows; // [{role, club_id, club_name}, ...]
+    const roles = rRoles.rows || []; // [{role, club_id, club_name}, ...]
 
     // 4) Firmar JWT
     if (!process.env.JWT_SECRET) {
@@ -81,9 +85,9 @@ router.get('/me', requireAuth, (req, res) => {
   res.json({
     ok: true,
     user: {
-      id: req.user.userId,   // ✅ FIX: el token trae userId, no id
+      id: req.user.userId,   // el token trae userId
       email: req.user.email,
-      roles: req.user.roles
+      roles: req.user.roles || []
     }
   });
 });
