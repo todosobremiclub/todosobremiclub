@@ -216,8 +216,8 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
       { header: 'categoria', key: 'categoria', width: 22 },
       { header: 'telefono', key: 'telefono', width: 16 },
       { header: 'direccion', key: 'direccion', width: 26 },
-      { header: 'fecha_nacimiento (DD-MM-AAAA)', key: 'fecha_nacimiento', width: 22 },
-      { header: 'fecha_ingreso (DD-MM-AAAA)', key: 'fecha_ingreso', width: 22 },
+      { header: 'fecha_nacimiento (DD/MM/AAAA)', key: 'fecha_nacimiento', width: 22 },
+      { header: 'fecha_ingreso (DD/MM/AAAA)', key: 'fecha_ingreso', width: 22 },
       { header: 'activo (SI/NO)', key: 'activo', width: 14 },
       { header: 'becado (SI/NO)', key: 'becado', width: 14 }
     ];
@@ -280,7 +280,7 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
 
     // Nota en fila 2 (opcional, no rompe import)
     ws.getCell('N1').value = 'NOTA';
-    ws.getCell('N2').value = 'Dejá numero_socio vacío para autogenerar. Fechas en formato DD-MM-AAAA.';
+    ws.getCell('N2').value = 'Dejá numero_socio vacío para autogenerar. Fechas en formato DD/MM/AAAA.';
 
 
     // Descargar
@@ -358,12 +358,12 @@ router.post(
         if (s === 'NO' || s === 'N' || s === 'FALSE' || s === '0') return false;
         return defVal;
       };
-      const isDMY = (d) => /^\d{2}-\d{2}-\d{4}$/.test(String(d ?? ''));
+      const isDMY = (d) => /^\d{2}\/\d{2}\/\d{4}$/.test(String(d ?? ''));
 
 const parseDMYtoISO = (d) => {
   const s = String(d ?? '').trim();
   if (!isDMY(s)) return null;
-  const [dd, mm, yyyy] = s.split('-');
+  const [dd, mm, yyyy] = s.split('/');
   return `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
 };
 
@@ -404,7 +404,7 @@ const parseDMYtoISO = (d) => {
 if (!fnISO) {
   errors.push({
     row: rowNumber,
-    error: 'fecha_nacimiento inválida (usar DD-MM-AAAA)',
+    error: 'fecha_ingreso inválida (usar DD/MM/AAAA)',
     dni,
     numero_socio: numero
   });
@@ -417,7 +417,7 @@ if (fecha_ingreso) {
   if (!fiISO) {
     errors.push({
       row: rowNumber,
-      error: 'fecha_ingreso inválida (usar DD-MM-AAAA)',
+      error: 'fecha_ingreso inválida (usar DD/MM/AAAA)',
       dni,
       numero_socio: numero
     });
