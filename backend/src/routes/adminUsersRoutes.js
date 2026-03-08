@@ -73,7 +73,6 @@ router.post('/', requireAuth, requireRole('superadmin'), async (req, res) => {
   } catch (e) {
     try { await db.query('ROLLBACK'); } catch (_) {}
 
-    // típico de UNIQUE(email) en Postgres
     if (e.code === '23505') {
       return res.status(409).json({ ok: false, error: 'Ya existe un usuario con ese email' });
     }
@@ -110,6 +109,34 @@ router.put('/:id', requireAuth, requireRole('superadmin'), async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.error('❌ update user', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ================== ✅ ACTIVAR / DESACTIVAR (NUEVO) ==================
+// PATCH /admin/users/:id/active
+// body: { is_active: boolean }
+router.patch('/:id/active', requireAuth, requireRole('superadmin'), async (req, res) => {
+  const { id } = req.params;
+  const { is_active } = req.body || {};
+
+  try {
+    if (typeof is_active !== 'boolean') {
+      return res.status(400).json({ ok: false, error: 'is_active debe ser boolean' });
+    }
+
+    const r = await db.query(
+      `UPDATE users SET is_active=$1 WHERE id=$2 RETURNING id, email, is_active`,
+      [is_active, id]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Usuario no encontrado' });
+    }
+
+    res.json({ ok: true, user: r.rows[0] });
+  } catch (e) {
+    console.error('❌ toggle user active', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });

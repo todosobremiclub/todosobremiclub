@@ -26,7 +26,6 @@
 
     const res = await fetch(url, { ...rest, headers });
 
-    // Admin puede devolver 401 (no autenticado) o 403 (no superadmin)
     if (res.status === 401 || res.status === 403) {
       localStorage.removeItem('token');
       localStorage.removeItem('activeClubId');
@@ -56,29 +55,27 @@
 
     try {
       const res = await fetchAuth('/admin/clubs');
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
 
       if (!res.ok || !data.ok) {
         sel.innerHTML = 'Error cargando clubes';
         return;
       }
 
-      const clubs = data.clubs || [];
-      clubsCache = clubs;
+      clubsCache = data.clubs || [];
+      sel.innerHTML = '';
 
-      if (clubs.length === 0) {
+      if (!clubsCache.length) {
         sel.innerHTML = 'No hay clubes';
         return;
       }
 
-      sel.innerHTML = ''; // multi-select: no ponemos "Seleccionar..."
-      clubs.forEach(c => {
+      clubsCache.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.id;
         opt.textContent = `${c.name}${c.city ? ' - ' + c.city : ''}`;
         sel.appendChild(opt);
       });
-
     } catch (e) {
       console.error(e);
       sel.innerHTML = 'Error cargando clubes';
@@ -89,11 +86,11 @@
     const tbody = $('users-table');
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="4">Cargando...</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
 
     try {
       const res = await fetchAuth('/admin/users');
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
 
       if (!res.ok || !data.ok) {
         tbody.innerHTML = '';
@@ -106,7 +103,7 @@
 
       usersCache.forEach(u => {
         const roles = (u.roles || [])
-          .map(r => `${r.role} (${r.club_name})`)
+          .map(r => `${r.role}${r.club_name ? ' (' + r.club_name + ')' : ''}`)
           .join('\n');
 
         const tr = document.createElement('tr');
@@ -115,13 +112,15 @@
           <td style="white-space:pre-line;">${roles}</td>
           <td>${u.is_active ? 'Activo' : 'Inactivo'}</td>
           <td>
+            <button onclick="toggleUser('${u.id}', ${u.is_active})">
+              ${u.is_active ? 'Desactivar' : 'Activar'}
+            </button>
             <button onclick="editUser('${u.id}')">Editar</button>
             <button onclick="deleteUser('${u.id}')">Eliminar</button>
           </td>
         `;
         tbody.appendChild(tr);
       });
-
     } catch (e) {
       console.error(e);
       tbody.innerHTML = '';
@@ -161,7 +160,7 @@
       json: true
     });
 
-    const data = await res.json().catch(() => ({}));
+    const data = await res.json();
 
     if (!res.ok || !data.ok) {
       showUserMsg(data.error || 'No se pudo crear el usuario', false);
@@ -173,7 +172,32 @@
     loadUsers();
   }
 
-  // Edit / Delete expuestos globalmente (se usan en onclick)
+  // =============================
+  // Toggle activo/inactivo
+  // =============================
+  window.toggleUser = async (id, isActive) => {
+    if (!confirm(`¿Seguro que querés ${isActive ? 'desactivar' : 'activar'} este usuario?`)) return;
+
+    const res = await fetchAuth(`/admin/users/${id}/active`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active: !isActive }),
+      json: true
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      showUserMsg(data.error || 'Error actualizando usuario', false);
+      return;
+    }
+
+    showUserMsg('✅ Usuario actualizado', true);
+    loadUsers();
+  };
+
+  // =============================
+  // Edit / Delete
+  // =============================
   window.editUser = async (id) => {
     const u = usersCache.find(x => x.id === id);
     if (!u) return;
@@ -201,7 +225,7 @@
       json: true
     });
 
-    const data = await res.json().catch(() => ({}));
+    const data = await res.json();
 
     if (!res.ok || !data.ok) {
       showUserMsg(data.error || 'Error actualizando usuario', false);
@@ -216,7 +240,7 @@
     if (!confirm('¿Eliminar usuario definitivamente?')) return;
 
     const res = await fetchAuth(`/admin/users/${id}`, { method: 'DELETE' });
-    const data = await res.json().catch(() => ({}));
+    const data = await res.json();
 
     if (!res.ok || !data.ok) {
       showUserMsg(data.error || 'Error eliminando usuario', false);
