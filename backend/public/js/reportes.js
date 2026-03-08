@@ -2,6 +2,60 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
+// =============================
+  // Formato moneda ARS ($ 12.345,67)
+  // =============================
+  const moneyARS = new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  function isNumericLike(v) {
+    if (v === null || v === undefined) return false;
+    if (typeof v === 'number') return Number.isFinite(v);
+    if (typeof v === 'string') {
+      const s = v.trim();
+      if (!s) return false;
+      // Soporta "1234.56" o "1234,56"
+      const n = Number(s.replace(/\./g, '').replace(',', '.'));
+      return Number.isFinite(n);
+    }
+    return false;
+  }
+
+  function toNumber(v) {
+    if (typeof v === 'number') return v;
+    const s = String(v ?? '').trim();
+    if (!s) return NaN;
+    return Number(s.replace(/\./g, '').replace(',', '.'));
+  }
+
+  // columnas que deben verse como dinero en estos reportes
+  const MONEY_KEYS = new Set(['total', 'ingresos', 'gastos']);
+
+  function formatCell(reporteId, key, value) {
+    // Solo aplicar formato a los reportes financieros que pediste
+    const moneyReports = new Set([
+      'ingreso-fecha-pago',
+      'ingreso-mes-pagado',
+      'ingresos-vs-gastos',
+      'ingresos-por-tipo',
+      'gastos-por-tipo',
+      'gastos-responsable-mes'
+    ]);
+
+    if (!moneyReports.has(reporteId)) return value ?? '';
+
+    if (MONEY_KEYS.has(key) && isNumericLike(value)) {
+      const n = toNumber(value);
+      return moneyARS.format(Number.isFinite(n) ? n : 0);
+    }
+
+    return value ?? '';
+  }
+
   // =============================
   // Auth / helpers
   // =============================
@@ -216,7 +270,7 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
           ${hasChildren
             ? (row._hasChildren ? `<td class="toggle">▶</td>` : `<td></td>`)
             : ''}
-          ${cols.map(c => `<td>${row[c.key] ?? ''}</td>`).join('')}
+          ${cols.map(c => `<td>${formatCell(reporteId, c.key, row[c.key])}</td>`).join('')}
         </tr>
         <tr class="child-row hidden" id="child-${rowId}">
           <td colspan="${cols.length + 1}">
@@ -629,7 +683,7 @@ if (reporteId === 'gastos-responsable-mes') {
               ${data.rows.map(r => `
                 <tr>
                   <td>${r.mes}</td>
-                  <td>${r.total}</td>
+                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -649,8 +703,8 @@ if (reporteId === 'gastos-responsable-mes') {
               ${data.rows.map(r => `
                 <tr>
                   <td>${r.mes}</td>
-                  <td>${r.ingresos}</td>
-                  <td>${r.gastos}</td>
+                  <td>${moneyARS.format(Number(r.ingresos ?? 0))}</td>
+<td>${moneyARS.format(Number(r.gastos ?? 0))}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -670,7 +724,7 @@ if (reporteId === 'gastos-responsable-mes') {
               ${data.rows.map(r => `
                 <tr>
                   <td>${r.mes}</td>
-                  <td>${r.total}</td>
+                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
                   <td>
                     <button
                       class="btn btn-secondary btn-sm"
@@ -699,7 +753,7 @@ if (reporteId === 'gastos-responsable-mes') {
               ${data.rows.map(r => `
                 <tr>
                   <td>${r.mes}</td>
-                  <td>${r.total}</td>
+                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
                   <td>
                     <button
                       class="btn btn-secondary btn-sm"
@@ -728,7 +782,7 @@ if (reporteId === 'gastos-responsable-mes') {
               ${data.rows.map(r => `
                 <tr>
                   <td>${r.mes}</td>
-                  <td>${r.total}</td>
+                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
                   <td>
                     <button
                       class="btn btn-secondary btn-sm"
@@ -780,7 +834,7 @@ if (reporteId === 'gastos-responsable-mes') {
               ${rows.map(r => `
                 <tr>
                   <td>${r.tipo}</td>
-                  <td>${r.total}</td>
+                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -830,7 +884,7 @@ if (reporteId === 'gastos-responsable-mes') {
               ${rows.map(r => `
                 <tr>
                   <td>${r.tipo_gasto}</td>
-                  <td>${r.total}</td>
+                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -880,7 +934,7 @@ if (reporteId === 'gastos-responsable-mes') {
               ${rows.map(r => `
                 <tr>
                   <td>${r.responsable}</td>
-                  <td>${r.total}</td>
+                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
                 </tr>
               `).join('')}
             </tbody>
