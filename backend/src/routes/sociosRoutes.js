@@ -294,7 +294,6 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
     res.status(500).json({ ok: false, error: e.message });
   }
 });
-
 // ===============================
 // IMPORTAR EXCEL (CARGA MASIVA)
 // POST /club/:clubId/socios/import.xlsx  (multipart/form-data file)
@@ -314,6 +313,8 @@ router.post(
 
       const wb = new ExcelJS.Workbook();
       await wb.xlsx.load(req.file.buffer);
+
+      // Preferimos hoja "Socios", si no existe tomamos la primera
       const ws = wb.getWorksheet('Socios') || wb.worksheets[0];
       if (!ws) return res.status(400).json({ ok: false, error: 'Excel inválido: no hay hoja' });
 
@@ -325,12 +326,11 @@ router.post(
       const dniExist = new Set((rExist.rows || []).map(x => String(x.dni ?? '').trim()).filter(Boolean));
       const numExist = new Set((rExist.rows || []).map(x => String(x.numero_socio ?? '').trim()).filter(Boolean));
 
-      // 2) Leer filas (desde fila 2)
+      // 2) Leer filas (desde fila 2) — guardamos el row completo para poder leer celdas tipo Date
       const rows = [];
       ws.eachRow((row, rowNumber) => {
         if (rowNumber === 1) return;
-        const values = row.values; // 1-index
-        rows.push({ rowNumber, values });
+        rows.push({ rowNumber, row });
       });
 
       // 3) Obtener next_socio_num para autogenerar
@@ -358,82 +358,166 @@ router.post(
         if (s === 'NO' || s === 'N' || s === 'FALSE' || s === '0') return false;
         return defVal;
       };
-      const isDMY = (d) => /^\d{2}\/\d{2}\/\d{4}$/.test(String(d ?? ''));
 
-const parseDMYtoISO = (d) => {
-  const s = String(d ?? '').trim();
-  if (!isDMY(s)) return null;
-  const [dd, mm, yyyy] = s.split('/');
-  return `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
-};
+      function pad2(n) { return String(n).padStart(2, '0'); }
+
+      function dateToISO(d) {
+        const yyyy = d.getFullYear();
+        const mm = pad2(d.getMonth() + 1);
+        const dd = pad2(d.getDate());
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      // Por si Excel devuelve serial numérico (raro, pero puede pasar)
+      function excelSerialToISO(serial) {
+        // Excel 1900 date system approximation
+        // 25569 = days between 1899-12-30 and 1970-01-01
+        const n = Number(serial);
+        if (!Number.isFinite(n)) return null;
+        const ms = Math.round((n - 25569) * 86400 * 1000);
+        const d = new Date(ms);
+        if (Number.isNaN(d.getTime())) return null;
+        return dateToISO(d);
+      }
+
+      // Acepta:
+      // - Date real
+      // - serial number
+      // - "DD/MM/AAAA"
+      // - "MM/DD/AAAA" (si segundo > 12 o primero <=12 y segundo >12)
+      // - "DD-MM-AAAA"
+      // - "AAAA-MM-DD"
+      function parseExcelDateToISO(value) {
+        if (value === null || value === undefined || value === '') return null;
+
+        // ExcelJS a veces devuelve objeto { text, result, richText } etc.
+        // Nos quedamos con .text si existe.
+        if (typeof value === 'object' && value && value.text) {
+          value = value.text;
+        }
+
+        // Date real
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+          return dateToISO(value);
+        }
+
+        // Serial numérico
+        if (typeof value === 'number') {
+          return excelSerialToISO(value);
+        }
+
+        const s = String(value).trim();
+
+        // AAAA-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+        // DD/MM/AAAA o MM/DD/AAAA
+        let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (m) {
+          let a = Number(m[1]); // puede ser DD o MM
+          let b = Number(m[2]); // puede ser MM o DD
+          const yyyy = Number(m[3]);
+
+          let dd, mm;
+          // Caso claro MM/DD cuando b > 12 (ej: 11/23/1998) [1](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/_layouts/15/Doc.aspx?sourcedoc=%7B948D12D4-D9FE-4B5D-9EE8-B1D031FD4D3E%7D&file=socios_8ba422eb-f2f6-421d-b87f-a4af5eb8f065.xlsx&action=default&mobileredirect=true)
+          if (b > 12) { mm = a; dd = b; }
+          // Caso claro DD/MM cuando a > 12
+          else if (a > 12) { dd = a; mm = b; }
+          // Ambiguo (<=12 y <=12): asumimos DD/MM (Argentina)
+          else { dd = a; mm = b; }
+
+          if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+          return `${yyyy}-${pad2(mm)}-${pad2(dd)}`;
+        }
+
+        // DD-MM-AAAA
+        m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+        if (m) {
+          const dd = Number(m[1]);
+          const mm = Number(m[2]);
+          const yyyy = Number(m[3]);
+          if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+          return `${yyyy}-${pad2(mm)}-${pad2(dd)}`;
+        }
+
+        return null;
+      }
 
       // 4) Validar y preparar inserts (sin frenar por errores)
       for (const r of rows) {
         const rowNumber = r.rowNumber;
-        const v = r.values;
+        const row = r.row;
 
         // columnas según plantilla:
         // A numero_socio (1), B dni (2), C nombre (3), D apellido (4),
         // E actividad (5), F categoria (6), G telefono (7), H direccion (8),
         // I fecha_nacimiento (9), J fecha_ingreso (10), K activo (11), L becado (12)
 
-        let numero = norm(v[1]);
-        const dniRaw = norm(v[2]);
+        let numero = norm(row.getCell(1).value);
+        const dniRaw = norm(row.getCell(2).value);
         const dni = onlyDigits(dniRaw);
-        const nombre = norm(v[3]);
-        const apellido = norm(v[4]);
-        const actividad = norm(v[5]);
-        const categoria = norm(v[6]);
-        const telefono = norm(v[7]);
-        const direccion = norm(v[8]);
-        const fecha_nacimiento = norm(v[9]);
-        const fecha_ingreso = norm(v[10]);
-        const activo = parseBoolSI(v[11], true);
-        const becado = parseBoolSI(v[12], false);
+        const nombre = norm(row.getCell(3).value);
+        const apellido = norm(row.getCell(4).value);
+        const actividad = norm(row.getCell(5).value);
+        const categoria = norm(row.getCell(6).value);
+        const telefono = norm(row.getCell(7).value);
+        const direccion = norm(row.getCell(8).value);
+
+        const fecha_nacimiento_raw = row.getCell(9).value;
+        const fecha_ingreso_raw = row.getCell(10).value;
+
+        const activo = parseBoolSI(row.getCell(11).value, true);
+        const becado = parseBoolSI(row.getCell(12).value, false);
 
         // Validaciones mínimas requeridas (como el alta normal)
         if (!dni || dni.length < 7) {
           errors.push({ row: rowNumber, error: 'DNI inválido o vacío', dni: dniRaw, numero_socio: numero });
           continue;
         }
-        if (!nombre || !apellido || !actividad || !categoria || !fecha_nacimiento) {
-          errors.push({ row: rowNumber, error: 'Faltan campos obligatorios (nombre/apellido/actividad/categoria/fecha_nacimiento)', dni, numero_socio: numero });
+        if (!nombre || !apellido || !actividad || !categoria || !fecha_nacimiento_raw) {
+          errors.push({
+            row: rowNumber,
+            error: 'Faltan campos obligatorios (nombre/apellido/actividad/categoria/fecha_nacimiento)',
+            dni,
+            numero_socio: numero
+          });
           continue;
         }
-        const fnISO = parseDMYtoISO(fecha_nacimiento);
-if (!fnISO) {
-  errors.push({
-    row: rowNumber,
-    error: 'fecha_ingreso inválida (usar DD/MM/AAAA)',
-    dni,
-    numero_socio: numero
-  });
-  continue;
-}
 
-let fiISO = null;
-if (fecha_ingreso) {
-  fiISO = parseDMYtoISO(fecha_ingreso);
-  if (!fiISO) {
-    errors.push({
-      row: rowNumber,
-      error: 'fecha_ingreso inválida (usar DD/MM/AAAA)',
-      dni,
-      numero_socio: numero
-    });
-    continue;
-  }
-}
+        // ✅ Parse fechas (acepta Date real, DD/MM y también MM/DD si corresponde)
+        const fnISO = parseExcelDateToISO(fecha_nacimiento_raw);
+        if (!fnISO) {
+          errors.push({
+            row: rowNumber,
+            error: 'fecha_nacimiento inválida (usar DD/MM/AAAA)',
+            dni,
+            numero_socio: numero
+          });
+          continue;
+        }
+
+        let fiISO = null;
+        if (fecha_ingreso_raw) {
+          fiISO = parseExcelDateToISO(fecha_ingreso_raw);
+          if (!fiISO) {
+            errors.push({
+              row: rowNumber,
+              error: 'fecha_ingreso inválida (usar DD/MM/AAAA)',
+              dni,
+              numero_socio: numero
+            });
+            continue;
+          }
+        }
 
         // Duplicados contra DB
         if (dniExist.has(dni)) {
           errors.push({ row: rowNumber, error: 'DNI ya existe en el club', dni, numero_socio: numero });
           continue;
         }
-        // Duplicados dentro del propio Excel (vamos agregando al set al preparar insert)
+
         // número autogenerado si está vacío
         if (!numero) {
-          // buscar siguiente numero libre (por si counter quedó desfasado)
           while (numExist.has(String(nextNum))) nextNum++;
           numero = String(nextNum);
           nextNum++;
@@ -449,19 +533,19 @@ if (fecha_ingreso) {
         numExist.add(String(numero));
 
         toInsert.push({
-  numero_socio: Number(numero),
-  dni,
-  nombre,
-  apellido,
-  actividad,
-  categoria,
-  telefono: telefono || null,
-  direccion: direccion || null,
-  fecha_nacimiento: fnISO,
-  fecha_ingreso: fiISO,
-  activo,
-  becado
-});
+          numero_socio: Number(numero),
+          dni,
+          nombre,
+          apellido,
+          actividad,
+          categoria,
+          telefono: telefono || null,
+          direccion: direccion || null,
+          fecha_nacimiento: fnISO,
+          fecha_ingreso: fiISO,
+          activo,
+          becado
+        });
       }
 
       // 5) Insertar uno por uno (para permitir carga parcial)
@@ -495,7 +579,6 @@ if (fecha_ingreso) {
           );
           if (rIns.rowCount) insertedCount++;
         } catch (e) {
-          // si por alguna razón DB detecta duplicado o error, lo logueamos y seguimos
           errors.push({
             row: null,
             error: e.code === '23505' ? 'Duplicado (DB)' : e.message,
@@ -523,7 +606,6 @@ if (fecha_ingreso) {
     }
   }
 );
-
 // ===============================
 // CREAR SOCIO
 // ===============================
