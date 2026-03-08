@@ -17,18 +17,18 @@ router.get('/:clubId', requireAuth, async (req, res) => {
     const r = await db.query(
       `
       SELECT
-        id,
-        name,
-        address,
-        city,
-        province,
-        logo_url,
-        background_url,
-        color_primary,
-        color_secondary,
-        color_accent
-      FROM clubs
-      WHERE id = $1
+  id,
+  name,
+  city,
+  province,
+  logo_url,
+  background_url,
+  color_primary,
+  color_secondary,
+  color_accent,
+  apply_token
+FROM clubs
+WHERE id = $1
       LIMIT 1
       `,
       [clubId]
