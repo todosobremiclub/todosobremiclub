@@ -198,8 +198,10 @@
     if (roleBadge) roleBadge.textContent = `Rol: ${match.role}`;
 
     const club = await fetchClubInfo(match.club_id);
-    currentClub = club; // ✅ guardamos para el QR
-    bindQROnce(); // ✅ asegura que el botón funcione siempre
+currentClub = club; // ✅ guardamos para el QR
+window.currentClub = club; // ✅ para el onclick global
+bindQROnce(); // (puede quedar, no molesta)
+
 
     // ===============================
     // Título / info
@@ -351,3 +353,53 @@
     window.location.href = '/admin.html';
   }
 })();
+
+// ===============================
+// QR GLOBAL – handler directo
+// ===============================
+window.openClubQR = function () {
+  try {
+    // ✅ usa el club que ya cargaste al seleccionar
+    // (vamos a setear window.currentClub dentro de applySelected)
+    if (!window.currentClub) {
+      alert('No hay club activo cargado todavía.');
+      return;
+    }
+
+    const token = window.currentClub.apply_token;
+    if (!token) {
+      alert('Este club no tiene habilitado el QR de postulación (falta apply_token).');
+      return;
+    }
+
+    const link =
+      `${window.location.origin}/postularse.html?clubId=${encodeURIComponent(window.currentClub.id)}&t=${encodeURIComponent(token)}`;
+
+    const qrContainer = document.getElementById('qrContainer');
+    const qrLink = document.getElementById('qrLink');
+    const modal = document.getElementById('modalQR');
+
+    if (!qrContainer || !qrLink || !modal) {
+      alert('No se pudo abrir el QR (falta el modalQR/qrContainer/qrLink en club.html).');
+      return;
+    }
+
+    qrLink.value = link;
+    qrContainer.innerHTML = '';
+
+    const img = document.createElement('img');
+    img.alt = 'QR Postulación';
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(link)}`;
+    img.style.width = '250px';
+    img.style.height = '250px';
+    img.style.borderRadius = '12px';
+    img.style.border = '2px solid var(--color-primary)';
+    img.style.background = '#fff';
+
+    qrContainer.appendChild(img);
+    modal.classList.remove('hidden');
+  } catch (e) {
+    console.error(e);
+    alert('Error al generar el QR.');
+  }
+};
