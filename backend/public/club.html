@@ -430,12 +430,76 @@ textarea:focus{
   </div>
 
   <script>
-    function logout() {
-      localStorage.removeItem('token');
-      localStorage.removeItem('activeClubId');
-      window.location.href = '/admin.html';
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('activeClubId');
+    window.location.href = '/admin.html';
+  }
+
+  // ✅ QR Global (blindado): usa el club activo que guarda club.js en localStorage
+  async function openClubQR() {
+    try {
+      const clubId = localStorage.getItem('activeClubId');
+      if (!clubId) return alert('No hay club activo seleccionado.');
+
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Sesión inválida o expirada.');
+
+      // Traer club para obtener apply_token
+      const res = await fetch(`/club/${clubId}`, {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) return alert(data.error || 'No se pudo cargar el club');
+
+      const club = data.club;
+      if (!club?.apply_token) return alert('Este club no tiene apply_token (no se puede generar QR).');
+
+      const link = `${window.location.origin}/postularse.html?clubId=${encodeURIComponent(club.id)}&t=${encodeURIComponent(club.apply_token)}`;
+
+      const modal = document.getElementById('modalQR');
+      const qrContainer = document.getElementById('qrContainer');
+      const qrLink = document.getElementById('qrLink');
+
+      if (!modal || !qrContainer || !qrLink) {
+        return alert('Falta el modal del QR en club.html (modalQR/qrContainer/qrLink).');
+      }
+
+      qrLink.value = link;
+      qrContainer.innerHTML = '';
+
+      const img = document.createElement('img');
+      img.alt = 'QR Postulación';
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(link)}`;
+      img.style.width = '250px';
+      img.style.height = '250px';
+      img.style.borderRadius = '12px';
+      img.style.border = '2px solid var(--color-primary)';
+      img.style.background = '#fff';
+
+      qrContainer.appendChild(img);
+      modal.classList.remove('hidden');
+
+      // Botones modal (si existen)
+      document.getElementById('btnCloseQR')?.addEventListener('click', () => modal.classList.add('hidden'));
+      document.getElementById('btnCopyQR')?.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(link);
+          alert('✅ Link copiado');
+        } catch {
+          alert('No se pudo copiar el link');
+        }
+      });
+
+      modal.addEventListener('click', (ev) => {
+        if (ev.target === modal) modal.classList.add('hidden');
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Error al generar el QR.');
     }
-  </script>
+  }
+</script>
 
   <script src="/js/club.js"></script>
   <script src="/js/socios.js"></script>
