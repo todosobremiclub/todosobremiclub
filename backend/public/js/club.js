@@ -55,12 +55,11 @@
   }
 
   // ===============================
-  // QR helpers (Postulación)
+  // QR (Postulación) - botón global
   // ===============================
-  let currentClub = null; // guardamos el club activo para el QR
+  let currentClub = null; // se setea cuando se carga el club seleccionado
 
   function buildApplyLink(club) {
-    // ⚠️ Requiere club.apply_token (si no existe, mostramos mensaje)
     const token = club?.apply_token;
     if (!token) return null;
     return `${window.location.origin}/postularse.html?clubId=${encodeURIComponent(club.id)}&t=${encodeURIComponent(token)}`;
@@ -80,12 +79,11 @@
 
   async function copyTextToClipboard(text) {
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
         return true;
       }
     } catch {}
-    // fallback
     try {
       const ta = document.createElement('textarea');
       ta.value = text;
@@ -108,11 +106,10 @@
     qrContainer.innerHTML = '';
 
     if (!link) {
-      qrContainer.innerHTML = `<div class="muted">No se pudo generar el QR (falta apply_token).</div>`;
+      qrContainer.innerHTML = `<div class="muted">No se pudo generar el QR (falta apply_token del club).</div>`;
       return;
     }
 
-    // QR simple usando servicio público
     const img = document.createElement('img');
     img.alt = 'QR Postulación';
     img.style.width = '250px';
@@ -128,17 +125,12 @@
   function bindQROnce() {
     const btn = document.getElementById('btnVerQR');
     const modal = document.getElementById('modalQR');
-    const btnClose = document.getElementById('btnCloseQR');
-    const btnCopy = document.getElementById('btnCopyQR');
-
-    // si no existe alguno, no rompemos
     if (!btn || !modal) return;
 
     if (btn.dataset.bound === '1') return;
     btn.dataset.bound = '1';
 
-    btn.addEventListener('click', async () => {
-      // usar club activo ya cargado
+    btn.addEventListener('click', () => {
       if (!currentClub) {
         alert('No hay club activo cargado todavía.');
         return;
@@ -148,22 +140,19 @@
       openQRModal();
     });
 
-    btnClose?.addEventListener('click', closeQRModal);
+    document.getElementById('btnCloseQR')?.addEventListener('click', closeQRModal);
 
-    btnCopy?.addEventListener('click', async () => {
-      const input = document.getElementById('qrLink');
-      const link = input?.value || '';
+    document.getElementById('btnCopyQR')?.addEventListener('click', async () => {
+      const link = document.getElementById('qrLink')?.value || '';
       if (!link) return alert('No hay link para copiar.');
       const ok = await copyTextToClipboard(link);
       alert(ok ? '✅ Link copiado' : 'No se pudo copiar el link.');
     });
 
-    // cerrar tocando fuera
     modal.addEventListener('click', (ev) => {
       if (ev.target === modal) closeQRModal();
     });
 
-    // escape
     document.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape' && !modal.classList.contains('hidden')) {
         closeQRModal();
