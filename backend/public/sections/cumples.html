@@ -61,13 +61,22 @@
 
 
 
+/* ✅ FORZAR MINIATURA COMO EN SOCIOS */
+#cumplesHoyContainer img,
+.cumples-hoy-container img,
 .cumple-card img{
- width:36px;          /* ✅ miniatura */
- height:36px;
- border-radius:50%;
- object-fit:cover;
- flex-shrink:0;
- border:1px solid var(--color-primary);
+  width:32px !important;
+  height:32px !important;
+  max-width:32px !important;
+  max-height:32px !important;
+
+  border-radius:50% !important;
+  object-fit:cover !important;
+
+  display:block !important;
+  flex-shrink:0 !important;
+
+  border:1px solid var(--color-primary) !important;
 }
 
  .cumple-nombre{
