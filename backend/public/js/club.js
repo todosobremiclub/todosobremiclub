@@ -197,7 +197,17 @@
     const roleBadge = document.getElementById('roleBadge');
     if (roleBadge) roleBadge.textContent = `Rol: ${match.role}`;
 
-    const club = await fetchClubInfo(match.club_id);
+    let club;
+try {
+  club = await fetchClubInfo(match.club_id);
+} catch (e) {
+  // club inexistente o borrado
+  localStorage.removeItem('activeClubId');
+  alert('El club seleccionado ya no existe.');
+  window.location.reload();
+  return;
+}
+
 currentClub = club; // ✅ guardamos para el QR
 window.currentClub = club; // ✅ para el onclick global
 bindQROnce(); // (puede quedar, no molesta)
@@ -322,10 +332,13 @@ bindQROnce(); // (puede quedar, no molesta)
       return;
     }
 
+
+
     if (user.roles.some(r => r.role === 'superadmin')) {
-      window.location.href = '/superadmin.html';
-      return;
-    }
+  localStorage.removeItem('activeClubId');
+  window.location.href = '/superadmin.html';
+  return;
+}
 
     fillSelect(user.roles);
 
