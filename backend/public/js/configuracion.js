@@ -84,6 +84,16 @@ async function fetchAuth(url, options = {}) {
   return res;
 }
 
+function formatARS(value) {
+  const n = Number(value ?? 0);
+  return n.toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
 async function safeJson(res) {
   const text = await res.text();
   try {
@@ -254,12 +264,22 @@ function renderActividades(items) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
+  const moneyARS = new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
   items.forEach(a => {
     const tr = document.createElement('tr');
 
     const precio = (typeof a.precio_mensual === 'number')
       ? a.precio_mensual
       : (a.precio_mensual ? Number(a.precio_mensual) : 0);
+
+    const precioNum = Number.isFinite(precio) ? precio : 0;
+    const precioFmt = moneyARS.format(precioNum);
 
     tr.innerHTML = `
       <td>
@@ -269,16 +289,28 @@ function renderActividades(items) {
           value="${escapeHtml(a.nombre)}"
         />
       </td>
+
       <td>
-        <input
-          type="number"
-          id="act_precio_${a.id}"
-          min="0"
-          step="0.01"
-          value="${Number.isFinite(precio) ? precio : 0}"
-          style="max-width:140px;"
-        />
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input
+            type="number"
+            id="act_precio_${a.id}"
+            min="0"
+            step="0.01"
+            value="${precioNum}"
+            style="max-width:140px;"
+          />
+          <span
+            id="act_precio_fmt_${a.id}"
+            class="muted"
+            style="font-size:12px; font-weight:700; white-space:nowrap;"
+            title="${precioFmt}"
+          >
+            ${precioFmt}
+          </span>
+        </div>
       </td>
+
       <td style="text-align:center">
         <button class="btn-save" data-act="save-act" data-id="${a.id}">💾</button>
       </td>
@@ -286,10 +318,23 @@ function renderActividades(items) {
         <button class="btn-del" data-act="del-act" data-id="${a.id}">🗑️</button>
       </td>
     `;
+
     tbody.appendChild(tr);
+
+    // ✅ Mantener el label formateado actualizado mientras escriben
+    const inp = document.getElementById(`act_precio_${a.id}`);
+    const lbl = document.getElementById(`act_precio_fmt_${a.id}`);
+    if (inp && lbl) {
+      const updateLabel = () => {
+        const v = Number(inp.value);
+        lbl.textContent = moneyARS.format(Number.isFinite(v) ? v : 0);
+        lbl.title = lbl.textContent;
+      };
+      inp.addEventListener('input', updateLabel);
+      inp.addEventListener('change', updateLabel);
+    }
   });
 }
-
 async function createActividad(nombre, precio_mensual) {
   const payload = {
     nombre,
