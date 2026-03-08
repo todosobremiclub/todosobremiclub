@@ -364,6 +364,27 @@ textarea:focus{
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 </head>
 
+<!-- MODAL VER QR -->
+<div id="modalQR" class="modal hidden">
+  <div class="modal-content" style="max-width:420px; text-align:center;">
+    <h3>📱 Postulación de Socios</h3>
+
+    <div id="qrContainer" style="margin:16px auto;"></div>
+
+    <input
+      id="qrLink"
+      type="text"
+      readonly
+      style="width:100%; padding:8px; margin-top:8px;"
+    />
+
+    <div style="margin-top:12px; display:flex; gap:10px; justify-content:center;">
+      <button id="btnCopyQR" class="navbtn navbtn--top">📋 Copiar link</button>
+      <button id="btnCloseQR" class="navbtn navbtn--top">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <body>
   <div class="layout">
     <main class="content">
@@ -379,9 +400,10 @@ textarea:focus{
         </div>
 
         <div class="topbar-right">
-          <select id="clubSelect" class="club-select"></select>
-          <span class="badge" id="roleBadge">Rol: —</span>
-        </div>
+  <button id="btnVerQR" class="navbtn navbtn--top">📱 Ver QR</button>
+  <select id="clubSelect" class="club-select"></select>
+  <span class="badge" id="roleBadge">Rol: —</span>
+</div>
       </div>
 
       <!-- MENÚ -->
