@@ -38,45 +38,47 @@
   }
 
   .cumples-hoy-container{
-    display:flex;
-    flex-wrap:wrap;
-    gap:12px;
-  }
+ display:flex;
+ flex-direction:column;   /* ✅ uno abajo del otro */
+ gap:8px;
+}
 
   .cumple-card{
  display:flex;
  align-items:center;
- gap:10px;
+ gap:8px;
 
  background:#fff;
  color:#111;
- padding:8px 12px;
- border-radius:10px;
+ padding:6px 10px;
+ border-radius:8px;
 
- min-width:220px;
- max-width:320px;
+ width:100%;
+ max-width:100%;
 
- box-shadow:0 2px 8px rgba(0,0,0,0.12);
- border-left:4px solid var(--color-accent);
+ box-shadow:0 1px 4px rgba(0,0,0,0.12);
+ border-left:3px solid var(--color-accent);
 }
 
+
+
 .cumple-card img{
- width:46px;
- height:46px;
+ width:34px;
+ height:34px;
  border-radius:50%;
  object-fit:cover;
  flex-shrink:0;
- border:2px solid var(--color-primary);
+ border:1px solid var(--color-primary);
 }
 
-  .cumple-nombre{
+ .cumple-nombre{
  font-weight:700;
- font-size:14px;
- line-height:1.2;
+ font-size:13px;
+ line-height:1.1;
 }
 
- .cumple-categoria{
- font-size:12px;
+.cumple-categoria{
+ font-size:11px;
  color:#555;
 }
 
