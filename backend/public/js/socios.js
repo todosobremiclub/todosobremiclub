@@ -1171,8 +1171,7 @@ async function loadSocios() {
       alert('Error exportando CSV');
     }
   }
-
-  // =============================
+// =============================
   // Bind events
   // =============================
   function bindOnce() {
@@ -1183,8 +1182,7 @@ async function loadSocios() {
 
     ensurePhotoViewer();
     ensureDraftPhotoUI();
-bindSorting();
-
+    bindSorting();
 
     $('filtroActividad')?.addEventListener('change', loadSocios);
     $('btnNuevoSocio')?.addEventListener('click', openModalNew);
@@ -1192,12 +1190,14 @@ bindSorting();
     $('btnGuardarSocio')?.addEventListener('click', saveSocio);
 
     $('btnBuscarSocios')?.addEventListener('click', loadSocios);
-const debouncedLoadSocios = debounce(loadSocios, 250);
-$('sociosSearch')?.addEventListener('input', debouncedLoadSocios);
+
+    const debouncedLoadSocios = debounce(loadSocios, 250);
+    $('sociosSearch')?.addEventListener('input', debouncedLoadSocios);
+
     $('btnExportSocios')?.addEventListener('click', exportSocios);
 
-$('socioActividad').value = '';
-$('socioDireccion').value = '';
+    $('socioActividad').value = '';
+    $('socioDireccion').value = '';
 
     $('sociosSearch')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') loadSocios();
@@ -1207,43 +1207,84 @@ $('socioDireccion').value = '';
     $('filtroAnio')?.addEventListener('change', loadSocios);
     $('verInactivos')?.addEventListener('change', loadSocios);
 
+    // =============================
+    // CLICK en tabla: foto / editar / eliminar
+    // =============================
+    $('sociosTableBody')?.addEventListener('click', async (ev) => {
+
+      // 1) Click en foto -> visor
+      const img = ev.target.closest('[data-act="viewphoto"]');
+      if (img) {
+        const url = img.dataset.url;
+        if (url) openPhotoViewer(url);
+        return;
+      }
+
+      // 2) Click en WhatsApp -> NO hacer nada acá (solo dejamos que el <a> funcione)
+      //    (esto evita interferencias con Editar/Eliminar)
+      if (ev.target.closest('.wa-action')) {
+        return;
+      }
+
+      // 3) Click en botones de acciones (editar/eliminar)
+      const btn = ev.target.closest('button[data-act]');
+      if (!btn) return;
+
+      const act = btn.dataset.act;
+      const id = btn.dataset.id;
+      if (!id) return;
+
+      if (act === 'edit') {
+        const socio = sociosCache.find(x => String(x.id) === String(id));
+        if (socio) openModalEdit(socio);
+        return;
+      }
+
+      if (act === 'del') {
+        if (confirm('¿Eliminar socio definitivamente?')) {
+          await deleteSocio(id);
+        }
+        return;
+      }
+    });
+
+    // =============================
+    // DOBLE CLICK WhatsApp (teléfono o ícono) -> abrir WhatsApp Web
+    // =============================
     $('sociosTableBody')?.addEventListener('dblclick', (ev) => {
+      const waTarget = ev.target.closest('.wa-action');
+      if (!waTarget) return; // si no fue WA, no hacemos nada
 
+      // Si doble click fue en el ícono/link
+      if (waTarget.tagName === 'A' && waTarget.href) {
+        window.open(waTarget.href, '_blank', 'noopener');
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
 
-// ✅ Si fue WhatsApp, no abrir carnet
-if (ev.target.closest('.wa-action')) return
+      // Si doble click fue en el texto del teléfono
+      const span = ev.target.closest('.wa-phone');
+      if (span) {
+        const phone = span.dataset.phone;
+        const url = buildWaUrl(phone);
+        if (url) window.open(url, '_blank', 'noopener');
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
+    });
 
-
-// ✅ Si se hace click en Acciones (editar / eliminar), no interceptar
-if (ev.target.closest('.acciones-socio')) return;
-
-  const waTarget = ev.target.closest('.wa-action');
-  if (!waTarget) return;
-
-
-
-  // Si doble click fue en el ícono/link
-  if (waTarget.tagName === 'A' && waTarget.href) {
-    window.open(waTarget.href, '_blank', 'noopener');
-    ev.preventDefault();
-    ev.stopPropagation();
-    return;
-  }
-
-  // Si doble click fue en el texto del teléfono
-  const span = ev.target.closest('.wa-phone');
-  if (span) {
-    const phone = span.dataset.phone;
-    const url = buildWaUrl(phone);
-    if (url) window.open(url, '_blank', 'noopener');
-    ev.preventDefault();
-    ev.stopPropagation();
-  }
-});
-
-    // ✅ FIX: usar window.openCarnet (evita ReferenceError)
+    // =============================
+    // DOBLE CLICK fila -> abrir Carnet (pero NO si fue WA o Acciones)
+    // =============================
     root.addEventListener('dblclick', (ev) => {
-if (ev.target.closest('.wa-action')) return; // ✅ si fue WA, no abrir carnet
+      // ✅ Si fue WhatsApp, no abrir carnet
+      if (ev.target.closest('.wa-action')) return;
+
+      // ✅ Si fue un botón de Acciones, no abrir carnet
+      if (ev.target.closest('button[data-act]')) return;
+
       const tr = ev.target.closest('#sociosTableBody tr');
       if (!tr || !tr.dataset.id) return;
 
@@ -1257,11 +1298,11 @@ if (ev.target.closest('.wa-action')) return; // ✅ si fue WA, no abrir carnet
   }
 
   async function initSociosSection() {
-  bindOnce();
-await loadCategoriasConfig().catch(() => {});
-await loadActividadesConfig().catch(() => {});  // 👈 NUEVO
-await loadSocios();
-}
+    bindOnce();
+    await loadCategoriasConfig().catch(() => {});
+    await loadActividadesConfig().catch(() => {});
+    await loadSocios();
+  }
 
   window.initSociosSection = initSociosSection;
 
