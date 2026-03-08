@@ -387,6 +387,50 @@ IDENTIDAD VISUAL – SOCIOS
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
+/* ===============================
+   SOCIOS: borde finito por fila (color secundario)
+================================ */
+.socios-table{
+  border-collapse: separate;   /* clave para que se vea como “tarjetita” */
+  border-spacing: 0 6px;       /* separa filas para que el borde sea visible */
+}
+
+.socios-table tbody td{
+  background:#fff;
+  border-top: 1px solid color-mix(in srgb, var(--color-secondary) 55%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 55%, transparent) !important;
+}
+
+.socios-table tbody td:first-child{
+  border-left: 1px solid color-mix(in srgb, var(--color-secondary) 55%, transparent) !important;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+
+.socios-table tbody td:last-child{
+  border-right: 1px solid color-mix(in srgb, var(--color-secondary) 55%, transparent) !important;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+/* WhatsApp mini */
+.wa-link{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-left:8px;
+  text-decoration:none;
+}
+.wa-link svg{
+  width:14px;
+  height:14px;
+  display:block;
+}
+.wa-phone{
+  cursor:pointer;
+}
+
+
   </style>
 
 </section>

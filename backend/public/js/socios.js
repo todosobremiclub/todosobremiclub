@@ -24,6 +24,8 @@
     return c;
   }
 
+
+
   async function fetchAuth(url, options = {}) {
     const headers = options.headers || {};
     headers['Authorization'] = 'Bearer ' + getToken();
@@ -206,13 +208,32 @@ function fillCategoriaSelect(items) {
   const filtro = $('filtroCategoria');
   if (!sel || !filtro) return;
 
+  // preservar lo que el edit quiso setear antes de que lleguen las categorías
+  const pending = sel.dataset.pendingValue || sel.value;
+
   // llenar modal
   sel.innerHTML = `<option value="">Seleccionar...</option>`;
   items.forEach(c => {
-    sel.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
+    const opt = document.createElement('option');
+    opt.value = c.nombre;
+    opt.textContent = c.nombre;
+    sel.appendChild(opt);
   });
 
-  // llenar filtro
+  // aplicar selección pendiente si existe
+  if (pending) {
+    const exists = [...sel.options].some(o => o.value === pending);
+    if (!exists) {
+      const opt = document.createElement('option');
+      opt.value = pending;
+      opt.textContent = pending + ' (no está en Configuración)';
+      sel.appendChild(opt);
+    }
+    sel.value = pending;
+  }
+  delete sel.dataset.pendingValue;
+
+  // llenar filtro preservando selección previa
   const current = filtro.value;
   filtro.innerHTML = `<option value="">Todas las categorías</option>`;
   items.forEach(c => {
@@ -221,10 +242,9 @@ function fillCategoriaSelect(items) {
     opt.textContent = c.nombre;
     filtro.appendChild(opt);
   });
-
-  // mantener selección previa
   filtro.value = current || '';
 }
+
 // Si al editar viene una categoría que no existe más en config, la agregamos como opción
 function ensureCategoriaOption(value) {
   const sel = $('socioCategoria');
@@ -262,6 +282,41 @@ function ensureCategoriaOption(value) {
     if (!iso) return '';
     return String(iso).slice(0, 4);
   }
+
+function onlyDigits(v) {
+  return String(v ?? '').replace(/\D+/g, '');
+}
+function fmtDni(dni) {
+  const d = onlyDigits(dni);
+  if (d.length === 8) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}`;
+  if (d.length === 7) return `${d.slice(0,1)}.${d.slice(1,4)}.${d.slice(4,7)}`;
+  return String(dni ?? '');
+}
+
+function phoneToWaE164(phone) {
+  let d = onlyDigits(phone);
+  if (!d) return null;
+
+  d = d.replace(/^0+/, '');   // quita 0 inicial
+  d = d.replace(/^15/, '');   // quita 15 si lo pusieron al inicio
+
+  if (d.startsWith('54')) return d;
+
+  if (d.length >= 10) return '549' + d; // AR típico con 11 dígitos
+  return '54' + d;
+}
+
+function buildWaUrl(phone) {
+  const e164 = phoneToWaE164(phone);
+  if (!e164) return null;
+  return `https://web.whatsapp.com/send?phone=${e164}`;
+}
+
+const WA_SVG = `
+<svg viewBox="0 0 32 32" aria-hidden="true">
+  <path fill="#25D366" d="M16 3C9.4 3 4 8.1 4 14.4c0 2.4.8 4.7 2.2 6.6L5 29l7.2-1.9c1.1.3 2.4.5 3.8.5 6.6 0 12-5.1 12-11.4S22.6 3 16 3z"/>
+  <path fill="#fff" d="M13.4 10.6c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.4-.2.3-.9.9-.9 2.2s1 2.6 1.1 2.8c.2.2 2 3.2 4.9 4.3 2.4.9 2.9.7 3.4.6.5-.1 1.6-.6 1.8-1.2.2-.6.2-1.1.1-1.2-.1-.2-.3-.3-.7-.5-.4-.2-1.6-.8-1.9-.9-.3-.1-.5-.2-.7.2-.2.4-.8.9-1 .9-.2.1-.4.1-.8-.1-.4-.2-1.5-.5-2.9-1.8-1.1-1-1.8-2.2-2-2.6-.2-.4 0-.6.2-.8.2-.2.4-.4.5-.6.2-.2.2-.4.3-.6.1-.2 0-.4 0-.6-.1-.2-.6-1.6-.8-2z"/>
+</svg>`;
 
   // =============================
   // Estado pago (usa backend pago_al_dia)
@@ -344,6 +399,7 @@ const pageSize = 50;
     img.src = url;
     modal.style.display = 'flex';
   }
+
 
   // =============================
   // Draft photo UI (solo modal socio)
@@ -513,7 +569,11 @@ $('socioActividad').value = socio.actividad ?? '';
 ensureActividadOption(socio.actividad);
 $('socioDireccion').value = socio.direccion ?? '';
 
-    $('socioCategoria').value = socio.categoria ?? '';ensureCategoriaOption(socio.categoria);
+    const catSel = $('socioCategoria');
+if (catSel) catSel.dataset.pendingValue = (socio.categoria ?? '').toString();
+$('socioCategoria').value = socio.categoria ?? '';
+ensureCategoriaOption(socio.categoria);
+
     $('socioTelefono').value = socio.telefono ?? '';
     $('socioNacimiento').value = (socio.fecha_nacimiento || '').slice(0, 10);
     $('socioIngreso').value = (socio.fecha_ingreso || '').slice(0, 10);
@@ -649,7 +709,7 @@ $('socioDireccion').value = socio.direccion ?? '';
 if (elNombre) elNombre.textContent = nombre;
 
 const elDni = modal.querySelector('#carnetDni');
-if (elDni) elDni.textContent = `DNI: ${socio.dni ?? '—'}`;
+if (elDni) elDni.textContent = `DNI: ${fmtDni(socio.dni) || '—'}`;
 
 const elCat = modal.querySelector('#carnetCategoria');
 if (elCat) elCat.textContent = `Categoría: ${socio.categoria ?? '—'}`;
@@ -876,18 +936,26 @@ function bindSorting() {
       />
     `;
 
+const waUrl = buildWaUrl(s.telefono);
+const telTxt = (s.telefono ?? '').toString();
+
     const tr = document.createElement('tr');
     tr.dataset.id = s.id;
 
     tr.innerHTML = `
   <td>${renderPagoPill(s)}</td>
   <td>${fmtSocioNumero(s.numero_socio)}</td>
-  <td>${escapeHtml(s.dni ?? '')}</td>
+  <td>${escapeHtml(fmtDni(s.dni))}</td>
   <td>${escapeHtml(s.nombre ?? '')}</td>
   <td>${escapeHtml(s.apellido ?? '')}</td>
   <td>${escapeHtml(s.actividad ?? '')}</td>          <!-- NUEVO -->
   <td>${escapeHtml(s.categoria ?? '')}</td>
-  <td>${escapeHtml(s.telefono ?? '')}</td>
+  <td>
+  <span class="wa-phone wa-action" data-phone="${escapeHtml(telTxt)}">
+    ${escapeHtml(telTxt)}
+  </span>
+  ${waUrl ? `<a class="wa-link wa-action" href="${waUrl}" target="_blank" rel="noopener" title="WhatsApp Web">${WA_SVG}</a>` : ''}
+</td>
   <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
   <td>${fmtDMY(s.fecha_ingreso)}</td>
   <td>${s.activo ? 'Sí' : 'No'}</td>
@@ -1139,34 +1207,32 @@ $('socioDireccion').value = '';
     $('filtroAnio')?.addEventListener('change', loadSocios);
     $('verInactivos')?.addEventListener('change', loadSocios);
 
-    $('sociosTableBody')?.addEventListener('click', async (ev) => {
-      const img = ev.target.closest('[data-act="viewphoto"]');
-      if (img) {
-        const url = img.dataset.url;
-        if (url) openPhotoViewer(url);
-        return;
-      }
+    $('sociosTableBody')?.addEventListener('dblclick', (ev) => {
+  const waTarget = ev.target.closest('.wa-action');
+  if (!waTarget) return;
 
-      const btn = ev.target.closest('button[data-act]');
-      if (!btn) return;
+  // Si doble click fue en el ícono/link
+  if (waTarget.tagName === 'A' && waTarget.href) {
+    window.open(waTarget.href, '_blank', 'noopener');
+    ev.preventDefault();
+    ev.stopPropagation();
+    return;
+  }
 
-      const act = btn.dataset.act;
-      const id = btn.dataset.id;
-
-      if (act === 'edit') {
-        const socio = sociosCache.find(x => String(x.id) === String(id));
-        if (socio) openModalEdit(socio);
-      }
-
-      if (act === 'del') {
-        if (confirm('¿Eliminar socio definitivamente?')) {
-          await deleteSocio(id);
-        }
-      }
-    });
+  // Si doble click fue en el texto del teléfono
+  const span = ev.target.closest('.wa-phone');
+  if (span) {
+    const phone = span.dataset.phone;
+    const url = buildWaUrl(phone);
+    if (url) window.open(url, '_blank', 'noopener');
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+});
 
     // ✅ FIX: usar window.openCarnet (evita ReferenceError)
     root.addEventListener('dblclick', (ev) => {
+if (ev.target.closest('.wa-action')) return; // ✅ si fue WA, no abrir carnet
       const tr = ev.target.closest('#sociosTableBody tr');
       if (!tr || !tr.dataset.id) return;
 
