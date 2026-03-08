@@ -216,8 +216,8 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
       { header: 'categoria', key: 'categoria', width: 22 },
       { header: 'telefono', key: 'telefono', width: 16 },
       { header: 'direccion', key: 'direccion', width: 26 },
-      { header: 'fecha_nacimiento (YYYY-MM-DD)', key: 'fecha_nacimiento', width: 22 },
-      { header: 'fecha_ingreso (YYYY-MM-DD)', key: 'fecha_ingreso', width: 22 },
+      { header: 'fecha_nacimiento (DD-MM-AAAA)', key: 'fecha_nacimiento', width: 22 },
+      { header: 'fecha_ingreso (DD-MM-AAAA)', key: 'fecha_ingreso', width: 22 },
       { header: 'activo (SI/NO)', key: 'activo', width: 14 },
       { header: 'becado (SI/NO)', key: 'becado', width: 14 }
     ];
@@ -280,7 +280,8 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
 
     // Nota en fila 2 (opcional, no rompe import)
     ws.getCell('N1').value = 'NOTA';
-    ws.getCell('N2').value = 'Dejá numero_socio vacío para autogenerar. Fechas en YYYY-MM-DD.';
+    ws.getCell('N2').value = 'Dejá numero_socio vacío para autogenerar. Fechas en formato DD-MM-AAAA.';
+
 
     // Descargar
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -357,7 +358,14 @@ router.post(
         if (s === 'NO' || s === 'N' || s === 'FALSE' || s === '0') return false;
         return defVal;
       };
-      const isISODate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? ''));
+      const isDMY = (d) => /^\d{2}-\d{2}-\d{4}$/.test(String(d ?? ''));
+
+const parseDMYtoISO = (d) => {
+  const s = String(d ?? '').trim();
+  if (!isDMY(s)) return null;
+  const [dd, mm, yyyy] = s.split('-');
+  return `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
+};
 
       // 4) Validar y preparar inserts (sin frenar por errores)
       for (const r of rows) {
@@ -392,14 +400,30 @@ router.post(
           errors.push({ row: rowNumber, error: 'Faltan campos obligatorios (nombre/apellido/actividad/categoria/fecha_nacimiento)', dni, numero_socio: numero });
           continue;
         }
-        if (!isISODate(fecha_nacimiento)) {
-          errors.push({ row: rowNumber, error: 'fecha_nacimiento inválida (usar YYYY-MM-DD)', dni, numero_socio: numero });
-          continue;
-        }
-        if (fecha_ingreso && !isISODate(fecha_ingreso)) {
-          errors.push({ row: rowNumber, error: 'fecha_ingreso inválida (usar YYYY-MM-DD)', dni, numero_socio: numero });
-          continue;
-        }
+        const fnISO = parseDMYtoISO(fecha_nacimiento);
+if (!fnISO) {
+  errors.push({
+    row: rowNumber,
+    error: 'fecha_nacimiento inválida (usar DD-MM-AAAA)',
+    dni,
+    numero_socio: numero
+  });
+  continue;
+}
+
+let fiISO = null;
+if (fecha_ingreso) {
+  fiISO = parseDMYtoISO(fecha_ingreso);
+  if (!fiISO) {
+    errors.push({
+      row: rowNumber,
+      error: 'fecha_ingreso inválida (usar DD-MM-AAAA)',
+      dni,
+      numero_socio: numero
+    });
+    continue;
+  }
+}
 
         // Duplicados contra DB
         if (dniExist.has(dni)) {
@@ -425,19 +449,19 @@ router.post(
         numExist.add(String(numero));
 
         toInsert.push({
-          numero_socio: Number(numero),
-          dni,
-          nombre,
-          apellido,
-          actividad,
-          categoria,
-          telefono: telefono || null,
-          direccion: direccion || null,
-          fecha_nacimiento,
-          fecha_ingreso: fecha_ingreso || null,
-          activo,
-          becado
-        });
+  numero_socio: Number(numero),
+  dni,
+  nombre,
+  apellido,
+  actividad,
+  categoria,
+  telefono: telefono || null,
+  direccion: direccion || null,
+  fecha_nacimiento: fnISO,
+  fecha_ingreso: fiISO,
+  activo,
+  becado
+});
       }
 
       // 5) Insertar uno por uno (para permitir carga parcial)
