@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Postulación</title>
+  <style>
+    :root{ --color-primary:#2563eb; --color-secondary:#1e40af; }
+    body{ margin:0; font-family:system-ui,Segoe UI,Arial; background:#f3f4f6; padding:16px;}
+    .card{ max-width:720px; margin:0 auto; background:#fff; border-radius:14px; padding:16px; border:1px solid #e5e7eb;}
+    h2{ margin:0 0 12px 0; }
+    label{ font-size:13px; font-weight:700; display:block; margin-top:10px; }
+    input, select{ width:100%; padding:10px; border-radius:10px; border:1px solid #cbd5e1; font-size:14px; }
+    .row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media(max-width:700px){ .row{ grid-template-columns:1fr; } }
+    .btn{ margin-top:14px; width:100%; padding:12px; border:0; border-radius:12px; background:var(--color-primary); color:#fff; font-weight:800; cursor:pointer;}
+    .muted{ color:#64748b; font-size:12px; margin-top:8px;}
+    .preview{ margin-top:10px; display:flex; gap:10px; align-items:center; }
+    .preview img{ width:64px; height:64px; border-radius:12px; object-fit:cover; border:2px solid var(--color-primary); }
+    .err{ color:#b91c1c; font-weight:700; margin-top:10px; }
+    .ok{ color:#15803d; font-weight:700; margin-top:10px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Postulación al club</h2>
+    <div class="muted">Completá tus datos.</div>
+
+    <div class="row">
+      <div>
+        <label>Nombre</label>
+        <input id="nombre" />
+      </div>
+      <div>
+        <label>Apellido</label>
+        <input id="apellido" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>DNI</label>
+        <input id="dni" inputmode="numeric" />
+      </div>
+      <div>
+        <label>Teléfono</label>
+        <input id="telefono" />
+      </div>
+    </div>
+
+    <label>Actividad</label>
+    <select id="actividad"></select>
+
+    <label>Categoría</label>
+    <select id="categoria"></select>
+
+    <label>Dirección</label>
+    <input id="direccion" />
+
+   <label>Fecha de Nacimiento</label>
+<input id="fecha_nacimiento" type="date" />
+
+
+    <label>Foto</label>
+    <input id="foto" type="file" accept="image/*" capture="user" />
+    <div class="preview" id="preview" style="display:none;">
+      <img id="previewImg" alt="preview"/>
+      <div class="muted" id="previewMeta"></div>
+    </div>
+
+    <button class="btn" id="enviar">Enviar postulación</button>
+    <div id="msg"></div>
+  </div>
+
+  <script src="/js/postularse.js"></script>
+</body>
+</html>

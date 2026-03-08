@@ -170,6 +170,11 @@
       if (sectionName === 'socios' && window.initSociosSection) {
         await window.initSociosSection();
       }
+
+if (sectionName === 'pendientes' && window.initPendientesSection) {
+  await window.initPendientesSection();
+}
+
       if (sectionName === 'configuracion' && window.initConfiguracionSection) {
         await window.initConfiguracionSection();
       }
