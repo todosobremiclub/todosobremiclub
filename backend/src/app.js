@@ -5,8 +5,15 @@ const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-// ✅ SERVIR FRONTEND
-app.use(express.static('public'));
+const path = require('path');
+
+// ✅ SERVIR FRONTEND (path absoluto)
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// ✅ Redirigir raíz al login admin
+app.get('/', (_req, res) => {
+  res.redirect('/admin.html');
+});
 
 // ===== ROUTES =====
 const authRoutes = require('./routes/authRoutes');
