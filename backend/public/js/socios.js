@@ -1208,8 +1208,19 @@ $('socioDireccion').value = '';
     $('verInactivos')?.addEventListener('change', loadSocios);
 
     $('sociosTableBody')?.addEventListener('dblclick', (ev) => {
+
+
+// ✅ Si fue WhatsApp, no abrir carnet
+if (ev.target.closest('.wa-action')) return
+
+
+// ✅ Si se hace click en Acciones (editar / eliminar), no interceptar
+if (ev.target.closest('.acciones-socio')) return;
+
   const waTarget = ev.target.closest('.wa-action');
   if (!waTarget) return;
+
+
 
   // Si doble click fue en el ícono/link
   if (waTarget.tagName === 'A' && waTarget.href) {
