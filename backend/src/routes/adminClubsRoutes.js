@@ -216,6 +216,33 @@ router.put(
   }
 );
 
+// ================== ACTIVAR / DESACTIVAR CLUB ==================
+// PATCH /admin/clubs/:id/active
+router.patch('/:id/active', requireAuth, requireRole('superadmin'), async (req, res) => {
+  const { id } = req.params;
+  const { is_active } = req.body || {};
+
+  try {
+    if (typeof is_active !== 'boolean') {
+      return res.status(400).json({ ok: false, error: 'is_active debe ser boolean' });
+    }
+
+    const r = await db.query(
+      `UPDATE clubs SET is_active=$1 WHERE id=$2 RETURNING id, name, is_active`,
+      [is_active, id]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Club no encontrado' });
+    }
+
+    res.json({ ok: true, club: r.rows[0] });
+  } catch (e) {
+    console.error('❌ toggle club active', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ================== ELIMINAR ==================
 router.delete('/:id', requireAuth, requireRole('superadmin'), async (req, res) => {
   try {
