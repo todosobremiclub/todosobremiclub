@@ -1,19 +1,37 @@
+// src/routes/pagosRoutes.js
 const express = require('express');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 
 const router = express.Router();
 
+// CORS para Flutter Web (similar a noticias/cumples)
+router.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+  );
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 // ===============================
-// Helper: validar acceso al club
+// Helper: validar acceso al club (ADMIN)
 // ===============================
 function requireClubAccess(req, res, next) {
   const { clubId } = req.params;
   const roles = req.user?.roles || [];
   const allowed = roles.some(
-    (r) => String(r.club_id) === String(clubId) || r.role === 'superadmin'
+    (r) =>
+      String(r.club_id) === String(clubId) || r.role === 'superadmin'
   );
-  if (!allowed) return res.status(403).json({ ok: false, error: 'No autorizado para este club' });
+  if (!allowed) {
+    return res
+      .status(403)
+      .json({ ok: false, error: 'No autorizado para este club' });
+  }
   next();
 }
 
@@ -26,51 +44,112 @@ function isISODate(d) {
 
 // ============================================================
 // GET /club/:clubId/pagos/resumen?anio=2026
-// Devuelve socios + meses pagados (para la tabla principal)
+// Solo ADMIN – resumen para la tabla principal
 // ============================================================
-router.get('/:clubId/pagos/resumen', requireAuth, requireClubAccess, async (req, res) => {
-  try {
-    const { clubId } = req.params;
-    const anio = Number(req.query.anio) || new Date().getFullYear();
+router.get(
+  '/:clubId/pagos/resumen',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    try {
+      const { clubId } = req.params;
+      const anio =
+        Number(req.query.anio) || new Date().getFullYear();
 
-    const r = await db.query(
-      `
-      SELECT
-        s.id AS socio_id,
-        s.numero_socio,
-        s.nombre,
-        s.apellido,
-        COALESCE(
-          ARRAY_AGG(pm.mes ORDER BY pm.mes) FILTER (WHERE pm.mes IS NOT NULL),
-          '{}'
-        ) AS meses_pagados
-      FROM socios s
-      LEFT JOIN pagos_mensuales pm
-        ON pm.socio_id = s.id
-        AND pm.club_id = s.club_id
-        AND pm.anio = $2
-      WHERE s.club_id = $1 AND s.activo = true
-      GROUP BY s.id, s.numero_socio, s.nombre, s.apellido
-      ORDER BY s.numero_socio ASC
-      `,
-      [clubId, anio]
-    );
+      const r = await db.query(
+        `
+        SELECT
+          s.id AS socio_id,
+          s.numero_socio,
+          s.nombre,
+          s.apellido,
+          COALESCE(
+            ARRAY_AGG(pm.mes ORDER BY pm.mes) FILTER (WHERE pm.mes IS NOT NULL),
+            '{}'
+          ) AS meses_pagados
+        FROM socios s
+        LEFT JOIN pagos_mensuales pm
+          ON pm.socio_id = s.id
+         AND pm.club_id = s.club_id
+         AND pm.anio = $2
+        WHERE s.club_id = $1 AND s.activo = true
+        GROUP BY s.id, s.numero_socio, s.nombre, s.apellido
+        ORDER BY s.numero_socio ASC
+        `,
+        [clubId, anio]
+      );
 
-    res.json({ ok: true, anio, socios: r.rows });
-  } catch (e) {
-    console.error('❌ pagos resumen:', e);
-    res.status(500).json({ ok: false, error: e.message });
+      res.json({ ok: true, anio, socios: r.rows });
+    } catch (e) {
+      console.error('❌ pagos resumen:', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
   }
-});
+);
 
 // ============================================================
 // GET /club/:clubId/pagos/:socioId?anio=2026
-// Devuelve pagos del socio + mesesPagados (para deshabilitar botones)
+// ADMIN: puede ver cualquier socio del club
+// APP SOCIO: solo su propio socioId y clubId (recibos)
 // ============================================================
-router.get('/:clubId/pagos/:socioId', requireAuth, requireClubAccess, async (req, res) => {
+router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
   try {
     const { clubId, socioId } = req.params;
-    const anio = Number(req.query.anio) || new Date().getFullYear();
+    const anio =
+      Number(req.query.anio) || new Date().getFullYear();
+
+    const roles = req.user?.roles || [];
+    const esAdmin = roles.some(
+      (r) =>
+        String(r.club_id) === String(clubId) || r.role === 'superadmin'
+    );
+
+    // Caso ADMIN: se comporta como antes (requireClubAccess)
+    if (esAdmin) {
+      const r = await db.query(
+        `
+        SELECT mes, monto, fecha_pago
+        FROM pagos_mensuales
+        WHERE club_id = $1 AND socio_id = $2 AND anio = $3
+        ORDER BY mes ASC
+        `,
+        [clubId, socioId, anio]
+      );
+
+      return res.json({
+        ok: true,
+        anio,
+        pagos: r.rows,
+        mesesPagados: r.rows.map((x) => Number(x.mes)),
+      });
+    }
+
+    // Caso APP del socio
+    if (!req.user?.socioId) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Token inválido para ver pagos (no es socio ni admin)',
+      });
+    }
+
+    // El socio solo puede ver SUS pagos
+    if (String(req.user.socioId) !== String(socioId)) {
+      return res.status(403).json({
+        ok: false,
+        error: 'No autorizado para ver pagos de otro socio',
+      });
+    }
+
+    // Si el token trae clubId, validamos que coincida
+    if (
+      req.user.clubId &&
+      String(req.user.clubId) !== String(clubId)
+    ) {
+      return res.status(403).json({
+        ok: false,
+        error: 'El socio no pertenece a este club',
+      });
+    }
 
     const r = await db.query(
       `
@@ -82,7 +161,7 @@ router.get('/:clubId/pagos/:socioId', requireAuth, requireClubAccess, async (req
       [clubId, socioId, anio]
     );
 
-    res.json({
+    return res.json({
       ok: true,
       anio,
       pagos: r.rows,
@@ -96,11 +175,6 @@ router.get('/:clubId/pagos/:socioId', requireAuth, requireClubAccess, async (req
 
 // ============================================================
 // POST /club/:clubId/pagos
-// body: { socio_id, anio, meses:[1..12], fecha_pago:"YYYY-MM-DD" }
-// Guarda 1 registro por mes con el monto desde cuotas_mensuales
-// ============================================================
-// ============================================================
-// POST /club/:clubId/pagos
 // body: {
 //   socio_id,
 //   anio,
@@ -110,288 +184,354 @@ router.get('/:clubId/pagos/:socioId', requireAuth, requireClubAccess, async (req
 //   monto_parcial?: number
 // }
 // ============================================================
-router.post('/:clubId/pagos', requireAuth, requireClubAccess, async (req, res) => {
-  try {
-    const { clubId } = req.params;
-    const {
-      socio_id,
-      anio,
-      meses,
-      fecha_pago,
-      es_parcial = false,
-      monto_parcial = null
-    } = req.body ?? {};
+router.post(
+  '/:clubId/pagos',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    try {
+      const { clubId } = req.params;
+      const {
+        socio_id,
+        anio,
+        meses,
+        fecha_pago,
+        es_parcial = false,
+        monto_parcial = null,
+      } = req.body ?? {};
 
-    // Validación básica
-    if (!socio_id ||
+      // Validación básica
+      if (
+        !socio_id ||
         !anio ||
         !Array.isArray(meses) ||
         meses.length === 0 ||
-        !fecha_pago) {
-      return res.status(400).json({ ok: false, error: 'Datos incompletos' });
-    }
-
-    // Validación específica de pago parcial
-    const esParcialBool = es_parcial === true || es_parcial === 'true';
-    if (esParcialBool) {
-      if (
-        monto_parcial === null ||
-        monto_parcial === '' ||
-        Number.isNaN(Number(monto_parcial)) ||
-        Number(monto_parcial) < 0
+        !fecha_pago
       ) {
+        return res
+          .status(400)
+          .json({ ok: false, error: 'Datos incompletos' });
+      }
+
+      // Validación específica de pago parcial
+      const esParcialBool =
+        es_parcial === true || es_parcial === 'true';
+
+      if (esParcialBool) {
+        if (
+          monto_parcial === null ||
+          monto_parcial === '' ||
+          Number.isNaN(Number(monto_parcial)) ||
+          Number(monto_parcial) < 0
+        ) {
+          return res.status(400).json({
+            ok: false,
+            error:
+              'Para pago parcial debés indicar un monto_parcial válido (>= 0).',
+          });
+        }
+      }
+
+      // Validar fecha
+      if (!isISODate(fecha_pago)) {
         return res.status(400).json({
           ok: false,
-          error: 'Para pago parcial debés indicar un monto_parcial válido (>= 0).'
+          error: 'fecha_pago inválida (use YYYY-MM-DD)',
         });
       }
-    }
 
-    // Validar fecha
-    if (!isISODate(fecha_pago)) {
-      return res.status(400).json({ ok: false, error: 'fecha_pago inválida (use YYYY-MM-DD)' });
-    }
+      // Año y meses
+      const anioNum = Number(anio);
+      const mesesNum = meses
+        .map(Number)
+        .filter((m) => m >= 1 && m <= 12);
 
-    // Año y meses
-    const anioNum = Number(anio);
-    const mesesNum = meses.map(Number).filter((m) => m >= 1 && m <= 12);
-    if (!anioNum || mesesNum.length === 0) {
-      return res.status(400).json({ ok: false, error: 'Año o meses inválidos' });
-    }
+      if (!anioNum || mesesNum.length === 0) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Año o meses inválidos',
+        });
+      }
 
-    // ------------------------------
-    // NUEVA lógica: actividad + precio
-    // ------------------------------
-
-    // Traer socio para conocer su actividad
-    const socioRes = await db.query(
-      `
-      SELECT actividad
-      FROM socios
-      WHERE id = $1 AND club_id = $2
-      LIMIT 1
-      `,
-      [socio_id, clubId]
-    );
-
-    if (!socioRes.rowCount) {
-      return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
-    }
-
-    const actividadSocio = socioRes.rows[0].actividad;
-
-    // Si NO es pago parcial, la actividad es obligatoria
-    if (!actividadSocio && !esParcialBool) {
-      return res.status(400).json({
-        ok: false,
-        error: 'El socio no tiene actividad asignada. Configurá la actividad antes de registrar el pago.'
-      });
-    }
-
-    let montoPorMes = 0;
-
-    if (esParcialBool) {
-      // Pago parcial: el monto viene del front, se aplica por cada mes
-      montoPorMes = Number(monto_parcial);
-    } else {
-      // Pago normal: monto por actividad
-
-      // Traer precio_mensual de la tabla actividades
-      const rPrecio = await db.query(
+      // ------------------------------
+      // Lógica actividad + precio
+      // ------------------------------
+      // Traer socio para conocer su actividad
+      const socioRes = await db.query(
         `
-        SELECT precio_mensual
-        FROM actividades
-        WHERE club_id = $1
-          AND nombre = $2
-          AND activo = true
+        SELECT actividad
+        FROM socios
+        WHERE id = $1 AND club_id = $2
         LIMIT 1
         `,
-        [clubId, actividadSocio]
+        [socio_id, clubId]
       );
 
-      if (rPrecio.rowCount === 0) {
-        // No hay precio configurado: se toma como 0 (según requerimiento)
-        montoPorMes = 0;
+      if (!socioRes.rowCount) {
+        return res
+          .status(404)
+          .json({ ok: false, error: 'Socio no encontrado' });
+      }
+
+      const actividadSocio = socioRes.rows[0].actividad;
+
+      // Si NO es pago parcial, la actividad es obligatoria
+      if (!actividadSocio && !esParcialBool) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            'El socio no tiene actividad asignada. Configurá la actividad antes de registrar el pago.',
+        });
+      }
+
+      let montoPorMes = 0;
+
+      if (esParcialBool) {
+        // Pago parcial: el monto viene del front, se aplica por cada mes
+        montoPorMes = Number(monto_parcial);
       } else {
-        montoPorMes = Number(rPrecio.rows[0].precio_mensual) || 0;
+        // Pago normal: monto por actividad
+        const rPrecio = await db.query(
+          `
+          SELECT precio_mensual
+          FROM actividades
+          WHERE club_id = $1
+            AND nombre = $2
+            AND activo = true
+          LIMIT 1
+          `,
+          [clubId, actividadSocio]
+        );
+
+        if (!rPrecio.rowCount) {
+          // No hay precio configurado: se toma como 0
+          montoPorMes = 0;
+        } else {
+          montoPorMes =
+            Number(rPrecio.rows[0].precio_mensual) || 0;
+        }
       }
+
+      // ------------------------------
+      // Insertar pagos mensuales
+      // ------------------------------
+      await db.query('BEGIN');
+      const inserted = [];
+
+      for (const mes of mesesNum) {
+        const rIns = await db.query(
+          `
+          INSERT INTO pagos_mensuales
+            (club_id, socio_id, anio, mes, monto, fecha_pago)
+          VALUES
+            ($1,$2,$3,$4,$5,$6)
+          ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING
+          RETURNING id, anio, mes, monto, fecha_pago
+          `,
+          [clubId, socio_id, anioNum, mes, montoPorMes, fecha_pago]
+        );
+        if (rIns.rowCount) inserted.push(rIns.rows[0]);
+      }
+
+      await db.query('COMMIT');
+      res.json({
+        ok: true,
+        insertedCount: inserted.length,
+        inserted,
+      });
+    } catch (e) {
+      try {
+        await db.query('ROLLBACK');
+      } catch {}
+      console.error('❌ registrar pagos:', e);
+      res.status(500).json({ ok: false, error: e.message });
     }
+  }
+);
 
-    // ------------------------------
-    // Insertar pagos mensuales
-    // ------------------------------
-    await db.query('BEGIN');
+// ============================================================
+// INGRESOS GENERALES (no asociados a socio) – se deja igual
+// ============================================================
 
-    const inserted = [];
-    for (const mes of mesesNum) {
-      const rIns = await db.query(
-        `
-        INSERT INTO pagos_mensuales (club_id, socio_id, anio, mes, monto, fecha_pago)
-        VALUES ($1,$2,$3,$4,$5,$6)
-        ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING
-        RETURNING id, anio, mes, monto, fecha_pago
-        `,
-        [clubId, socio_id, anioNum, mes, montoPorMes, fecha_pago]
-      );
-      if (rIns.rowCount) inserted.push(rIns.rows[0]);
-    }
-
-    await db.query('COMMIT');
-
-    res.json({ ok: true, insertedCount: inserted.length, inserted });
-  } catch (e) {
+router.get(
+  '/:clubId/ingresos',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const {
+      desde = '',
+      hasta = '',
+      limit = '200',
+      offset = '0',
+    } = req.query;
     try {
-      await db.query('ROLLBACK');
-    } catch {}
-    console.error('❌ registrar pagos:', e);
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
+      const where = ['ig.club_id = $1', 'ig.activo = true'];
+      const params = [clubId];
+      let p = 2;
 
-// ============================================================
-// ✅ NUEVO: INGRESOS GENERALES (no asociados a socios)
-// ============================================================
-
-// ------------------------------------------------------------
-// GET /club/:clubId/ingresos?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&limit=200&offset=0
-// Devuelve ingresos + total (para mostrar "abajo" de pagos de socios)
-// ------------------------------------------------------------
-router.get('/:clubId/ingresos', requireAuth, requireClubAccess, async (req, res) => {
-  const { clubId } = req.params;
-  const { desde = '', hasta = '', limit = '200', offset = '0' } = req.query;
-
-  try {
-    const where = ['ig.club_id = $1', 'ig.activo = true'];
-    const params = [clubId];
-    let p = 2;
-
-    if (desde) {
-      if (!isISODate(String(desde))) {
-        return res.status(400).json({ ok: false, error: 'desde inválido (use YYYY-MM-DD)' });
+      if (desde) {
+        if (!isISODate(String(desde))) {
+          return res.status(400).json({
+            ok: false,
+            error: 'desde inválido (use YYYY-MM-DD)',
+          });
+        }
+        where.push(`ig.fecha >= $${p++}`);
+        params.push(String(desde));
       }
-      where.push(`ig.fecha >= $${p++}`);
-      params.push(String(desde));
-    }
 
-    if (hasta) {
-      if (!isISODate(String(hasta))) {
-        return res.status(400).json({ ok: false, error: 'hasta inválido (use YYYY-MM-DD)' });
+      if (hasta) {
+        if (!isISODate(String(hasta))) {
+          return res.status(400).json({
+            ok: false,
+            error: 'hasta inválido (use YYYY-MM-DD)',
+          });
+        }
+        where.push(`ig.fecha <= $${p++}`);
+        params.push(String(hasta));
       }
-      where.push(`ig.fecha <= $${p++}`);
-      params.push(String(hasta));
+
+      const lim = Math.min(
+        Math.max(Number(limit) || 200, 1),
+        500
+      );
+      const off = Math.max(Number(offset) || 0, 0);
+
+      const qList = `
+        SELECT
+          ig.id,
+          ig.fecha,
+          ig.monto,
+          ig.observacion,
+          ig.tipo_ingreso_id,
+          ti.nombre AS tipo_ingreso
+        FROM ingresos_generales ig
+        JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY ig.fecha DESC, ig.created_at DESC
+        LIMIT $${p++} OFFSET $${p++}
+      `;
+
+      const qTotal = `
+        SELECT COALESCE(SUM(ig.monto), 0) AS total
+        FROM ingresos_generales ig
+        WHERE ${where.join(' AND ')}
+      `;
+
+      const paramsList = params.slice();
+      paramsList.push(lim, off);
+
+      const [rList, rTotal] = await Promise.all([
+        db.query(qList, paramsList),
+        db.query(qTotal, params),
+      ]);
+
+      res.json({
+        ok: true,
+        ingresos: rList.rows || [],
+        total: Number(rTotal.rows?.[0]?.total || 0),
+      });
+    } catch (e) {
+      console.error('❌ get ingresos:', e);
+      res.status(500).json({ ok: false, error: e.message });
     }
-
-    const lim = Math.min(Math.max(Number(limit) || 200, 1), 500);
-    const off = Math.max(Number(offset) || 0, 0);
-
-    const qList = `
-      SELECT
-        ig.id,
-        ig.fecha,
-        ig.monto,
-        ig.observacion,
-        ig.tipo_ingreso_id,
-        ti.nombre AS tipo_ingreso
-      FROM ingresos_generales ig
-      JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
-      WHERE ${where.join(' AND ')}
-      ORDER BY ig.fecha DESC, ig.created_at DESC
-      LIMIT $${p++} OFFSET $${p++}
-    `;
-
-    const qTotal = `
-      SELECT COALESCE(SUM(ig.monto), 0) AS total
-      FROM ingresos_generales ig
-      WHERE ${where.join(' AND ')}
-    `;
-
-    const paramsList = params.slice();
-    paramsList.push(lim, off);
-
-    const [rList, rTotal] = await Promise.all([
-      db.query(qList, paramsList),
-      db.query(qTotal, params),
-    ]);
-
-    res.json({
-      ok: true,
-      ingresos: rList.rows || [],
-      total: Number(rTotal.rows?.[0]?.total || 0),
-    });
-  } catch (e) {
-    console.error('❌ get ingresos:', e);
-    res.status(500).json({ ok: false, error: e.message });
   }
-});
+);
 
-// ------------------------------------------------------------
-// POST /club/:clubId/ingresos
-// body: { tipo_ingreso_id, fecha:"YYYY-MM-DD", monto:Number, observacion? }
-// ------------------------------------------------------------
-router.post('/:clubId/ingresos', requireAuth, requireClubAccess, async (req, res) => {
-  const { clubId } = req.params;
-  const { tipo_ingreso_id, fecha, monto, observacion } = req.body || {};
+router.post(
+  '/:clubId/ingresos',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const {
+      tipo_ingreso_id,
+      fecha,
+      monto,
+      observacion,
+    } = req.body || {};
+    try {
+      if (!tipo_ingreso_id || !fecha || monto === undefined || monto === null) {
+        return res
+          .status(400)
+          .json({ ok: false, error: 'Datos incompletos' });
+      }
+      if (!isISODate(String(fecha))) {
+        return res.status(400).json({
+          ok: false,
+          error: 'fecha inválida (use YYYY-MM-DD)',
+        });
+      }
+      const montoNum = Number(monto);
+      if (Number.isNaN(montoNum) || montoNum < 0) {
+        return res
+          .status(400)
+          .json({ ok: false, error: 'Monto inválido' });
+      }
 
-  try {
-    if (!tipo_ingreso_id || !fecha || monto === undefined || monto === null) {
-      return res.status(400).json({ ok: false, error: 'Datos incompletos' });
+      const rTipo = await db.query(
+        `SELECT id FROM tipos_ingreso WHERE id = $1 AND club_id = $2 AND activo = true`,
+        [tipo_ingreso_id, clubId]
+      );
+      if (!rTipo.rowCount) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Tipo de ingreso inexistente o inactivo',
+        });
+      }
+
+      const r = await db.query(
+        `
+        INSERT INTO ingresos_generales
+          (id, club_id, tipo_ingreso_id, fecha, monto, observacion, created_at, activo)
+        VALUES
+          (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), true)
+        RETURNING id, club_id, tipo_ingreso_id, fecha, monto, observacion, created_at
+        `,
+        [
+          clubId,
+          tipo_ingreso_id,
+          String(fecha),
+          montoNum,
+          observacion ?? null,
+        ]
+      );
+
+      res.status(201).json({ ok: true, ingreso: r.rows[0] });
+    } catch (e) {
+      console.error('❌ create ingreso:', e);
+      res.status(500).json({ ok: false, error: e.message });
     }
-    if (!isISODate(String(fecha))) {
-      return res.status(400).json({ ok: false, error: 'fecha inválida (use YYYY-MM-DD)' });
-    }
-
-    const montoNum = Number(monto);
-    if (Number.isNaN(montoNum) || montoNum < 0) {
-      return res.status(400).json({ ok: false, error: 'Monto inválido' });
-    }
-
-    // Validar tipo_ingreso pertenece al club y está activo
-    const rTipo = await db.query(
-      `SELECT id FROM tipos_ingreso WHERE id = $1 AND club_id = $2 AND activo = true`,
-      [tipo_ingreso_id, clubId]
-    );
-    if (!rTipo.rowCount) {
-      return res.status(400).json({ ok: false, error: 'Tipo de ingreso inexistente o inactivo' });
-    }
-
-    const r = await db.query(
-      `
-      INSERT INTO ingresos_generales
-        (id, club_id, tipo_ingreso_id, fecha, monto, observacion, created_at, activo)
-      VALUES
-        (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), true)
-      RETURNING id, club_id, tipo_ingreso_id, fecha, monto, observacion, created_at
-      `,
-      [clubId, tipo_ingreso_id, String(fecha), montoNum, (observacion ?? null)]
-    );
-
-    res.status(201).json({ ok: true, ingreso: r.rows[0] });
-  } catch (e) {
-    console.error('❌ create ingreso:', e);
-    res.status(500).json({ ok: false, error: e.message });
   }
-});
+);
 
-// ------------------------------------------------------------
-// DELETE /club/:clubId/ingresos/:id  (soft delete)
-// ------------------------------------------------------------
-router.delete('/:clubId/ingresos/:id', requireAuth, requireClubAccess, async (req, res) => {
-  const { clubId, id } = req.params;
-  try {
-    const r = await db.query(
-      `UPDATE ingresos_generales
-       SET activo = false
-       WHERE id = $1 AND club_id = $2`,
-      [id, clubId]
-    );
-    if (!r.rowCount) {
-      return res.status(404).json({ ok: false, error: 'Ingreso no encontrado' });
+router.delete(
+  '/:clubId/ingresos/:id',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId, id } = req.params;
+    try {
+      const r = await db.query(
+        `
+        UPDATE ingresos_generales
+        SET activo = false
+        WHERE id = $1 AND club_id = $2
+        `,
+        [id, clubId]
+      );
+      if (!r.rowCount) {
+        return res
+          .status(404)
+          .json({ ok: false, error: 'Ingreso no encontrado' });
+      }
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('❌ delete ingreso:', e);
+      res.status(500).json({ ok: false, error: e.message });
     }
-    res.json({ ok: true });
-  } catch (e) {
-    console.error('❌ delete ingreso:', e);
-    res.status(500).json({ ok: false, error: e.message });
   }
-});
+);
 
 module.exports = router;
