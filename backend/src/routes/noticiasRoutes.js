@@ -94,7 +94,7 @@ function validateDestino({ destino_tipo, destino_valor1, destino_valor2 }) {
 // GET /club/:clubId/noticias
 // Lista noticias activas del club
 // ============================================================
-router.get('/:clubId/noticias', requireAuth, requireClubAccess, async (req, res) => {
+router.get('/:clubId/noticias', requireAuth, async (req, res) => {
   const { clubId } = req.params;
   try {
     const r = await db.query(
