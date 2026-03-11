@@ -19,20 +19,24 @@ const upload = multer({
 router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
   try {
     const r = await db.query(`
-      SELECT
-        id,
-        name,
-        address,
-        city,
-        province,
-        logo_url,
-        background_url,
-        color_primary,
-        color_secondary,
-        color_accent,
-        created_at
-      FROM clubs
-      ORDER BY created_at DESC
+      const r = await db.query(`
+      SELECT 
+        id, 
+        name, 
+        address, 
+        city, 
+        province, 
+        contact_name, 
+        contact_phone, 
+        instagram_url, 
+        logo_url, 
+        background_url, 
+        color_primary, 
+        color_secondary, 
+        color_accent, 
+        created_at 
+      FROM clubs 
+      ORDER BY created_at DESC 
     `);
 
     res.json({ ok: true, clubs: r.rows });
@@ -55,10 +59,13 @@ router.post(
         address,
         city,
         province,
+        contact_name,
+        contact_phone,
+        instagram_url,
         color_primary,
         color_secondary,
         color_accent
-      } = req.body || {};
+      } = req.body ?? {};
 
       if (!name?.trim()) {
         return res.status(400).json({ ok: false, error: 'Falta name' });
@@ -90,29 +97,36 @@ router.post(
       const r = await db.query(
         `
         INSERT INTO clubs (
-          name,
-          address,
-          city,
-          province,
-          logo_url,
-          background_url,
-          color_primary,
-          color_secondary,
-          color_accent
-        )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          name, 
+          address, 
+          city, 
+          province, 
+          contact_name, 
+          contact_phone, 
+          instagram_url, 
+          logo_url, 
+          background_url, 
+          color_primary, 
+          color_secondary, 
+          color_accent 
+        ) 
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) 
+
         RETURNING *
         `,
         [
           name.trim(),
-          address || null,
-          city || null,
-          province || null,
+          address ?? null,
+          city ?? null,
+          province ?? null,
+          contact_name ?? null,
+          contact_phone ?? null,
+          instagram_url ?? null,
           logo_url,
           background_url,
-          color_primary || '#2563eb',
-          color_secondary || '#1e40af',
-          color_accent || '#facc15'
+          color_primary ?? '#2563eb',
+          color_secondary ?? '#1e40af',
+          color_accent ?? '#facc15'
         ]
       );
 
@@ -138,10 +152,13 @@ router.put(
         address,
         city,
         province,
+        contact_name,
+        contact_phone,
+        instagram_url,
         color_primary,
         color_secondary,
         color_accent
-      } = req.body || {};
+      } = req.body ?? {};
 
       if (!name?.trim()) {
         return res.status(400).json({ ok: false, error: 'Falta name' });
@@ -181,24 +198,30 @@ router.put(
       const r = await db.query(
         `
         UPDATE clubs
-        SET
-          name = $1,
-          address = $2,
-          city = $3,
-          province = $4,
-          logo_url = COALESCE($5, logo_url),
-          background_url = COALESCE($6, background_url),
-          color_primary = COALESCE($7, color_primary),
-          color_secondary = COALESCE($8, color_secondary),
-          color_accent = COALESCE($9, color_accent)
-        WHERE id = $10
+        SET 
+          name = $1, 
+          address = $2, 
+          city = $3, 
+          province = $4, 
+          contact_name  = $5, 
+          contact_phone = $6, 
+          instagram_url = $7, 
+          logo_url = COALESCE($8, logo_url), 
+          background_url = COALESCE($9, background_url), 
+          color_primary = COALESCE($10, color_primary), 
+          color_secondary = COALESCE($11, color_secondary), 
+          color_accent = COALESCE($12, color_accent) 
+        WHERE id = $13 
         RETURNING *
         `,
         [
           name.trim(),
-          address || null,
-          city || null,
-          province || null,
+          address ?? null,
+          city ?? null,
+          province ?? null,
+          contact_name ?? null,
+          contact_phone ?? null,
+          instagram_url ?? null,
           logo_url,
           background_url,
           color_primary,

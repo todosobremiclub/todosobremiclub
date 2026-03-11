@@ -59,15 +59,20 @@
   }
 
   function resetClubForm() {
-    $('formClub')?.reset();
-    if ($('club_id')) $('club_id').value = '';
-    setEditMode(false);
+  $('formClub')?.reset();
+  if ($('club_id')) $('club_id').value = '';
+  setEditMode(false);
 
-    // Defaults de colores (por si el navegador deja vacío)
-    if ($('club_color_primary') && !$('club_color_primary').value) $('club_color_primary').value = '#2563eb';
-    if ($('club_color_secondary') && !$('club_color_secondary').value) $('club_color_secondary').value = '#1e40af';
-    if ($('club_color_accent') && !$('club_color_accent').value) $('club_color_accent').value = '#facc15';
-  }
+  // limpiar campos de contacto
+  if ($('club_contact_name')) $('club_contact_name').value = '';
+  if ($('club_contact_phone')) $('club_contact_phone').value = '';
+  if ($('club_instagram')) $('club_instagram').value = '';
+
+  // Defaults de colores (por si el navegador deja vacío)
+  if ($('club_color_primary') && !$('club_color_primary').value) $('club_color_primary').value = '#2563eb';
+  if ($('club_color_secondary') && !$('club_color_secondary').value) $('club_color_secondary').value = '#1e40af';
+  if ($('club_color_accent') && !$('club_color_accent').value) $('club_color_accent').value = '#facc15';
+}
 
   function escapeHtml(str) {
     return String(str ?? '')
@@ -160,6 +165,10 @@
     const color_primary = $('club_color_primary')?.value?.trim() || '';
     const color_secondary = $('club_color_secondary')?.value?.trim() || '';
     const color_accent = $('club_color_accent')?.value?.trim() || '';
+const contact_name  = $('club_contact_name')?.value?.trim() ?? '';
+  const contact_phone = $('club_contact_phone')?.value?.trim() ?? '';
+  const instagram_url = $('club_instagram')?.value?.trim() ?? '';
+
 
     // Validación simple (no bloquea si no están los inputs)
     if ($('club_color_primary') && color_primary && !validHexColor(color_primary)) {
@@ -173,15 +182,20 @@
     }
 
     const fd = new FormData();
-    fd.append('name', name);
-    fd.append('address', $('club_address')?.value?.trim() || '');
-    fd.append('city', $('club_city')?.value?.trim() || '');
-    fd.append('province', $('club_province')?.value?.trim() || '');
+  fd.append('name', name);
+  fd.append('address', $('club_address')?.value?.trim() ?? '');
+  fd.append('city', $('club_city')?.value?.trim() ?? '');
+  fd.append('province', $('club_province')?.value?.trim() ?? '');
 
-    // ✅ nuevos campos (si existen en el HTML)
-    if ($('club_color_primary')) fd.append('color_primary', color_primary || '#2563eb');
-    if ($('club_color_secondary')) fd.append('color_secondary', color_secondary || '#1e40af');
-    if ($('club_color_accent')) fd.append('color_accent', color_accent || '#facc15');
+  // campos de contacto
+  fd.append('contact_name',  contact_name || '');
+  fd.append('contact_phone', contact_phone || '');
+  fd.append('instagram_url', instagram_url || '');
+
+  // ✅ nuevos campos (si existen en el HTML)
+  if ($('club_color_primary')) fd.append('color_primary', color_primary ?? '#2563eb');
+  if ($('club_color_secondary')) fd.append('color_secondary', color_secondary ?? '#1e40af');
+  if ($('club_color_accent')) fd.append('color_accent', color_accent ?? '#facc15');
 
     const logoFile = $('club_logo')?.files?.[0];
     const bgFile = $('club_background')?.files?.[0];
@@ -218,6 +232,10 @@
     $('club_address').value = c.address || '';
     $('club_city').value = c.city || '';
     $('club_province').value = c.province || '';
+if ($('club_contact_name'))  $('club_contact_name').value  = c.contact_name  ?? '';
+  if ($('club_contact_phone')) $('club_contact_phone').value = c.contact_phone ?? '';
+  if ($('club_instagram'))     $('club_instagram').value     = c.instagram_url ?? '';
+
 
     // Colores (si el backend los devuelve)
     const p = c.color_primary || c.club_color_primary;
