@@ -327,6 +327,19 @@ table button {
   font-size: 13px;
 }
 
+/* Subcard para CLUBES igual que USUARIOS */
+.clubs-card {
+  border-left: 5px solid var(--primary);
+}
+
+/* El formulario de clubes tipo subcard */
+#clubFormCard {
+  background: #fff;
+  border: 1px solid var(--border);
+  padding: 16px;
+  border-radius: 10px;
+}
+
   </style>
 </head>
 
@@ -340,102 +353,113 @@ table button {
   <div class="container">
 
     <!-- ======================================
-         SECCIÓN CLUBES
-    ======================================= -->
-    <div class="card">
-      <h3>Clubes</h3>
-      <h4>Crear / Editar club</h4>
+     SECCIÓN CLUBES
+======================================= -->
+<div class="card clubs-card">
 
-      <form id="formClub">
-        <input type="hidden" id="club_id">
+  <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
+    <h3>Clubes</h3>
+    <button id="btnOpenClubForm" class="primary" type="button">➕ Crear club</button>
+  </div>
 
-        <div class="form-grid">
-          <div>
-            <label>Nombre del club *</label>
-            <input id="club_name" required>
-          </div>
-          <div>
-            <label>Dirección</label>
-            <input id="club_address">
-          </div>
+  <!-- FORMULARIO (oculto por defecto) -->
+  <div id="clubFormCard" class="subcard" style="display:none; margin-top:12px;">
+    
+    <h4 id="clubFormTitle">Crear club</h4>
+
+    <form id="formClub">
+
+      <input type="hidden" id="club_id">
+
+      <label>Nombre del club *</label>
+      <input id="club_name" required>
+
+      <label>Dirección</label>
+      <input id="club_address">
+
+      <div class="form-grid">
+        <div>
+          <label>Ciudad</label>
+          <input id="club_city">
         </div>
-
-        <div class="form-grid">
-          <div>
-            <label>Ciudad</label>
-            <input id="club_city">
-          </div>
-          <div>
-            <label>Provincia</label>
-            <input id="club_province">
-          </div>
+        <div>
+          <label>Provincia</label>
+          <input id="club_province">
         </div>
-
-        <h4>Contacto</h4>
-
-        <div class="form-grid">
-          <div>
-            <label>Persona de contacto</label>
-            <input id="club_contact_name">
-          </div>
-          <div>
-            <label>Teléfono</label>
-            <input id="club_contact_phone">
-          </div>
-        </div>
-
-        <label>Instagram</label>
-        <input id="club_instagram">
-
-        <h4>Identidad visual</h4>
-
-        <div class="form-grid">
-          <div>
-            <label>Color primario</label>
-            <input type="color" id="club_color_primary" value="#2563eb">
-          </div>
-          <div>
-            <label>Color secundario</label>
-            <input type="color" id="club_color_secondary" value="#1e40af">
-          </div>
-        </div>
-
-        <label>Color acento</label>
-        <input type="color" id="club_color_accent" value="#facc15">
-
-        <h4>Imágenes</h4>
-
-        <label>Logo</label>
-        <input type="file" id="club_logo" accept="image/*">
-
-        <label>Fondo</label>
-        <input type="file" id="club_background" accept="image/*">
-
-        <button class="primary" type="submit">Guardar club</button>
-
-      </form>
-
-      <div id="clubMsg" class="msg"></div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Logo</th>
-            <th>Nombre</th>
-            <th>Ciudad</th>
-            <th>Provincia</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="clubs-table"></tbody>
-      </table>
-
-      <div class="pagination">
-        <button onclick="prevPageClubs()">⟵ Anterior</button>
-        <button onclick="nextPageClubs()">Siguiente ⟶</button>
       </div>
-    </div>
+
+      <h4>Contacto</h4>
+
+      <div class="form-grid">
+        <div>
+          <label>Persona de contacto</label>
+          <input id="club_contact_name">
+        </div>
+        <div>
+          <label>Teléfono</label>
+          <input id="club_contact_phone">
+        </div>
+      </div>
+
+      <label>Instagram</label>
+      <input id="club_instagram">
+
+      <h4>Identidad visual</h4>
+
+      <div class="form-grid">
+        <div>
+          <label>Color primario</label>
+          <input type="color" id="club_color_primary" value="#2563eb">
+        </div>
+        <div>
+          <label>Color secundario</label>
+          <input type="color" id="club_color_secondary" value="#1e40af">
+        </div>
+      </div>
+
+      <label>Color acento</label>
+      <input type="color" id="club_color_accent" value="#facc15">
+
+      <h4>Imágenes</h4>
+
+      <label>Logo</label>
+      <input type="file" id="club_logo" accept="image/*">
+
+      <label>Fondo</label>
+      <input type="file" id="club_background" accept="image/*">
+
+      <div style="margin-top:10px; display:flex; gap:10px;">
+        <button id="clubSubmitBtn" class="primary" type="submit">Guardar club</button>
+        <button type="button" class="btn-cancel" id="btnCloseClubForm">Cancelar</button>
+      </div>
+
+    </form>
+
+    <div id="clubMsg" class="msg"></div>
+
+  </div>
+
+  <!-- TABLA DE CLUBES -->
+  <table>
+    <thead>
+      <tr>
+        <th>Logo</th>
+        <th>Nombre</th>
+        <th>Ciudad</th>
+        <th>Provincia</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="clubs-table"></tbody>
+  </table>
+
+  <div class="pagination">
+    <button onclick="prevPageClubs()">⟵ Anterior</button>
+    <button onclick="nextPageClubs()">Siguiente ⟶</button>
+  </div>
+
+</div>
 
     <!-- ======================================
      SECCIÓN USUARIOS
