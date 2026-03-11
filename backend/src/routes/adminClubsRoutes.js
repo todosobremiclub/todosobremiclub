@@ -19,7 +19,6 @@ const upload = multer({
 router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
   try {
     const r = await db.query(`
-      const r = await db.query(`
       SELECT 
         id, 
         name, 
