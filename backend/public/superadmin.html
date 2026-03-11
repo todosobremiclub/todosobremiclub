@@ -20,16 +20,13 @@
       --err-bg:#fdeaea;
       --err-border:#f3b6b6;
     }
-
     *{ box-sizing:border-box; }
-
     body{
       margin:0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       background:var(--bg);
       color:var(--text);
     }
-
     .topbar{
       display:flex;
       justify-content:space-between;
@@ -38,13 +35,11 @@
       background:#111827;
       color:#fff;
     }
-
     .topbar h2{
       margin:0;
       font-size:18px;
       font-weight:700;
     }
-
     .topbar button{
       background:var(--danger);
       border:0;
@@ -61,13 +56,11 @@
       margin:0 auto;
       padding:20px;
     }
-
     .row{
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap:20px;
     }
-
     @media (max-width: 900px){
       .row{ grid-template-columns: 1fr; }
     }
@@ -78,24 +71,20 @@
       border-radius:14px;
       padding:18px;
     }
-
     .card h3{
       margin:0 0 8px;
       font-size:16px;
     }
-
     .card h4{
       margin:16px 0 8px;
       font-size:14px;
       color:var(--muted);
       font-weight:600;
     }
-
     label{
       font-size:13px;
       color:var(--muted);
     }
-
     input, select{
       width:100%;
       padding:8px 10px;
@@ -104,22 +93,18 @@
       margin:6px 0 12px;
       font-size:14px;
     }
-
     input[type="color"]{
       padding:2px;
       height:38px;
     }
-
     .form-grid{
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap:12px;
     }
-
     .form-grid.full{
       grid-template-columns: 1fr;
     }
-
     button.primary{
       background:var(--primary);
       color:#fff;
@@ -130,7 +115,6 @@
       font-size:14px;
     }
     button.primary:hover{ background:var(--primary-hover); }
-
     button.secondary{
       background:#e5e7eb;
       border:0;
@@ -145,26 +129,16 @@
       margin-top:14px;
       font-size:13px;
     }
-
     th, td{
       border-bottom:1px solid var(--border);
       padding:8px;
       text-align:left;
       vertical-align:middle;
     }
-
     th{
       color:var(--muted);
       font-weight:600;
       background:#fafafa;
-    }
-
-    .thumb{
-      width:42px;
-      height:42px;
-      object-fit:cover;
-      border-radius:8px;
-      border:1px solid var(--border);
     }
 
     .msg{
@@ -174,21 +148,18 @@
       display:none;
       font-size:13px;
     }
-
     .ok{
       display:block;
       background:var(--ok-bg);
       border:1px solid var(--ok-border);
       color:#1f6b2a;
     }
-
     .err{
       display:block;
       background:var(--err-bg);
       border:1px solid var(--err-border);
       color:#8a1f1f;
     }
-
     .hint{
       font-size:12px;
       color:var(--muted);
@@ -251,7 +222,6 @@
             </div>
           </div>
 
-
           <h4>Identidad visual</h4>
 
           <div class="form-grid">
@@ -307,6 +277,7 @@
         <h4>Crear usuario</h4>
 
         <form id="formUser">
+
           <label>Nombre completo</label>
           <input id="user_full_name">
 
@@ -348,6 +319,7 @@
           </thead>
           <tbody id="users-table"></tbody>
         </table>
+
       </div>
 
     </div>
@@ -367,8 +339,8 @@
     }
   </script>
 
-  <!-- Scripts -->
   <script src="/js/clubs.js"></script>
   <script src="/js/users.js"></script>
+
 </body>
 </html>
