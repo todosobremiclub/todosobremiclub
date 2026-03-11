@@ -42,7 +42,7 @@
   }
 
   // =============================
-  // ✅ CARGAR CLUBES (ESTE ERA EL FALTANTE)
+  // ✅ CARGAR CLUBES
   // =============================
   async function loadClubsIntoUserSelect() {
     const sel = $('user_club_id');
@@ -95,21 +95,28 @@
     tbody.innerHTML = '';
 
     usersCache.forEach(u => {
-      const roles = (u.roles || [])
+      const roles = (u.roles ?? [])
         .map(r => `${r.role}${r.club_name ? ' (' + r.club_name + ')' : ''}`)
-        .join('\n');
+        .join('<br>');
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${u.email}</td>
-        <td style="white-space:pre-line;">${roles}</td>
+        <td>${roles}</td>
         <td>${u.is_active ? 'Activo' : 'Inactivo'}</td>
         <td>
-          <button onclick="toggleUser('${u.id}', ${u.is_active})">
+          <button type="button"
+                  onclick="toggleUser(${u.id}, ${u.is_active})">
             ${u.is_active ? 'Desactivar' : 'Activar'}
           </button>
-          <button onclick="editUser('${u.id}')">Editar</button>
-          <button onclick="deleteUser('${u.id}')">Eliminar</button>
+          <button type="button"
+                  onclick="editUser(${u.id})">
+            Editar
+          </button>
+          <button type="button"
+                  onclick="deleteUser(${u.id})">
+            Eliminar
+          </button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -177,15 +184,43 @@
     loadUsers();
   };
 
+  // =============================
+  // Editar (lo dejamos vacío por ahora)
+  // =============================
   window.editUser = window.editUser || (() => {});
-  window.deleteUser = window.deleteUser || (() => {});
+
+  // =============================
+  // Eliminar (implementado)
+  // =============================
+  window.deleteUser = async (id) => {
+    if (!confirm('¿Seguro que querés eliminar este usuario?')) return;
+
+    try {
+      const res = await fetchAuth(`/admin/users/${id}`, {
+        method: 'DELETE',
+        json: true
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        showUserMsg(data.error || 'Error eliminando usuario', false);
+        return;
+      }
+
+      showUserMsg('✅ Usuario eliminado', true);
+      await loadUsers();
+    } catch (e) {
+      console.error(e);
+      showUserMsg('Error eliminando usuario', false);
+    }
+  };
 
   // =============================
   // Init
   // =============================
   document.addEventListener('DOMContentLoaded', async () => {
     $('formUser')?.addEventListener('submit', createUser);
-    await loadClubsIntoUserSelect(); // ✅ ESTA LÍNEA ES LA CLAVE
-    await loadUsers();
+    await loadClubsIntoUserSelect(); // ✅ Carga clubes
+    await loadUsers();               // ✅ Carga usuarios
   });
 })();
