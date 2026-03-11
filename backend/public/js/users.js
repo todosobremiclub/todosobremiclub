@@ -143,6 +143,16 @@
     if (btn) btn.textContent = 'Crear usuario';
   }
 
+function openUserForm(editMode = false) {
+  $('userFormCard').style.display = 'block';
+  $('userFormTitle').textContent = editMode ? 'Editar usuario' : 'Crear usuario';
+}
+
+function closeUserForm() {
+  $('userFormCard').style.display = 'none';
+  resetUserForm();
+}
+
   // =============================
   // Crear / Actualizar usuario
   // =============================
@@ -285,6 +295,7 @@
     if (btn) btn.textContent = 'Guardar cambios';
 
     showUserMsg(`Editando usuario ${user.email}`, true);
+openUserForm(true);
   };
 
   // =============================
@@ -317,9 +328,15 @@
   // Init
   // =============================
   document.addEventListener('DOMContentLoaded', async () => {
-    $('formUser')?.addEventListener('submit', createOrUpdateUser);
-    resetUserForm();
-    await loadClubsIntoUserSelect(); // ✅ Carga clubes
-    await loadUsers(); // ✅ Carga usuarios
-  });
+  $('formUser')?.addEventListener('submit', createOrUpdateUser);
+  resetUserForm();
+
+  // 👇 AGREGAR ESTO AQUÍ
+  $('btnOpenUserForm')?.addEventListener('click', () => openUserForm(false));
+  $('btnCloseUserForm')?.addEventListener('click', closeUserForm);
+  // ☝️ FIN DE LO NUEVO
+
+  await loadClubsIntoUserSelect();
+  await loadUsers();
+});
 })();
