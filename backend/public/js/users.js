@@ -101,24 +101,24 @@
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${u.email}</td>
-        <td>${roles}</td>
-        <td>${u.is_active ? 'Activo' : 'Inactivo'}</td>
-        <td>
-          <button type="button"
-                  onclick="toggleUser(${u.id}, ${u.is_active})">
-            ${u.is_active ? 'Desactivar' : 'Activar'}
-          </button>
-          <button type="button"
-                  onclick="editUser(${u.id})">
-            Editar
-          </button>
-          <button type="button"
-                  onclick="deleteUser(${u.id})">
-            Eliminar
-          </button>
-        </td>
-      `;
+  <td>${u.email}</td>
+  <td>${roles}</td>
+  <td>${u.is_active ? 'Activo' : 'Inactivo'}</td>
+  <td>
+    <button type="button"
+            onclick="toggleUser('${u.id}', ${u.is_active})">
+      ${u.is_active ? 'Desactivar' : 'Activar'}
+    </button>
+    <button type="button"
+            onclick="editUser('${u.id}')">
+      Editar
+    </button>
+    <button type="button"
+            onclick="deleteUser('${u.id}')">
+      Eliminar
+    </button>
+  </td>
+`;
       tbody.appendChild(tr);
     });
   }
@@ -224,4 +224,3 @@
     await loadUsers();               // ✅ Carga usuarios
   });
 })();
-``
