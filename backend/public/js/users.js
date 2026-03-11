@@ -157,74 +157,82 @@ function closeUserForm() {
   // Crear / Actualizar usuario
   // =============================
   async function createOrUpdateUser(e) {
-    e.preventDefault();
+  e.preventDefault();
 
-    const id = $('user_id')?.value?.trim() || ''; // vacío = alta, con valor = edición
-    const email = $('user_email').value.trim().toLowerCase();
-    const password = $('user_password').value;
-    const role = $('user_role').value;
-    const fullName = $('user_full_name')?.value?.trim() || null;
+  const id = $('user_id')?.value?.trim() || ''; // vacío = alta, con valor = edición
+  const email = $('user_email').value.trim().toLowerCase();
+  const password = $('user_password').value;
+  const role = $('user_role').value;
+  const fullName = $('user_full_name')?.value?.trim() || null;
 
-    const clubSelect = $('user_club_id');
-    const club_ids = [...clubSelect.selectedOptions].map((o) => o.value);
+  const clubSelect = $('user_club_id');
+  const club_ids = [...clubSelect.selectedOptions].map((o) => o.value);
 
-    if (!email || (!id && !password) || !role || !club_ids.length) {
-      showUserMsg(
-        'Completá email, rol, clubes y contraseña (solo en alta).',
-        false
-      );
-      return;
-    }
-
-    // assignments: mismo rol para todos los clubes seleccionados
-    const assignments = club_ids.map((club_id) => ({ club_id, role }));
-
-    const payload = {
-      email,
-      assignments,
-    };
-
-    // solo mando password si estoy creando o explícitamente se cargó algo
-    if (!id && password) {
-      payload.password = password;
-    } else if (id && password) {
-      // opcional: permitir cambio de password al editar
-      payload.password = password;
-    }
-
-    // si el backend soporta full_name, lo incluimos
-    if (fullName) {
-      payload.full_name = fullName;
-    }
-
-    let url = '/admin/users';
-    let method = 'POST';
-
-    if (id) {
-      // edición
-      url = `/admin/users/${id}`;
-      method = 'PUT'; // cambiá a 'PATCH' si tu API usa PATCH
-    }
-
-    const res = await fetchAuth(url, {
-      method,
-      body: JSON.stringify(payload),
-      json: true,
-    });
-
-    const data = await res.json();
-
-    if (!data.ok) {
-      showUserMsg(data.error || 'Error guardando usuario', false);
-      return;
-    }
-
-    showUserMsg(id ? '✅ Usuario actualizado' : '✅ Usuario creado', true);
-
-    // reseteamos formulario a modo "alta"
-    resetUserForm();
-    await loadUsers();
+  if (!email || (!id && !password) || !role || !club_ids.length) {
+    showUserMsg(
+      'Completá email, rol, clubes y contraseña (solo en alta).',
+      false
+    );
+    return;
   }
+
+  // assignments: mismo rol para todos los clubes seleccionados
+  const assignments = club_ids.map((club_id) => ({ club_id, role }));
+
+  const payload = {
+    email,
+    assignments,
+  };
+
+  // solo mando password si estoy creando o explícitamente se cargó algo
+  if (!id && password) {
+    payload.password = password;
+  } else if (id && password) {
+    // opcional: permitir cambio de password al editar
+    payload.password = password;
+  }
+
+  // si el backend soporta full_name, lo incluimos
+  if (fullName) {
+    payload.full_name = fullName;
+  }
+
+  // ⚠️ FIX: si estamos editando, mandamos is_active actual
+  if (id) {
+    const existing = usersCache.find(u => String(u.id) === String(id));
+    if (existing && typeof existing.is_active === 'boolean') {
+      payload.is_active = existing.is_active;
+    }
+  }
+
+  let url = '/admin/users';
+  let method = 'POST';
+
+  if (id) {
+    // edición
+    url = `/admin/users/${id}`;
+    method = 'PUT'; // si tu API usa PATCH, acá cambiar a 'PATCH'
+  }
+
+  const res = await fetchAuth(url, {
+    method,
+    body: JSON.stringify(payload),
+    json: true,
+  });
+
+  const data = await res.json();
+
+  if (!data.ok) {
+    showUserMsg(data.error || 'Error guardando usuario', false);
+    return;
+  }
+
+  showUserMsg(id ? '✅ Usuario actualizado' : '✅ Usuario creado', true);
+
+  // reseteamos formulario a modo "alta"
+  resetUserForm();
+  await loadUsers();
+}
 
   // =============================
   // Toggle activo/inactivo
