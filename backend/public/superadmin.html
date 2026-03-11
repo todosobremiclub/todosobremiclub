@@ -282,6 +282,51 @@ table button {
   margin-top: 10px;
 }
 
+/* Separación visual fuerte entre módulos */
+.card {
+  border-left: 5px solid var(--primary);
+}
+
+.card:nth-of-type(2) {
+  border-left-color: var(--danger);
+}
+
+/* Títulos más destacados */
+.card h3 {
+  font-size: 18px;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+.card:nth-of-type(2) h3 {
+  color: var(--danger);
+}
+
+/* DASHBOARD COMPACTO */
+.card {
+  padding: 16px;
+}
+
+input, select {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+table th, table td {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+table button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.primary {
+  padding: 8px 12px !important;
+  font-size: 13px;
+}
+
   </style>
 </head>
 
@@ -393,51 +438,66 @@ table button {
     </div>
 
     <!-- ======================================
-         SECCIÓN USUARIOS
-    ======================================= -->
-    <div class="card">
-      <h3>Usuarios</h3>
-      <h4>Crear usuario</h4>
+     SECCIÓN USUARIOS
+======================================= -->
+<div class="card users-card">
 
-      <form id="formUser">
+  <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
+    <h3>Usuarios</h3>
+    <button id="btnOpenUserForm" class="primary" type="button">➕ Crear usuario</button>
+  </div>
 
-        <label>Nombre completo</label>
-        <input id="user_full_name">
+  <!-- FORMULARIO (oculto por defecto) -->
+  <div id="userFormCard" class="subcard" style="display:none; margin-top:12px;">
+    
+    <h4 id="userFormTitle">Crear usuario</h4>
 
-        <label>Email</label>
-        <input id="user_email" type="email" required>
+    <form id="formUser">
+      <input type="hidden" id="user_id">
 
-        <label>Contraseña</label>
-        <input id="user_password" type="password" required>
+      <label>Nombre completo</label>
+      <input id="user_full_name">
 
-        <label>Rol</label>
-        <select id="user_role">
-          <option value="staff">staff</option>
-          <option value="admin">admin</option>
-          <option value="superadmin">superadmin</option>
-        </select>
+      <label>Email</label>
+      <input id="user_email" type="email" required>
 
-        <label>Clubes asignados</label>
-        <select id="user_club_id" multiple size="6"></select>
+      <label>Contraseña</label>
+      <input id="user_password" type="password">
 
-        <button class="primary">Crear usuario</button>
-      </form>
+      <label>Rol</label>
+      <select id="user_role">
+        <option value="staff">staff</option>
+        <option value="admin">admin</option>
+        <option value="superadmin">superadmin</option>
+      </select>
 
-      <div id="userMsg" class="msg"></div>
+      <label>Clubes asignados</label>
+      <select id="user_club_id" multiple size="5"></select>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Roles</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="users-table"></tbody>
-      </table>
+      <div style="margin-top:10px; display:flex; gap:10px;">
+        <button id="userSubmitBtn" class="primary" type="submit">Crear usuario</button>
+        <button type="button" class="btn-cancel" id="btnCloseUserForm">Cancelar</button>
+      </div>
+    </form>
 
-    </div>
+    <div id="userMsg" class="msg"></div>
+
+  </div>
+
+  <!-- TABLA DE USUARIOS -->
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Roles</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="users-table"></tbody>
+  </table>
+
+</div>
 
   </div>
 
