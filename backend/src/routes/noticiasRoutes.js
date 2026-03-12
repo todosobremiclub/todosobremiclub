@@ -66,8 +66,8 @@ const DESTINO_TIPOS_VALIDOS = new Set([
   'actividad',
   'categoria',
   'anio_nac',
-  'cat_anio'
-  'act_cat
+  'cat_anio',
+  'act_cat',
 ]);
 
 function validateDestino({ destino_tipo, destino_valor1, destino_valor2 }) {
@@ -78,25 +78,31 @@ function validateDestino({ destino_tipo, destino_valor1, destino_valor2 }) {
   if (destino_tipo === 'actividad' && !destino_valor1) {
     throw new Error('Falta actividad (destino_valor1)');
   }
+
   if (destino_tipo === 'categoria' && !destino_valor1) {
     throw new Error('Falta categoría (destino_valor1)');
   }
+
   if (destino_tipo === 'anio_nac' && !destino_valor1) {
     throw new Error('Falta año de nacimiento (destino_valor1)');
   }
-  
-if (destino_tipo === 'cat_anio') {
+
+  if (destino_tipo === 'cat_anio') {
     if (!destino_valor1 || !destino_valor2) {
-      throw new Error('Falta categoría o año de nacimiento (destino_valor1 / destino_valor2)');
+      throw new Error(
+        'Falta categoría o año de nacimiento (destino_valor1 / destino_valor2)'
+      );
     }
   }
+
   if (destino_tipo === 'act_cat') {
     if (!destino_valor1 || !destino_valor2) {
-      throw new Error('Falta actividad o categoría (destino_valor1 / destino_valor2)');
+      throw new Error(
+        'Falta actividad o categoría (destino_valor1 / destino_valor2)'
+      );
     }
   }
 }
-
 
 // ============================================================
 // GET /club/:clubId/noticias
@@ -306,7 +312,7 @@ router.put('/:clubId/noticias/:id', requireAuth, requireClubAccess, async (req, 
     const dest = {
       destino_tipo: String(destino_tipo || 'todos'),
       destino_valor1: destino_valor1 ? String(destino_valor1) : null,
-      destino_valor2: destino_valor2 ? String(destino_valor2) : null
+      destino_valor2: destino_valor2 ? String(destino_valor2) : null,
     };
 
     validateDestino(dest);
