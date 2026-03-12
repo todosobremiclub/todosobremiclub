@@ -164,13 +164,14 @@ const al_dia = ultimoIdx ? (ultimoIdx >= (curIdx - 1)) : false;
         al_dia
       },
       club: {
-        id: club.id,
-        nombre: club.name,
-        logo_url: club.logo_url,
-        color_primary: club.color_primary,
-        color_secondary: club.color_secondary,
-        color_accent: club.color_accent
-      }
+   id: club.id,
+   nombre: club.name,
+   logo_url: club.logo_url,
+   color_primary: club.color_primary,
+   color_secondary: club.color_secondary,
+   color_accent: club.color_accent,
+   instagram_url: club.instagram_url      // 👈 AGREGADO
+}
     });
   } catch (e) {
     console.error('❌ /app/login error:', e);

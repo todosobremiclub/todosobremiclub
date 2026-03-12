@@ -26,7 +26,8 @@ router.get('/:clubId', requireAuth, async (req, res) => {
   color_primary,
   color_secondary,
   color_accent,
-  apply_token
+  apply_token,
+  instagram_url        -- 👈 AGREGADO
 FROM clubs
 WHERE id = $1
       LIMIT 1
