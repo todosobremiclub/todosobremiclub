@@ -67,6 +67,7 @@ const DESTINO_TIPOS_VALIDOS = new Set([
   'categoria',
   'anio_nac',
   'cat_anio'
+  'act_cat
 ]);
 
 function validateDestino({ destino_tipo, destino_valor1, destino_valor2 }) {
@@ -83,20 +84,75 @@ function validateDestino({ destino_tipo, destino_valor1, destino_valor2 }) {
   if (destino_tipo === 'anio_nac' && !destino_valor1) {
     throw new Error('Falta año de nacimiento (destino_valor1)');
   }
-  if (destino_tipo === 'cat_anio') {
+  
+if (destino_tipo === 'cat_anio') {
     if (!destino_valor1 || !destino_valor2) {
       throw new Error('Falta categoría o año de nacimiento (destino_valor1 / destino_valor2)');
     }
   }
+  if (destino_tipo === 'act_cat') {
+    if (!destino_valor1 || !destino_valor2) {
+      throw new Error('Falta actividad o categoría (destino_valor1 / destino_valor2)');
+    }
+  }
 }
+
 
 // ============================================================
 // GET /club/:clubId/noticias
 // Lista noticias activas del club
 // ============================================================
+
+
 router.get('/:clubId/noticias', requireAuth, async (req, res) => {
   const { clubId } = req.params;
+  const socioId = req.user?.socioId;  // viene desde /app/login
   try {
+    // Si NO hay socioId en el token -> es admin/staff -> devolvemos todas como antes
+    if (!socioId) {
+      const r = await db.query(
+        `
+        SELECT
+          id,
+          club_id,
+          titulo,
+          texto,
+          imagen_url,
+          destino_tipo,
+          destino_valor1,
+          destino_valor2,
+          created_at,
+          updated_at,
+          activo
+        FROM noticias
+        WHERE club_id = $1
+          AND activo = true
+        ORDER BY created_at DESC
+        `,
+        [clubId]
+      );
+      return res.json({ ok: true, noticias: r.rows });
+    }
+
+    // Si HAY socioId -> filtramos según actividad / categoría / año
+    const rSocio = await db.query(
+      `
+      SELECT actividad, categoria, anio_nacimiento
+      FROM socios
+      WHERE id = $1 AND club_id = $2
+      LIMIT 1
+      `,
+      [socioId, clubId]
+    );
+    if (!rSocio.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Socio no encontrado para este club' });
+    }
+
+    const socio = rSocio.rows[0];
+    const actividad = socio.actividad || null;
+    const categoria = socio.categoria || null;
+    const anioNac = socio.anio_nacimiento != null ? String(socio.anio_nacimiento) : null;
+
     const r = await db.query(
       `
       SELECT
@@ -114,17 +170,27 @@ router.get('/:clubId/noticias', requireAuth, async (req, res) => {
       FROM noticias
       WHERE club_id = $1
         AND activo = true
+        AND (
+          destino_tipo = 'todos'
+          OR (destino_tipo = 'actividad' AND destino_valor1 = $2)
+          OR (destino_tipo = 'categoria' AND destino_valor1 = $3)
+          OR (destino_tipo = 'anio_nac' AND destino_valor1 = $4)
+          OR (destino_tipo = 'cat_anio' AND destino_valor1 = $3 AND destino_valor2 = $4)
+          OR (destino_tipo = 'act_cat' AND destino_valor1 = $2 AND destino_valor2 = $3)
+        )
       ORDER BY created_at DESC
       `,
-      [clubId]
+      [clubId, actividad, categoria, anioNac]
     );
 
-    res.json({ ok: true, noticias: r.rows });
+    return res.json({ ok: true, noticias: r.rows });
   } catch (e) {
     console.error('❌ GET noticias', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+
 
 // ============================================================
 // POST /club/:clubId/noticias

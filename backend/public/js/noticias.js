@@ -175,6 +175,37 @@ function escapeHtml(str) {
       return;
     }
 
+if (tipo === 'act_cat') {
+    // Actividad + Categoría
+    const cont = document.getElementById('notiDestinoExtra');
+    if (!cont) return;
+    cont.innerHTML = '';
+
+    const labelAct = document.createElement('label');
+    labelAct.textContent = 'Actividad';
+    const selAct = document.createElement('select');
+    selAct.id = 'notiDestinoActividad';
+    selAct.innerHTML = `<option value="">Seleccionar actividad...</option>`
+      + actividadesCache
+        .map(a => `<option value="${escapeHtml(a.nombre)}">${escapeHtml(a.nombre)}</option>`)
+        .join('');
+    labelAct.appendChild(selAct);
+
+    const labelCat = document.createElement('label');
+    labelCat.textContent = 'Categoría';
+    const selCat = document.createElement('select');
+    selCat.id = 'notiDestinoCategoria';
+    selCat.innerHTML = `<option value="">Seleccionar categoría...</option>`
+      + categoriasCache
+        .map(c => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`)
+        .join('');
+    labelCat.appendChild(selCat);
+
+    cont.appendChild(labelAct);
+    cont.appendChild(labelCat);
+    return;
+  }
+
     if (tipo === 'cat_anio') {
       const labelCat = document.createElement('label');
       const sel = document.createElement('select');
@@ -232,7 +263,8 @@ function escapeHtml(str) {
       case 'categoria': return `Categoría: ${v1}`;
       case 'anio_nac': return `Año nacimiento: ${v1}`;
       case 'cat_anio': return `Categoría: ${v1} · Año: ${v2}`;
-      default: return tipo || '—';
+      case 'act_cat': return `Actividad: ${v1} · Categoría: ${v2}`;
+     default: return tipo || '—';
     }
   }
 
