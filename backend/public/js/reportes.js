@@ -315,22 +315,52 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
   // =============================
   // Carga de reportes
   // =============================
-  async function loadReporte(reporteId) {
-    const content = $('reportesContent');
-    if (!content) return;
+  async function loadReporte(reporteId, opts = {}) {
+  const content = $('reportesContent');
+  if (!content) return;
 
-    const meta = REPORTS[reporteId];
-    if (!meta) {
-      showError(content, 'Reporte no reconocido.');
-      return;
+  const meta = REPORTS[reporteId];
+  if (!meta) {
+    showError(content, 'Reporte no reconocido.');
+    return;
+  }
+
+  // guardar cuál fue el último reporte
+  window._lastReporteId = reporteId;
+
+  // mostrar/ocultar selector de año según reporte
+  const yearWrapper = document.getElementById('select-anio-wrapper');
+  const yearSelect  = document.getElementById('select-anio');
+  let anio = opts.anio || yearSelect?.value;
+
+  if (reporteId === 'impagos-mes') {
+    if (yearWrapper) yearWrapper.style.display = 'block';
+
+    // si no hay valor aún, seteamos el año actual
+    if (!anio) {
+      const currentYear = new Date().getFullYear();
+      if (yearSelect) {
+        yearSelect.value = String(currentYear);
+      }
+      anio = currentYear;
+    }
+  } else {
+    if (yearWrapper) yearWrapper.style.display = 'none';
+  }
+
+  showLoading(content, `Cargando "${meta.titulo}"...`);
+
+  try {
+    const clubId = getActiveClubId();
+    let url = `/club/${clubId}/reportes/${reporteId}`;
+
+    if (reporteId === 'impagos-mes' && anio) {
+      const params = new URLSearchParams({ anio: String(anio) });
+      url += `?${params.toString()}`;
     }
 
-    showLoading(content, `Cargando "${meta.titulo}"...`);
-
-    try {
-      const clubId = getActiveClubId();
-      const url = `/club/${clubId}/reportes/${reporteId}`;
-      const { res, data } = await fetchAuth(url);
+    const { res, data } = await fetchAuth(url);
+    
 
       if (!res.ok || !data.ok) {
         showError(content, data.error || 'Error al cargar el reporte.');
@@ -386,6 +416,16 @@ content.addEventListener('dblclick', async (ev) => {
   const reporteId = tr.dataset.reporte;
   const label = tr.dataset.label || '';
   const clubId = getActiveClubId();
+
+const formatFecha = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '';
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const yyyy = dt.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  };
 
   // 🚫 Ignorar doble click sobre el nivel "AÑO" de Socios nuevos
   if (reporteId === 'socios-nuevos-mes') {
@@ -639,7 +679,7 @@ const formatFecha = (d) => {
                   <td>${s.actividad ?? ''}</td>
                   <td>${s.categoria ?? ''}</td>
                   <td>${s.telefono ?? ''}</td>
-                  <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0, 10) : ''}</td>
+                  <td>${formatFecha(s.fecha_ingreso)}</td>
                 </tr>
               `
                 )

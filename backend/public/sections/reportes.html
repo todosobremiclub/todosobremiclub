@@ -2,8 +2,8 @@
 
   <h2 style="margin-bottom:16px;">📊 Reportes</h2>
 
-  <!-- SELECTOR DE AÑO (debajo del título) -->
-  <div style="margin: 10px 0 20px;">
+  <!-- SELECTOR DE AÑO (debajo del título, pero oculto hasta que un reporte lo necesite) -->
+  <div id="select-anio-wrapper" style="margin: 10px 0 20px; display:none;">
     <label><strong>Año:</strong></label>
     <select id="select-anio" style="padding:4px 6px; font-size:14px;">
       <!-- Se llena desde reportes.js -->
@@ -14,7 +14,7 @@
         MENÚ DE REPORTES (CHIPS)
   ================================= -->
   <div class="reportes-chips">
-   
+
     <div class="chip" data-reporte="socios-actividad-categoria">
       Socios por Actividad / Categoría
     </div>
