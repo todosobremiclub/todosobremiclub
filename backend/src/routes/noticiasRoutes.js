@@ -143,7 +143,7 @@ router.get('/:clubId/noticias', requireAuth, async (req, res) => {
     // Si HAY socioId -> filtramos según actividad / categoría / año
     const rSocio = await db.query(
       `
-      SELECT actividad, categoria, anio_nacimiento
+      SELECT actividad, categoria, fecha_nacimiento
       FROM socios
       WHERE id = $1 AND club_id = $2
       LIMIT 1
@@ -151,13 +151,22 @@ router.get('/:clubId/noticias', requireAuth, async (req, res) => {
       [socioId, clubId]
     );
     if (!rSocio.rowCount) {
-      return res.status(404).json({ ok: false, error: 'Socio no encontrado para este club' });
+      return res
+        .status(404)
+        .json({ ok: false, error: 'Socio no encontrado para este club' });
     }
 
     const socio = rSocio.rows[0];
     const actividad = socio.actividad || null;
     const categoria = socio.categoria || null;
-    const anioNac = socio.anio_nacimiento != null ? String(socio.anio_nacimiento) : null;
+
+    let anioNac = null;
+    if (socio.fecha_nacimiento) {
+      const d = new Date(socio.fecha_nacimiento);
+      if (!isNaN(d.getTime())) {
+        anioNac = String(d.getFullYear());
+      }
+    }
 
     const r = await db.query(
       `
