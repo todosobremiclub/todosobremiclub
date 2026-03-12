@@ -78,19 +78,20 @@ router.post('/login', async (req, res) => {
     const clubId = socio.club_id;
 
     // 2) Traer club (para theme dinámico)
-    const rClub = await db.query(
-      `SELECT
+const rClub = await db.query(
+  `SELECT
          id,
          name,
          logo_url,
          color_primary,
          color_secondary,
-         color_accent
+         color_accent,
+         instagram_url          -- 👈 AGREGADO
        FROM clubs
        WHERE id = $1
        LIMIT 1`,
-      [clubId]
-    );
+  [clubId]
+);
 
     if (rClub.rowCount === 0) {
       return res.status(404).json({ ok: false, error: 'Club no encontrado' });
