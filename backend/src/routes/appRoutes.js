@@ -98,22 +98,36 @@ router.post('/login', async (req, res) => {
 
     const club = rClub.rows[0];
 
-    // 3) Último pago (YYYYMM) desde pagos_mensuales
-    //    (usamos MAX(anio*100+mes) para no depender de fecha_pago)
-    const rUlt = await db.query(
-      `SELECT MAX((anio::int * 100) + (mes::int)) AS ultimo
-       FROM pagos_mensuales
-       WHERE socio_id = $1 AND club_id = $2`,
-      [socio.id, clubId]
-    );
+    // 3) Último pago (convertido a índice de meses para comparar correctamente)
+// Ejemplo: 2026-03 => idx = 2026*12 + 3
+const rUlt = await db.query(
+  `
+  SELECT
+    MAX( (anio::int * 12) + (mes::int) ) AS ultimo_idx,
+    MAX( (anio::int * 100) + (mes::int) ) AS ultimo_ym
+  FROM pagos_mensuales
+  WHERE socio_id = $1 AND club_id = $2
+  `,
+  [socio.id, clubId]
+);
 
-    const ultimoYM = rUlt.rows?.[0]?.ultimo ? Number(rUlt.rows[0].ultimo) : null;
+const ultimoIdx = rUlt.rows?.[0]?.ultimo_idx
+  ? Number(rUlt.rows[0].ultimo_idx)
+  : null;
+const ultimoYM = rUlt.rows?.[0]?.ultimo_ym
+  ? Number(rUlt.rows[0].ultimo_ym)
+  : null;
 
-    const now = new Date();
-    const curYM = now.getFullYear() * 100 + (now.getMonth() + 1);
+const now = new Date();
+const curYear = now.getFullYear();
+const curMonth = now.getMonth() + 1; // 1-12
+const curIdx = curYear * 12 + curMonth;
 
-    const ultimo_pago = ultimoYM ? ymToString(ultimoYM) : null;
-    const al_dia = ultimoYM ? (ultimoYM >= curYM) : false;
+const ultimo_pago = ultimoYM ? ymToString(ultimoYM) : null;
+
+// ✅ al_dia: consideramos OK si último mes pagado es el actual O el anterior
+// es decir: ultimoIdx >= (curIdx - 1)
+const al_dia = ultimoIdx ? (ultimoIdx >= (curIdx - 1)) : false;
 
     // 4) Emitir token APP (JWT)
     if (!process.env.JWT_SECRET) {
