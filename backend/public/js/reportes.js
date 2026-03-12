@@ -105,25 +105,22 @@
     return { res, data };
   }
 
-  // =============================
-  // Definición de reportes
-  // (claves matchean data-reporte en reportes.html)
-  // =============================
-  const REPORTS = {
-    'socios-actividad': {
-      titulo: 'Cantidad de socios por Actividad',
-      descripcion: 'Total de socios agrupados por actividad.',
-    },
-    'socios-actividad-categoria': {
-      titulo: 'Socios por Actividad / Categoría',
-      descripcion: 'Total de socios por actividad y categoría.',
-    },
-    'socios-nuevos-mes': {
-      titulo: 'Socios nuevos por mes (fecha de ingreso)',
-      descripcion: 'Cantidad de socios que ingresan por mes.',
-    },
+ // =============================
+// Definición de reportes
+// (claves matchean data-reporte en reportes.html)
+// =============================
+const REPORTS = {
+  'socios-actividad': {
+    titulo: 'Cantidad de socios por Actividad',
+    descripcion: 'Total de socios agrupados por actividad.',
+  },
 
-'socios-nuevos-mes': {
+  'socios-actividad-categoria': {
+    titulo: 'Socios por Actividad / Categoría',
+    descripcion: 'Total de socios por actividad y categoría.',
+  },
+
+  'socios-nuevos-mes': {
     titulo: 'Socios nuevos por mes (fecha de ingreso)',
     descripcion: 'Cantidad de socios que ingresan por mes.',
   },
@@ -131,34 +128,39 @@
   'impagos-mes': {
     titulo: 'Socios impagos por mes',
     descripcion:
-      'Cantidad de socios activos que no registran pago en el mes, considerando la fecha de ingreso (no se cuentan meses anteriores al ingreso del socio).',
+      'Cantidad de socios activos que no registran pago en el mes, considerando la fecha de ingreso.',
   },
 
-    'ingreso-fecha-pago': {
-      titulo: 'Cuota por fecha de pago',
-      descripcion: 'Total de cuotas cobradas según la fecha del pago.',
-    },
-    'ingreso-mes-pagado': {
-      titulo: 'Cuota por mes pagado',
-      descripcion: 'Total de cuotas cobradas según el mes que corresponde al pago.',
-    },
-    'ingresos-vs-gastos': {
-      titulo: 'Ingresos vs Gastos',
-      descripcion: 'Comparativo entre ingresos y gastos.',
-    },
-    'ingresos-por-tipo': {
-      titulo: 'Ingresos Totales',
-      descripcion: 'Total de ingresos anuales, con detalle por mes y tipo.',
-    },
-    'gastos-por-tipo': {
-      titulo: 'Gastos',
-      descripcion: 'Total de gastos, con detalle por mes y tipo de gasto.',
-    },
-    'gastos-responsable-mes': {
-      titulo: 'Gastos por cuenta',
-      descripcion: 'Total de gastos agrupados por cuenta/responsable y mes.',
-    },
-  };
+  'ingreso-fecha-pago': {
+    titulo: 'Cuota por fecha de pago',
+    descripcion: 'Total de cuotas cobradas según la fecha del pago.',
+  },
+
+  'ingreso-mes-pagado': {
+    titulo: 'Cuota por mes pagado',
+    descripcion: 'Total de cuotas cobradas según el mes que corresponde al pago.',
+  },
+
+  'ingresos-vs-gastos': {
+    titulo: 'Ingresos vs Gastos',
+    descripcion: 'Comparativo entre ingresos y gastos.',
+  },
+
+  'ingresos-por-tipo': {
+    titulo: 'Ingresos Totales',
+    descripcion: 'Total de ingresos anuales, con detalle por mes y tipo.',
+  },
+
+  'gastos-por-tipo': {
+    titulo: 'Gastos',
+    descripcion: 'Total de gastos, con detalle por mes y tipo de gasto.',
+  },
+
+  'gastos-responsable-mes': {
+    titulo: 'Gastos por cuenta',
+    descripcion: 'Total de gastos agrupados por cuenta/responsable y mes.',
+  },
+};
 
   // =============================
   // Modal de detalle
