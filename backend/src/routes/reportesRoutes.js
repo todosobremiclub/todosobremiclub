@@ -471,7 +471,7 @@ router.get(
 
       return res.json({
         ok: true,
-        title: `Socios impagos por mes (${anio})`,
+        title: `Socios impagos por mes`,
         description:
           'Cantidad de socios activos que no registran pago en el mes indicado, considerando la fecha de ingreso (no se muestran meses anteriores al ingreso del socio).',
         columns: [

@@ -2,16 +2,17 @@
 
   <h2 style="margin-bottom:16px;">📊 Reportes</h2>
 
+  <!-- SELECTOR DE AÑO (debajo del título) -->
+  <div style="margin: 10px 0 20px;">
+    <label><strong>Año:</strong></label>
+    <select id="select-anio" style="padding:4px 6px; font-size:14px;">
+      <!-- Se llena desde reportes.js -->
+    </select>
+  </div>
+
   <!-- ===============================
         MENÚ DE REPORTES (CHIPS)
   ================================= -->
-<div style="margin: 10px 0;">
-  <label>Año: </label>
-  <select id="select-anio" style="padding:4px 6px; font-size:14px;">
-    <!-- Lo llenamos desde JS -->
-  </select>
-</div>
-
   <div class="reportes-chips">
    
     <div class="chip" data-reporte="socios-actividad-categoria">
@@ -22,24 +23,33 @@
       Socios nuevos por mes
     </div>
 
-<div class="chip" data-reporte="socios-nuevos-mes">
-    Socios nuevos por mes
-  </div>
-  <div class="chip" data-reporte="impagos-mes">
-    Socios impagos por mes
-  </div>
+    <div class="chip" data-reporte="impagos-mes">
+      Socios impagos por mes
+    </div>
 
-    <div class="chip" data-reporte="ingreso-fecha-pago">Cuota por fecha de pago</div>
+    <div class="chip" data-reporte="ingreso-fecha-pago">
+      Cuota por fecha de pago
+    </div>
 
-    <div class="chip" data-reporte="ingreso-mes-pagado">Cuota por mes pagado</div>
+    <div class="chip" data-reporte="ingreso-mes-pagado">
+      Cuota por mes pagado
+    </div>
 
-    <div class="chip" data-reporte="ingresos-vs-gastos">Ingresos vs Gastos</div>
+    <div class="chip" data-reporte="ingresos-vs-gastos">
+      Ingresos vs Gastos
+    </div>
 
-    <div class="chip" data-reporte="ingresos-por-tipo">Ingresos Totales</div>
+    <div class="chip" data-reporte="ingresos-por-tipo">
+      Ingresos Totales
+    </div>
 
-    <div class="chip" data-reporte="gastos-por-tipo">Gastos</div>
+    <div class="chip" data-reporte="gastos-por-tipo">
+      Gastos
+    </div>
 
-    <div class="chip" data-reporte="gastos-responsable-mes">Gastos por cuenta</div>
+    <div class="chip" data-reporte="gastos-responsable-mes">
+      Gastos por cuenta
+    </div>
 
   </div>
 
@@ -53,6 +63,7 @@
   </div>
 
 </section>
+
 <style>
 
 /* ------------------------------
@@ -79,12 +90,12 @@
 }
 
 .chip:hover{
-  background: var(--color-primary);     /* hover con color principal */
+  background: var(--color-primary);
   color:white;
 }
 
 .chip.active{
-  background: var(--color-primary) !important;  /* activo = color principal */
+  background: var(--color-primary) !important;
   color:white !important;
 }
 

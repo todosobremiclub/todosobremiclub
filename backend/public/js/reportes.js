@@ -546,7 +546,7 @@ content.addEventListener('dblclick', async (ev) => {
                   <td>${s.actividad ?? ''}</td>
                   <td>${s.categoria ?? ''}</td>
                   <td>${s.telefono ?? ''}</td>
-                  <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0, 10) : ''}</td>
+                  <td>${formatFecha(s.fecha_ingreso)}</td>
                 </tr>
               `
                 )
@@ -565,6 +565,17 @@ content.addEventListener('dblclick', async (ev) => {
     }
 
     // === Detalle REAL para Socios impagos por mes ===
+
+const formatFecha = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt)) return '';
+  const dd = String(dt.getDate()).padStart(2, '0');
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const yyyy = dt.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+};
+
     if (reporteId === 'impagos-mes') {
       const anio = Number(tr.dataset.anio) || new Date().getFullYear();
       const mesLabel = label || tr.children[0]?.textContent?.trim() || '';
