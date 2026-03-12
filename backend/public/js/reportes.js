@@ -122,6 +122,18 @@
       titulo: 'Socios nuevos por mes (fecha de ingreso)',
       descripcion: 'Cantidad de socios que ingresan por mes.',
     },
+
+'socios-nuevos-mes': {
+    titulo: 'Socios nuevos por mes (fecha de ingreso)',
+    descripcion: 'Cantidad de socios que ingresan por mes.',
+  },
+
+  'impagos-mes': {
+    titulo: 'Socios impagos por mes',
+    descripcion:
+      'Cantidad de socios activos que no registran pago en el mes, considerando la fecha de ingreso (no se cuentan meses anteriores al ingreso del socio).',
+  },
+
     'ingreso-fecha-pago': {
       titulo: 'Cuota por fecha de pago',
       descripcion: 'Total de cuotas cobradas según la fecha del pago.',
@@ -362,11 +374,9 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
 
     const content = $('reportesContent');
     if (!content) return;
-
-    // =============================
-    // Doble click – Detalle
-    // =============================
-    
+// =============================
+// Doble click – Detalle
+// =============================
 content.addEventListener('dblclick', async (ev) => {
   const tr = ev.target.closest('tr[data-reporte]');
   if (!tr) return;
@@ -380,182 +390,269 @@ content.addEventListener('dblclick', async (ev) => {
     return;
   }
 
-// 🚫 Ignorar doble click sobre el nivel AÑO de "Cuota por fecha de pago"
+  // 🚫 Ignorar doble click sobre el nivel AÑO de "Cuota por fecha de pago"
   if (reporteId === 'ingreso-fecha-pago') {
     return;
   }
 
-// 🚫 Ignorar doble click sobre el nivel AÑO de "Cuota por mes pagado"
+  // 🚫 Ignorar doble click sobre el nivel AÑO de "Cuota por mes pagado"
   if (reporteId === 'ingreso-mes-pagado') {
     return;
   }
 
-// 🚫 Ignorar doble click sobre el nivel AÑO de "Ingresos vs. Gastos"
+  // 🚫 Ignorar doble click sobre el nivel AÑO de "Ingresos vs. Gastos"
   if (reporteId === 'ingresos-vs-gastos') {
     return;
   }
 
-// 🚫 Ignorar doble click sobre el nivel AÑO de "Ingresos Totales"
+  // 🚫 Ignorar doble click sobre el nivel AÑO de "Ingresos Totales"
   if (reporteId === 'ingresos-por-tipo') {
     return;
   }
-// 🚫 Ignorar doble click sobre el nivel AÑO de "Gastos"
-if (reporteId === 'gastos-por-tipo') {
-  return;
-}
 
-// 🚫 Ignorar doble click sobre el nivel AÑO de "Gastos por Cuenta"
-if (reporteId === 'gastos-responsable-mes') {
-  return;
-}
+  // 🚫 Ignorar doble click sobre el nivel AÑO de "Gastos"
+  if (reporteId === 'gastos-por-tipo') {
+    return;
+  }
 
+  // 🚫 Ignorar doble click sobre el nivel AÑO de "Gastos por Cuenta"
+  if (reporteId === 'gastos-responsable-mes') {
+    return;
+  }
 
+  try {
+    // === Detalle REAL para Socios por Actividad / Categoría ===
+    if (reporteId === 'socios-actividad-categoria') {
+      const actividad = tr.dataset.actividad || label;
 
+      const params = new URLSearchParams({
+        actividad,
+        activo: '1',
+      });
 
-      try {
-        // === Detalle REAL para Socios por Actividad / Categoría ===
-        if (reporteId === 'socios-actividad-categoria') {
-          const actividad = tr.dataset.actividad || label;
+      const url = `/club/${clubId}/reportes/socios-actividad/detalle?${params.toString()}`;
+      const { data } = await fetchAuth(url);
 
-          const params = new URLSearchParams({
-            actividad,
-            activo: '1',
-          });
-
-          const url = `/club/${clubId}/reportes/socios-actividad/detalle?${params.toString()}`;
-          const { data } = await fetchAuth(url);
-
-          if (!data.ok) {
-            alert(data.error || 'Error al cargar el detalle de socios.');
-            return;
-          }
-
-          const rows = data.rows || [];
-
-          let html;
-          if (!rows.length) {
-            html = '<div class="muted">No hay socios para esta actividad.</div>';
-          } else {
-            html = `
-              <table class="socios-table" style="background:#fafafa;">
-                <thead>
-                  <tr>
-                    <th>N° Socio</th>
-                    <th>DNI</th>
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>Actividad</th>
-                    <th>Categoría</th>
-                    <th>Teléfono</th>
-                    <th>Fecha ingreso</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows.map(s => `
-                    <tr>
-                      <td>${s.numero_socio ?? ''}</td>
-                      <td>${s.dni ?? ''}</td>
-                      <td>${s.nombre ?? ''}</td>
-                      <td>${s.apellido ?? ''}</td>
-                      <td>${s.actividad ?? ''}</td>
-                      <td>${s.categoria ?? ''}</td>
-                      <td>${s.telefono ?? ''}</td>
-                      <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0,10) : ''}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            `;
-          }
-
-          openDetalleModal('socios-actividad-categoria', {
-            label: actividad,
-            raw: rows,
-            html,
-          });
-          return;
-        }
-
-        // === Detalle REAL para Socios nuevos por mes (por MES) ===
-        if (reporteId === 'socios-nuevos-mes-mes') {
-          const anio = Number(tr.dataset.anio);
-          const mes  = Number(tr.dataset.mes);
-          const mesLabel = label || tr.children[0]?.textContent || '';
-
-          if (!anio || !mes) {
-            alert('No se pudo determinar año o mes para el detalle.');
-            return;
-          }
-
-          const params = new URLSearchParams({
-            anio: String(anio),
-            mes: String(mes),
-          });
-
-          const url = `/club/${clubId}/reportes/socios-nuevos-mes/detalle?${params.toString()}`;
-          const { data } = await fetchAuth(url);
-
-          if (!data.ok) {
-            alert(data.error || 'Error al cargar el detalle de socios nuevos.');
-            return;
-          }
-
-          const rows = data.rows || [];
-
-          let html;
-          if (!rows.length) {
-            html = '<div class="muted">No hay socios nuevos para este mes.</div>';
-          } else {
-            html = `
-              <table class="socios-table" style="background:#fafafa;">
-                <thead>
-                  <tr>
-                    <th>N° Socio</th>
-                    <th>DNI</th>
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>Actividad</th>
-                    <th>Categoría</th>
-                    <th>Teléfono</th>
-                    <th>Fecha ingreso</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows.map(s => `
-                    <tr>
-                      <td>${s.numero_socio ?? ''}</td>
-                      <td>${s.dni ?? ''}</td>
-                      <td>${s.nombre ?? ''}</td>
-                      <td>${s.apellido ?? ''}</td>
-                      <td>${s.actividad ?? ''}</td>
-                      <td>${s.categoria ?? ''}</td>
-                      <td>${s.telefono ?? ''}</td>
-                      <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0,10) : ''}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            `;
-          }
-
-          openDetalleModal('socios-nuevos-mes', {
-            label: `Año ${anio} · ${mesLabel}`,
-            raw: rows,
-            html,
-          });
-          return;
-        }
-
-        // === Fallback genérico para otros reportes (por ahora) ===
-        const id    = tr.dataset.id;
-        const extra = tr.dataset.extra || '';
-        openDetalleModal(reporteId, { id, label, extra });
-
-      } catch (e) {
-        console.error(e);
-        alert('Error cargando detalle del reporte.');
+      if (!data.ok) {
+        alert(data.error || 'Error al cargar el detalle de socios.');
+        return;
       }
-    });
+
+      const rows = data.rows || [];
+
+      let html;
+      if (!rows.length) {
+        html = '<div class="muted">No hay socios para esta actividad.</div>';
+      } else {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>N° Socio</th>
+                <th>DNI</th>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Actividad</th>
+                <th>Categoría</th>
+                <th>Teléfono</th>
+                <th>Fecha ingreso</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows
+                .map(
+                  (s) => `
+                <tr>
+                  <td>${s.numero_socio ?? ''}</td>
+                  <td>${s.dni ?? ''}</td>
+                  <td>${s.nombre ?? ''}</td>
+                  <td>${s.apellido ?? ''}</td>
+                  <td>${s.actividad ?? ''}</td>
+                  <td>${s.categoria ?? ''}</td>
+                  <td>${s.telefono ?? ''}</td>
+                  <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0, 10) : ''}</td>
+                </tr>
+              `
+                )
+                .join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      openDetalleModal('socios-actividad-categoria', {
+        label: actividad,
+        raw: rows,
+        html,
+      });
+      return;
+    }
+
+    // === Detalle REAL para Socios nuevos por mes (por MES) ===
+    if (reporteId === 'socios-nuevos-mes-mes') {
+      const anio = Number(tr.dataset.anio);
+      const mes = Number(tr.dataset.mes);
+      const mesLabel = label || tr.children[0]?.textContent || '';
+
+      if (!anio || !mes) {
+        alert('No se pudo determinar año o mes para el detalle.');
+        return;
+      }
+
+      const params = new URLSearchParams({
+        anio: String(anio),
+        mes: String(mes),
+      });
+
+      const url = `/club/${clubId}/reportes/socios-nuevos-mes/detalle?${params.toString()}`;
+      const { data } = await fetchAuth(url);
+
+      if (!data.ok) {
+        alert(data.error || 'Error al cargar el detalle de socios nuevos.');
+        return;
+      }
+
+      const rows = data.rows || [];
+
+      let html;
+      if (!rows.length) {
+        html = '<div class="muted">No hay socios nuevos para este mes.</div>';
+      } else {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>N° Socio</th>
+                <th>DNI</th>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Actividad</th>
+                <th>Categoría</th>
+                <th>Teléfono</th>
+                <th>Fecha ingreso</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows
+                .map(
+                  (s) => `
+                <tr>
+                  <td>${s.numero_socio ?? ''}</td>
+                  <td>${s.dni ?? ''}</td>
+                  <td>${s.nombre ?? ''}</td>
+                  <td>${s.apellido ?? ''}</td>
+                  <td>${s.actividad ?? ''}</td>
+                  <td>${s.categoria ?? ''}</td>
+                  <td>${s.telefono ?? ''}</td>
+                  <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0, 10) : ''}</td>
+                </tr>
+              `
+                )
+                .join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      openDetalleModal('socios-nuevos-mes', {
+        label: `Año ${anio} · ${mesLabel}`,
+        raw: rows,
+        html,
+      });
+      return;
+    }
+
+    // === Detalle REAL para Socios impagos por mes ===
+    if (reporteId === 'impagos-mes') {
+      const anio = Number(tr.dataset.anio) || new Date().getFullYear();
+      const mesLabel = label || tr.children[0]?.textContent?.trim() || '';
+
+      const MESES = [
+        'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+      ];
+      const mesNum = MESES.indexOf(mesLabel) + 1;
+
+      if (!anio || mesNum <= 0) {
+        alert('No se pudo determinar año o mes para el detalle de impagos.');
+        return;
+      }
+
+      const params = new URLSearchParams({
+        anio: String(anio),
+        mes: String(mesNum),
+        limit: '20',
+        offset: '0',
+      });
+
+      const url = `/club/${clubId}/reportes/impagos-mes/detalle?${params.toString()}`;
+      const { data } = await fetchAuth(url);
+
+      if (!data.ok) {
+        alert(data.error || 'Error cargando detalle de socios impagos.');
+        return;
+      }
+
+      const items = data.items || [];
+      const total = data.total ?? items.length;
+
+      let html;
+      if (!items.length) {
+        html = '<div class="muted">No hay socios impagos para este mes.</div>';
+      } else {
+        html = `
+          <table class="socios-table" style="background:#fafafa;">
+            <thead>
+              <tr>
+                <th>N° Socio</th>
+                <th>DNI</th>
+                <th>Apellido</th>
+                <th>Nombre</th>
+                <th>Actividad</th>
+                <th>Categoría</th>
+                <th>Teléfono</th>
+                <th>Fecha ingreso</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items
+                .map(
+                  (s) => `
+                <tr>
+                  <td>${s.numero_socio ?? ''}</td>
+                  <td>${s.dni ?? ''}</td>
+                  <td>${s.apellido ?? ''}</td>
+                  <td>${s.nombre ?? ''}</td>
+                  <td>${s.actividad ?? ''}</td>
+                  <td>${s.categoria ?? ''}</td>
+                  <td>${s.telefono ?? ''}</td>
+                  <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0, 10) : ''}</td>
+                </tr>
+              `
+                )
+                .join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      openDetalleModal('impagos-mes', {
+        label: `Año ${anio} · ${mesLabel}`,
+        extra: `Total socios sin pago: ${total} (mostrando hasta 20)`,
+        html,
+      });
+      return;
+    }
+
+    // === Fallback genérico para otros reportes (por ahora) ===
+    const id = tr.dataset.id;
+    const extra = tr.dataset.extra || '';
+    openDetalleModal(reporteId, { id, label, extra });
+  } catch (e) {
+    console.error(e);
+    alert('Error cargando detalle del reporte.');
+  }
+});
 
     // =============================
     // Click en flecha ▶ para desplegar subtabla

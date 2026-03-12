@@ -391,6 +391,193 @@ router.get('/:clubId/reportes/ingreso-mes-pagado/meses', requireAuth, requireClu
 });
 
 // ===============================
+// NUEVO: Socios impagos por mes (por AÑO)
+// GET /club/:clubId/reportes/impagos-mes?anio=2026
+// ===============================
+router.get(
+  '/:clubId/reportes/impagos-mes',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = getYearFromQuery(req.query); // helper ya definido arriba
+    const MESES = [
+      'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+    ];
+
+    try {
+      const q = `
+        WITH meses AS (
+          SELECT generate_series(1,12)::int AS mes_num
+        ),
+        socios_activos AS (
+          SELECT id, fecha_ingreso
+          FROM socios
+          WHERE club_id = $1
+            AND activo = true
+        ),
+        base AS (
+          -- Para cada socio activo y cada mes del año, determinamos si debería pagar
+          SELECT
+            m.mes_num,
+            s.id AS socio_id
+          FROM meses m
+          CROSS JOIN socios_activos s
+          WHERE
+            s.fecha_ingreso IS NULL
+            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+            OR (
+              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
+            )
+        ),
+        pagos AS (
+          SELECT socio_id, mes AS mes_num
+          FROM pagos_mensuales
+          WHERE club_id = $1
+            AND anio = $2
+        )
+        SELECT
+          b.mes_num,
+          COUNT(*) AS cantidad
+        FROM base b
+        LEFT JOIN pagos p
+          ON p.socio_id = b.socio_id
+         AND p.mes_num = b.mes_num
+        WHERE p.socio_id IS NULL
+        GROUP BY b.mes_num
+        ORDER BY b.mes_num;
+      `;
+
+      const r = await db.query(q, [clubId, anio]);
+
+      const rows = r.rows.map((row) => ({
+        anio, // 👈 agregamos el año (Number)
+        mes: MESES[row.mes_num - 1],
+        cantidad: Number(row.cantidad),
+        mes_num: row.mes_num,
+        _hasChildren: true
+      }));
+
+
+      return res.json({
+        ok: true,
+        title: `Socios impagos por mes (${anio})`,
+        description:
+          'Cantidad de socios activos que no registran pago en el mes indicado, considerando la fecha de ingreso (no se muestran meses anteriores al ingreso del socio).',
+        columns: [
+          { key: 'mes', label: 'Mes' },
+          { key: 'cantidad', label: 'Socios sin pago' }
+        ],
+        rows
+      });
+    } catch (e) {
+      console.error('❌ reporte impagos-mes', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
+// DETALLE: Socios impagos por mes (paginado)
+// GET /club/:clubId/reportes/impagos-mes/detalle?anio=2026&mes=3&limit=20&offset=0
+// ===============================
+router.get(
+  '/:clubId/reportes/impagos-mes/detalle',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes = Number(req.query.mes);
+    const limit = Math.min(Number(req.query.limit) || 20, 100); // máx 100 por seguridad
+    const offset = Number(req.query.offset) || 0;
+
+    if (!anio || !mes) {
+      return res
+        .status(400)
+        .json({ ok: false, error: 'anio y mes son obligatorios' });
+    }
+
+    try {
+      // Query base (para filas paginadas)
+      const qDetalle = `
+        SELECT
+          s.id,
+          s.numero_socio,
+          s.dni,
+          s.nombre,
+          s.apellido,
+          s.actividad,
+          s.categoria,
+          s.telefono,
+          s.fecha_ingreso
+        FROM socios s
+        LEFT JOIN pagos_mensuales pm
+          ON pm.socio_id = s.id
+         AND pm.club_id = $1
+         AND pm.anio = $2
+         AND pm.mes = $3
+        WHERE s.club_id = $1
+          AND s.activo = true
+          -- No contar meses anteriores a la fecha de ingreso
+          AND (
+            s.fecha_ingreso IS NULL
+            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+            OR (
+              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+            )
+          )
+          AND pm.id IS NULL
+        ORDER BY s.apellido, s.nombre
+        LIMIT $4 OFFSET $5;
+      `;
+
+      const qCount = `
+        SELECT COUNT(*) AS total
+        FROM socios s
+        LEFT JOIN pagos_mensuales pm
+          ON pm.socio_id = s.id
+         AND pm.club_id = $1
+         AND pm.anio = $2
+         AND pm.mes = $3
+        WHERE s.club_id = $1
+          AND s.activo = true
+          AND (
+            s.fecha_ingreso IS NULL
+            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+            OR (
+              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+            )
+          )
+          AND pm.id IS NULL;
+      `;
+
+      const [rDetalle, rCount] = await Promise.all([
+        db.query(qDetalle, [clubId, anio, mes, limit, offset]),
+        db.query(qCount, [clubId, anio, mes])
+      ]);
+
+      const total = Number(rCount.rows[0].total);
+
+      return res.json({
+        ok: true,
+        total,
+        limit,
+        offset,
+        items: rDetalle.rows
+      });
+    } catch (e) {
+      console.error('❌ detalle impagos-mes', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
 // 5) Ingresos vs Gastos por año (cuotas + otros ingresos)
 // ===============================
 router.get('/:clubId/reportes/ingresos-vs-gastos',
