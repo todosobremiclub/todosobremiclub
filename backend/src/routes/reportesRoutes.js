@@ -452,14 +452,22 @@ router.get(
 
       const r = await db.query(q, [clubId, anio]);
 
-      const rows = r.rows.map((row) => ({
-        anio, // 👈 agregamos el año (Number)
+      // Filtrar meses según fecha actual
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+
+      const rowsRaw = r.rows.map((row) => ({
+        anio,
         mes: MESES[row.mes_num - 1],
         cantidad: Number(row.cantidad),
         mes_num: row.mes_num,
-        _hasChildren: true
       }));
 
+      const rows =
+        anio === currentYear
+          ? rowsRaw.filter((x) => x.mes_num <= currentMonth)
+          : rowsRaw;
 
       return res.json({
         ok: true,
@@ -491,7 +499,7 @@ router.get(
     const { clubId } = req.params;
     const anio = Number(req.query.anio);
     const mes = Number(req.query.mes);
-    const limit = Math.min(Number(req.query.limit) || 20, 100); // máx 100 por seguridad
+    const limit = Math.min(Number(req.query.limit) || 20, 100); // máx 100
     const offset = Number(req.query.offset) || 0;
 
     if (!anio || !mes) {
@@ -501,7 +509,6 @@ router.get(
     }
 
     try {
-      // Query base (para filas paginadas)
       const qDetalle = `
         SELECT
           s.id,
@@ -531,7 +538,7 @@ router.get(
             )
           )
           AND pm.id IS NULL
-        ORDER BY s.apellido, s.nombre
+        ORDER BY s.numero_socio ASC
         LIMIT $4 OFFSET $5;
       `;
 

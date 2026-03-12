@@ -1094,9 +1094,33 @@ content.addEventListener('dblclick', async (ev) => {
 
   window.initReportesSection = initReportesSection;
 
+// =============================
+  // Init sección reportes (DOMContentLoaded)
+  // =============================
   document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('reportes-section')) {
       initReportesSection();
     }
+
+    // === Inicializar selector de años (si existe en el HTML) ===
+    const sel = document.getElementById('select-anio');
+    if (sel) {
+      const currentYear = new Date().getFullYear();
+      sel.innerHTML = '';
+
+      for (let y = 2020; y <= currentYear; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        if (y === currentYear) opt.selected = true;
+        sel.appendChild(opt);
+      }
+
+      sel.addEventListener('change', () => {
+        if (window._lastReporteId === 'impagos-mes') {
+          loadReporte('impagos-mes', { anio: sel.value });
+        }
+      });
+    }
   });
-})();
+})();   // 👈 CIERRE DEL IIFE
