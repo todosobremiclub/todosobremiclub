@@ -4,6 +4,7 @@ const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
 const { uploadImageBuffer } = require('../utils/uploadToFirebase');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -33,7 +34,7 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
         color_primary, 
         color_secondary, 
         color_accent, 
-        created_at 
+        created_at
       FROM clubs 
       ORDER BY created_at DESC 
     `);
@@ -93,6 +94,9 @@ router.post(
         background_url = up.url;
       }
 
+      // ✅ Token para QR de postulación (no puede quedar null)
+      const apply_token = crypto.randomBytes(16).toString('hex'); // 32 chars
+
       const r = await db.query(
         `
         INSERT INTO clubs (
@@ -107,10 +111,10 @@ router.post(
           background_url, 
           color_primary, 
           color_secondary, 
-          color_accent 
+          color_accent,
+          apply_token
         ) 
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) 
-
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) 
         RETURNING *
         `,
         [
@@ -125,7 +129,8 @@ router.post(
           background_url,
           color_primary ?? '#2563eb',
           color_secondary ?? '#1e40af',
-          color_accent ?? '#facc15'
+          color_accent ?? '#facc15',
+          apply_token
         ]
       );
 
