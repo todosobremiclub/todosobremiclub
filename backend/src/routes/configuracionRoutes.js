@@ -10,9 +10,11 @@ const router = express.Router();
 function requireClubAccess(req, res, next) {
   const { clubId } = req.params;
   const roles = req.user?.roles || [];
-  const allowed = roles.some(
-    r => String(r.club_id) === String(clubId) || r.role === 'superadmin'
-  );
+  const allowed = roles.some(r =>
+  r.role === 'superadmin' ||
+  String(r.club_id) === String(clubId)
+);
+
   if (!allowed) return res.status(403).json({ ok: false, error: 'No autorizado para este club' });
   next();
 }

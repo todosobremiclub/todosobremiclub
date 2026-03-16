@@ -625,15 +625,22 @@ function bindEvents() {
   });
 
   $('btnCategoriaAdd')?.addEventListener('click', async () => {
-    const nombre = prompt('Nombre de la categoría');
-    if (!nombre) return;
-    try {
-      await createCategoria(nombre.trim());
-      await loadCategorias();
-    } catch (err) {
-      alert(err.message ?? 'Error');
-    }
-  });
+  const input = document.getElementById('newCategoriaNombre');
+  const nombre = (input?.value ?? '').trim();
+
+  if (!nombre) {
+    alert('Ingresá un nombre de categoría');
+    return;
+  }
+
+  try {
+    await createCategoria(nombre);
+    input.value = '';
+    await loadCategorias();
+  } catch (err) {
+    alert(err.message ?? 'Error');
+  }
+});
 
   // tipos de gasto
   $('tiposGastoTableBody')?.addEventListener('click', async (e) => {
@@ -671,15 +678,23 @@ function bindEvents() {
   });
 
   $('btnTipoGastoAdd')?.addEventListener('click', async () => {
-    const nombre = prompt('Nombre del tipo de gasto');
-    if (!nombre) return;
-    try {
-      await createTipoGasto(nombre.trim());
-      await loadTiposGasto();
-    } catch (err) {
-      alert(err.message ?? 'Error');
-    }
-  });
+  const input = document.getElementById('newTipoGastoNombre');
+  const nombre = (input?.value ?? '').trim();
+
+  if (!nombre) {
+    alert('Ingresá un nombre de tipo de gasto');
+    return;
+  }
+
+  try {
+    await createTipoGasto(nombre);
+    input.value = '';
+    await loadTiposGasto();
+  } catch (err) {
+    alert(err.message ?? 'Error');
+  }
+});
+
 
   // TIPOS DE INGRESO: botón Agregar
   $('btnTipoIngresoAdd')?.addEventListener('click', async () => {
@@ -752,15 +767,22 @@ function bindEvents() {
   });
 
   $('btnResponsableAdd')?.addEventListener('click', async () => {
-    const nombre = prompt('Nombre del responsable');
-    if (!nombre) return;
-    try {
-      await createResponsable(nombre.trim());
-      await loadResponsables();
-    } catch (err) {
-      alert(err.message ?? 'Error');
-    }
-  });
+  const input = document.getElementById('newResponsableNombre');
+  const nombre = (input?.value ?? '').trim();
+
+  if (!nombre) {
+    alert('Ingresá un nombre de responsable');
+    return;
+  }
+
+  try {
+    await createResponsable(nombre);
+    input.value = '';
+    await loadResponsables();
+  } catch (err) {
+    alert(err.message ?? 'Error');
+  }
+});
 
   // ACTIVIDADES: guardar / eliminar
   document
