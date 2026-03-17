@@ -78,7 +78,8 @@
     }
 
     // Redirigir a página de confirmación
-window.location.href = '/postulacion-enviada.html';
+console.log('REDIRECT OK -> postulacion-enviada.html');
+window.location.replace('/postulacion-enviada.html');
 
   }
 
