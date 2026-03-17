@@ -77,11 +77,9 @@
       return showMsg(data.error || 'Error enviando postulación', false);
     }
 
-    showMsg('✅ Postulación enviada. Quedó pendiente de aprobación.', true);
+    // Redirigir a página de confirmación
+window.location.href = '/postulacion-enviada.html';
 
-    // bloquear botón
-    $('enviar').disabled = true;
-    $('enviar').style.opacity = '0.6';
   }
 
   $('foto')?.addEventListener('change', async () => {
