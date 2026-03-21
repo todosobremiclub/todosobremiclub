@@ -843,23 +843,25 @@ subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más
     const ingVals = meses.map(r => Number(r.ingresos || 0));
     const gasVals = meses.map(r => Number(r.gastos || 0));
 
+// === VENTANA DE MESES (CENTRAR EN EL MES SELECCIONADO) ===
+let start = Math.max(0, idx - 2);
+let end   = Math.min(meses.length, idx + 3);
+
+const labelsWin = labels.slice(start, end);
+const ingValsWin = ingVals.slice(start, end);
+const gasValsWin = gasVals.slice(start, end);
+
     chartIGMes = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Ingresos',
-            data: ingVals,
-            backgroundColor: '#22c55e'
-          },
-          {
-            label: 'Gastos',
-            data: gasVals,
-            backgroundColor: '#ef4444'
-          }
-        ]
-      },
+  type: 'bar',
+  data: {
+    labels: labelsWin,
+    datasets: [
+      { label: 'Ingresos', data: ingValsWin, backgroundColor: '#22c55e' },
+      { label: 'Gastos',   data: gasValsWin, backgroundColor: '#ef4444' }
+    ]
+  },
+
+
       options: {
         responsive: true,
         maintainAspectRatio: false,
