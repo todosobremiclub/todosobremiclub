@@ -191,27 +191,42 @@ router.get('/:clubId/socios/estados', requireAuth, requireClubAccess, async (req
   const { clubId } = req.params;
   try {
     const q = `
-      SELECT
-        s.id AS socio_id,
-        -- al menos un adjunto
-        (COUNT(a.id) > 0) AS tiene_adjuntos,
-        -- al menos un adjunto con comentario no vacío
-        (
-          COUNT(
-            CASE
-              WHEN a.comentario IS NOT NULL AND btrim(a.comentario) <> '' THEN 1
-              ELSE NULL
-            END
-          ) > 0
-        ) AS tiene_comentario
-      FROM socios s
-      LEFT JOIN socios_adjuntos a
-        ON a.club_id = s.club_id
-       AND a.socio_id = s.id
-      WHERE s.club_id = $1
-      GROUP BY s.id
-      ORDER BY s.numero_socio ASC;
-    `;
+  SELECT
+    s.id AS socio_id,
+
+    -- Tiene adjuntos?
+    (COUNT(a.id) > 0) AS tiene_adjuntos,
+
+    -- Tiene comentario en adjuntos O en comentarios independientes?
+    (
+      SUM(
+        CASE
+          WHEN a.comentario IS NOT NULL AND btrim(a.comentario) <> '' THEN 1
+          ELSE 0
+        END
+      )
+      +
+      SUM(
+        CASE
+          WHEN c.comentario IS NOT NULL AND btrim(c.comentario) <> '' THEN 1
+          ELSE 0
+        END
+      )
+    ) > 0 AS tiene_comentario
+
+  FROM socios s
+  LEFT JOIN socios_adjuntos a
+    ON a.socio_id = s.id
+   AND a.club_id = s.club_id
+  LEFT JOIN socios_comentarios c
+    ON c.socio_id = s.id
+   AND c.club_id = s.club_id
+
+  WHERE s.club_id = $1
+  GROUP BY s.id
+  ORDER BY s.numero_socio;
+`;
+
     const r = await db.query(q, [clubId]);
     res.json({ ok: true, estados: r.rows });
   } catch (e) {
@@ -1033,6 +1048,73 @@ router.delete(
     } catch (e) {
       console.error('❌ delete socio adjunto', e);
       res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
+// COMENTARIOS DE SOCIO – LISTAR
+// GET /club/:clubId/socios/:id/comentarios
+// ===============================
+router.get(
+  '/:clubId/socios/:id/comentarios',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId, id: socioId } = req.params;
+    try {
+      const q = `
+        SELECT
+          id,
+          comentario,
+          created_at
+        FROM socios_comentarios
+        WHERE club_id = $1 AND socio_id = $2
+        ORDER BY created_at DESC
+      `;
+      const r = await db.query(q, [clubId, socioId]);
+      return res.json({ ok: true, comentarios: r.rows });
+    } catch (e) {
+      console.error('❌ Error listando comentarios', e);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
+// COMENTARIOS DE SOCIO – CREAR
+// POST /club/:clubId/socios/:id/comentarios
+// ===============================
+router.post(
+  '/:clubId/socios/:id/comentarios',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId, id: socioId } = req.params;
+    const comentario = (req.body?.comentario || '').trim();
+
+    if (!comentario) {
+      return res.status(400).json({
+        ok: false,
+        error: 'El comentario no puede estar vacío.'
+      });
+    }
+
+    try {
+      const q = `
+        INSERT INTO socios_comentarios (club_id, socio_id, comentario)
+        VALUES ($1, $2, $3)
+        RETURNING id, comentario, created_at
+      `;
+      const r = await db.query(q, [clubId, socioId, comentario]);
+
+      return res.json({ ok: true, comentario: r.rows[0] });
+    } catch (e) {
+      console.error('❌ Error guardando comentario', e);
+      return res.status(500).json({
+        ok: false,
+        error: e.message
+      });
     }
   }
 );

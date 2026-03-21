@@ -286,6 +286,17 @@
     return String(iso).slice(0, 4);
   }
 
+
+
+function fmtDMYShort(iso) {
+  if (!iso) return '';
+  const s = String(iso).slice(0, 10); // YYYY-MM-DD
+  const [y, m, d] = s.split('-');
+  if (!y || !m || !d) return '';
+  // dd-mm-aa
+  return `${d}-${m}-${String(y).slice(2)}`;
+}
+
   function onlyDigits(v) {
     return String(v ?? '').replace(/\D+/g, '');
   }
@@ -419,53 +430,110 @@
     return data.adjuntos || [];
   }
 
-  async function cargarAdjuntosEnModal(socioId) {
-    const cont = $('listaAdjuntos');
-    if (!cont) return;
-    cont.innerHTML = '<div class="text-muted">Cargando adjuntos...</div>';
+ async function cargarAdjuntosEnModal(socioId) {
+  const cont = $('listaAdjuntos');
+  if (!cont) return;
 
-    const clubId = getActiveClubId();
-    const adjuntos = await fetchAdjuntos(clubId, socioId);
+  cont.innerHTML = '<div class="text-muted">Cargando adjuntos...</div>';
 
-    if (!adjuntos.length) {
-      cont.innerHTML = '<div class="text-muted">No hay adjuntos.</div>';
-      return;
-    }
+  const clubId = getActiveClubId();
+  const adjuntos = await fetchAdjuntos(clubId, socioId);
 
-    cont.innerHTML = '';
-
-    adjuntos.forEach((a) => {
-      const row = document.createElement('div');
-      row.className = 'd-flex justify-content-between align-items-start border-bottom py-1';
-
-      row.innerHTML = `
-        <div>
-          <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
-            <b>${escapeHtml(a.filename)}</b>
-          </a><br>
-          ${a.comentario ? `<small>${escapeHtml(a.comentario)}</small><br>` : ''}
-          <small>${formatBytes(a.size_bytes)}</small>
-        </div>
-        <button class="btn btn-sm btn-danger">Eliminar</button>
-      `;
-
-      row.querySelector('button')?.addEventListener('click', async () => {
-        if (!confirm('¿Eliminar este adjunto?')) return;
-        const res = await fetchAuth(
-          `/club/${clubId}/socios/${socioId}/adjuntos/${a.id}`,
-          { method: 'DELETE' }
-        );
-        const data = await safeJson(res);
-        if (!res.ok || !data.ok) {
-          alert(data.error || 'Error eliminando adjunto');
-          return;
-        }
-        await cargarAdjuntosEnModal(socioId);
-      });
-
-      cont.appendChild(row);
-    });
+  if (!adjuntos.length) {
+    cont.innerHTML = '<div class="text-muted">No hay adjuntos ni comentarios guardados.</div>';
+    return;
   }
+
+  cont.innerHTML = '';
+
+  adjuntos.forEach((a) => {
+    const row = document.createElement('div');
+    row.className = 'd-flex justify-content-between align-items-start border-bottom py-1';
+
+    const fecha = fmtDMYShort(a.created_at); // dd-mm-aa
+    const nombreArchivo = a.filename || '(sin archivo)';
+
+    row.innerHTML = `
+      <div>
+        <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
+          <b>${escapeHtml(nombreArchivo)}</b>
+        </a><br>
+        ${
+          a.comentario
+            ? `<div><small>${escapeHtml(a.comentario)}</small></div>`
+            : ''
+        }
+        <small>
+          ${fecha ? fecha : ''}${fecha && a.size_bytes ? ' · ' : ''}
+          ${a.size_bytes ? formatBytes(a.size_bytes) : ''}
+        </small>
+      </div>
+      <button class="btn btn-sm btn-danger">Eliminar</button>
+    `;
+
+    row.querySelector('button')?.addEventListener('click', async () => {
+      if (!confirm('¿Eliminar este adjunto/comentario?')) return;
+
+      const res = await fetchAuth(
+        `/club/${clubId}/socios/${socioId}/adjuntos/${a.id}`,
+        { method: 'DELETE' }
+      );
+      const data = await safeJson(res);
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'Error eliminando adjunto');
+        return;
+      }
+      await cargarAdjuntosEnModal(socioId);
+    });
+
+    cont.appendChild(row);
+  });
+}
+// =============================
+// COMENTARIOS – helpers
+// =============================
+async function fetchComentarios(clubId, socioId) {
+  const res = await fetchAuth(`/club/${clubId}/socios/${socioId}/comentarios`);
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    console.error('Error cargando comentarios', data.error);
+    return [];
+  }
+  return data.comentarios || [];
+}
+
+async function cargarComentariosEnModal(socioId) {
+  const cont = $('listaComentarios');
+  if (!cont) return;
+
+  cont.innerHTML = '<div class="text-muted">Cargando comentarios...</div>';
+
+  const clubId = getActiveClubId();
+  const comentarios = await fetchComentarios(clubId, socioId);
+
+  if (!comentarios.length) {
+    cont.innerHTML = '<div class="text-muted">No hay comentarios guardados.</div>';
+    return;
+  }
+
+  cont.innerHTML = '';
+
+  comentarios.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'border-bottom py-1';
+
+    const fecha = fmtDMYShort(c.created_at);
+
+    row.innerHTML = `
+      <div><b>${fecha}</b></div>
+      <div>${escapeHtml(c.comentario)}</div>
+    `;
+
+    cont.appendChild(row);
+  });
+}
+
+
 
   // =============================
   // Photo viewer
@@ -705,6 +773,8 @@
 
     // cargar adjuntos del socio
     cargarAdjuntosEnModal(socio.id).catch(console.error);
+// cargar comentarios del socio
+cargarComentariosEnModal(socio.id).catch(console.error);
   }
 
   function closeModalSocio() {
@@ -1386,6 +1456,52 @@
         }
       }
     });
+
+// SUBIR COMENTARIO (sin archivo)
+$('btnSubirComentario')?.addEventListener('click', async () => {
+  if (!editingId) {
+    alert('Primero guardá el socio antes de agregar comentarios.');
+    return;
+  }
+
+  const txtArea = $('nuevoComentario');
+  const texto = txtArea?.value?.trim();
+  if (!texto) {
+    alert('Escribí un comentario.');
+    return;
+  }
+
+  const clubId = getActiveClubId();
+
+  const btn = $('btnSubirComentario');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Subiendo...';
+  }
+
+  try {
+    const res = await fetchAuth(`/club/${clubId}/socios/${editingId}/comentarios`, {
+      method: 'POST',
+      body: JSON.stringify({ comentario: texto }),
+      json: true
+    });
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error guardando comentario');
+      return;
+    }
+
+    // limpio textarea y recargo histórico
+    if (txtArea) txtArea.value = '';
+    await cargarComentariosEnModal(editingId);
+    await loadSocioEstadosFromBackend().catch(() => {});
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '💬 Subir comentario';
+    }
+  }
+});
 
     // CLICK en tabla: foto / editar / eliminar / WhatsApp / flags
     $('sociosTableBody')?.addEventListener('click', async (ev) => {
