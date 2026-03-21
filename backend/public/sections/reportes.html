@@ -105,7 +105,44 @@
         <!-- Gráfico mensual -->
         <div class="card-chart" style="min-height:180px;">
           <canvas id="chartIGMes"></canvas>
-        </div>
+        </div><div class="card-body">
+  <!-- RESUMEN MENSUAL -->
+  <div class="ig-month-summary">
+    <div class="ig-month-item">
+      <span class="ig-label">Ingresos mes</span>
+      <span id="igMesIngresos" class="ig-month-value">–</span>
+    </div>
+    <div class="ig-month-item">
+      <span class="ig-label">Gastos mes</span>
+      <span id="igMesGastos" class="ig-month-value">–</span>
+    </div>
+    <div class="ig-month-item">
+      <span class="ig-label">Resultado mes</span>
+      <span id="igMesResultado" class="ig-month-value">–</span>
+    </div>
+  </div>
+
+  <!-- Gráfico mensual -->
+  <div class="card-chart" style="min-height:180px;">
+    <canvas id="chartIGMes"></canvas>
+  </div>
+
+  <!-- Resumen anual -->
+  <div class="ig-summary">
+    <div class="ig-summary-item">
+      <span class="ig-label">Ingresos año</span>
+      <span id="igAnualIngresos" class="ig-value">–</span>
+    </div>
+    <div class="ig-summary-item">
+      <span class="ig-label">Gastos año</span>
+      <span id="igAnualGastos" class="ig-value">–</span>
+    </div>
+    <div class="ig-summary-item">
+      <span class="ig-label">Resultado</span>
+      <span id="igAnualResultado" class="ig-value">–</span>
+    </div>
+  </div>
+</div>
 
         <!-- Resumen anual -->
         <div class="ig-summary">
@@ -325,6 +362,29 @@
     gap:8px;
     margin-top:6px;
   }
+
+/* Resumen mensual Ingresos vs Gastos */
+.ig-month-summary {
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+}
+
+.ig-month-item {
+  flex:1;
+  background:#f3f4f6;
+  border-radius:8px;
+  padding:6px 8px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.ig-month-value {
+  font-size:15px;
+  font-weight:700;
+}
 
   .ig-summary-item {
     flex:1;

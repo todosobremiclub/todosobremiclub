@@ -782,13 +782,16 @@ subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más
   }
 
   function renderIGPanel() {
-    const canvas = $('chartIGMes');
+    const canvas    = $('chartIGMes');
     const anioLabel = $('igAnioLabel');
-    const mesLabel = $('igMesLabel');
-    const anualIng = $('igAnualIngresos');
-    const anualGas = $('igAnualGastos');
-    const anualRes = $('igAnualResultado');
-    const detailBody = $('detailIngresosBody');
+    const mesLabel  = $('igMesLabel');
+    const anualIng  = $('igAnualIngresos');
+    const anualGas  = $('igAnualGastos');
+    const anualRes  = $('igAnualResultado');
+    const mesIngEl  = $('igMesIngresos');
+    const mesGasEl  = $('igMesGastos');
+    const mesResEl  = $('igMesResultado');
+    const detailBody= $('detailIngresosBody');
 
     if (!canvas || !anioLabel || !mesLabel || !anualIng || !anualGas || !anualRes) return;
 
@@ -798,6 +801,7 @@ subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más
     const anioActual = igState.years[igState.yearIndex];
     anioLabel.textContent = `Año ${anioActual}`;
 
+    // Resumen anual
     const rowAnual = igState.anualRows.find(r => r.anio === anioActual) || { ingresos: 0, gastos: 0 };
     const totalIng = Number(rowAnual.ingresos || 0);
     const totalGas = Number(rowAnual.gastos || 0);
@@ -807,19 +811,33 @@ subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más
     anualGas.textContent = moneyARS.format(totalGas);
     anualRes.textContent = moneyARS.format(totalRes);
 
+    // Datos mensuales
     const meses = igState.mesesRows || [];
     if (!meses.length) {
       mesLabel.textContent = 'Sin datos';
       if (detailBody) {
         detailBody.innerHTML = '<div class="muted small">No hay datos mensuales para este año.</div>';
       }
+      if (mesIngEl) mesIngEl.textContent = '–';
+      if (mesGasEl) mesGasEl.textContent = '–';
+      if (mesResEl) mesResEl.textContent = '–';
       return;
     }
 
     const idx = Math.max(0, Math.min(igState.mesIndex, meses.length - 1));
     igState.mesIndex = idx;
     const rowSel = meses[idx];
+
+    // Resumen mensual (ingresos / gastos / resultado)
+    const ingMes = Number(rowSel.ingresos || 0);
+    const gasMes = Number(rowSel.gastos || 0);
+    const resMes = ingMes - gasMes;
+
     mesLabel.textContent = rowSel.mes;
+
+    if (mesIngEl) mesIngEl.textContent = moneyARS.format(ingMes);
+    if (mesGasEl) mesGasEl.textContent = moneyARS.format(gasMes);
+    if (mesResEl) mesResEl.textContent = moneyARS.format(resMes);
 
     const labels = meses.map(r => r.mes);
     const ingVals = meses.map(r => Number(r.ingresos || 0));
@@ -843,11 +861,11 @@ subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más
         ]
       },
       options: {
-        responsive:true,
-        maintainAspectRatio:false,
-        scales:{
-          x:{ beginAtZero:true },
-          y:{ beginAtZero:true }
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { beginAtZero: true },
+          y: { beginAtZero: true }
         },
         onClick: (evt, elements) => {
           if (!elements || !elements.length) return;
@@ -855,6 +873,20 @@ subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más
           igState.mesIndex = idxClicked;
           renderIGPanel();
           loadIGDetalleMes(anioActual, idxClicked + 1);
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              footer: (items) => {
+                if (!items || !items.length) return '';
+                const i = items[0].dataIndex;
+                const ing = ingVals[i] || 0;
+                const gas = gasVals[i] || 0;
+                const res = ing - gas;
+                return `Resultado: ${moneyARS.format(res)}`;
+              }
+            }
+          }
         }
       }
     });
