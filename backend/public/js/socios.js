@@ -601,12 +601,12 @@ async function cargarComentariosEnModal(socioId) {
     if (!titleEl || !bodyEl) return;
 
     const partesTitulo = [];
-    if (showAdjuntos) partesTitulo.push('Adjuntos');
-    if (showComentarios) partesTitulo.push('Comentarios');
+if (showAdjuntos) partesTitulo.push('Adjuntos');
+if (showComentarios) partesTitulo.push('Comentarios');
 
-    titleEl.textContent = partesTitulo.length
-    ? partesTitulo.join(' y ')
-    : 'Documentación';
+// Si partesTitulo queda vacío, join() devuelve '', así que usamos 'Documentación' por defecto
+titleEl.textContent = partesTitulo.join(' y ') || 'Documentación';
+
 
     let html = '';
 
