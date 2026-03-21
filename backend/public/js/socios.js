@@ -781,93 +781,76 @@ cargarComentariosEnModal(socio.id).catch(console.error);
     $('modalSocio')?.classList.add('hidden');
   }
 
-  // =============================
-  // Carnet digital (doble click)
-  // =============================
-  let carnetSocioId = null;
+ 
+// =============================
+// Carnet digital (doble click)
+// =============================
+let carnetSocioId = null;
 
-  function ensureCarnetModal() {
-    let modal = document.getElementById('modalCarnet');
+function ensureCarnetModal() {
+  // Usamos el modal que ya existe en socios.html
+  const modal = document.getElementById('modalCarnet');
+  if (!modal) return null;
 
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'modalCarnet';
-      modal.className = 'modal hidden';
+  // Solo bindear una vez
+  if (modal.dataset.bound === '1') return modal;
+  modal.dataset.bound = '1';
 
-      modal.style.position = 'fixed';
-      modal.style.inset = '0';
-      modal.style.background = 'rgba(0,0,0,0.55)';
-      modal.style.zIndex = '20000';
-      modal.style.alignItems = 'center';
-      modal.style.justifyContent = 'center';
-      modal.style.padding = '18px';
-      modal.style.pointerEvents = 'auto';
-      modal.style.display = 'none';
+  const btnClose = document.getElementById('btnCarnetClose');
+  const btnOk    = document.getElementById('btnCarnetOk');
+  const btnEdit  = document.getElementById('btnCarnetEdit');
 
-      modal.innerHTML = `
-        <div class="modal-content" style="max-width: 560px; pointer-events:auto;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-            <h3 style="margin:0;">Carnet digital</h3>
-            <button type="button" data-act="close" class="btn btn-secondary">✕</button>
-          </div>
+  const handleClose = (ev) => {
+    ev.preventDefault();
+    closeCarnet();
+  };
 
-          <div style="display:flex; gap:12px; align-items:flex-start; margin-top:12px;">
-            <img id="carnetFoto"
-              style="width:90px; height:90px; border-radius:12px; object-fit:cover; border:1px solid #ddd; background:#fff;"
-              alt="Foto"/>
-            <div style="flex:1;">
-              <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
-              <div id="carnetDni" class="muted" style="margin-top:4px;"></div>
-              <div id="carnetCategoria" class="muted" style="margin-top:2px;"></div>
-              <div id="carnetPago" style="margin-top:8px;"></div>
-            </div>
-          </div>
-
-          <div id="carnetExtra" class="muted" style="margin-top:10px; font-size:13px; line-height:1.35;"></div>
-
-          <div class="modal-actions">
-            <button type="button" data-act="edit" class="btn btn-primary">Editar</button>
-            <button type="button" data-act="close" class="btn btn-secondary">Cerrar</button>
-          </div>
-        </div>
-      `;
-
-      document.body.appendChild(modal);
-    }
-
-    if (modal.dataset.bound === '1') return modal;
-    modal.dataset.bound = '1';
-
-    modal.addEventListener('click', (ev) => {
-      const btn = ev.target.closest('button[data-act]');
-      if (btn) {
-        const act = btn.dataset.act;
-        if (act === 'close') {
-          closeCarnet();
-          return;
-        }
-        if (act === 'edit') {
-          const socio = sociosCache.find((x) => String(x.id) === String(carnetSocioId));
-          if (socio) {
-            closeCarnet();
-            openModalEdit(socio);
-          }
-          return;
-        }
-      }
-      if (ev.target === modal) closeCarnet();
-    });
-
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && !modal.classList.contains('hidden')) closeCarnet();
-    });
-
-    return modal;
+  // Cruz ✕
+  if (btnClose) {
+    btnClose.addEventListener('click', handleClose);
   }
 
-  function openCarnet(socio) {
-    const modal = ensureCarnetModal();
-    carnetSocioId = socio.id;
+  // Botón “Cerrar”
+  if (btnOk) {
+    btnOk.addEventListener('click', handleClose);
+  }
+
+  // Botón “Editar”
+  if (btnEdit) {
+    btnEdit.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const socio = sociosCache.find((x) => String(x.id) === String(carnetSocioId));
+      if (socio) {
+        closeCarnet();
+        openModalEdit(socio);
+      }
+    });
+  }
+
+  // Cerrar haciendo click fuera del contenido
+  modal.addEventListener('click', (ev) => {
+    if (ev.target === modal) {
+      closeCarnet();
+    }
+  });
+
+  // Esc para cerrar
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && !modal.classList.contains('hidden')) {
+      closeCarnet();
+    }
+  });
+
+  return modal;
+}
+
+// IMPORTANTE: ajustar solo la primera línea de openCarnet
+function openCarnet(socio) {
+  const modal = ensureCarnetModal();
+  if (!modal) return; // por si el HTML no está
+
+  carnetSocioId = socio.id;
+
 
     const foto = socio.foto_url || '/img/user-placeholder.png';
 
@@ -1149,14 +1132,14 @@ cargarComentariosEnModal(socio.id).catch(console.error);
         <td>${s.becado ? 'Sí' : 'No'}</td>
         <td>${fotoHtml}</td>
         <td style="white-space:nowrap;">
-          ${
-            iconosEstado
-              ? `<span class="socio-flags" title="Adjuntos / comentarios" style="margin-right:6px;">${iconosEstado}</span>`
-              : ''
-          }
-          <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
-          <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
-        </td>
+  <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
+  <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
+  ${
+    iconosEstado
+      ? `<span class="socio-flags" title="Adjuntos / comentarios" style="margin-left:6px;">${iconosEstado}</span>`
+      : ''
+  }
+</td>
       `;
 
       tbody.appendChild(tr);
@@ -1404,58 +1387,59 @@ cargarComentariosEnModal(socio.id).catch(console.error);
     $('filtroAnio')?.addEventListener('change', loadSocios);
     $('verInactivos')?.addEventListener('change', loadSocios);
 
-    // SUBIR ADJUNTO
-    $('btnSubirAdjunto')?.addEventListener('click', async () => {
-      if (!editingId) {
-        alert('Primero guardá el socio antes de adjuntar archivos.');
-        return;
-      }
-      const clubId = getActiveClubId();
-      const fileInput = $('adjuntoFile');
-      const commentInput = $('adjuntoComentario');
-      const file = fileInput?.files?.[0];
+   // SUBIR ADJUNTO (solo archivo, sin comentario)
+$('btnSubirAdjunto')?.addEventListener('click', async () => {
+  if (!editingId) {
+    alert('Primero guardá el socio antes de adjuntar archivos.');
+    return;
+  }
 
-      if (!file) {
-        alert('Seleccioná un archivo.');
-        return;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        alert('El archivo supera los 10MB.');
-        return;
-      }
+  const clubId = getActiveClubId();
+  const fileInput = $('adjuntoFile');
+  const file = fileInput?.files?.[0];
 
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('comentario', commentInput.value || '');
+  if (!file) {
+    alert('Seleccioná un archivo.');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    alert('El archivo supera los 10MB.');
+    return;
+  }
 
-      const btn = $('btnSubirAdjunto');
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Subiendo...';
-      }
+  const fd = new FormData();
+  fd.append('file', file);
 
-      try {
-        const res = await fetchAuth(`/club/${clubId}/socios/${editingId}/adjuntos`, {
-          method: 'POST',
-          body: fd
-        });
-        const data = await safeJson(res);
-        if (!res.ok || !data.ok) {
-          alert(data.error || 'Error subiendo adjunto');
-          return;
-        }
-        fileInput.value = '';
-        commentInput.value = '';
-        await cargarAdjuntosEnModal(editingId);
-        // Actualizamos estados para que se vea el 📎/💬 sin recargar toda la lista
-        await loadSocioEstadosFromBackend().catch(() => {});
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = '📎 Subir adjunto';
-        }
-      }
+  const btn = $('btnSubirAdjunto');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Subiendo...';
+  }
+
+  try {
+    const res = await fetchAuth(`/club/${clubId}/socios/${editingId}/adjuntos`, {
+      method: 'POST',
+      body: fd
     });
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error subiendo adjunto');
+      return;
+    }
+
+    // limpiamos solo el archivo
+    fileInput.value = '';
+    await cargarAdjuntosEnModal(editingId);
+    // refrescamos estados para el clip 📎
+    await loadSocioEstadosFromBackend().catch(() => {});
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '📎 Subir adjunto';
+    }
+  }
+});
+
 
 // SUBIR COMENTARIO (sin archivo)
 $('btnSubirComentario')?.addEventListener('click', async () => {
