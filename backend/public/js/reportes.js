@@ -8,6 +8,27 @@
   let chartActividades = null;
   let chartIGMes = null;
 
+// Plugin para mostrar texto en el centro de un doughnut
+  const centerTextPlugin = {
+    id: 'centerText',
+    beforeDraw(chart, args, opts) {
+      const text = opts && opts.text;
+      if (!text) return;
+
+      const { ctx, chartArea: { left, right, top, bottom } } = chart;
+      ctx.save();
+      const x = (left + right) / 2;
+      const y = (top + bottom) / 2;
+
+      ctx.font = '600 18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.fillStyle = '#111827';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+  };
+
   const MESES = [
     'Enero','Febrero','Marzo','Abril','Mayo','Junio',
     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
@@ -160,8 +181,6 @@
     const resetBtn    = $('btnActividadesReset');
     const detailBody  = $('detailActividadesBody');
     const canvas      = $('chartActividades');
-    const totalWrap   = $('actividadesTotalWrapper');
-    const totalEl     = $('actividadesTotal');
 
     if (!canvas) return;
 
@@ -180,12 +199,13 @@
       dataVals    = rows.map(r => Number(r.cantidad || 0));
       totalSocios = rows.reduce((acc, r) => acc + Number(r.cantidad || 0), 0);
 
-      if (subtitle) {
-        subtitle.textContent = 'Distribución de socios activos por actividad. Doble click en el gráfico para ver las categorías.';
-      }
+      if (subtitle) {    
+subtitle.textContent = 'Distribución de socios activos por actividad. Hacé click en el gráfico para ver las categorías.';
+  }
+
       if (resetBtn) resetBtn.classList.add('hidden');
       if (detailBody) {
-        detailBody.innerHTML = `<div class="muted small">Doble click en el gráfico para ver las categorías. El detalle de socios aparecerá aquí debajo.</div>`;
+        detailBody.innerHTML = `<div class="muted small">Doble click en el gráfico para ver categorías. El detalle de socios se mostrará aquí debajo.</div>`;
       }
 
     } else { // modo === 'categorias'
@@ -197,23 +217,21 @@
       totalSocios = catRows.reduce((acc, r) => acc + Number(r.cantidad || 0), 0);
 
       if (subtitle) {
-        subtitle.textContent = `Categorías dentro de la actividad "${actividad}". Doble click en el gráfico para ver los socios de una categoría.`;
-      }
+       
+subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más adelante podemos habilitar click para ver socios.)`;
+  }
       if (resetBtn) resetBtn.classList.remove('hidden');
       if (detailBody) {
         detailBody.innerHTML = `<div class="muted small">Doble click en una categoría del gráfico para ver el listado de socios.</div>`;
       }
     }
 
-    // Actualizar KPI total socios
-    if (totalWrap && totalEl) {
-      totalEl.textContent = totalSocios;
-      totalWrap.classList.remove('hidden');
+    // (La tabla de arriba sigue oculta, no la llenamos)
+    if (cardTable) {
+      cardTable.innerHTML = '';
     }
 
-    // NO llenamos más la tabla de arriba (cardTable), queda oculta.
-
-    // Render Chart.js
+    // Render Chart.js con texto central = totalSocios
     chartActividades = new Chart(ctx, {
       type: 'doughnut',
       data: {
@@ -229,13 +247,18 @@
         }]
       },
       options: {
+        cutout: '60%', // deja espacio en el centro
         plugins: {
-          legend: { position: 'right' }
+          legend: { position: 'right' },
+          centerText: { text: String(totalSocios) }
         },
         maintainAspectRatio: false
-      }
+      },
+      plugins: [centerTextPlugin]
     });
   }
+
+  
 
   async function loadCategoriasForActividad(actividad) {
     const key = actividad || '';
@@ -348,31 +371,33 @@
       });
     }
 
-    // Doble click en el gráfico de actividades
-    if (canvas) {
-      canvas.addEventListener('dblclick', (evt) => {
-        if (!chartActividades) return;
-        // buscamos el segmento más cercano al click
-        const points = chartActividades.getElementsAtEventForMode(
-          evt,
-          'nearest',
-          { intersect: true },
-          true
-        );
-        if (!points || !points.length) return;
-        const idx = points[0].index;
+    // CLICK en el gráfico de actividades
+  if (canvas) {
+    canvas.addEventListener('click', (evt) => {
+      if (!chartActividades) return;
 
-        if (actividadesState.modo === 'actividades') {
-          const rows = actividadesState.actividadesRows || [];
-          const row  = rows[idx];
-          if (row && row.actividad) {
-            loadCategoriasForActividad(row.actividad);
-          }
-        } else {
-          // En modo categorías, por ahora no hacemos nada extra con el doble click en el gráfico.
+      const points = chartActividades.getElementsAtEventForMode(
+        evt,
+        'nearest',
+        { intersect: true },
+        true
+      );
+      if (!points || !points.length) return;
+      const idx = points[0].index;
+
+      if (actividadesState.modo === 'actividades') {
+        const rows = actividadesState.actividadesRows || [];
+        const row  = rows[idx];
+        if (row && row.actividad) {
+          loadCategoriasForActividad(row.actividad);
         }
-      });
-    }
+      } else {
+        // En modo categorías, si más adelante querés que al hacer click
+        // se abra directamente el detalle de socios de esa categoría,
+        // acá lo podemos implementar.
+      }
+    });
+  }
 
     // Botón reset (volver a vista por actividad)
     if (resetBtn) {
