@@ -123,25 +123,53 @@
           <label>Archivo (máx 10MB)</label>
           <input id="adjuntoFile" type="file">
 
-          <label>Comentario</label>
-          <textarea id="adjuntoComentario" rows="2" placeholder="Ej: DNI frente, Certificado médico"></textarea>
-
           <button id="btnSubirAdjunto" class="btn btn-secondary">📎 Subir adjunto</button>
-        </div>
+        </div><div id="adjuntosSection" class="adjuntos-container">
+
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h4 style="margin:0;">Documentación adjunta</h4>
+    <button id="btnToggleAdjuntos" class="btn btn-secondary btn-sm">Mostrar adjuntos</button>
+  </div>
+
+  <!-- LISTA DE ADJUNTOS OCULTA POR DEFECTO -->
+  <div id="listaAdjuntos" class="adjuntos-list hidden">
+    <div class="text-muted">Aquí verás los archivos del socio…</div>
+  </div>
+
+  <!-- FORM PARA SUBIR ADJUNTO OCULTO INICIALMENTE -->
+  <div id="formAdjunto" class="hidden" style="margin-top:12px;">
+    <label>Archivo (máx 10MB)</label>
+    <input id="adjuntoFile" type="file">
+
+    <button id="btnSubirAdjunto" class="btn btn-secondary" style="margin-top:8px;">
+      📎 Subir adjunto
+    </button>
+  </div>
+
+</div>
 
         <!-- ================= COMENTARIOS ================= -->
-        <div id="comentariosSection" class="comentarios-container">
-          <h4>Comentarios</h4>
+        <div id="comentariosSection" class="comentarios-container" style="margin-top:25px;">
 
-          <div id="listaComentarios" class="adjuntos-list">
-            <div class="text-muted">Aquí verás los comentarios del socio…</div>
-          </div>
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h4 style="margin:0;">Comentarios</h4>
+    <button id="btnToggleComentarios" class="btn btn-secondary btn-sm">Mostrar comentarios</button>
+  </div>
 
-          <label>Nuevo comentario</label>
-          <textarea id="nuevoComentario" rows="2" placeholder="Escribí un comentario…"></textarea>
+  <!-- LISTA REPLEGADA POR DEFECTO -->
+  <div id="listaComentarios" class="adjuntos-list hidden">
+    <div class="text-muted">Aquí verás los comentarios del socio…</div>
+  </div>
 
-          <button id="btnSubirComentario" class="btn btn-secondary">💬 Subir comentario</button>
-        </div>
+  <div style="margin-top:12px;">
+    <label>Nuevo comentario</label>
+    <textarea id="nuevoComentario" rows="2" placeholder="Escribí un comentario…"></textarea>
+  </div>
+
+  <button id="btnSubirComentario" class="btn btn-secondary" style="margin-top:12px;">
+    💬 Subir comentario
+  </button>
+</div>
 
       </div>
 
@@ -313,6 +341,10 @@
       overflow-y:auto;
       margin-bottom:12px;
     }
+
+.hidden {
+  display: none !important;
+}
 
   </style>
 

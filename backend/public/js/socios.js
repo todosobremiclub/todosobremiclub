@@ -1487,6 +1487,29 @@ $('btnSubirComentario')?.addEventListener('click', async () => {
   }
 });
 
+// Mostrar / Ocultar adjuntos
+const btnToggleAdj = $('btnToggleAdjuntos');
+const listaAdj = $('listaAdjuntos');
+const formAdj = $('formAdjunto');
+
+if (btnToggleAdj && listaAdj && formAdj) {
+  btnToggleAdj.addEventListener('click', () => {
+    const visible = !listaAdj.classList.contains('hidden');
+
+    if (visible) {
+      // Ocultar
+      listaAdj.classList.add('hidden');
+      formAdj.classList.add('hidden');
+      btnToggleAdj.textContent = 'Mostrar adjuntos';
+    } else {
+      // Mostrar
+      listaAdj.classList.remove('hidden');
+      formAdj.classList.remove('hidden');
+      btnToggleAdj.textContent = 'Ocultar adjuntos';
+    }
+  });
+}
+
     // CLICK en tabla: foto / editar / eliminar / WhatsApp / flags
     $('sociosTableBody')?.addEventListener('click', async (ev) => {
       const img = ev.target.closest('[data-act="viewphoto"]');
