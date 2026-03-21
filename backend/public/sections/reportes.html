@@ -105,8 +105,9 @@
         <!-- Gráfico mensual -->
         <div class="card-chart" style="min-height:180px;">
           <canvas id="chartIGMes"></canvas>
-        </div><div class="card-body">
-  <!-- RESUMEN MENSUAL -->
+       <div class="card-body">
+
+  <!-- RESUMEN MENSUAL ARRIBA DEL GRÁFICO -->
   <div class="ig-month-summary">
     <div class="ig-month-item">
       <span class="ig-label">Ingresos mes</span>
@@ -121,6 +122,30 @@
       <span id="igMesResultado" class="ig-month-value">–</span>
     </div>
   </div>
+
+  <!-- GRÁFICO MENSUAL -->
+  <div class="card-chart" style="min-height:180px;">
+    <canvas id="chartIGMes"></canvas>
+  </div>
+
+  <!-- RESUMEN ANUAL -->
+  <div class="ig-summary">
+    <div class="ig-summary-item">
+      <span class="ig-label">Ingresos año</span>
+      <span id="igAnualIngresos" class="ig-value">–</span>
+    </div>
+    <div class="ig-summary-item">
+      <span class="ig-label">Gastos año</span>
+      <span id="igAnualGastos" class="ig-value">–</span>
+    </div>
+    <div class="ig-summary-item">
+      <span class="ig-label">Resultado año</span>
+      <span id="igAnualResultado" class="ig-value">–</span>
+    </div>
+  </div>
+
+</div>
+
 
   <!-- Gráfico mensual -->
   <div class="card-chart" style="min-height:180px;">
@@ -367,23 +392,24 @@
 .ig-month-summary {
   display:flex;
   justify-content:space-between;
-  gap:8px;
-  margin-bottom:8px;
+  gap:10px;
+  margin-bottom:10px;
 }
 
 .ig-month-item {
   flex:1;
   background:#f3f4f6;
   border-radius:8px;
-  padding:6px 8px;
+  padding:8px 10px;
+  text-align:center;
   display:flex;
   flex-direction:column;
-  gap:2px;
+  gap:4px;
 }
 
 .ig-month-value {
-  font-size:15px;
-  font-weight:700;
+  font-size:17px;
+  font-weight:800;
 }
 
   .ig-summary-item {

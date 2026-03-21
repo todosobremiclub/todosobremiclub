@@ -875,19 +875,15 @@ subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más
           loadIGDetalleMes(anioActual, idxClicked + 1);
         },
         plugins: {
-          tooltip: {
-            callbacks: {
-              footer: (items) => {
-                if (!items || !items.length) return '';
-                const i = items[0].dataIndex;
-                const ing = ingVals[i] || 0;
-                const gas = gasVals[i] || 0;
-                const res = ing - gas;
-                return `Resultado: ${moneyARS.format(res)}`;
-              }
-            }
-          }
-        }
+  tooltip: {
+    callbacks: {
+      label: (context) => {
+        const valor = context.raw || 0;
+        return `${context.dataset.label}: ${moneyARS.format(valor)}`;
+      }
+    }
+  }
+}
       }
     });
 
