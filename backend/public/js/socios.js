@@ -796,101 +796,74 @@
   }
 
   function openCarnet(socio) {
-  const modal = ensureCarnetModal();
-  carnetSocioId = socio.id;
+    const modal = ensureCarnetModal();
+    carnetSocioId = socio.id;
 
-  const foto = socio.foto_url || '/img/user-placeholder.png';
+    const foto = socio.foto_url || '/img/user-placeholder.png';
 
-  // --------------------------
-  // CABECERA LIMPIA
-  // --------------------------
-  modal.querySelector('#carnetFoto').src = foto;
+    // CABECERA
+    modal.querySelector('#carnetFoto').src = foto;
+    modal.querySelector('#carnetNombre').textContent =
+      `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim();
+    modal.querySelector('#carnetDni').textContent = `DNI: ${fmtDni(socio.dni)}`;
+    modal.querySelector('#carnetCategoria').textContent =
+      `Categoría: ${socio.categoria ?? '-'}`;
 
-  modal.querySelector('#carnetNombre').textContent =
-    `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim();
+    const pago = pagoEstado(socio);
+    modal.querySelector('#carnetPago').innerHTML =
+      `<span class="pay-pill ${pago.ok ? 'pay-ok' : 'pay-bad'}">${escapeHtml(pago.label)}</span>`;
 
-  modal.querySelector('#carnetDni').textContent =
-    `DNI: ${fmtDni(socio.dni)}`;
+    // FICHA
+    const extraEl = modal.querySelector('#carnetExtra');
 
-  modal.querySelector('#carnetCategoria').textContent =
-    `Categoría: ${socio.categoria ?? '-'}`;
+    const ficha = [
+      ['Estado de pago', pago.label],
+      ['N° Socio', socio.numero_socio ?? '-'],
+      ['Actividad', socio.actividad ?? '-'],
+      ['Teléfono', socio.telefono ?? '-'],
+      ['Dirección', socio.direccion ?? '-'],
+      ['Nacimiento', fmtDMY(socio.fecha_nacimiento)],
+      ['Año nacimiento', socio.anio_nacimiento ?? yearFromISO(socio.fecha_nacimiento)],
+      ['Ingreso', fmtDMY(socio.fecha_ingreso)],
+      ['Activo', socio.activo ? 'Sí' : 'No'],
+      ['Becado', socio.becado ? 'Sí' : 'No']
+    ];
 
-  const pago = pagoEstado(socio);
-  modal.querySelector('#carnetPago').innerHTML =
-    `<span class="pay-pill ${pago.ok ? 'pay-ok' : 'pay-bad'}">${pago.label}</span>`;
+    let html = '<div class="carnet-section">';
+    ficha.forEach(([k, v]) => {
+      html += `
+        <div class="carnet-item">
+          <span class="carnet-label">${escapeHtml(k)}:</span>
+          <span class="carnet-value">${escapeHtml(v)}</span>
+        </div>
+      `;
+    });
+    html += '</div>';
 
-  // --------------------------
-  // ARMAMOS FICHA ORDENADA
-  // --------------------------
-  const extraEl = modal.querySelector('#carnetExtra');
+    // DOCUMENTACIÓN (adjuntos/comentarios)
+    const est = socioEstados[String(socio.id)] || {};
+    const tieneAdj = est.tieneAdjuntos;
+    const tieneCom = est.tieneComentario;
 
-  const ficha = [
-    ["Estado de pago", pago.label],
-    ["N° Socio", socio.numero_socio ?? "-"],
-    ["Actividad", socio.actividad ?? "-"],
-    ["Teléfono", socio.telefono ?? "-"],
-    ["Dirección", socio.direccion ?? "-"],
-    ["Nacimiento", fmtDMY(socio.fecha_nacimiento)],
-    ["Año nacimiento", socio.anio_nacimiento ?? yearFromISO(socio.fecha_nacimiento)],
-    ["Ingreso", fmtDMY(socio.fecha_ingreso)],
-    ["Activo", socio.activo ? "Sí" : "No"],
-    ["Becado", socio.becado ? "Sí" : "No"]
-  ];
-
-  let html = "";
-
-  html += `<div class="carnet-section">`;
-  ficha.forEach(([k, v]) => {
-    html += `
-      <div class="carnet-item">
-        <span class="carnet-label">${k}:</span>
-        <span class="carnet-value">${escapeHtml(v)}</span>
-      </div>
-    `;
-  });
-  html += `</div>`;
-
-  // --------------------------
-  // ESTADO DE ADJUNTOS / COMENTARIOS
-  // --------------------------
-  const est = socioEstados[String(socio.id)] || {};
-
-  const tAdj = est.tieneAdjuntos ? "📎 Tiene adjuntos" : "";
-  const tCom = est.tieneComentario ? "💬 Tiene comentario" : "";
-
-  if (tAdj || tCom) {
-    html += `<hr><div class="carnet-label" style="margin-bottom:6px;">Documentación:</div>`;
-    if (tAdj) {
-      html += `<div class="carnet-doc" data-doc="adjuntos">📎 Ver adjuntos</div>`;
+    if (tieneAdj || tieneCom) {
+      html += `<hr><div class="carnet-label" style="margin-bottom:6px;">Documentación:</div>`;
+      if (tieneAdj) html += `<div class="carnet-doc" data-doc="adjuntos">📎 Ver adjuntos</div>`;
+      if (tieneCom) html += `<div class="carnet-doc" data-doc="comentarios">💬 Ver comentario</div>`;
     }
-    if (tCom) {
-      html += `<div class="carnet-doc" data-doc="comentarios">💬 Ver comentario</div>`;
-    }
-  }
 
-  extraEl.innerHTML = html;
+    extraEl.innerHTML = html;
 
-  // --------------------------
-  // CLICK EN VER ADJUNTOS / COMENTARIO
-  // --------------------------
-  extraEl.querySelectorAll(".carnet-doc").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const type = btn.dataset.doc;
-      if (type === "adjuntos") {
-        cargarAdjuntosEnModal(socio.id); // Usa el modal del socio
-        openModalEdit(socio);
-      }
-      else if (type === "comentarios") {
+    // Clicks en "Ver adjuntos / Ver comentario"
+    extraEl.querySelectorAll('.carnet-doc').forEach((btn) => {
+      btn.addEventListener('click', async () => {
         cargarAdjuntosEnModal(socio.id);
         openModalEdit(socio);
-      }
+      });
     });
-  });
 
-  modal.classList.remove('hidden');
-  modal.style.display = 'flex';
-}
-
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+  }
 
   function closeCarnet() {
     const modal = document.getElementById('modalCarnet');
@@ -1043,6 +1016,7 @@
   // =============================
   // Render tabla
   // =============================
+
   function renderSocios(socios) {
     sociosCache = socios || [];
     const tbody = $('sociosTableBody');
@@ -1128,6 +1102,7 @@
   // =============================
   // Filtros dropdown
   // =============================
+
   function refreshAnioOptions(socios) {
     const sel = $('filtroAnio');
     if (!sel) return;
@@ -1136,7 +1111,8 @@
     const years = [...new Set(
       (socios || [])
         .map((s) =>
-          s.anio_nacimiento || (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0, 4)) : null)
+          s.anio_nacimiento ||
+          (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0, 4)) : null)
         )
         .filter(Boolean)
     )].sort((a, b) => b - a);
@@ -1155,6 +1131,7 @@
   // =============================
   // Build query
   // =============================
+
   function buildQueryParams() {
     const q = new URLSearchParams();
     const search = $('sociosSearch')?.value?.trim();
@@ -1178,10 +1155,10 @@
 
     currentPage = 1;
 
-    // Pedimos socios y estados en paralelo para no sumar latencia
+    // socios + estados en paralelo
     const [resSocios, resEstados] = await Promise.all([
       fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`),
-      fetchAuth(`/club/${clubId}/socios/estados`).catch((e) => e) // por si falla, no rompe todo
+      fetchAuth(`/club/${clubId}/socios/estados`).catch((e) => e)
     ]);
 
     const data = await safeJson(resSocios);
@@ -1190,7 +1167,6 @@
       return;
     }
 
-    // Procesar estados de adjuntos/comentarios (si la llamada no reventó)
     if (resEstados && resEstados.ok) {
       const dataEstados = await safeJson(resEstados);
       if (dataEstados.ok && Array.isArray(dataEstados.estados)) {
@@ -1411,60 +1387,54 @@
       }
     });
 
-  // CLICK en tabla: foto / editar / eliminar / WhatsApp
-      $('sociosTableBody')?.addEventListener('click', async (ev) => {
-        const img = ev.target.closest('[data-act="viewphoto"]');
-        if (img) {
-          const url = img.dataset.url;
-          if (url) openPhotoViewer(url);
-          return;
-        }
+    // CLICK en tabla: foto / editar / eliminar / WhatsApp / flags
+    $('sociosTableBody')?.addEventListener('click', async (ev) => {
+      const img = ev.target.closest('[data-act="viewphoto"]');
+      if (img) {
+        const url = img.dataset.url;
+        if (url) openPhotoViewer(url);
+        return;
+      }
 
-        if (ev.target.closest('.wa-action')) {
-          // Si el click fue en WhatsApp, no seguimos con otras acciones
-          return;
-        }
+      if (ev.target.closest('.wa-action')) {
+        return;
+      }
 
-        // NUEVO: click en iconos de adjuntos/comentarios (📎 / 💬)
-        const flagsEl = ev.target.closest('.socio-flags');
-        if (flagsEl) {
-          const tr = flagsEl.closest('tr');
-          const id = tr?.dataset.id;
+      // click en iconos de adjuntos/comentarios (📎 / 💬)
+      const flagsEl = ev.target.closest('.socio-flags');
+      if (flagsEl) {
+        const tr = flagsEl.closest('tr');
+        const id = tr?.dataset.id;
 
-          if (id) {
-            const socio = sociosCache.find((x) => String(x.id) === String(id));
-            if (socio) {
-              // Abrimos el mismo modal de edición del socio
-              // (con la sección Documentación adjunta adentro)
-              openModalEdit(socio);
-            }
-          }
-
-          // No dejamos que el click siga bajando al handler de botones
-          return;
-        }
-
-        const btn = ev.target.closest('button[data-act]');
-        if (!btn) return;
-
-        const act = btn.dataset.act;
-        const id = btn.dataset.id;
-        if (!id) return;
-
-        if (act === 'edit') {
+        if (id) {
           const socio = sociosCache.find((x) => String(x.id) === String(id));
-          if (socio) openModalEdit(socio);
-          return;
-        }
-
-        if (act === 'del') {
-          if (confirm('¿Eliminar socio definitivamente?')) {
-            await deleteSocio(id);
+          if (socio) {
+            openModalEdit(socio);
           }
-          return;
         }
-      });
+        return;
+      }
 
+      const btn = ev.target.closest('button[data-act]');
+      if (!btn) return;
+
+      const act = btn.dataset.act;
+      const id = btn.dataset.id;
+      if (!id) return;
+
+      if (act === 'edit') {
+        const socio = sociosCache.find((x) => String(x.id) === String(id));
+        if (socio) openModalEdit(socio);
+        return;
+      }
+
+      if (act === 'del') {
+        if (confirm('¿Eliminar socio definitivamente?')) {
+          await deleteSocio(id);
+        }
+        return;
+      }
+    });
 
     // DOBLE CLICK WhatsApp – abrir WA
     $('sociosTableBody')?.addEventListener('dblclick', (ev) => {

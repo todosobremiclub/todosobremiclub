@@ -23,7 +23,6 @@
         Ver inactivos
       </label>
 
-      <!-- 🔥 BOTÓN BUSCAR OCULTO (NO BORRADO PARA NO ROMPER JS) -->
       <button id="btnBuscarSocios" style="display:none !important;">Buscar</button>
     </div>
 
@@ -229,7 +228,7 @@
   <!-- ============= ESTILOS ============= -->
   <style>
 
-    /* ------- Toolbar en una sola línea ------- */
+    /* ------- Toolbar una sola línea ------- */
     .socios-toolbar {
       display: flex;
       justify-content: space-between !important;
@@ -246,7 +245,7 @@
       flex: 1;
     }
 
-    /* ------- Paginación centrada + Excel derecha ------- */
+    /* ------- Paginación centrada + botones derecha ------- */
     .socios-bottom-bar {
       display: flex;
       justify-content: space-between;
@@ -268,7 +267,7 @@
       margin: 0 !important;
     }
 
-    /* ------- Icono WhatsApp tamaño correcto ------- */
+    /* ------- WA icónico ------- */
     .wa-link svg {
       width: 16px !important;
       height: 16px !important;
@@ -281,16 +280,18 @@
       margin-left: 6px;
     }
 
-    /* ------- Carnet original restaurado ------- */
+    /* ------- Carnet ------- */
     .carnet-content {
       max-width: 560px !important;
       border: 2px solid var(--color-primary);
       padding: 20px !important;
+      border-radius: 12px;
     }
 
     .carnet-main {
       display:flex;
       gap:12px;
+      margin-bottom: 6px;
     }
 
     .carnet-foto {
@@ -307,53 +308,71 @@
       margin-top: 10px;
     }
 
-.carnet-section {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 6px;
-  margin-top: 12px;
-}
+    .carnet-section {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      margin-top: 12px;
+    }
 
-.carnet-item {
-  display: flex;
-  gap: 6px;
-  padding: 4px 0;
-  border-bottom: 1px solid #eee;
-}
+    .carnet-item {
+      display: flex;
+      gap: 6px;
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+    }
 
-.carnet-label {
-  font-weight: 600;
-  color: #444;
-}
+    .carnet-label {
+      font-weight: 600;
+      min-width: 120px;
+      color: #444;
+    }
 
-.carnet-value {
-  color: #111;
-}
+    .carnet-value {
+      color: #111;
+    }
 
-.carnet-doc {
-  cursor: pointer;
-  padding: 6px 8px;
-  background: #f2f2f2;
-  display: inline-block;
-  border-radius: 6px;
-  margin-top: 4px;
-  transition: 0.15s;
-}
+    .carnet-doc {
+      cursor: pointer;
+      padding: 6px 8px;
+      background: #f2f2f2;
+      display: inline-block;
+      border-radius: 6px;
+      margin-top: 4px;
+      transition: 0.15s;
+    }
 
-.carnet-doc:hover {
-  background: #e8e8e8;
-}
+    .carnet-doc:hover {
+      background: #e8e8e8;
+    }
 
-.socio-flags {
-  font-size: 13px;
-  opacity: 0.45;
-  margin-right: 5px;
-  transition: 0.15s;
-}
+    /* ------- Íconos de adjunto/comentario ------- */
+    .socio-flags {
+      font-size: 13px !important;
+      opacity: 0.45 !important;
+      margin-right: 6px !important;
+      cursor: pointer;
+      transition: .15s ease;
+      display: inline-block !important;
+    }
 
-.socio-flags:hover {
-  opacity: 1;
-}
+    .socio-flags:hover {
+      opacity: 1 !important;
+    }
+
+    /* ------- Modal socio: límites ------- */
+    #modalSocio .modal-content {
+      max-height: 90vh !important;
+      overflow-y: auto !important;
+      padding-bottom: 10px;
+    }
+
+    #modalSocio .modal-body {
+      max-height: calc(90vh - 170px) !important;
+      overflow-y: auto !important;
+      padding-right: 8px !important;
+    }
+
   </style>
 
 </section>
