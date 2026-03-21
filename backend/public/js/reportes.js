@@ -163,86 +163,45 @@
     const totalWrap   = $('actividadesTotalWrapper');
     const totalEl     = $('actividadesTotal');
 
-    if (!cardTable || !canvas) return;
+    if (!canvas) return;
 
     destroyChartActividades();
 
     const ctx  = canvas.getContext('2d');
     const modo = actividadesState.modo;
 
-    let labels   = [];
-    let dataVals = [];
-    let htmlTable = '';
+    let labels      = [];
+    let dataVals    = [];
     let totalSocios = 0;
 
     if (modo === 'actividades') {
       const rows = actividadesState.actividadesRows || [];
-      labels   = rows.map(r => r.actividad || 'Sin actividad');
-      dataVals = rows.map(r => Number(r.cantidad || 0));
+      labels      = rows.map(r => r.actividad || 'Sin actividad');
+      dataVals    = rows.map(r => Number(r.cantidad || 0));
       totalSocios = rows.reduce((acc, r) => acc + Number(r.cantidad || 0), 0);
 
-      htmlTable = `
-        <table class="socios-table" style="font-size:13px;">
-          <thead>
-            <tr>
-              <th>Actividad</th>
-              <th style="text-align:right;">Socios</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(r => `
-              <tr class="row-actividad" data-actividad="${r.actividad}">
-                <td>${r.actividad}</td>
-                <td style="text-align:right;">${r.cantidad}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-
       if (subtitle) {
-        subtitle.textContent = 'Distribución de socios activos por actividad. Doble click en el gráfico o en una fila para ver sus categorías.';
+        subtitle.textContent = 'Distribución de socios activos por actividad. Doble click en el gráfico para ver las categorías.';
       }
       if (resetBtn) resetBtn.classList.add('hidden');
       if (detailBody) {
-        detailBody.innerHTML = `<div class="muted small">Doble click en una actividad o categoría para ver el detalle de socios.</div>`;
+        detailBody.innerHTML = `<div class="muted small">Doble click en el gráfico para ver las categorías. El detalle de socios aparecerá aquí debajo.</div>`;
       }
 
     } else { // modo === 'categorias'
       const actividad = actividadesState.actividadSeleccionada || '';
       const catRows   = actividadesState.categoriasByActividad[actividad] || [];
 
-      labels   = catRows.map(r => r.categoria || 'Sin categoría');
-      dataVals = catRows.map(r => Number(r.cantidad || 0));
+      labels      = catRows.map(r => r.categoria || 'Sin categoría');
+      dataVals    = catRows.map(r => Number(r.cantidad || 0));
       totalSocios = catRows.reduce((acc, r) => acc + Number(r.cantidad || 0), 0);
 
-      htmlTable = `
-        <table class="socios-table" style="font-size:13px;">
-          <thead>
-            <tr>
-              <th>Categoría</th>
-              <th style="text-align:right;">Socios</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${catRows.map(r => `
-              <tr class="row-categoria"
-                  data-actividad="${actividad}"
-                  data-categoria="${r.categoria}">
-                <td>${r.categoria}</td>
-                <td style="text-align:right;">${r.cantidad}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-
       if (subtitle) {
-        subtitle.textContent = `Categorías dentro de la actividad "${actividad}". Doble click en una categoría para ver los socios.`;
+        subtitle.textContent = `Categorías dentro de la actividad "${actividad}". Doble click en el gráfico para ver los socios de una categoría.`;
       }
       if (resetBtn) resetBtn.classList.remove('hidden');
       if (detailBody) {
-        detailBody.innerHTML = `<div class="muted small">Doble click en una categoría para ver el listado de socios.</div>`;
+        detailBody.innerHTML = `<div class="muted small">Doble click en una categoría del gráfico para ver el listado de socios.</div>`;
       }
     }
 
@@ -252,8 +211,7 @@
       totalWrap.classList.remove('hidden');
     }
 
-    // Render tabla
-    cardTable.innerHTML = htmlTable;
+    // NO llenamos más la tabla de arriba (cardTable), queda oculta.
 
     // Render Chart.js
     chartActividades = new Chart(ctx, {
