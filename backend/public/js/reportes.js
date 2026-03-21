@@ -2,11 +2,17 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  let currentChart = null; // gráfico activo en el canvas
+  // =============================
+  // ESTADO GLOBAL
+  // =============================
+  let chartActividades = null;
+  let chartIGMes = null;
 
-  // =============================
-  // Formato moneda ARS ($ 12.345,67)
-  // =============================
+  const MESES = [
+    'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+  ];
+
   const moneyARS = new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: 'ARS',
@@ -14,52 +20,29 @@
     maximumFractionDigits: 2
   });
 
-  function isNumericLike(v) {
-    if (v === null || v === undefined) return false;
-    if (typeof v === 'number') return Number.isFinite(v);
-    if (typeof v === 'string') {
-      const s = v.trim();
-      if (!s) return false;
-      // Soporta "1234.56" o "1234,56"
-      const n = Number(s.replace(/\./g, '').replace(',', '.'));
-      return Number.isFinite(n);
-    }
-    return false;
-  }
+  const actividadesState = {
+    modo: 'actividades',           // 'actividades' | 'categorias'
+    actividadSeleccionada: null,
+    actividadesRows: [],
+    categoriasByActividad: {}      // { actividad: [ { categoria, cantidad } ] }
+  };
 
-  function toNumber(v) {
-    if (typeof v === 'number') return v;
-    const s = String(v ?? '').trim();
-    if (!s) return NaN;
-    return Number(s.replace(/\./g, '').replace(',', '.'));
-  }
+  const impagosState = {
+    anio: new Date().getFullYear(),
+    rows: [],                      // [{ anio, mes, cantidad, mes_num }]
+    currentIndex: 0
+  };
 
-  // columnas que deben verse como dinero en estos reportes
-  const MONEY_KEYS = new Set(['total', 'ingresos', 'gastos']);
-
-  function formatCell(reporteId, key, value) {
-    // Solo aplicar formato a los reportes financieros que pediste
-    const moneyReports = new Set([
-      'ingreso-fecha-pago',
-      'ingreso-mes-pagado',
-      'ingresos-vs-gastos',
-      'ingresos-por-tipo',
-      'gastos-por-tipo',
-      'gastos-responsable-mes'
-    ]);
-
-    if (!moneyReports.has(reporteId)) return value ?? '';
-
-    if (MONEY_KEYS.has(key) && isNumericLike(value)) {
-      const n = toNumber(value);
-      return moneyARS.format(Number.isFinite(n) ? n : 0);
-    }
-
-    return value ?? '';
-  }
+  const igState = {
+    anualRows: [],                 // [{ anio, ingresos, gastos }]
+    years: [],
+    yearIndex: 0,
+    mesesRows: [],                 // [{ mes, ingresos, gastos }]
+    mesIndex: 0
+  };
 
   // =============================
-  // Auth / helpers
+  // HELPERS AUTH + FETCH
   // =============================
   function getToken() {
     const t = localStorage.getItem('token');
@@ -85,8 +68,8 @@
     const headers = options.headers ?? {};
     headers['Authorization'] = 'Bearer ' + getToken();
     if (options.json) headers['Content-Type'] = 'application/json';
-    const { json, ...rest } = options;
 
+    const { json, ...rest } = options;
     const res = await fetch(url, { ...rest, headers });
     const text = await res.text();
     let data;
@@ -108,65 +91,18 @@
   }
 
   // =============================
-  // Definición de reportes
-  // (claves matchean data-reporte en reportes.html)
+  // HELPERS GENERALES
   // =============================
-  const REPORTS = {
-    'socios-actividad': {
-      titulo: 'Cantidad de socios por Actividad',
-      descripcion: 'Total de socios agrupados por actividad.',
-    },
+  function showLoading(el, msg = 'Cargando...') {
+    if (!el) return;
+    el.innerHTML = `<div class="muted">${msg}</div>`;
+  }
 
-    'socios-actividad-categoria': {
-      titulo: 'Socios por Actividad / Categoría',
-      descripcion: 'Total de socios por actividad y categoría.',
-    },
+  function showError(el, msg = 'Error') {
+    if (!el) return;
+    el.innerHTML = `<div class="muted" style="color:#b91c1c;">${msg}</div>`;
+  }
 
-    'socios-nuevos-mes': {
-      titulo: 'Socios nuevos por mes (fecha de ingreso)',
-      descripcion: 'Cantidad de socios que ingresan por mes.',
-    },
-
-    'impagos-mes': {
-      titulo: 'Socios impagos por mes',
-      descripcion:
-        'Cantidad de socios activos que no registran pago en el mes, considerando la fecha de ingreso.',
-    },
-
-    'ingreso-fecha-pago': {
-      titulo: 'Cuota por fecha de pago',
-      descripcion: 'Total de cuotas cobradas según la fecha del pago.',
-    },
-
-    'ingreso-mes-pagado': {
-      titulo: 'Cuota por mes pagado',
-      descripcion: 'Total de cuotas cobradas según el mes que corresponde al pago.',
-    },
-
-    'ingresos-vs-gastos': {
-      titulo: 'Ingresos vs Gastos',
-      descripcion: 'Comparativo entre ingresos y gastos.',
-    },
-
-    'ingresos-por-tipo': {
-      titulo: 'Ingresos Totales',
-      descripcion: 'Total de ingresos anuales, con detalle por mes y tipo.',
-    },
-
-    'gastos-por-tipo': {
-      titulo: 'Gastos',
-      descripcion: 'Total de gastos, con detalle por mes y tipo de gasto.',
-    },
-
-    'gastos-responsable-mes': {
-      titulo: 'Gastos por cuenta',
-      descripcion: 'Total de gastos agrupados por cuenta/responsable y mes.',
-    },
-  };
-
-  // =============================
-  // Helper fecha (dd-mm-aaaa)
-  // =============================
   function formatFecha(d) {
     if (!d) return '';
     const dt = new Date(d);
@@ -178,1075 +114,775 @@
   }
 
   // =============================
-  // Modal de detalle
+  // PANEL 1 – ACTIVIDADES / CATEGORÍAS
   // =============================
-  function ensureDetalleModal() {
-    let modal = document.getElementById('reportesDetalleModal');
-    if (modal) return modal;
+  async function loadActividadesMain() {
+    const cardTable = $('tablaActividades');
+    const subtitle = $('actividadesSubtitle');
+    const resetBtn  = $('btnActividadesReset');
+    if (!cardTable) return;
 
-    modal = document.createElement('div');
-    modal.id = 'reportesDetalleModal';
-    modal.className = 'modal hidden';
-    modal.innerHTML = `
-      <div class="modal-content" style="max-width: 900px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-          <h3 id="repDetTitle" style="margin:0;">Detalle</h3>
-          <button id="repDetClose" class="btn btn-secondary">✕</button>
-        </div>
-        <div class="muted" id="repDetSub" style="margin-top:6px;"></div>
-        <div id="repDetBody" style="margin-top:10px; max-height:60vh; overflow:auto;"></div>
-        <div class="modal-actions" style="margin-top:12px; text-align:right;">
-          <button id="repDetOk" class="btn btn-primary">Cerrar</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-
-    const close = () => {
-      modal.classList.add('hidden');
-    };
-
-    modal.addEventListener('click', (ev) => {
-      if (ev.target === modal) close();
-    });
-    modal.querySelector('#repDetClose')?.addEventListener('click', close);
-    modal.querySelector('#repDetOk')?.addEventListener('click', close);
-
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && !modal.classList.contains('hidden')) {
-        close();
-      }
-    });
-
-    return modal;
-  }
-
-  function openDetalleModal(reporteId, payload = {}) {
-    const meta = REPORTS[reporteId] ?? { titulo: 'Detalle', descripcion: '' };
-    const modal = ensureDetalleModal();
-    const titleEl = modal.querySelector('#repDetTitle');
-    const subEl   = modal.querySelector('#repDetSub');
-    const bodyEl  = modal.querySelector('#repDetBody');
-
-    if (titleEl) {
-      titleEl.textContent = `Detalle - ${meta.titulo}`;
+    actividadesState.modo = 'actividades';
+    actividadesState.actividadSeleccionada = null;
+    actividadesState.categoriasByActividad = {};
+    if (resetBtn) resetBtn.classList.add('hidden');
+    if (subtitle) {
+      subtitle.textContent = 'Distribución de socios activos por actividad.';
     }
 
-    if (subEl) {
-      const info = [];
-      if (payload.label) info.push(payload.label);
-      if (payload.extra) info.push(payload.extra);
-      subEl.textContent = info.join(' · ');
-    }
-
-    if (bodyEl) {
-      if (payload.html) {
-        bodyEl.innerHTML = payload.html;
-      } else {
-        bodyEl.innerHTML = `
-          <pre style="background:#f9fafb; padding:10px; border-radius:8px; font-size:12px; overflow:auto;">
-${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
-          </pre>
-        `;
-      }
-    }
-
-    modal.classList.remove('hidden');
-  }
-
-  // =============================
-  // Render de tablas genéricas
-  // =============================
-  function inferColumns(rows) {
-    const first = rows && rows[0];
-    if (!first) return [];
-    return Object.keys(first).map(k => ({ key: k, label: k }));
-  }
-
-  function buildTableHTML(reporteId, data) {
-    const rows = data.rows ?? [];
-    const cols = (data.columns && data.columns.length)
-      ? data.columns
-      : inferColumns(rows);
-
-    if (!cols.length) {
-      return '<div class="muted">No hay datos para mostrar.</div>';
-    }
-
-    const hasChildren = rows.some(r => r._hasChildren);
-
-    let thead = '<tr>';
-    if (hasChildren) {
-      thead += '<th></th>'; // columna flecha
-    }
-    cols.forEach(c => { thead += `<th>${c.label}</th>`; });
-    thead += '</tr>';
-
-    let tbody = '';
-
-    rows.forEach((row, idx) => {
-      const rowId = row.id ?? row.actividad ?? ('row-' + idx);
-      const label = row.actividad ?? row.categoria ?? row.mes ?? row.anio ?? '';
-
-      tbody += `
-        <tr class="main-row"
-            data-id="${rowId}"
-            data-reporte="${reporteId}"
-            data-label="${label}"
-            data-actividad="${row.actividad ?? ''}"
-            data-anio="${row.anio ?? ''}"
-            data-has-children="${row._hasChildren ? '1' : '0'}">
-          ${hasChildren
-            ? (row._hasChildren ? `<td class="toggle">▶</td>` : `<td></td>`)
-            : ''}
-          ${cols.map(c => `<td>${formatCell(reporteId, c.key, row[c.key])}</td>`).join('')}
-        </tr>
-        <tr class="child-row hidden" id="child-${rowId}">
-          <td colspan="${cols.length + (hasChildren ? 1 : 0)}">
-            <div class="child-container"></div>
-          </td>
-        </tr>
-      `;
-    });
-
-    return `
-      <div class="table-wrapper">
-        <table class="socios-table">
-          <thead>${thead}</thead>
-          <tbody>${tbody}</tbody>
-        </table>
-      </div>
-    `;
-  }
-
-  function showLoading(container, msg = 'Cargando...') {
-    container.innerHTML = `<div class="muted">${msg}</div>`;
-  }
-
-  function showError(container, msg) {
-    container.innerHTML = `<div class="muted" style="color:#b91c1c;">${msg}</div>`;
-  }
-
-  // =============================
-  // Gráficos (Chart.js)
-  // =============================
-  function clearChart() {
-    if (currentChart) {
-      currentChart.destroy();
-      currentChart = null;
-    }
-  }
-
-  function renderChartForReport(reporteId, data) {
-    const card = document.getElementById('reportesChartCard');
-    const titleEl = document.getElementById('reportesChartTitle');
-    const subtitleEl = document.getElementById('reportesChartSubtitle');
-    const canvas = document.getElementById('reportesChartCanvas');
-
-    if (!card || !canvas) return;
-
-    clearChart();
-
-    const ctx = canvas.getContext('2d');
-    const rows = data.rows || [];
-
-    // Por ahora, sólo mostramos gráficos para estos reportes
-    if (!['socios-actividad-categoria', 'ingresos-vs-gastos'].includes(reporteId)) {
-      card.classList.add('hidden');
-      return;
-    }
-
-    card.classList.remove('hidden');
-
-    if (reporteId === 'socios-actividad-categoria') {
-      titleEl.textContent = 'Socios por Actividad';
-      subtitleEl.textContent = 'Distribución de socios activos por actividad';
-
-      const labels = rows.map(r => r.actividad || 'Sin actividad');
-      const valores = rows.map(r => Number(r.cantidad || r.total || 0));
-
-      currentChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels,
-          datasets: [{
-            data: valores,
-            backgroundColor: [
-              '#22c55e','#3b82f6','#f97316',
-              '#e11d48','#a855f7','#06b6d4',
-              '#facc15','#64748b','#16a34a'
-            ],
-            borderWidth: 1,
-          }]
-        },
-        options: {
-          plugins: {
-            legend: { position: 'right' }
-          },
-          maintainAspectRatio: false
-        }
-      });
-      return;
-    }
-
-    if (reporteId === 'ingresos-vs-gastos') {
-      titleEl.textContent = 'Ingresos vs Gastos por año';
-      subtitleEl.textContent = 'Comparativo de totales anuales';
-
-      const labels = rows.map(r => r.anio);
-      const ingresos = rows.map(r => Number(r.ingresos || 0));
-      const gastos = rows.map(r => Number(r.gastos || 0));
-
-      currentChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [
-            {
-              label: 'Ingresos',
-              data: ingresos,
-              backgroundColor: '#22c55e'
-            },
-            {
-              label: 'Gastos',
-              data: gastos,
-              backgroundColor: '#ef4444'
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: { stacked: false },
-            y: { beginAtZero: true }
-          }
-        }
-      });
-      return;
-    }
-  }
-
-  // =============================
-  // Carga de reportes
-  // =============================
-  async function loadReporte(reporteId, opts = {}) {
-    // Usamos las tarjetas nuevas: gráfico + tabla
-    const tableCard = $('reportesTableCard') || $('reportesContent');
-    const chartCard = $('reportesChartCard');
-    if (!tableCard) return;
-
-    const meta = REPORTS[reporteId];
-    if (!meta) {
-      showError(tableCard, 'Reporte no reconocido.');
-      return;
-    }
-
-    // guardar cuál fue el último reporte
-    window._lastReporteId = reporteId;
-
-    // mostrar/ocultar selector de año según reporte
-    const yearWrapper = document.getElementById('select-anio-wrapper');
-    const yearSelect  = document.getElementById('select-anio');
-    let anio = opts.anio || yearSelect?.value;
-
-    if (reporteId === 'impagos-mes') {
-      if (yearWrapper) yearWrapper.style.display = 'block';
-
-      // si no hay valor aún, seteamos el año actual
-      if (!anio) {
-        const currentYear = new Date().getFullYear();
-        if (yearSelect) {
-          yearSelect.value = String(currentYear);
-        }
-        anio = currentYear;
-      }
-    } else {
-      if (yearWrapper) yearWrapper.style.display = 'none';
-    }
-
-    // limpiamos contenido previo y mostramos loading en la tarjeta de tabla
-    if (chartCard) chartCard.classList.add('hidden');
-    tableCard.innerHTML = '';
-    showLoading(tableCard, `Cargando "${meta.titulo}"...`);
+    showLoading(cardTable, 'Cargando actividades...');
 
     try {
       const clubId = getActiveClubId();
-      let url = `/club/${clubId}/reportes/${reporteId}`;
-
-      if (reporteId === 'impagos-mes' && anio) {
-        const params = new URLSearchParams({ anio: String(anio) });
-        url += `?${params.toString()}`;
-      }
-
-      const { res, data } = await fetchAuth(url);
-
+      const { res, data } = await fetchAuth(`/club/${clubId}/reportes/socios-actividad-categoria`);
       if (!res.ok || !data.ok) {
-        showError(tableCard, data.error || 'Error al cargar el reporte.');
+        showError(cardTable, data.error || 'Error cargando actividades');
         return;
       }
-
-      const title = data.title ?? meta.titulo;
-      const desc  = data.description ?? meta.descripcion ?? '';
-
-      let html = `<h3 style="margin-top:0;">${title}</h3>`;
-      if (desc) {
-        html += `<div class="muted" style="margin-bottom:8px;">${desc}</div>`;
-      }
-
-      html += buildTableHTML(reporteId, data);
-      tableCard.innerHTML = html;
-
-      // Renderizar gráfico (si aplica para este reporte)
-      renderChartForReport(reporteId, data);
-
+      actividadesState.actividadesRows = data.rows || [];
+      renderActividadesView();
     } catch (e) {
       console.error(e);
-      showError(tableCard, e.message ?? 'Error inesperado al cargar el reporte.');
+      showError(cardTable, e.message || 'Error inesperado cargando actividades');
     }
   }
 
-  // =============================
-  // Chips / navegación de reportes
-  // =============================
-  function bindChips() {
-    const section = document.getElementById('reportes-section');
-    if (!section) return;
-    if (section.dataset.bound === '1') return;
-    section.dataset.bound = '1';
+  function destroyChartActividades() {
+    if (chartActividades) {
+      chartActividades.destroy();
+      chartActividades = null;
+    }
+  }
 
-    const chips = section.querySelectorAll('.chip[data-reporte]');
-    chips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        const id = chip.dataset.reporte;
-        if (!id) return;
+  function renderActividadesView() {
+    const cardTable = $('tablaActividades');
+    const subtitle = $('actividadesSubtitle');
+    const resetBtn  = $('btnActividadesReset');
+    const detailBody = $('detailActividadesBody');
+    const canvas = $('chartActividades');
+    if (!cardTable || !canvas) return;
 
-        chips.forEach(c => c.classList.toggle('active', c === chip));
-        loadReporte(id);
-      });
+    destroyChartActividades();
+
+    const ctx = canvas.getContext('2d');
+    let labels = [];
+    let dataVals = [];
+    let htmlTable = '';
+    const modo = actividadesState.modo;
+
+    if (modo === 'actividades') {
+      const rows = actividadesState.actividadesRows || [];
+      labels = rows.map(r => r.actividad || 'Sin actividad');
+      dataVals = rows.map(r => Number(r.cantidad || 0));
+
+      htmlTable = `
+        <table class="socios-table" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>Actividad</th>
+              <th style="text-align:right;">Socios</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr class="row-actividad" data-actividad="${r.actividad}">
+                <td>${r.actividad}</td>
+                <td style="text-align:right;">${r.cantidad}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      if (subtitle) {
+        subtitle.textContent = 'Distribución de socios activos por actividad. Hacé clic en una actividad para ver sus categorías.';
+      }
+      if (resetBtn) resetBtn.classList.add('hidden');
+      if (detailBody) {
+        detailBody.innerHTML = `<div class="muted small">Hacé clic en una actividad arriba para ver el detalle por categoría y luego los socios.</div>`;
+      }
+
+    } else { // modo === 'categorias'
+      const actividad = actividadesState.actividadSeleccionada || '';
+      const catRows = actividadesState.categoriasByActividad[actividad] || [];
+
+      labels = catRows.map(r => r.categoria || 'Sin categoría');
+      dataVals = catRows.map(r => Number(r.cantidad || 0));
+
+      htmlTable = `
+        <table class="socios-table" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>Categoría</th>
+              <th style="text-align:right;">Socios</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${catRows.map(r => `
+              <tr class="row-categoria"
+                  data-actividad="${actividad}"
+                  data-categoria="${r.categoria}">
+                <td>${r.categoria}</td>
+                <td style="text-align:right;">${r.cantidad}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      if (subtitle) {
+        subtitle.textContent = `Categorías dentro de la actividad "${actividad}". Hacé clic en una categoría para ver los socios.`;
+      }
+      if (resetBtn) resetBtn.classList.remove('hidden');
+      if (detailBody) {
+        detailBody.innerHTML = `<div class="muted small">Hacé clic en una categoría arriba para ver el listado de socios.</div>`;
+      }
+    }
+
+    // Render tabla
+    cardTable.innerHTML = htmlTable;
+
+    // Render Chart.js
+    chartActividades = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: dataVals,
+          backgroundColor: [
+            '#22c55e','#3b82f6','#f97316',
+            '#e11d48','#a855f7','#06b6d4',
+            '#facc15','#64748b','#16a34a'
+          ],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { position: 'right' }
+        },
+        maintainAspectRatio: false
+      }
     });
+  }
 
-    const content = $('reportesContent');
-    if (!content) return;
+  async function loadCategoriasForActividad(actividad) {
+    const key = actividad || '';
+    if (!key) return;
 
-    // =============================
-    // Doble click – Detalle
-    // =============================
-    content.addEventListener('dblclick', async (ev) => {
-      const tr = ev.target.closest('tr[data-reporte]');
-      if (!tr) return;
-
-      const reporteId = tr.dataset.reporte;
-      const label = tr.dataset.label || '';
-      const clubId = getActiveClubId();
-
-      // Ignorar doble click sobre ciertos niveles (solo filas "detalle")
-      if (reporteId === 'socios-nuevos-mes') return;
-      if (reporteId === 'ingreso-fecha-pago') return;
-      if (reporteId === 'ingreso-mes-pagado') return;
-      if (reporteId === 'ingresos-vs-gastos') return;
-      if (reporteId === 'ingresos-por-tipo') return;
-      if (reporteId === 'gastos-por-tipo') return;
-      if (reporteId === 'gastos-responsable-mes') return;
-
+    if (!actividadesState.categoriasByActividad[key]) {
       try {
-        // === Detalle REAL para Socios por Actividad / Categoría ===
-        if (reporteId === 'socios-actividad-categoria') {
-          const actividad = tr.dataset.actividad || label;
-
-          const params = new URLSearchParams({
-            actividad,
-            activo: '1',
-          });
-
-          const url = `/club/${clubId}/reportes/socios-actividad/detalle?${params.toString()}`;
-          const { data } = await fetchAuth(url);
-
-          if (!data.ok) {
-            alert(data.error || 'Error al cargar el detalle de socios.');
-            return;
-          }
-
-          const rows = data.rows || [];
-
-          let html;
-          if (!rows.length) {
-            html = '<div class="muted">No hay socios para esta actividad.</div>';
-          } else {
-            html = `
-              <table class="socios-table" style="background:#fafafa;">
-                <thead>
-                  <tr>
-                    <th>N° Socio</th>
-                    <th>DNI</th>
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>Actividad</th>
-                    <th>Categoría</th>
-                    <th>Teléfono</th>
-                    <th>Fecha ingreso</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows
-                    .map(
-                      (s) => `
-                    <tr>
-                      <td>${s.numero_socio ?? ''}</td>
-                      <td>${s.dni ?? ''}</td>
-                      <td>${s.nombre ?? ''}</td>
-                      <td>${s.apellido ?? ''}</td>
-                      <td>${s.actividad ?? ''}</td>
-                      <td>${s.categoria ?? ''}</td>
-                      <td>${s.telefono ?? ''}</td>
-                      <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0, 10) : ''}</td>
-                    </tr>
-                  `
-                    )
-                    .join('')}
-                </tbody>
-              </table>
-            `;
-          }
-
-          openDetalleModal('socios-actividad-categoria', {
-            label: actividad,
-            raw: rows,
-            html,
-          });
+        const clubId = getActiveClubId();
+        const params = new URLSearchParams({ actividad: key });
+        const url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?${params.toString()}`;
+        const { data } = await fetchAuth(url);
+        if (!data.ok) {
+          alert(data.error || 'Error cargando categorías');
           return;
         }
-
-        // === Detalle REAL para Socios nuevos por mes (por MES) ===
-        if (reporteId === 'socios-nuevos-mes-mes') {
-          const anio = Number(tr.dataset.anio);
-          const mes = Number(tr.dataset.mes);
-          const mesLabel = label || tr.children[0]?.textContent || '';
-
-          if (!anio || !mes) {
-            alert('No se pudo determinar año o mes para el detalle.');
-            return;
-          }
-
-          const params = new URLSearchParams({
-            anio: String(anio),
-            mes: String(mes),
-          });
-
-          const url = `/club/${clubId}/reportes/socios-nuevos-mes/detalle?${params.toString()}`;
-          const { data } = await fetchAuth(url);
-
-          if (!data.ok) {
-            alert(data.error || 'Error al cargar el detalle de socios nuevos.');
-            return;
-          }
-
-          const rows = data.rows || [];
-
-          let html;
-          if (!rows.length) {
-            html = '<div class="muted">No hay socios nuevos para este mes.</div>';
-          } else {
-            html = `
-              <table class="socios-table" style="background:#fafafa;">
-                <thead>
-                  <tr>
-                    <th>N° Socio</th>
-                    <th>DNI</th>
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>Actividad</th>
-                    <th>Categoría</th>
-                    <th>Teléfono</th>
-                    <th>Fecha ingreso</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows
-                    .map(
-                      (s) => `
-                    <tr>
-                      <td>${s.numero_socio ?? ''}</td>
-                      <td>${s.dni ?? ''}</td>
-                      <td>${s.nombre ?? ''}</td>
-                      <td>${s.apellido ?? ''}</td>
-                      <td>${s.actividad ?? ''}</td>
-                      <td>${s.categoria ?? ''}</td>
-                      <td>${s.telefono ?? ''}</td>
-                      <td>${formatFecha(s.fecha_ingreso)}</td>
-                    </tr>
-                  `
-                    )
-                    .join('')}
-                </tbody>
-              </table>
-            `;
-          }
-
-          openDetalleModal('socios-nuevos-mes', {
-            label: `Año ${anio} · ${mesLabel}`,
-            raw: rows,
-            html,
-          });
-          return;
-        }
-
-        // === Detalle REAL para Socios impagos por mes ===
-        if (reporteId === 'impagos-mes') {
-          const anio = Number(tr.dataset.anio) || new Date().getFullYear();
-          const mesLabel = label || tr.children[0]?.textContent?.trim() || '';
-
-          const MESES = [
-            'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-            'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
-          ];
-          const mesNum = MESES.indexOf(mesLabel) + 1;
-
-          if (!anio || mesNum <= 0) {
-            alert('No se pudo determinar año o mes para el detalle de impagos.');
-            return;
-          }
-
-          const params = new URLSearchParams({
-            anio: String(anio),
-            mes: String(mesNum),
-            limit: '20',
-            offset: '0',
-          });
-
-          const url = `/club/${clubId}/reportes/impagos-mes/detalle?${params.toString()}`;
-          const { data } = await fetchAuth(url);
-
-          if (!data.ok) {
-            alert(data.error || 'Error cargando detalle de socios impagos.');
-            return;
-          }
-
-          const items = data.items || [];
-          const total = data.total ?? items.length;
-
-          let html;
-          if (!items.length) {
-            html = '<div class="muted">No hay socios impagos para este mes.</div>';
-          } else {
-            html = `
-              <table class="socios-table" style="background:#fafafa;">
-                <thead>
-                  <tr>
-                    <th>N° Socio</th>
-                    <th>DNI</th>
-                    <th>Apellido</th>
-                    <th>Nombre</th>
-                    <th>Actividad</th>
-                    <th>Categoría</th>
-                    <th>Teléfono</th>
-                    <th>Fecha ingreso</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${items
-                    .map(
-                      (s) => `
-                    <tr>
-                      <td>${s.numero_socio ?? ''}</td>
-                      <td>${s.dni ?? ''}</td>
-                      <td>${s.apellido ?? ''}</td>
-                      <td>${s.nombre ?? ''}</td>
-                      <td>${s.actividad ?? ''}</td>
-                      <td>${s.categoria ?? ''}</td>
-                      <td>${s.telefono ?? ''}</td>
-                      <td>${formatFecha(s.fecha_ingreso)}</td>
-                    </tr>
-                  `
-                    )
-                    .join('')}
-                </tbody>
-              </table>
-            `;
-          }
-
-          openDetalleModal('impagos-mes', {
-            label: `Año ${anio} · ${mesLabel}`,
-            extra: `Total socios sin pago: ${total} (mostrando hasta 20)`,
-            html,
-          });
-          return;
-        }
-
-        // === Fallback genérico para otros reportes (por ahora) ===
-        const id = tr.dataset.id;
-        const extra = tr.dataset.extra || '';
-        openDetalleModal(reporteId, { id, label, extra });
+        actividadesState.categoriasByActividad[key] = data.rows || [];
       } catch (e) {
         console.error(e);
-        alert('Error cargando detalle del reporte.');
-      }
-    });
-
-    // =============================
-    // Click en flecha ▶ para desplegar subtabla
-    // =============================
-    content.addEventListener('click', async (ev) => {
-      const toggle = ev.target.closest('.toggle');
-      if (!toggle) return;
-
-      const tr = toggle.closest('tr.main-row');
-      if (!tr) return;
-
-      const hasChildren = tr.dataset.hasChildren === '1';
-      if (!hasChildren) return;
-
-      const rowId     = tr.dataset.id;
-      const reporteId = tr.dataset.reporte;
-      const actividad = tr.dataset.actividad;
-      const anio      = tr.dataset.anio;
-      const childRow  = document.getElementById(`child-${rowId}`);
-      const childContainer = childRow.querySelector('.child-container');
-
-      const isOpen = !childRow.classList.contains('hidden');
-      if (isOpen) {
-        childRow.classList.add('hidden');
-        toggle.textContent = '▶';
+        alert(e.message || 'Error cargando categorías');
         return;
       }
+    }
 
-      toggle.textContent = '▼';
-      childRow.classList.remove('hidden');
-      childContainer.innerHTML = '<div class="muted">Cargando...</div>';
+    actividadesState.modo = 'categorias';
+    actividadesState.actividadSeleccionada = key;
+    renderActividadesView();
+  }
 
+  async function loadSociosForActividadCategoria(actividad, categoria) {
+    const detailBody = $('detailActividadesBody');
+    if (!detailBody) return;
+
+    showLoading(detailBody, `Cargando socios de ${actividad} / ${categoria}...`);
+
+    try {
       const clubId = getActiveClubId();
-      let url = '';
-
-      // Elegimos endpoint según el reporte
-      if (reporteId === 'socios-actividad-categoria') {
-        url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?actividad=${encodeURIComponent(actividad)}`;
-      } else if (reporteId === 'socios-nuevos-mes') {
-        url = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${encodeURIComponent(anio)}`;
-      } else if (reporteId === 'ingreso-fecha-pago') {
-        url = `/club/${clubId}/reportes/ingreso-fecha-pago/meses?anio=${encodeURIComponent(anio)}`;
-      } else if (reporteId === 'ingreso-mes-pagado') {
-        url = `/club/${clubId}/reportes/ingreso-mes-pagado/meses?anio=${encodeURIComponent(anio)}`;
-      } else if (reporteId === 'ingresos-vs-gastos') {
-        url = `/club/${clubId}/reportes/ingresos-vs-gastos/meses?anio=${encodeURIComponent(anio)}`;
-      } else if (reporteId === 'ingresos-por-tipo') {
-        url = `/club/${clubId}/reportes/ingresos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
-      } else if (reporteId === 'gastos-por-tipo') {
-        url = `/club/${clubId}/reportes/gastos-por-tipo/meses?anio=${encodeURIComponent(anio)}`;
-      } else if (reporteId === 'gastos-responsable-mes') {
-        url = `/club/${clubId}/reportes/gastos-responsable-mes/meses?anio=${encodeURIComponent(anio)}`;
-      } else {
-        childContainer.innerHTML = '<div class="muted">Detalle no disponible para este reporte.</div>';
-        return;
-      }
-
+      const params = new URLSearchParams({
+        actividad,
+        categoria,
+        activo: '1'
+      });
+      const url = `/club/${clubId}/reportes/socios-actividad-categoria/detalle?${params.toString()}`;
       const { data } = await fetchAuth(url);
       if (!data.ok) {
-        childContainer.innerHTML = '<div class="muted" style="color:#b91c1c">Error al cargar detalle</div>';
+        showError(detailBody, data.error || 'Error cargando socios');
+        return;
+      }
+      const rows = data.rows || [];
+      if (!rows.length) {
+        showError(detailBody, 'No hay socios en esa categoría.');
         return;
       }
 
-      if (!data.rows.length) {
-        childContainer.innerHTML = '<div class="muted">Sin datos</div>';
-        return;
-      }
-
-      let html = '';
-
-      if (reporteId === 'socios-actividad-categoria') {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
+      const html = `
+        <table class="socios-table" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>N° Socio</th>
+              <th>DNI</th>
+              <th>Nombre</th>
+              <th>Apellido</th>
+              <th>Teléfono</th>
+              <th>Fecha ingreso</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(s => `
               <tr>
-                <th>Categoría</th>
-                <th>Cantidad</th>
+                <td>${s.numero_socio ?? ''}</td>
+                <td>${s.dni ?? ''}</td>
+                <td>${s.nombre ?? ''}</td>
+                <td>${s.apellido ?? ''}</td>
+                <td>${s.telefono ?? ''}</td>
+                <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0,10) : ''}</td>
               </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
-                <tr>
-                  <td>${r.categoria}</td>
-                  <td>${r.cantidad}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      } else if (reporteId === 'socios-nuevos-mes') {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th>Cantidad</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
-                <tr
-                  data-reporte="socios-nuevos-mes-mes"
-                  data-anio="${anio}"
-                  data-mes="${r.mes_num}"
-                  data-label="${r.mes}"
-                >
-                  <td>${r.mes}</td>
-                  <td>${r.cantidad}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      } else if (reporteId === 'ingreso-fecha-pago' || reporteId === 'ingreso-mes-pagado') {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th>Total (ARS)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
-                <tr>
-                  <td>${r.mes}</td>
-                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      } else if (reporteId === 'ingresos-vs-gastos') {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th>Ingresos (ARS)</th>
-                <th>Gastos (ARS)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
-                <tr>
-                  <td>${r.mes}</td>
-                  <td>${moneyARS.format(Number(r.ingresos ?? 0))}</td>
-                  <td>${moneyARS.format(Number(r.gastos ?? 0))}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      } else if (reporteId === 'ingresos-por-tipo') {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th>Total (ARS)</th>
-                <th>Detalle</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
-                <tr>
-                  <td>${r.mes}</td>
-                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
-                  <td>
-                    <button
-                      class="btn btn-secondary btn-sm"
-                      data-act="ver-tipos-ingreso"
-                      data-anio="${anio}"
-                      data-mes="${r.mes_num}">
-                      Ver por tipo
-                    </button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      } else if (reporteId === 'gastos-por-tipo') {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th>Total (ARS)</th>
-                <th>Detalle</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
-                <tr>
-                  <td>${r.mes}</td>
-                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
-                  <td>
-                    <button
-                      class="btn btn-secondary btn-sm"
-                      data-act="ver-tipos-gasto"
-                      data-anio="${anio}"
-                      data-mes="${r.mes_num}">
-                      Ver por tipo
-                    </button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      } else if (reporteId === 'gastos-responsable-mes') {
-        html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th>Total (ARS)</th>
-                <th>Detalle</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.rows.map(r => `
-                <tr>
-                  <td>${r.mes}</td>
-                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
-                  <td>
-                    <button
-                      class="btn btn-secondary btn-sm"
-                      data-act="ver-responsables-gasto"
-                      data-anio="${anio}"
-                      data-mes="${r.mes_num}">
-                      Ver responsables
-                    </button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      }
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      detailBody.innerHTML = html;
+    } catch (e) {
+      console.error(e);
+      showError(detailBody, e.message || 'Error inesperado cargando socios');
+    }
+  }
 
-      childContainer.innerHTML = html;
-    });
+  function bindActividadesInteractions() {
+    const tableContainer = $('tablaActividades');
+    const resetBtn = $('btnActividadesReset');
 
-    // Click en "Ver por tipo" - Ingresos por tipo
-    content.addEventListener('click', async (ev) => {
-      const btn = ev.target.closest('button[data-act="ver-tipos-ingreso"]');
-      if (!btn) return;
-
-      const clubId = getActiveClubId();
-      const anio = btn.dataset.anio;
-      const mes  = btn.dataset.mes;
-
-      try {
-        const url = `/club/${clubId}/reportes/ingresos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
-        const { data } = await fetchAuth(url);
-
-        if (!data.ok) {
-          alert(data.error || 'Error cargando detalle por tipo');
+    if (tableContainer) {
+      tableContainer.addEventListener('click', (ev) => {
+        const rowAct = ev.target.closest('.row-actividad');
+        if (rowAct) {
+          const actividad = rowAct.dataset.actividad;
+          loadCategoriasForActividad(actividad);
           return;
         }
-
-        const rows = data.rows;
-
-        const html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Tipo de ingreso</th>
-                <th>Total (ARS)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(r => `
-                <tr>
-                  <td>${r.tipo}</td>
-                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-
-        openDetalleModal('ingresos-por-tipo', {
-          label: `Año ${anio} · Mes ${mes}`,
-          raw: {},
-          html,
-        });
-      } catch (e) {
-        console.error(e);
-        alert('Error cargando detalle');
-      }
-    });
-
-    // Click en "Ver por tipo" - Gastos por tipo
-    content.addEventListener('click', async (ev) => {
-      const btn = ev.target.closest('button[data-act="ver-tipos-gasto"]');
-      if (!btn) return;
-
-      const clubId = getActiveClubId();
-      const anio = btn.dataset.anio;
-      const mes  = btn.dataset.mes;
-
-      try {
-        const url = `/club/${clubId}/reportes/gastos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
-        const { data } = await fetchAuth(url);
-
-        if (!data.ok) {
-          alert(data.error || 'Error cargando detalle por tipo de gasto');
-          return;
+        const rowCat = ev.target.closest('.row-categoria');
+        if (rowCat) {
+          const actividad = rowCat.dataset.actividad;
+          const categoria = rowCat.dataset.categoria;
+          loadSociosForActividadCategoria(actividad, categoria);
         }
+      });
+    }
 
-        const rows = data.rows;
-
-        const html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Tipo de gasto</th>
-                <th>Total (ARS)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(r => `
-                <tr>
-                  <td>${r.tipo_gasto}</td>
-                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-
-        openDetalleModal('gastos-por-tipo', {
-          label: `Año ${anio} · Mes ${mes}`,
-          raw: {},
-          html,
-        });
-      } catch (e) {
-        console.error(e);
-        alert('Error cargando detalle');
-      }
-    });
-
-    // Click en "Ver responsables" - Gastos por cuenta
-    content.addEventListener('click', async (ev) => {
-      const btn = ev.target.closest('button[data-act="ver-responsables-gasto"]');
-      if (!btn) return;
-
-      const clubId = getActiveClubId();
-      const anio = btn.dataset.anio;
-      const mes  = btn.dataset.mes;
-
-      try {
-        const url = `/club/${clubId}/reportes/gastos-responsable-mes/responsables?anio=${anio}&mes=${mes}`;
-        const { data } = await fetchAuth(url);
-
-        if (!data.ok) {
-          alert(data.error || 'Error cargando detalle por responsable');
-          return;
-        }
-
-        const rows = data.rows;
-
-        const html = `
-          <table class="socios-table" style="background:#fafafa;">
-            <thead>
-              <tr>
-                <th>Responsable</th>
-                <th>Total (ARS)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(r => `
-                <tr>
-                  <td>${r.responsable}</td>
-                  <td>${moneyARS.format(Number(r.total ?? 0))}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-
-        openDetalleModal('gastos-responsable-mes', {
-          label: `Año ${anio} · Mes ${mes}`,
-          raw: {},
-          html,
-        });
-      } catch (e) {
-        console.error(e);
-        alert('Error cargando detalle por responsable');
-      }
-    });
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        actividadesState.modo = 'actividades';
+        actividadesState.actividadSeleccionada = null;
+        renderActividadesView();
+      });
+    }
   }
 
   // =============================
-  // Init
+  // PANEL 2 – IMPAGOS POR MES
+  // =============================
+  async function loadImpagosData(anio) {
+    const tabela = $('tablaImpagos');
+    const kpi = $('impagosCount');
+    const mesLabel = $('impagosMesLabel');
+    const yearLabel = $('impagosYearLabel');
+    const detailBody = $('detailImpagosBody');
+
+    if (anio) impagosState.anio = anio;
+    if (tabela) showLoading(tabela, 'Cargando morosidad...');
+
+    try {
+      const clubId = getActiveClubId();
+      const params = new URLSearchParams({ anio: String(impagosState.anio) });
+      const url = `/club/${clubId}/reportes/impagos-mes?${params.toString()}`;
+      const { data } = await fetchAuth(url);
+      if (!data.ok) {
+        if (tabela) showError(tabela, data.error || 'Error cargando impagos');
+        return;
+      }
+      const rows = data.rows || [];
+      impagosState.rows = rows;
+
+      // elegir por defecto el mes actual si existe
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      let idx = 0;
+      const found = rows.findIndex(r => Number(r.mes_num) === currentMonth);
+      if (found >= 0) idx = found;
+      impagosState.currentIndex = idx;
+
+      renderImpagosPanel();
+      if (detailBody) {
+        detailBody.innerHTML = '<div class="muted small">Hacé clic en la cantidad de impagos para ver el listado de socios.</div>';
+      }
+    } catch (e) {
+      console.error(e);
+      if (tabela) showError(tabela, e.message || 'Error inesperado cargando impagos');
+    }
+  }
+
+  function renderImpagosPanel() {
+    const tabela = $('tablaImpagos');
+    const kpi = $('impagosCount');
+    const mesLabel = $('impagosMesLabel');
+    const yearLabel = $('impagosYearLabel');
+
+    if (!tabela || !kpi || !mesLabel || !yearLabel) return;
+
+    const rows = impagosState.rows || [];
+    if (!rows.length) {
+      tabela.innerHTML = '<div class="muted">No hay datos de impagos para este año.</div>';
+      kpi.textContent = '–';
+      mesLabel.textContent = 'Sin datos';
+      yearLabel.textContent = `Año ${impagosState.anio}`;
+      return;
+    }
+
+    const idx = Math.max(0, Math.min(impagosState.currentIndex, rows.length - 1));
+    impagosState.currentIndex = idx;
+    const rowSel = rows[idx];
+
+    kpi.textContent = rowSel.cantidad ?? rowSel.cantidad === 0 ? rowSel.cantidad : '0';
+    mesLabel.textContent = rowSel.mes;
+    yearLabel.textContent = `Año ${rowSel.anio}`;
+
+    // Tabla resumen de todos los meses
+    const html = `
+      <table class="socios-table" style="font-size:13px;">
+        <thead>
+          <tr>
+            <th>Mes</th>
+            <th style="text-align:right;">Socios sin pago</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r, i) => `
+            <tr class="row-impago ${i === idx ? 'row-selected' : ''}"
+                data-index="${i}">
+              <td>${r.mes}</td>
+              <td style="text-align:right;">${r.cantidad}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    tabela.innerHTML = html;
+  }
+
+  async function loadImpagosDetalleForCurrent() {
+    const rows = impagosState.rows || [];
+    const idx = impagosState.currentIndex;
+    const detailBody = $('detailImpagosBody');
+    if (!detailBody) return;
+    if (!rows.length) {
+      detailBody.innerHTML = '<div class="muted small">No hay datos para este mes.</div>';
+      return;
+    }
+    const sel = rows[idx];
+
+    showLoading(detailBody, `Cargando socios impagos de ${sel.mes} ${sel.anio}...`);
+
+    try {
+      const clubId = getActiveClubId();
+      const params = new URLSearchParams({
+        anio: String(sel.anio),
+        mes: String(sel.mes_num),
+        limit: '200',
+        offset: '0'
+      });
+      const url = `/club/${clubId}/reportes/impagos-mes/detalle?${params.toString()}`;
+      const { data } = await fetchAuth(url);
+      if (!data.ok) {
+        showError(detailBody, data.error || 'Error cargando detalle de impagos');
+        return;
+      }
+      const items = data.items || [];
+      if (!items.length) {
+        detailBody.innerHTML = '<div class="muted small">No hay socios impagos para ese mes.</div>';
+        return;
+      }
+
+      const html = `
+        <table class="socios-table" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>N° Socio</th>
+              <th>DNI</th>
+              <th>Apellido</th>
+              <th>Nombre</th>
+              <th>Actividad</th>
+              <th>Categoría</th>
+              <th>Teléfono</th>
+              <th>Fecha ingreso</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(s => `
+              <tr>
+                <td>${s.numero_socio ?? ''}</td>
+                <td>${s.dni ?? ''}</td>
+                <td>${s.apellido ?? ''}</td>
+                <td>${s.nombre ?? ''}</td>
+                <td>${s.actividad ?? ''}</td>
+                <td>${s.categoria ?? ''}</td>
+                <td>${s.telefono ?? ''}</td>
+                <td>${formatFecha(s.fecha_ingreso)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      detailBody.innerHTML = html;
+    } catch (e) {
+      console.error(e);
+      showError(detailBody, e.message || 'Error inesperado cargando detalle de impagos');
+    }
+  }
+
+  function bindImpagosInteractions() {
+    const kpi = $('impagosCount');
+    const btnPrev = $('btnImpagosPrev');
+    const btnNext = $('btnImpagosNext');
+    const tabela = $('tablaImpagos');
+
+    if (kpi) {
+      kpi.style.cursor = 'pointer';
+      kpi.addEventListener('click', () => {
+        loadImpagosDetalleForCurrent();
+      });
+    }
+
+    if (btnPrev) {
+      btnPrev.addEventListener('click', () => {
+        if (impagosState.rows.length === 0) return;
+        impagosState.currentIndex = (impagosState.currentIndex - 1 + impagosState.rows.length) % impagosState.rows.length;
+        renderImpagosPanel();
+      });
+    }
+    if (btnNext) {
+      btnNext.addEventListener('click', () => {
+        if (impagosState.rows.length === 0) return;
+        impagosState.currentIndex = (impagosState.currentIndex + 1) % impagosState.rows.length;
+        renderImpagosPanel();
+      });
+    }
+
+    if (tabela) {
+      tabela.addEventListener('click', (ev) => {
+        const row = ev.target.closest('.row-impago');
+        if (!row) return;
+        const idx = Number(row.dataset.index || '0');
+        impagosState.currentIndex = idx;
+        renderImpagosPanel();
+      });
+    }
+  }
+
+  // =============================
+  // PANEL 3 – INGRESOS VS GASTOS
+  // =============================
+  function destroyChartIG() {
+    if (chartIGMes) {
+      chartIGMes.destroy();
+      chartIGMes = null;
+    }
+  }
+
+  async function loadIGAnual() {
+    const card = $('card-ingresos');
+    const chartContainer = $('chartIGMes');
+    const detailBody = $('detailIngresosBody');
+
+    if (detailBody) {
+      detailBody.innerHTML = '<div class="muted small">Seleccioná un mes para ver el detalle de ingresos y gastos.</div>';
+    }
+
+    try {
+      const clubId = getActiveClubId();
+      const { data } = await fetchAuth(`/club/${clubId}/reportes/ingresos-vs-gastos`);
+      if (!data.ok) {
+        if (card) showError(card, data.error || 'Error cargando ingresos vs gastos');
+        return;
+      }
+      const rows = data.rows || [];
+      igState.anualRows = rows;
+      igState.years = rows.map(r => r.anio);
+
+      // Elegimos el último año
+      if (igState.years.length === 0) return;
+      igState.yearIndex = igState.years.length - 1;
+
+      const currentYear = igState.years[igState.yearIndex];
+      await loadIGMesesForYear(currentYear);
+    } catch (e) {
+      console.error(e);
+      if (card) showError(card, e.message || 'Error inesperado cargando ingresos vs gastos');
+    }
+  }
+
+  async function loadIGMesesForYear(anio) {
+    const card = $('card-ingresos');
+    const canvas = $('chartIGMes');
+    if (!canvas) return;
+
+    try {
+      const clubId = getActiveClubId();
+      const params = new URLSearchParams({ anio: String(anio) });
+      const { data } = await fetchAuth(`/club/${clubId}/reportes/ingresos-vs-gastos/meses?${params.toString()}`);
+      if (!data.ok) {
+        if (card) showError(card, data.error || 'Error cargando detalle mensual');
+        return;
+      }
+
+      igState.mesesRows = data.rows || [];
+
+      // seleccionar mes actual si existe
+      const now = new Date();
+      const currentMonth = now.getFullYear() === anio ? now.getMonth() + 1 : null;
+      let idx = 0;
+      if (currentMonth) {
+        const found = igState.mesesRows.findIndex(r => MESES.indexOf(r.mes) + 1 === currentMonth);
+        if (found >= 0) idx = found;
+      }
+      igState.mesIndex = idx;
+
+      renderIGPanel();
+    } catch (e) {
+      console.error(e);
+      if (card) showError(card, e.message || 'Error inesperado cargando detalle mensual');
+    }
+  }
+
+  function renderIGPanel() {
+    const canvas = $('chartIGMes');
+    const anioLabel = $('igAnioLabel');
+    const mesLabel = $('igMesLabel');
+    const anualIng = $('igAnualIngresos');
+    const anualGas = $('igAnualGastos');
+    const anualRes = $('igAnualResultado');
+    const detailBody = $('detailIngresosBody');
+
+    if (!canvas || !anioLabel || !mesLabel || !anualIng || !anualGas || !anualRes) return;
+
+    const ctx = canvas.getContext('2d');
+    destroyChartIG();
+
+    const anioActual = igState.years[igState.yearIndex];
+    anioLabel.textContent = `Año ${anioActual}`;
+
+    const rowAnual = igState.anualRows.find(r => r.anio === anioActual) || { ingresos: 0, gastos: 0 };
+    const totalIng = Number(rowAnual.ingresos || 0);
+    const totalGas = Number(rowAnual.gastos || 0);
+    const totalRes = totalIng - totalGas;
+
+    anualIng.textContent = moneyARS.format(totalIng);
+    anualGas.textContent = moneyARS.format(totalGas);
+    anualRes.textContent = moneyARS.format(totalRes);
+
+    const meses = igState.mesesRows || [];
+    if (!meses.length) {
+      mesLabel.textContent = 'Sin datos';
+      if (detailBody) {
+        detailBody.innerHTML = '<div class="muted small">No hay datos mensuales para este año.</div>';
+      }
+      return;
+    }
+
+    const idx = Math.max(0, Math.min(igState.mesIndex, meses.length - 1));
+    igState.mesIndex = idx;
+    const rowSel = meses[idx];
+    mesLabel.textContent = rowSel.mes;
+
+    const labels = meses.map(r => r.mes);
+    const ingVals = meses.map(r => Number(r.ingresos || 0));
+    const gasVals = meses.map(r => Number(r.gastos || 0));
+
+    chartIGMes = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Ingresos',
+            data: ingVals,
+            backgroundColor: '#22c55e'
+          },
+          {
+            label: 'Gastos',
+            data: gasVals,
+            backgroundColor: '#ef4444'
+          }
+        ]
+      },
+      options: {
+        responsive:true,
+        maintainAspectRatio:false,
+        scales:{
+          x:{ beginAtZero:true },
+          y:{ beginAtZero:true }
+        },
+        onClick: (evt, elements) => {
+          if (!elements || !elements.length) return;
+          const idxClicked = elements[0].index;
+          igState.mesIndex = idxClicked;
+          renderIGPanel();
+          loadIGDetalleMes(anioActual, idxClicked + 1);
+        }
+      }
+    });
+
+    // Actualizar detalle según mes seleccionado
+    loadIGDetalleMes(anioActual, igState.mesIndex + 1);
+  }
+
+  async function loadIGDetalleMes(anio, mesNum) {
+    const detailBody = $('detailIngresosBody');
+    if (!detailBody) return;
+    showLoading(detailBody, `Cargando detalle de ${MESES[mesNum - 1]} ${anio}...`);
+
+    try {
+      const clubId = getActiveClubId();
+      const params = new URLSearchParams({
+        anio: String(anio),
+        mes: String(mesNum),
+        tipo: 'todos'
+      });
+      const { data } = await fetchAuth(`/club/${clubId}/reportes/ingresos-vs-gastos/detalle?${params.toString()}`);
+      if (!data.ok) {
+        showError(detailBody, data.error || 'Error cargando detalle de ingresos/gastos');
+        return;
+      }
+
+      const rowsIng = (data.rows && data.rows.ingresos) || [];
+      const rowsGas = (data.rows && data.rows.gastos) || [];
+
+      const htmlIng = rowsIng.length
+        ? `
+          <h4 style="margin:4px 0 6px;">Ingresos</h4>
+          <table class="socios-table" style="font-size:12px;">
+            <thead>
+              <tr>
+                <th>Origen</th>
+                <th>Fecha</th>
+                <th>Monto</th>
+                <th>Socio</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsIng.map(r => `
+                <tr>
+                  <td>${r.origen ?? ''}</td>
+                  <td>${formatFecha(r.fecha_pago)}</td>
+                  <td>${moneyARS.format(Number(r.monto || 0))}</td>
+                  <td>${r.apellido ?? ''} ${r.nombre ?? ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `
+        : '<div class="muted small">Sin ingresos para este mes.</div>';
+
+      const htmlGas = rowsGas.length
+        ? `
+          <h4 style="margin:10px 0 6px;">Gastos</h4>
+          <table class="socios-table" style="font-size:12px;">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Responsable</th>
+                <th>Fecha</th>
+                <th>Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsGas.map(r => `
+                <tr>
+                  <td>${r.tipo_gasto ?? ''}</td>
+                  <td>${r.responsable ?? ''}</td>
+                  <td>${formatFecha(r.fecha_gasto)}</td>
+                  <td>${moneyARS.format(Number(r.monto || 0))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `
+        : '<div class="muted small">Sin gastos para este mes.</div>';
+
+      detailBody.innerHTML = htmlIng + htmlGas;
+    } catch (e) {
+      console.error(e);
+      showError(detailBody, e.message || 'Error inesperado cargando detalle de ingresos/gastos');
+    }
+  }
+
+  function bindIGInteractions() {
+    const btnMesPrev = $('btnIGMesPrev');
+    const btnMesNext = $('btnIGMesNext');
+    const btnAnioPrev = $('btnIGAnioPrev');
+    const btnAnioNext = $('btnIGAnioNext');
+
+    if (btnMesPrev) {
+      btnMesPrev.addEventListener('click', () => {
+        const n = igState.mesesRows.length;
+        if (!n) return;
+        igState.mesIndex = (igState.mesIndex - 1 + n) % n;
+        renderIGPanel();
+      });
+    }
+    if (btnMesNext) {
+      btnMesNext.addEventListener('click', () => {
+        const n = igState.mesesRows.length;
+        if (!n) return;
+        igState.mesIndex = (igState.mesIndex + 1) % n;
+        renderIGPanel();
+      });
+    }
+
+    if (btnAnioPrev) {
+      btnAnioPrev.addEventListener('click', async () => {
+        const n = igState.years.length;
+        if (!n) return;
+        igState.yearIndex = (igState.yearIndex - 1 + n) % n;
+        const anio = igState.years[igState.yearIndex];
+        await loadIGMesesForYear(anio);
+      });
+    }
+    if (btnAnioNext) {
+      btnAnioNext.addEventListener('click', async () => {
+        const n = igState.years.length;
+        if (!n) return;
+        igState.yearIndex = (igState.yearIndex + 1) % n;
+        const anio = igState.years[igState.yearIndex];
+        await loadIGMesesForYear(anio);
+      });
+    }
+  }
+
+  // =============================
+  // INIT DASHBOARD
   // =============================
   async function initReportesSection() {
-    bindChips();
+    // Panel 1 – actividades/categorías
+    bindActividadesInteractions();
+    await loadActividadesMain();
 
-    const activeChip =
-      document.querySelector('#reportes-section .chip.active') ||
-      document.querySelector('#reportes-section .chip[data-reporte]');
+    // Panel 2 – impagos por mes
+    bindImpagosInteractions();
+    await loadImpagosData(impagosState.anio);
 
-    if (activeChip) {
-      const id = activeChip.dataset.reporte;
-      if (id) {
-        await loadReporte(id);
-      }
-    }
-  }
-
-  // Stub por compatibilidad
-  async function cargarDetalleDesdeFila(tr) {
-    const clubId = getActiveClubId();
-    const reporteId = tr.dataset.reporte;
-    let url = `/club/${clubId}/reportes/${reporteId}/detalle`;
-    const params = new URLSearchParams();
-
-    switch (reporteId) {
-      case 'socios-actividad':
-        params.set('actividad', tr.dataset.actividad);
-        break;
-      default:
-        break;
-    }
-
-    if ([...params].length) {
-      url += `?${params.toString()}`;
-    }
-
-    await fetchAuth(url);
+    // Panel 3 – ingresos vs gastos
+    bindIGInteractions();
+    await loadIGAnual();
   }
 
   window.initReportesSection = initReportesSection;
 
-  // =============================
-  // Init sección reportes (DOMContentLoaded)
-  // =============================
   document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('reportes-section')) {
       initReportesSection();
-    }
-
-    // === Inicializar selector de años (si existe en el HTML) ===
-    const sel = document.getElementById('select-anio');
-    if (sel) {
-      const currentYear = new Date().getFullYear();
-      sel.innerHTML = '';
-
-      for (let y = 2020; y <= currentYear; y++) {
-        const opt = document.createElement('option');
-        opt.value = y;
-        opt.textContent = y;
-        if (y === currentYear) opt.selected = true;
-        sel.appendChild(opt);
-      }
-
-      sel.addEventListener('change', () => {
-        if (window._lastReporteId === 'impagos-mes') {
-          loadReporte('impagos-mes', { anio: sel.value });
-        }
-      });
     }
   });
 })();

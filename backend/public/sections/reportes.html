@@ -1,80 +1,158 @@
 <section id="reportes-section" class="section-reportes">
 
-  <h2 style="margin-bottom:16px;">📊 Reportes</h2>
-
-  <!-- SELECTOR DE AÑO -->
-  <div id="select-anio-wrapper" style="margin: 10px 0 20px; display:none;">
-    <label><strong>Año:</strong></label>
-    <select id="select-anio" style="padding:4px 6px; font-size:14px;">
-      <!-- Se llena desde reportes.js -->
-    </select>
+  <h2 style="margin-bottom:16px;">📊 Dashboard de Reportes</h2>
+  <div class="muted" style="margin-bottom:18px; font-size:13px;">
+    Resumen visual de socios, morosidad e ingresos vs gastos. Todo en una sola vista.
   </div>
 
   <!-- ===============================
-        MENÚ DE REPORTES (CHIPS)
-  ================================= -->
-  <div class="reportes-chips">
+       GRID PRINCIPAL (3 COLUMNAS)
+       =============================== -->
+  <div class="reportes-grid">
 
-    <div class="chip" data-reporte="socios-actividad-categoria">
-      Socios por Actividad / Categoría
-    </div>
-
-    <div class="chip" data-reporte="socios-nuevos-mes">
-      Socios nuevos por mes
-    </div>
-
-    <div class="chip" data-reporte="impagos-mes">
-      Socios impagos por mes
-    </div>
-
-    <div class="chip" data-reporte="ingreso-fecha-pago">
-      Cuota por fecha de pago
-    </div>
-
-    <div class="chip" data-reporte="ingreso-mes-pagado">
-      Cuota por mes pagado
-    </div>
-
-    <div class="chip" data-reporte="ingresos-vs-gastos">
-      Ingresos vs Gastos
-    </div>
-
-    <div class="chip" data-reporte="ingresos-por-tipo">
-      Ingresos Totales
-    </div>
-
-    <div class="chip" data-reporte="gastos-por-tipo">
-      Gastos
-    </div>
-
-    <div class="chip" data-reporte="gastos-responsable-mes">
-      Gastos por cuenta
-    </div>
-
-  </div>
-
-  <!-- ===============================
-         ÁREA DE RESULTADOS DEL REPORTE
-     =============================== -->
-  <div id="reportesContent" class="reportes-content">
-
-    <!-- TARJETA DE GRÁFICO -->
-    <div id="reportesChartCard" class="reportes-chart-card hidden">
-      <div class="reportes-chart-header">
+    <!-- ===============================================
+         PANEL 1 – SOCIOS POR ACTIVIDAD / CATEGORÍA
+         =============================================== -->
+    <div class="report-card" id="card-actividades">
+      <div class="card-header">
         <div>
-          <h3 id="reportesChartTitle" class="reportes-chart-title">Gráfico</h3>
-          <div id="reportesChartSubtitle" class="reportes-chart-subtitle muted"></div>
+          <h3 class="card-title">Socios por Actividad / Categoría</h3>
+          <div id="actividadesSubtitle" class="card-subtitle muted">
+            Distribución de socios activos por actividad.
+          </div>
+        </div>
+        <button id="btnActividadesReset"
+                class="btn btn-secondary btn-xs hidden">
+          ← Ver actividades
+        </button>
+      </div>
+
+      <div class="card-body">
+        <div class="card-chart">
+          <canvas id="chartActividades"></canvas>
+        </div>
+
+        <div class="card-table" id="tablaActividades">
+          <div class="muted">Cargando actividades…</div>
         </div>
       </div>
-      <div class="reportes-chart-body">
-        <canvas id="reportesChartCanvas"></canvas>
+    </div>
+
+    <!-- ===============================================
+         PANEL 2 – SOCIOS IMPAGOS POR MES
+         =============================================== -->
+    <div class="report-card" id="card-impagos">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Socios impagos por mes</h3>
+          <div class="card-subtitle muted">
+            Morosidad mensual de socios activos.
+          </div>
+        </div>
+
+        <div class="card-toolbar">
+          <button id="btnImpagosPrev" class="btn-nav">◀</button>
+          <span id="impagosMesLabel" class="nav-label">Mes actual</span>
+          <button id="btnImpagosNext" class="btn-nav">▶</button>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div class="impagos-top">
+          <div class="impagos-kpi">
+            <div class="impagos-label">Socios sin pago</div>
+            <div id="impagosCount" class="impagos-value">–</div>
+            <div id="impagosYearLabel" class="impagos-year muted small"></div>
+          </div>
+          <div class="impagos-secondary muted small">
+            Click en la cantidad para ver el detalle de socios.
+          </div>
+        </div>
+
+        <div class="card-table" id="tablaImpagos">
+          <div class="muted">Seleccionando mes…</div>
+        </div>
       </div>
     </div>
 
-    <!-- TARJETA DE TABLA -->
-    <div id="reportesTableCard" class="reportes-table-card">
-      <div class="muted">
-        Seleccioná un reporte para comenzar.
+    <!-- ===============================================
+         PANEL 3 – INGRESOS VS GASTOS
+         =============================================== -->
+    <div class="report-card" id="card-ingresos">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Ingresos vs Gastos</h3>
+          <div class="card-subtitle muted">
+            Comparativo mensual y anual.
+          </div>
+        </div>
+
+        <div class="card-toolbar stacked">
+          <div class="toolbar-row">
+            <button id="btnIGMesPrev" class="btn-nav">◀</button>
+            <span id="igMesLabel" class="nav-label">Mes actual</span>
+            <button id="btnIGMesNext" class="btn-nav">▶</button>
+          </div>
+          <div class="toolbar-row small">
+            <button id="btnIGAnioPrev" class="btn-nav-sm">◀</button>
+            <span id="igAnioLabel" class="nav-label small">Año actual</span>
+            <button id="btnIGAnioNext" class="btn-nav-sm">▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <!-- Gráfico mensual -->
+        <div class="card-chart" style="min-height:180px;">
+          <canvas id="chartIGMes"></canvas>
+        </div>
+
+        <!-- Resumen anual -->
+        <div class="ig-summary">
+          <div class="ig-summary-item">
+            <span class="ig-label">Ingresos año</span>
+            <span id="igAnualIngresos" class="ig-value">–</span>
+          </div>
+          <div class="ig-summary-item">
+            <span class="ig-label">Gastos año</span>
+            <span id="igAnualGastos" class="ig-value">–</span>
+          </div>
+          <div class="ig-summary-item">
+            <span class="ig-label">Resultado</span>
+            <span id="igAnualResultado" class="ig-value">–</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- /reportes-grid -->
+
+  <!-- =============================
+       ZONA DE DETALLES (ABAJO)
+       ============================= -->
+  <div class="reportes-detail-grid">
+
+    <!-- Detalle Actividades / Categorías / Socios -->
+    <div class="detail-card" id="detail-actividades">
+      <h3 class="detail-title">Detalle de actividades / categorías</h3>
+      <div id="detailActividadesBody" class="detail-body">
+        <div class="muted small">Hacé click en una actividad o categoría para ver el detalle de socios.</div>
+      </div>
+    </div>
+
+    <!-- Detalle Impagos -->
+    <div class="detail-card" id="detail-impagos">
+      <h3 class="detail-title">Detalle de socios impagos</h3>
+      <div id="detailImpagosBody" class="detail-body">
+        <div class="muted small">Seleccioná un mes y hacé click en la cantidad para ver el listado.</div>
+      </div>
+    </div>
+
+    <!-- Detalle Ingresos vs Gastos -->
+    <div class="detail-card" id="detail-ingresos">
+      <h3 class="detail-title">Detalle de ingresos / gastos</h3>
+      <div id="detailIngresosBody" class="detail-body">
+        <div class="muted small">Seleccioná un mes para ver el detalle de ingresos y gastos.</div>
       </div>
     </div>
 
@@ -83,126 +161,224 @@
 </section>
 
 <style>
-
-/* ------------------------------
-    CHIPS – colores del CLUB
------------------------------- */
-.reportes-chips{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  margin-bottom:18px;
-}
-
-.chip{
-  padding:10px 16px;
-  background: var(--color-primary);
-  color: white;
-  border-radius:20px;
-  font-size:14px;
-  font-weight:600;
-  cursor:pointer;
-  transition: all .2s ease;
-  box-shadow:0 1px 3px rgba(0,0,0,0.15);
-  white-space:nowrap;
-}
-
-.chip:hover{
-  background: var(--color-primary);
-  color:white;
-}
-
-.chip.active{
-  background: var(--color-primary) !important;
-  color:white !important;
-}
-
-/* ------------------------------
-    CONTENEDOR PRINCIPAL
------------------------------- */
-.reportes-content{
-  border:1px solid #ddd;
-  background:#fff;
-  padding:16px;
-  border-radius:12px;
-  min-height:120px;
-}
-
-/* ------------------------------
-    TARJETA DE GRÁFICO
------------------------------- */
-.reportes-chart-card {
-  border-radius: 14px;
-  padding: 14px 16px 12px 16px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  margin-bottom: 16px;
-}
-
-.reportes-chart-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.reportes-chart-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.reportes-chart-subtitle {
-  font-size: 13px;
-}
-
-.reportes-chart-body {
-  position: relative;
-  min-height: 220px;
-}
-
-/* ------------------------------
-    TARJETA DE TABLA / DETALLE
------------------------------- */
-.reportes-table-card {
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  padding: 12px;
-}
-
-/* ------------------------------
-    TABLAS HIJAS
------------------------------- */
-.toggle {
-  cursor: pointer;
-  width: 20px;
-  text-align: center;
-  font-weight: bold;
-}
-
-.child-row.hidden {
-  display: none;
-}
-
-.child-row td {
-  background: #fafafa;
-  border-left: 3px solid var(--color-primary);
-}
-
-/* ------------------------------
-    RESPONSIVE
------------------------------- */
-@media(max-width:600px){
-  .chip{
-    width:100%;
-    text-align:center;
+  /* GRID PRINCIPAL (3 columnas) */
+  .reportes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 18px;
   }
-}
 
-/* Utilidad */
-.hidden {
-  display: none !important;
-}
+  .report-card {
+    background:#ffffff;
+    border-radius: 12px;
+    border:1px solid #e5e7eb;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    display:flex;
+    flex-direction:column;
+    min-height:260px;
+  }
+
+  .card-header {
+    padding:10px 12px 6px 12px;
+    border-bottom:1px solid #e5e7eb;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px;
+  }
+
+  .card-title {
+    margin:0;
+    font-size:15px;
+    font-weight:700;
+  }
+
+  .card-subtitle {
+    font-size:12px;
+    margin-top:2px;
+  }
+
+  .card-toolbar {
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+
+  .card-toolbar.stacked {
+    flex-direction:column;
+    align-items:flex-end;
+    gap:4px;
+  }
+
+  .toolbar-row {
+    display:flex;
+    align-items:center;
+    gap:4px;
+  }
+
+  .toolbar-row.small {
+    font-size:11px;
+  }
+
+  .card-body {
+    padding:10px 12px 12px 12px;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .card-chart {
+    position:relative;
+    min-height:160px;
+  }
+
+  .card-table {
+    margin-top:6px;
+    font-size:13px;
+  }
+
+  /* KPI Impagos */
+  .impagos-top {
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:8px;
+  }
+
+  .impagos-kpi {
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+
+  .impagos-label {
+    font-size:12px;
+    color:#6b7280;
+  }
+
+  .impagos-value {
+    font-size:28px;
+    font-weight:800;
+    color:#b91c1c;
+  }
+
+  .impagos-year {
+    margin-top:2px;
+  }
+
+  /* Ingresos/Gastos summary */
+  .ig-summary {
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    margin-top:6px;
+  }
+
+  .ig-summary-item {
+    flex:1;
+    background:#f9fafb;
+    border-radius:8px;
+    padding:6px 8px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+
+  .ig-label {
+    font-size:11px;
+    color:#6b7280;
+  }
+
+  .ig-value {
+    font-size:14px;
+    font-weight:700;
+  }
+
+  /* NAV BOTONES */
+  .btn-nav,
+  .btn-nav-sm {
+    border-radius:999px;
+    border:1px solid #e5e7eb;
+    background:#f9fafb;
+    padding:2px 7px;
+    font-size:12px;
+    cursor:pointer;
+  }
+
+  .btn-nav-sm {
+    padding:1px 5px;
+    font-size:11px;
+  }
+
+  .btn-nav:hover,
+  .btn-nav-sm:hover {
+    background:#e5e7eb;
+  }
+
+  .nav-label {
+    font-size:13px;
+    font-weight:600;
+  }
+
+  .nav-label.small {
+    font-size:11px;
+  }
+
+  .btn-xs {
+    font-size:11px;
+    padding:2px 6px;
+  }
+
+  /* GRID DE DETALLES (ABAJO) */
+  .reportes-detail-grid {
+    display:grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap:16px;
+  }
+
+  .detail-card {
+    background:#ffffff;
+    border-radius:12px;
+    border:1px solid #e5e7eb;
+    box-shadow:0 1px 4px rgba(0,0,0,0.03);
+    padding:10px 12px;
+    min-height:180px;
+    display:flex;
+    flex-direction:column;
+  }
+
+  .detail-title {
+    margin:0 0 6px 0;
+    font-size:14px;
+    font-weight:600;
+  }
+
+  .detail-body {
+    font-size:13px;
+    flex:1;
+    overflow:auto;
+  }
+
+  /* Utilidades */
+  .muted {
+    color:#6b7280;
+  }
+  .small {
+    font-size:12px;
+  }
+  .hidden {
+    display:none !important;
+  }
+
+  @media (max-width: 1024px) {
+    .reportes-grid {
+      grid-template-columns: 1fr;
+    }
+    .reportes-detail-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 
 </style>
