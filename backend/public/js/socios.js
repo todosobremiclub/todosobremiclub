@@ -24,8 +24,6 @@
     return c;
   }
 
-
-
   async function fetchAuth(url, options = {}) {
     const headers = options.headers || {};
     headers['Authorization'] = 'Bearer ' + getToken();
@@ -45,230 +43,235 @@
     return res;
   }
 
-// =============================
-// Debounce (para búsqueda en vivo)
-// =============================
-function debounce(fn, wait = 250) {
-  let t = null;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), wait);
-  };
-}
+  // =============================
+  // Debounce (para búsqueda en vivo)
+  // =============================
+  function debounce(fn, wait = 250) {
+    let t = null;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), wait);
+    };
+  }
 
   async function safeJson(res) {
     const text = await res.text();
-    try { return JSON.parse(text); }
-    catch { return { ok: false, error: text }; }
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { ok: false, error: text };
+    }
   }
 
-// =============================
-// Filtro Categoría (toolbar) desde Configuración
-// =============================
-let categoriasToolbarCache = [];
+  // =============================
+  // Filtro Categoría (toolbar) desde Configuración
+  // =============================
+  let categoriasToolbarCache = [];
 
-// Carga desde /config/categorias y llena el select #filtroCategoria
-async function loadCategoriasToolbar() {
-  const clubId = getActiveClubId();
-  const res = await fetchAuth(`/club/${clubId}/config/categorias`);
-  const data = await safeJson(res);
+  // Carga desde /config/categorias y llena el select #filtroCategoria
+  async function loadCategoriasToolbar() {
+    const clubId = getActiveClubId();
+    const res = await fetchAuth(`/club/${clubId}/config/categorias`);
+    const data = await safeJson(res);
 
-  if (!res.ok || !data.ok) {
-    console.warn('No se pudieron cargar categorías (toolbar):', data.error);
-    categoriasToolbarCache = [];
-    fillFiltroCategoria([]); // deja "Todas"
-    return;
+    if (!res.ok || !data.ok) {
+      console.warn('No se pudieron cargar categorías (toolbar):', data.error);
+      categoriasToolbarCache = [];
+      fillFiltroCategoria([]); // deja "Todas"
+      return;
+    }
+
+    categoriasToolbarCache = data.categorias || [];
+    fillFiltroCategoria(categoriasToolbarCache);
   }
 
-  categoriasToolbarCache = data.categorias || [];
-  fillFiltroCategoria(categoriasToolbarCache);
-}
+  // Renderiza options en #filtroCategoria preservando selección si existe
+  function fillFiltroCategoria(items) {
+    const sel = $('filtroCategoria');
+    if (!sel) return;
 
-// Renderiza options en #filtroCategoria preservando selección si existe
-function fillFiltroCategoria(items) {
-  const sel = $('filtroCategoria');
-  if (!sel) return;
+    const current = sel.value; // preservar selección actual si sigue existiendo
 
-  const current = sel.value; // preservar selección actual si sigue existiendo
+    // Opción default
+    sel.innerHTML = `<option value="">Todas las categorías</option>`;
 
-  // Opción default
-  sel.innerHTML = `<option value="">Todas las categorías</option>`;
+    // Si no hay items, dejamos solo "Todas"
+    if (!items || items.length === 0) {
+      sel.value = '';
+      return;
+    }
 
-  // Si no hay items, dejamos solo "Todas"
-  if (!items || items.length === 0) {
-    sel.value = '';
-    return;
+    // Agregar categorías
+    items.forEach((c) => {
+      const nombre = String(c.nombre || '').trim();
+      if (!nombre) return;
+      const opt = document.createElement('option');
+      opt.value = nombre;
+      opt.textContent = nombre;
+      sel.appendChild(opt);
+    });
+
+    // Restaurar selección si existe aún
+    const exists = [...sel.options].some((o) => o.value === current);
+    sel.value = exists ? current : '';
   }
 
-  // Agregar categorías (usamos nombre como value porque el backend de socios filtra por s.categoria = string)
-  items.forEach(c => {
-    const nombre = String(c.nombre || '').trim();
-    if (!nombre) return;
-    const opt = document.createElement('option');
-    opt.value = nombre;
-    opt.textContent = nombre;
-    sel.appendChild(opt);
-  });
+  // =============================
+  // Actividades (config) y filtro
+  // =============================
+  let actividadesConfigCache = [];
 
-  // Restaurar selección si existe aún
-  const exists = [...sel.options].some(o => o.value === current);
-  sel.value = exists ? current : '';
-}
-
-// =============================
-// Actividades (config) y filtro
-// =============================
-let actividadesConfigCache = [];
-
-async function loadActividadesConfig() {
-  const clubId = getActiveClubId();
-  const res = await fetchAuth(`/club/${clubId}/config/actividades`);
-  const data = await safeJson(res);
-  if (!res.ok || !data.ok) {
-    console.warn('No se pudieron cargar actividades:', data.error);
-    actividadesConfigCache = [];
-    fillActividadSelect([]);
-    fillFiltroActividad([]);
-    return;
-  }
-  actividadesConfigCache = data.actividades ?? [];
-  fillActividadSelect(actividadesConfigCache);
-  fillFiltroActividad(actividadesConfigCache);
-}
-
-function fillActividadSelect(items) {
-  const sel = $('socioActividad');
-  if (!sel) return;
-  if (!items || items.length === 0) {
-    sel.innerHTML = `<option value="">(No hay actividades cargadas)</option>`;
-    return;
-  }
-  sel.innerHTML =
-    `<option value="">Seleccionar...</option>` +
-    items.map(a => `<option value="${String(a.nombre)}">${String(a.nombre)}</option>`).join('');
-}
-
-function fillFiltroActividad(items) {
-  const sel = $('filtroActividad');
-  if (!sel) return;
-  const current = sel.value;
-  sel.innerHTML = `<option value="">Todas las actividades</option>`;
-  if (!items || items.length === 0) {
-    sel.value = '';
-    return;
-  }
-  items.forEach(a => {
-    const nombre = String(a.nombre ?? '').trim();
-    if (!nombre) return;
-    const opt = document.createElement('option');
-    opt.value = nombre;
-    opt.textContent = nombre;
-    sel.appendChild(opt);
-  });
-  const exists = [...sel.options].some(o => o.value === current);
-  sel.value = exists ? current : '';
-}
-
-// Si al editar viene una actividad que ya no está en config
-function ensureActividadOption(value) {
-  const sel = $('socioActividad');
-  if (!sel) return;
-  const v = (value ?? '').trim();
-  if (!v) return;
-  const exists = [...sel.options].some(o => o.value === v);
-  if (!exists) {
-    const opt = document.createElement('option');
-    opt.value = v;
-    opt.textContent = v + ' (no está en Configuración)';
-    sel.appendChild(opt);
-  }
-}
-
-// =============================
-// Categorías deportivas (config)
-// =============================
-let categoriasConfigCache = [];
-
-async function loadCategoriasConfig() {
-  const clubId = getActiveClubId();
-  const res = await fetchAuth(`/club/${clubId}/config/categorias`);
-  const data = await safeJson(res);
-
-  if (!res.ok || !data.ok) {
-    console.warn("Error cargando categorías:", data.error);
-    fillCategoriaSelect([]);
-    return;
+  async function loadActividadesConfig() {
+    const clubId = getActiveClubId();
+    const res = await fetchAuth(`/club/${clubId}/config/actividades`);
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) {
+      console.warn('No se pudieron cargar actividades:', data.error);
+      actividadesConfigCache = [];
+      fillActividadSelect([]);
+      fillFiltroActividad([]);
+      return;
+    }
+    actividadesConfigCache = data.actividades ?? [];
+    fillActividadSelect(actividadesConfigCache);
+    fillFiltroActividad(actividadesConfigCache);
   }
 
-  fillCategoriaSelect(data.categorias ?? []);
-}
+  function fillActividadSelect(items) {
+    const sel = $('socioActividad');
+    if (!sel) return;
+    if (!items || items.length === 0) {
+      sel.innerHTML = `<option value="">(No hay actividades cargadas)</option>`;
+      return;
+    }
+    sel.innerHTML =
+      `<option value="">Seleccionar...</option>` +
+      items.map((a) => `<option value="${String(a.nombre)}">${String(a.nombre)}</option>`).join('');
+  }
 
-function fillCategoriaSelect(items) {
-  const sel = $('socioCategoria');
-  const filtro = $('filtroCategoria');
-  if (!sel || !filtro) return;
+  function fillFiltroActividad(items) {
+    const sel = $('filtroActividad');
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = `<option value="">Todas las actividades</option>`;
+    if (!items || items.length === 0) {
+      sel.value = '';
+      return;
+    }
+    items.forEach((a) => {
+      const nombre = String(a.nombre ?? '').trim();
+      if (!nombre) return;
+      const opt = document.createElement('option');
+      opt.value = nombre;
+      opt.textContent = nombre;
+      sel.appendChild(opt);
+    });
+    const exists = [...sel.options].some((o) => o.value === current);
+    sel.value = exists ? current : '';
+  }
 
-  // preservar lo que el edit quiso setear antes de que lleguen las categorías
-  const pending = sel.dataset.pendingValue || sel.value;
-
-  // llenar modal
-  sel.innerHTML = `<option value="">Seleccionar...</option>`;
-  items.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.nombre;
-    opt.textContent = c.nombre;
-    sel.appendChild(opt);
-  });
-
-  // aplicar selección pendiente si existe
-  if (pending) {
-    const exists = [...sel.options].some(o => o.value === pending);
+  // Si al editar viene una actividad que ya no está en config
+  function ensureActividadOption(value) {
+    const sel = $('socioActividad');
+    if (!sel) return;
+    const v = (value ?? '').trim();
+    if (!v) return;
+    const exists = [...sel.options].some((o) => o.value === v);
     if (!exists) {
       const opt = document.createElement('option');
-      opt.value = pending;
-      opt.textContent = pending + ' (no está en Configuración)';
+      opt.value = v;
+      opt.textContent = v + ' (no está en Configuración)';
       sel.appendChild(opt);
     }
-    sel.value = pending;
   }
-  delete sel.dataset.pendingValue;
 
-  // llenar filtro preservando selección previa
-  const current = filtro.value;
-  filtro.innerHTML = `<option value="">Todas las categorías</option>`;
-  items.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.nombre;
-    opt.textContent = c.nombre;
-    filtro.appendChild(opt);
-  });
-  filtro.value = current || '';
-}
+  // =============================
+  // Categorías deportivas (config)
+  // =============================
+  let categoriasConfigCache = [];
 
-// Si al editar viene una categoría que no existe más en config, la agregamos como opción
-function ensureCategoriaOption(value) {
-  const sel = $('socioCategoria');
-  if (!sel) return;
-  const v = (value || '').trim();
-  if (!v) return;
-  const exists = [...sel.options].some(o => o.value === v);
-  if (!exists) {
-    const opt = document.createElement('option');
-    opt.value = v;
-    opt.textContent = v + ' (no está en Configuración)';
-    sel.appendChild(opt);
+  async function loadCategoriasConfig() {
+    const clubId = getActiveClubId();
+    const res = await fetchAuth(`/club/${clubId}/config/categorias`);
+    const data = await safeJson(res);
+
+    if (!res.ok || !data.ok) {
+      console.warn('Error cargando categorías:', data.error);
+      fillCategoriaSelect([]);
+      return;
+    }
+
+    fillCategoriaSelect(data.categorias ?? []);
   }
-}
 
-  // ✅ FIX: escapeHtml correcto (tu versión estaba doble-escapando por entidades HTML)
+  function fillCategoriaSelect(items) {
+    const sel = $('socioCategoria');
+    const filtro = $('filtroCategoria');
+    if (!sel || !filtro) return;
+
+    // preservar lo que el edit quiso setear antes de que lleguen las categorías
+    const pending = sel.dataset.pendingValue || sel.value;
+
+    // llenar modal
+    sel.innerHTML = `<option value="">Seleccionar...</option>`;
+    items.forEach((c) => {
+      const opt = document.createElement('option');
+      opt.value = c.nombre;
+      opt.textContent = c.nombre;
+      sel.appendChild(opt);
+    });
+
+    // aplicar selección pendiente si existe
+    if (pending) {
+      const exists = [...sel.options].some((o) => o.value === pending);
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = pending;
+        opt.textContent = pending + ' (no está en Configuración)';
+        sel.appendChild(opt);
+      }
+      sel.value = pending;
+    }
+    delete sel.dataset.pendingValue;
+
+    // llenar filtro preservando selección previa
+    const current = filtro.value;
+    filtro.innerHTML = `<option value="">Todas las categorías</option>`;
+    items.forEach((c) => {
+      const opt = document.createElement('option');
+      opt.value = c.nombre;
+      opt.textContent = c.nombre;
+      filtro.appendChild(opt);
+    });
+    filtro.value = current || '';
+  }
+
+  // Si al editar viene una categoría que no existe más en config
+  function ensureCategoriaOption(value) {
+    const sel = $('socioCategoria');
+    if (!sel) return;
+    const v = (value || '').trim();
+    if (!v) return;
+    const exists = [...sel.options].some((o) => o.value === v);
+    if (!exists) {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v + ' (no está en Configuración)';
+      sel.appendChild(opt);
+    }
+  }
+
+  // =============================
+  // Helpers texto / formato
+  // =============================
   function escapeHtml(str) {
-  return String(str ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
 
   function fmtDMY(iso) {
     if (!iso) return '';
@@ -283,36 +286,37 @@ function ensureCategoriaOption(value) {
     return String(iso).slice(0, 4);
   }
 
-function onlyDigits(v) {
-  return String(v ?? '').replace(/\D+/g, '');
-}
-function fmtDni(dni) {
-  const d = onlyDigits(dni);
-  if (d.length === 8) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}`;
-  if (d.length === 7) return `${d.slice(0,1)}.${d.slice(1,4)}.${d.slice(4,7)}`;
-  return String(dni ?? '');
-}
+  function onlyDigits(v) {
+    return String(v ?? '').replace(/\D+/g, '');
+  }
 
-function phoneToWaE164(phone) {
-  let d = onlyDigits(phone);
-  if (!d) return null;
+  function fmtDni(dni) {
+    const d = onlyDigits(dni);
+    if (d.length === 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}`;
+    if (d.length === 7) return `${d.slice(0, 1)}.${d.slice(1, 4)}.${d.slice(4, 7)}`;
+    return String(dni ?? '');
+  }
 
-  d = d.replace(/^0+/, '');   // quita 0 inicial
-  d = d.replace(/^15/, '');   // quita 15 si lo pusieron al inicio
+  function phoneToWaE164(phone) {
+    let d = onlyDigits(phone);
+    if (!d) return null;
 
-  if (d.startsWith('54')) return d;
+    d = d.replace(/^0+/, ''); // quita 0 inicial
+    d = d.replace(/^15/, ''); // quita 15 si lo pusieron al inicio
 
-  if (d.length >= 10) return '549' + d; // AR típico con 11 dígitos
-  return '54' + d;
-}
+    if (d.startsWith('54')) return d;
 
-function buildWaUrl(phone) {
-  const e164 = phoneToWaE164(phone);
-  if (!e164) return null;
-  return `https://web.whatsapp.com/send?phone=${e164}`;
-}
+    if (d.length >= 10) return '549' + d; // AR típico con 11 dígitos
+    return '54' + d;
+  }
 
-const WA_SVG = `
+  function buildWaUrl(phone) {
+    const e164 = phoneToWaE164(phone);
+    if (!e164) return null;
+    return `https://web.whatsapp.com/send?phone=${e164}`;
+  }
+
+  const WA_SVG = `
 <svg viewBox="0 0 32 32" aria-hidden="true">
   <path fill="#25D366" d="M16 3C9.4 3 4 8.1 4 14.4c0 2.4.8 4.7 2.2 6.6L5 29l7.2-1.9c1.1.3 2.4.5 3.8.5 6.6 0 12-5.1 12-11.4S22.6 3 16 3z"/>
   <path fill="#fff" d="M13.4 10.6c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.4-.2.3-.9.9-.9 2.2s1 2.6 1.1 2.8c.2.2 2 3.2 4.9 4.3 2.4.9 2.9.7 3.4.6.5-.1 1.6-.6 1.8-1.2.2-.6.2-1.1.1-1.2-.1-.2-.3-.3-.7-.5-.4-.2-1.6-.8-1.9-.9-.3-.1-.5-.2-.7.2-.2.4-.8.9-1 .9-.2.1-.4.1-.8-.1-.4-.2-1.5-.5-2.9-1.8-1.1-1-1.8-2.2-2-2.6-.2-.4 0-.6.2-.8.2-.2.4-.4.5-.6.2-.2.2-.4.3-.6.1-.2 0-.4 0-.6-.1-.2-.6-1.6-.8-2z"/>
@@ -341,14 +345,84 @@ const WA_SVG = `
   let sociosCache = [];
   let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
 
-// =============================
-// Orden + paginación
-// =============================
-let sortKey = null;          // 'pago' | 'numero' | 'dni' | ...
-let sortDir = 'asc';         // 'asc' | 'desc'
-let currentPage = 1;
-const pageSize = 50;
+  // =============================
+  // Orden + paginación
+  // =============================
+  let sortKey = null; // 'pago' | 'numero' | 'dni' | ...
+  let sortDir = 'asc'; // 'asc' | 'desc'
+  let currentPage = 1;
+  const pageSize = 50;
 
+  // =============================
+  // ADJUNTOS – helpers
+  // =============================
+  function formatBytes(bytes) {
+    const n = Number(bytes || 0);
+    if (!Number.isFinite(n)) return '';
+    if (n < 1024) return n + ' B';
+    const kb = n / 1024;
+    if (kb < 1024) return kb.toFixed(1) + ' KB';
+    const mb = kb / 1024;
+    return mb.toFixed(1) + ' MB';
+  }
+
+  async function fetchAdjuntos(clubId, socioId) {
+    const res = await fetchAuth(`/club/${clubId}/socios/${socioId}/adjuntos`);
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) {
+      console.error('Error cargando adjuntos', data.error);
+      return [];
+    }
+    return data.adjuntos || [];
+  }
+
+  async function cargarAdjuntosEnModal(socioId) {
+    const cont = $('listaAdjuntos');
+    if (!cont) return;
+    cont.innerHTML = '<div class="text-muted">Cargando adjuntos...</div>';
+
+    const clubId = getActiveClubId();
+    const adjuntos = await fetchAdjuntos(clubId, socioId);
+
+    if (!adjuntos.length) {
+      cont.innerHTML = '<div class="text-muted">No hay adjuntos.</div>';
+      return;
+    }
+
+    cont.innerHTML = '';
+
+    adjuntos.forEach((a) => {
+      const row = document.createElement('div');
+      row.className = 'd-flex justify-content-between align-items-start border-bottom py-1';
+
+      row.innerHTML = `
+        <div>
+          <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
+            <b>${escapeHtml(a.filename)}</b>
+          </a><br>
+          ${a.comentario ? `<small>${escapeHtml(a.comentario)}</small><br>` : ''}
+          <small>${formatBytes(a.size_bytes)}</small>
+        </div>
+        <button class="btn btn-sm btn-danger">Eliminar</button>
+      `;
+
+      row.querySelector('button')?.addEventListener('click', async () => {
+        if (!confirm('¿Eliminar este adjunto?')) return;
+        const res = await fetchAuth(
+          `/club/${clubId}/socios/${socioId}/adjuntos/${a.id}`,
+          { method: 'DELETE' }
+        );
+        const data = await safeJson(res);
+        if (!res.ok || !data.ok) {
+          alert(data.error || 'Error eliminando adjunto');
+          return;
+        }
+        await cargarAdjuntosEnModal(socioId);
+      });
+
+      cont.appendChild(row);
+    });
+  }
 
   // =============================
   // Photo viewer
@@ -383,7 +457,9 @@ const pageSize = 50;
       if (img) img.src = '';
     };
 
-    modal.addEventListener('click', (ev) => { if (ev.target === modal) close(); });
+    modal.addEventListener('click', (ev) => {
+      if (ev.target === modal) close();
+    });
     modal.querySelector('#photoViewerClose').addEventListener('click', close);
 
     document.addEventListener('keydown', (ev) => {
@@ -399,7 +475,6 @@ const pageSize = 50;
     img.src = url;
     modal.style.display = 'flex';
   }
-
 
   // =============================
   // Draft photo UI (solo modal socio)
@@ -535,9 +610,7 @@ const pageSize = 50;
     editingId = null;
     setDraftPhoto(null);
 
-// Asegurar categorías cargadas
-  if (!categoriasConfigCache.length) loadCategoriasConfig().catch(()=>{});
-
+    if (!categoriasConfigCache.length) loadCategoriasConfig().catch(() => {});
 
     $('modalSocioTitle').textContent = 'Nuevo socio';
     $('socioNumero').value = '';
@@ -551,13 +624,18 @@ const pageSize = 50;
     $('socioActivo').checked = true;
     $('socioBecado').checked = false;
 
+    const listaAdj = $('listaAdjuntos');
+    if (listaAdj) {
+      listaAdj.innerHTML = '<div class="text-muted">Guardá el socio para adjuntar archivos.</div>';
+    }
+
     $('modalSocio').classList.remove('hidden');
   }
 
   function openModalEdit(socio) {
     editingId = socio.id;
     setDraftPhoto(null);
-if (!categoriasConfigCache.length) loadCategoriasConfig().catch(()=>{});
+    if (!categoriasConfigCache.length) loadCategoriasConfig().catch(() => {});
 
     $('modalSocioTitle').textContent = 'Editar socio';
     $('socioNumero').value = socio.numero_socio ?? '';
@@ -565,14 +643,14 @@ if (!categoriasConfigCache.length) loadCategoriasConfig().catch(()=>{});
     $('socioNombre').value = socio.nombre ?? '';
     $('socioApellido').value = socio.apellido ?? '';
 
-$('socioActividad').value = socio.actividad ?? '';
-ensureActividadOption(socio.actividad);
-$('socioDireccion').value = socio.direccion ?? '';
+    $('socioActividad').value = socio.actividad ?? '';
+    ensureActividadOption(socio.actividad);
+    $('socioDireccion').value = socio.direccion ?? '';
 
     const catSel = $('socioCategoria');
-if (catSel) catSel.dataset.pendingValue = (socio.categoria ?? '').toString();
-$('socioCategoria').value = socio.categoria ?? '';
-ensureCategoriaOption(socio.categoria);
+    if (catSel) catSel.dataset.pendingValue = (socio.categoria ?? '').toString();
+    $('socioCategoria').value = socio.categoria ?? '';
+    ensureCategoriaOption(socio.categoria);
 
     $('socioTelefono').value = socio.telefono ?? '';
     $('socioNacimiento').value = (socio.fecha_nacimiento || '').slice(0, 10);
@@ -581,6 +659,9 @@ ensureCategoriaOption(socio.categoria);
     $('socioBecado').checked = !!socio.becado;
 
     $('modalSocio').classList.remove('hidden');
+
+    // cargar adjuntos del socio
+    cargarAdjuntosEnModal(socio.id).catch(console.error);
   }
 
   function closeModalSocio() {
@@ -595,13 +676,11 @@ ensureCategoriaOption(socio.categoria);
   function ensureCarnetModal() {
     let modal = document.getElementById('modalCarnet');
 
-    // Si NO existe, lo creamos
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'modalCarnet';
       modal.className = 'modal hidden';
 
-      // 🔒 Forzar capa y clicks
       modal.style.position = 'fixed';
       modal.style.inset = '0';
       modal.style.background = 'rgba(0,0,0,0.55)';
@@ -643,7 +722,6 @@ ensureCategoriaOption(socio.categoria);
       document.body.appendChild(modal);
     }
 
-    // ✅ Bind UNA sola vez
     if (modal.dataset.bound === '1') return modal;
     modal.dataset.bound = '1';
 
@@ -656,7 +734,7 @@ ensureCategoriaOption(socio.categoria);
           return;
         }
         if (act === 'edit') {
-          const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
+          const socio = sociosCache.find((x) => String(x.id) === String(carnetSocioId));
           if (socio) {
             closeCarnet();
             openModalEdit(socio);
@@ -667,24 +745,6 @@ ensureCategoriaOption(socio.categoria);
       if (ev.target === modal) closeCarnet();
     });
 
-    // Compat con IDs del HTML (si existen)
-    modal.querySelector('#btnCarnetClose')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      closeCarnet();
-    });
-    modal.querySelector('#btnCarnetOk')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      closeCarnet();
-    });
-    modal.querySelector('#btnCarnetEdit')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      const socio = sociosCache.find(x => String(x.id) === String(carnetSocioId));
-      if (socio) {
-        closeCarnet();
-        openModalEdit(socio);
-      }
-    });
-
     document.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape' && !modal.classList.contains('hidden')) closeCarnet();
     });
@@ -692,7 +752,6 @@ ensureCategoriaOption(socio.categoria);
     return modal;
   }
 
-  // ✅ FIX: Estas funciones NO estaban en tu archivo, por eso fallaba el dobleclick
   function openCarnet(socio) {
     const modal = ensureCarnetModal();
     carnetSocioId = socio.id;
@@ -701,55 +760,75 @@ ensureCategoriaOption(socio.categoria);
     const img = modal.querySelector('#carnetFoto');
     if (img) {
       img.src = foto;
-      img.onerror = function () { this.src = '/img/user-placeholder.png'; };
+      img.onerror = function () {
+        this.src = '/img/user-placeholder.png';
+      };
     }
 
     const nombre = `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
     const elNombre = modal.querySelector('#carnetNombre');
-if (elNombre) elNombre.textContent = nombre;
+    if (elNombre) elNombre.textContent = nombre;
 
-const elDni = modal.querySelector('#carnetDni');
-if (elDni) elDni.textContent = `DNI: ${fmtDni(socio.dni) || '—'}`;
+    const elDni = modal.querySelector('#carnetDni');
+    if (elDni) elDni.textContent = `DNI: ${fmtDni(socio.dni) || '—'}`;
 
-const elCat = modal.querySelector('#carnetCategoria');
-if (elCat) elCat.textContent = `Categoría: ${socio.categoria ?? '—'}`;
-
+    const elCat = modal.querySelector('#carnetCategoria');
+    if (elCat) elCat.textContent = `Categoría: ${socio.categoria ?? '—'}`;
 
     const est = pagoEstado(socio);
     const pagoEl = modal.querySelector('#carnetPago');
     if (pagoEl) {
-      pagoEl.innerHTML = `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${escapeHtml(est.label)}</span>`;
+      pagoEl.innerHTML = `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${escapeHtml(
+        est.label
+      )}</span>`;
     }
 
     const extraEl = modal.querySelector('#carnetExtra');
-if (extraEl) {
-  const est = pagoEstado(socio); // ya lo usás arriba
-  const foto = socio.foto_url || '/img/user-placeholder.png';
+    if (extraEl) {
+      const items = [
+        ['Estado de pago', est.label],
+        ['Nº Socio', socio.numero_socio ?? '—'],
+        ['DNI', socio.dni ?? '—'],
+        ['Nombre', `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim() || '—'],
+        ['Actividad', socio.actividad ?? '—'],
+        ['Categoría', socio.categoria ?? '—'],
+        ['Teléfono', socio.telefono ?? '—'],
+        ['Dirección', socio.direccion ?? '—'],
+        ['Nacimiento', fmtDMY(socio.fecha_nacimiento) || '—'],
+        [
+          'Año nacimiento',
+          socio.anio_nacimiento ?? yearFromISO(socio.fecha_nacimiento) ?? '—'
+        ],
+        ['Ingreso', fmtDMY(socio.fecha_ingreso) || '—'],
+        ['Activo', socio.activo ? 'Sí' : 'No'],
+        ['Becado', socio.becado ? 'Sí' : 'No']
+      ];
 
-  // "Todos los datos de la tabla" (incluye lo que mostraba tu grilla: pago, nro, dni, nombre, etc.)
-  const items = [
-    ['Estado de pago', est.label],
-    ['Nº Socio', socio.numero_socio ?? '—'],
-    ['DNI', socio.dni ?? '—'],
-    ['Nombre', `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim() || '—'],
-    ['Actividad', socio.actividad ?? '—'],
-    ['Categoría', socio.categoria ?? '—'],
-    ['Teléfono', socio.telefono ?? '—'],
-    // Aunque Dirección/Nacimiento no se muestren en la grilla principal, siguen siendo datos del socio:
-    ['Dirección', socio.direccion ?? '—'],
-    ['Nacimiento', fmtDMY(socio.fecha_nacimiento) || '—'],
-    ['Año nacimiento', socio.anio_nacimiento ?? yearFromISO(socio.fecha_nacimiento) ?? '—'],
-    ['Ingreso', fmtDMY(socio.fecha_ingreso) || '—'],
-    ['Activo', socio.activo ? 'Sí' : 'No'],
-    ['Becado', socio.becado ? 'Sí' : 'No'],
-    
-  ];
+      extraEl.innerHTML = items
+        .map(([k, v]) => `<div><b>${escapeHtml(k)}:</b> ${escapeHtml(v)}</div>`)
+        .join('');
+    }
 
-  extraEl.innerHTML = items
-    .map(([k, v]) => `<div><b>${escapeHtml(k)}:</b> ${escapeHtml(v)}</div>`)
-    .join('');
-}
+    // Adjuntos en carnet
+    (async () => {
+      const clubId = getActiveClubId();
+      const adjuntos = await fetchAdjuntos(clubId, socio.id);
+      if (!adjuntos.length) return;
+      const extraEl = modal.querySelector('#carnetExtra');
+      if (!extraEl) return;
 
+      extraEl.innerHTML += '<div><b>Adjuntos:</b></div>';
+      adjuntos.forEach((a) => {
+        extraEl.innerHTML += `
+          <div>
+            <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
+              ${escapeHtml(a.filename)}
+            </a>
+            ${a.comentario ? `<br><small>${escapeHtml(a.comentario)}</small>` : ''}
+          </div>
+        `;
+      });
+    })().catch(console.error);
 
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
@@ -763,256 +842,244 @@ if (extraEl) {
     modal.style.display = 'none';
   }
 
-  // ✅ Exponer por robustez (evita problemas de scope en handlers)
   window.openCarnet = openCarnet;
   window.closeCarnet = closeCarnet;
 
-function fmtSocioNumero(n) {
-  const num = Number(n);
-  if (!Number.isFinite(num)) return '';
-  return String(num).padStart(5, '0');
-}
-
-function getSortValue(s, key) {
-  switch (key) {
-    case 'pago': {
-      // orden alfabético sobre label: "Al día", "Becado", "Impago"
-      return pagoEstado(s).label || '';
-    }
-    case 'numero': return Number(s.numero_socio ?? 0);
-    case 'dni': return String(s.dni ?? '');
-    case 'nombre': return String(s.nombre ?? '');
-    case 'apellido': return String(s.apellido ?? '');
-case 'actividad':
-  return String(s.actividad ?? '');
-    case 'categoria': return String(s.categoria ?? '');
-    case 'anio': {
-      const y = s.anio_nacimiento ?? (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0,4)) : 0);
-      return Number(y ?? 0);
-    }
-    case 'activo': return s.activo ? 1 : 0;
-    case 'becado': return s.becado ? 1 : 0;
-    default: return '';
-  }
-}
-
-function sortRows(rows) {
-  if (!sortKey) return rows;
-  const dir = sortDir === 'asc' ? 1 : -1;
-
-  return rows.slice().sort((a, b) => {
-    const va = getSortValue(a, sortKey);
-    const vb = getSortValue(b, sortKey);
-
-    // números
-    if (typeof va === 'number' && typeof vb === 'number') {
-      return (va - vb) * dir;
-    }
-    // strings
-    return String(va).localeCompare(String(vb), 'es', { numeric: true, sensitivity: 'base' }) * dir;
-  });
-}
-
-function clampPage(p, totalPages) {
-  if (totalPages <= 1) return 1;
-  return Math.min(Math.max(1, p), totalPages);
-}
-
-function renderPagination(totalItems) {
-  const el = document.getElementById('sociosPagination');
-  if (!el) return;
-
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  currentPage = clampPage(currentPage, totalPages);
-
-  const mkBtn = (label, page, active=false, disabled=false) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = label;
-    if (active) b.classList.add('active');
-    if (disabled) b.disabled = true;
-    b.addEventListener('click', () => {
-      currentPage = page;
-      renderSocios(sociosCache); // re-render completo con sort/paginación
-    });
-    return b;
-  };
-
-  el.innerHTML = '';
-  el.appendChild(mkBtn('‹', currentPage - 1, false, currentPage === 1));
-
-  // páginas (ventana simple)
-  const windowSize = 7;
-  let start = Math.max(1, currentPage - Math.floor(windowSize/2));
-  let end = Math.min(totalPages, start + windowSize - 1);
-  start = Math.max(1, end - windowSize + 1);
-
-  for (let p = start; p <= end; p++) {
-    el.appendChild(mkBtn(String(p), p, p === currentPage));
+  function fmtSocioNumero(n) {
+    const num = Number(n);
+    if (!Number.isFinite(num)) return '';
+    return String(num).padStart(5, '0');
   }
 
-  el.appendChild(mkBtn('›', currentPage + 1, false, currentPage === totalPages));
-}
-
-function updateSortIndicators() {
-  document.querySelectorAll('th.sortable').forEach(th => {
-    const old = th.querySelector('.sort-ind');
-    if (old) old.remove();
-
-    const key = th.dataset.sort;
-    if (!key || key !== sortKey) return;
-
-    const ind = document.createElement('span');
-    ind.className = 'sort-ind';
-    ind.textContent = sortDir === 'asc' ? '▲' : '▼';
-    th.appendChild(ind);
-  });
-}
-
-function bindSorting() {
-  const root = document.getElementById('socios-section');
-  if (!root) return;
-
-  const table = root.querySelector('table');
-  if (!table) return;
-
-  // evitar doble bind cuando se recarga sección
-  if (table.dataset.sortBound === '1') return;
-  table.dataset.sortBound = '1';
-
-  table.querySelectorAll('th.sortable').forEach(th => {
-    th.addEventListener('click', () => {
-      const key = th.dataset.sort;
-      if (!key) return;
-
-      if (sortKey === key) {
-        sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
-      } else {
-        sortKey = key;
-        sortDir = 'asc';
+  function getSortValue(s, key) {
+    switch (key) {
+      case 'pago': {
+        return pagoEstado(s).label || '';
       }
+      case 'numero':
+        return Number(s.numero_socio ?? 0);
+      case 'dni':
+        return String(s.dni ?? '');
+      case 'nombre':
+        return String(s.nombre ?? '');
+      case 'apellido':
+        return String(s.apellido ?? '');
+      case 'actividad':
+        return String(s.actividad ?? '');
+      case 'categoria':
+        return String(s.categoria ?? '');
+      case 'anio': {
+        const y =
+          s.anio_nacimiento ??
+          (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0, 4)) : 0);
+        return Number(y ?? 0);
+      }
+      case 'activo':
+        return s.activo ? 1 : 0;
+      case 'becado':
+        return s.becado ? 1 : 0;
+      default:
+        return '';
+    }
+  }
 
-      currentPage = 1;
-      renderSocios(sociosCache);
+  function sortRows(rows) {
+    if (!sortKey) return rows;
+    const dir = sortDir === 'asc' ? 1 : -1;
+
+    return rows.slice().sort((a, b) => {
+      const va = getSortValue(a, sortKey);
+      const vb = getSortValue(b, sortKey);
+
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return (va - vb) * dir;
+      }
+      return (
+        String(va).localeCompare(String(vb), 'es', { numeric: true, sensitivity: 'base' }) * dir
+      );
     });
-  });
-}
+  }
 
+  function clampPage(p, totalPages) {
+    if (totalPages <= 1) return 1;
+    return Math.min(Math.max(1, p), totalPages);
+  }
+
+  function renderPagination(totalItems) {
+    const el = document.getElementById('sociosPagination');
+    if (!el) return;
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    currentPage = clampPage(currentPage, totalPages);
+
+    const mkBtn = (label, page, active = false, disabled = false) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      if (active) b.classList.add('active');
+      if (disabled) b.disabled = true;
+      b.addEventListener('click', () => {
+        currentPage = page;
+        renderSocios(sociosCache);
+      });
+      return b;
+    };
+
+    el.innerHTML = '';
+    el.appendChild(mkBtn('‹', currentPage - 1, false, currentPage === 1));
+
+    const windowSize = 7;
+    let start = Math.max(1, currentPage - Math.floor(windowSize / 2));
+    let end = Math.min(totalPages, start + windowSize - 1);
+    start = Math.max(1, end - windowSize + 1);
+
+    for (let p = start; p <= end; p++) {
+      el.appendChild(mkBtn(String(p), p, p === currentPage));
+    }
+
+    el.appendChild(mkBtn('›', currentPage + 1, false, currentPage === totalPages));
+  }
+
+  function updateSortIndicators() {
+    document.querySelectorAll('th.sortable').forEach((th) => {
+      const old = th.querySelector('.sort-ind');
+      if (old) old.remove();
+
+      const key = th.dataset.sort;
+      if (!key || key !== sortKey) return;
+
+      const ind = document.createElement('span');
+      ind.className = 'sort-ind';
+      ind.textContent = sortDir === 'asc' ? '▲' : '▼';
+      th.appendChild(ind);
+    });
+  }
+
+  function bindSorting() {
+    const root = document.getElementById('socios-section');
+    if (!root) return;
+
+    const table = root.querySelector('table');
+    if (!table) return;
+
+    if (table.dataset.sortBound === '1') return;
+    table.dataset.sortBound = '1';
+
+    table.querySelectorAll('th.sortable').forEach((th) => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        if (!key) return;
+
+        if (sortKey === key) {
+          sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortKey = key;
+          sortDir = 'asc';
+        }
+
+        currentPage = 1;
+        renderSocios(sociosCache);
+      });
+    });
+  }
 
   // =============================
-  // Render tabla (incluye Año)
+  // Render tabla
   // =============================
   function renderSocios(socios) {
-  sociosCache = socios || [];
-  const tbody = $('sociosTableBody');
-  if (!tbody) return;
+    sociosCache = socios || [];
+    const tbody = $('sociosTableBody');
+    if (!tbody) return;
 
-  // ✅ aplicar orden
-  const ordered = sortRows(sociosCache);
+    const ordered = sortRows(sociosCache);
 
-  // ✅ paginación
-  const totalItems = ordered.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  currentPage = clampPage(currentPage, totalPages);
+    const totalItems = ordered.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    currentPage = clampPage(currentPage, totalPages);
 
-  const startIdx = (currentPage - 1) * pageSize;
-  const pageRows = ordered.slice(startIdx, startIdx + pageSize);
+    const startIdx = (currentPage - 1) * pageSize;
+    const pageRows = ordered.slice(startIdx, startIdx + pageSize);
 
-  // ✅ contador activos (sobre el total filtrado/ordenado, no solo la página)
-  const activos = ordered.filter(s => s.activo).length;
+    const activos = ordered.filter((s) => s.activo).length;
 
-  tbody.innerHTML = '';
+    tbody.innerHTML = '';
 
-  pageRows.forEach(s => {
-    const fotoUrl = s.foto_url || '/img/user-placeholder.png';
-    const fotoHtml = `
-      <img
-        data-act="viewphoto"
-        data-url="${escapeHtml(fotoUrl)}"
-        src="${escapeHtml(fotoUrl)}"
-        style="width:34px; height:34px; border-radius:10px; object-fit:cover; border:1px solid #ddd; background:#fff; cursor:pointer;"
-        onerror="this.src='/img/user-placeholder.png'"
-        alt="foto"
-      />
-    `;
+    pageRows.forEach((s) => {
+      const fotoUrl = s.foto_url || '/img/user-placeholder.png';
+      const fotoHtml = `
+        <img
+          data-act="viewphoto"
+          data-url="${escapeHtml(fotoUrl)}"
+          src="${escapeHtml(fotoUrl)}"
+          style="width:34px; height:34px; border-radius:10px; object-fit:cover; border:1px solid #ddd; background:#fff; cursor:pointer;"
+          onerror="this.src='/img/user-placeholder.png'"
+          alt="foto"
+        />
+      `;
 
-const waUrl = buildWaUrl(s.telefono);
-const telTxt = (s.telefono ?? '').toString();
+      const waUrl = buildWaUrl(s.telefono);
+      const telTxt = (s.telefono ?? '').toString();
 
-    const tr = document.createElement('tr');
-    tr.dataset.id = s.id;
+      const tr = document.createElement('tr');
+      tr.dataset.id = s.id;
 
-    tr.innerHTML = `
-  <td>${renderPagoPill(s)}</td>
-  <td>${fmtSocioNumero(s.numero_socio)}</td>
-  <td>${escapeHtml(fmtDni(s.dni))}</td>
-  <td>${escapeHtml(s.nombre ?? '')}</td>
-  <td>${escapeHtml(s.apellido ?? '')}</td>
-  <td>${escapeHtml(s.actividad ?? '')}</td>          <!-- NUEVO -->
-  <td>${escapeHtml(s.categoria ?? '')}</td>
-  <td>
-  <span class="wa-phone wa-action" data-phone="${escapeHtml(telTxt)}">
-    ${escapeHtml(telTxt)}
-  </span>
-  ${waUrl ? `<a class="wa-link wa-action" href="${waUrl}" target="_blank" rel="noopener" title="WhatsApp Web">${WA_SVG}</a>` : ''}
-</td>
-  <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
-  <td>${fmtDMY(s.fecha_ingreso)}</td>
-  <td>${s.activo ? 'Sí' : 'No'}</td>
-  <td>${s.becado ? 'Sí' : 'No'}</td>
-  <td>${fotoHtml}</td>
-  <td style="white-space:nowrap;">
-    <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
-    <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
-  </td>
-`;
+      tr.innerHTML = `
+        <td>${renderPagoPill(s)}</td>
+        <td>${fmtSocioNumero(s.numero_socio)}</td>
+        <td>${escapeHtml(fmtDni(s.dni))}</td>
+        <td>${escapeHtml(s.nombre ?? '')}</td>
+        <td>${escapeHtml(s.apellido ?? '')}</td>
+        <td>${escapeHtml(s.actividad ?? '')}</td>
+        <td>${escapeHtml(s.categoria ?? '')}</td>
+        <td>
+          <span class="wa-phone wa-action" data-phone="${escapeHtml(telTxt)}">
+            ${escapeHtml(telTxt)}
+          </span>
+          ${
+            waUrl
+              ? `<a class="wa-link wa-action" href="${waUrl}" target="_blank" rel="noopener" title="WhatsApp Web">${WA_SVG}</a>`
+              : ''
+          }
+        </td>
+        <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
+        <td>${fmtDMY(s.fecha_ingreso)}</td>
+        <td>${s.activo ? 'Sí' : 'No'}</td>
+        <td>${s.becado ? 'Sí' : 'No'}</td>
+        <td>${fotoHtml}</td>
+        <td style="white-space:nowrap;">
+          <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
+          <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
+        </td>
+      `;
 
+      tbody.appendChild(tr);
+    });
 
-    tbody.appendChild(tr);
-  });
+    const countEl = $('sociosActivosCount');
+    if (countEl) countEl.textContent = `Socios activos: ${activos}`;
 
-  const countEl = $('sociosActivosCount');
-  if (countEl) countEl.textContent = `Socios activos: ${activos}`;
-
-  renderPagination(totalItems);
-  updateSortIndicators();
-}
-
+    renderPagination(totalItems);
+    updateSortIndicators();
+  }
 
   // =============================
   // Filtros dropdown
   // =============================
-  function refreshCategoriaOptions(socios) {
-    const sel = $('filtroCategoria');
-    if (!sel) return;
-
-    const current = sel.value;
-    const cats = [...new Set((socios || []).map(s => s.categoria).filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b, 'es'));
-
-    sel.innerHTML = `<option value="">Todas las categorías</option>`;
-    cats.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      sel.appendChild(opt);
-    });
-
-    if (cats.includes(current)) sel.value = current;
-  }
-
   function refreshAnioOptions(socios) {
     const sel = $('filtroAnio');
     if (!sel) return;
 
     const current = sel.value;
-    const years = [...new Set((socios || [])
-      .map(s => s.anio_nacimiento || (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0, 4)) : null))
-      .filter(Boolean))]
-      .sort((a, b) => b - a);
+    const years = [...new Set(
+      (socios || [])
+        .map((s) =>
+          s.anio_nacimiento || (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0, 4)) : null)
+        )
+        .filter(Boolean)
+    )].sort((a, b) => b - a);
 
     sel.innerHTML = `<option value="">Todos los años</option>`;
-    years.forEach(y => {
+    years.forEach((y) => {
       const opt = document.createElement('option');
       opt.value = String(y);
       opt.textContent = String(y);
@@ -1023,70 +1090,73 @@ const telTxt = (s.telefono ?? '').toString();
   }
 
   // =============================
-  // API
+  // Build query
   // =============================
   function buildQueryParams() {
-  const q = new URLSearchParams();
-  const search = $('sociosSearch')?.value?.trim();
-  const categoria = $('filtroCategoria')?.value;
-  const actividad = $('filtroActividad')?.value;  // 👈 NUEVO
-  const anio = $('filtroAnio')?.value;
-  const verInactivos = $('verInactivos')?.checked;
+    const q = new URLSearchParams();
+    const search = $('sociosSearch')?.value?.trim();
+    const categoria = $('filtroCategoria')?.value;
+    const actividad = $('filtroActividad')?.value;
+    const anio = $('filtroAnio')?.value;
+    const verInactivos = $('verInactivos')?.checked;
 
-  if (search) q.set('search', search);
-  if (categoria) q.set('categoria', categoria);
-  if (actividad) q.set('actividad', actividad);    // 👈 NUEVO
-  if (anio) q.set('anio', anio);
-  if (!verInactivos) q.set('activo', '1');
+    if (search) q.set('search', search);
+    if (categoria) q.set('categoria', categoria);
+    if (actividad) q.set('actividad', actividad);
+    if (anio) q.set('anio', anio);
+    if (!verInactivos) q.set('activo', '1');
 
-  return q.toString();
-}
-
-  
-async function loadSocios() {
-  const clubId = getActiveClubId();
-  const qs = buildQueryParams();
-
-  currentPage = 1; // ✅ reset
-
-  const res = await fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`);
-  const data = await safeJson(res);
-
-  if (!res.ok || !data.ok) {
-    alert(data.error || 'Error cargando socios');
-    return;
+    return q.toString();
   }
 
-  // ✅ acá faltaba esto:
-  // (si querés el filtro de categoría por configuración, NO llames refreshCategoriaOptions)
-  refreshAnioOptions(data.socios || []);
-  renderSocios(data.socios || []);
-} // ✅ ESTA LLAVE ES LA CLAVE (cierra loadSocios)
-     
+  async function loadSocios() {
+    const clubId = getActiveClubId();
+    const qs = buildQueryParams();
+
+    currentPage = 1;
+
+    const res = await fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`);
+    const data = await safeJson(res);
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error cargando socios');
+      return;
+    }
+
+    refreshAnioOptions(data.socios || []);
+    renderSocios(data.socios || []);
+  }
+
   async function saveSocio() {
     const clubId = getActiveClubId();
 
     const numeroRaw = $('socioNumero').value.trim();
     const payload = {
-  numero_socio: numeroRaw ? Number(numeroRaw) : null,
-  dni: $('socioDni').value.trim(),
-  nombre: $('socioNombre').value.trim(),
-  apellido: $('socioApellido').value.trim(),
-  categoria: $('socioCategoria').value.trim(),
-  actividad: $('socioActividad').value.trim(),           // 👈 NUEVO
-  telefono: $('socioTelefono').value.trim() || null,
-  direccion: $('socioDireccion').value.trim() || null,   // 👈 NUEVO
-  fecha_nacimiento: $('socioNacimiento').value,
-  fecha_ingreso: $('socioIngreso').value || null,
-  activo: $('socioActivo').checked,
-  becado: $('socioBecado').checked
-};
+      numero_socio: numeroRaw ? Number(numeroRaw) : null,
+      dni: $('socioDni').value.trim(),
+      nombre: $('socioNombre').value.trim(),
+      apellido: $('socioApellido').value.trim(),
+      categoria: $('socioCategoria').value.trim(),
+      actividad: $('socioActividad').value.trim(),
+      telefono: $('socioTelefono').value.trim() || null,
+      direccion: $('socioDireccion').value.trim() || null,
+      fecha_nacimiento: $('socioNacimiento').value,
+      fecha_ingreso: $('socioIngreso').value || null,
+      activo: $('socioActivo').checked,
+      becado: $('socioBecado').checked
+    };
 
-    if (!payload.dni || !payload.nombre || !payload.apellido ||
-    !payload.categoria || !payload.actividad || !payload.fecha_nacimiento) {
-  alert('Completá DNI, Nombre, Apellido, Categoría, Actividad y Fecha de nacimiento.');
-  return;
-}
+    if (
+      !payload.dni ||
+      !payload.nombre ||
+      !payload.apellido ||
+      !payload.categoria ||
+      !payload.actividad ||
+      !payload.fecha_nacimiento
+    ) {
+      alert('Completá DNI, Nombre, Apellido, Categoría, Actividad y Fecha de nacimiento.');
+      return;
+    }
 
     const creating = !editingId;
     const url = creating ? `/club/${clubId}/socios` : `/club/${clubId}/socios/${editingId}`;
@@ -1104,7 +1174,7 @@ async function loadSocios() {
         return;
       }
 
-      const socioId = creating ? (data.socio?.id || data.id) : editingId;
+      const socioId = creating ? data.socio?.id || data.id : editingId;
       if (draftPhoto && socioId) {
         await uploadSocioFotoById(socioId, draftPhoto);
       }
@@ -1171,11 +1241,13 @@ async function loadSocios() {
       alert('Error exportando CSV');
     }
   }
-// =============================
+
+  // =============================
   // Bind events
   // =============================
   function bindOnce() {
-    const root = document.querySelector('.section-socios') || document.getElementById('socios-section');
+    const root =
+      document.querySelector('.section-socios') || document.getElementById('socios-section');
     if (!root) return;
     if (root.dataset.bound === '1') return;
     root.dataset.bound = '1';
@@ -1207,12 +1279,59 @@ async function loadSocios() {
     $('filtroAnio')?.addEventListener('change', loadSocios);
     $('verInactivos')?.addEventListener('change', loadSocios);
 
-    // =============================
-    // CLICK en tabla: foto / editar / eliminar
-    // =============================
-    $('sociosTableBody')?.addEventListener('click', async (ev) => {
+    // SUBIR ADJUNTO
+    $('btnSubirAdjunto')?.addEventListener('click', async () => {
+      if (!editingId) {
+        alert('Primero guardá el socio antes de adjuntar archivos.');
+        return;
+      }
+      const clubId = getActiveClubId();
+      const fileInput = $('adjuntoFile');
+      const commentInput = $('adjuntoComentario');
+      const file = fileInput?.files?.[0];
 
-      // 1) Click en foto -> visor
+      if (!file) {
+        alert('Seleccioná un archivo.');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        alert('El archivo supera los 10MB.');
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('comentario', commentInput.value || '');
+
+      const btn = $('btnSubirAdjunto');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Subiendo...';
+      }
+
+      try {
+        const res = await fetchAuth(`/club/${clubId}/socios/${editingId}/adjuntos`, {
+          method: 'POST',
+          body: fd
+        });
+        const data = await safeJson(res);
+        if (!res.ok || !data.ok) {
+          alert(data.error || 'Error subiendo adjunto');
+          return;
+        }
+        fileInput.value = '';
+        commentInput.value = '';
+        await cargarAdjuntosEnModal(editingId);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '📎 Subir adjunto';
+        }
+      }
+    });
+
+    // CLICK en tabla: foto / editar / eliminar / WhatsApp
+    $('sociosTableBody')?.addEventListener('click', async (ev) => {
       const img = ev.target.closest('[data-act="viewphoto"]');
       if (img) {
         const url = img.dataset.url;
@@ -1220,13 +1339,10 @@ async function loadSocios() {
         return;
       }
 
-      // 2) Click en WhatsApp -> NO hacer nada acá (solo dejamos que el <a> funcione)
-      //    (esto evita interferencias con Editar/Eliminar)
       if (ev.target.closest('.wa-action')) {
         return;
       }
 
-      // 3) Click en botones de acciones (editar/eliminar)
       const btn = ev.target.closest('button[data-act]');
       if (!btn) return;
 
@@ -1235,7 +1351,7 @@ async function loadSocios() {
       if (!id) return;
 
       if (act === 'edit') {
-        const socio = sociosCache.find(x => String(x.id) === String(id));
+        const socio = sociosCache.find((x) => String(x.id) === String(id));
         if (socio) openModalEdit(socio);
         return;
       }
@@ -1248,14 +1364,11 @@ async function loadSocios() {
       }
     });
 
-    // =============================
-    // DOBLE CLICK WhatsApp (teléfono o ícono) -> abrir WhatsApp Web
-    // =============================
+    // DOBLE CLICK WhatsApp – abrir WA
     $('sociosTableBody')?.addEventListener('dblclick', (ev) => {
       const waTarget = ev.target.closest('.wa-action');
-      if (!waTarget) return; // si no fue WA, no hacemos nada
+      if (!waTarget) return;
 
-      // Si doble click fue en el ícono/link
       if (waTarget.tagName === 'A' && waTarget.href) {
         window.open(waTarget.href, '_blank', 'noopener');
         ev.preventDefault();
@@ -1263,7 +1376,6 @@ async function loadSocios() {
         return;
       }
 
-      // Si doble click fue en el texto del teléfono
       const span = ev.target.closest('.wa-phone');
       if (span) {
         const phone = span.dataset.phone;
@@ -1275,136 +1387,138 @@ async function loadSocios() {
       }
     });
 
-// =============================
-// Carga masiva: descargar plantilla / subir Excel
-// =============================
-$('btnSociosTemplate')?.addEventListener('click', async () => {
-  const clubId = getActiveClubId();
-  const url = `/club/${clubId}/socios/template.xlsx`;
+    // Carga masiva: plantilla / subir Excel
+    $('btnSociosTemplate')?.addEventListener('click', async () => {
+      const clubId = getActiveClubId();
+      const url = `/club/${clubId}/socios/template.xlsx`;
 
-  const res = await fetch(url, {
-    headers: { Authorization: 'Bearer ' + getToken() }
-  });
+      const res = await fetch(url, {
+        headers: { Authorization: 'Bearer ' + getToken() }
+      });
 
-  if (!res.ok) {
-    const t = await res.text().catch(() => '');
-    alert('No se pudo descargar la plantilla. ' + t);
-    return;
-  }
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        alert('No se pudo descargar la plantilla. ' + t);
+        return;
+      }
 
-  const blob = await res.blob();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `socios_${clubId}.xlsx`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(a.href);
-});
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `socios_${clubId}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    });
 
-$('btnSociosBulkUpload')?.addEventListener('click', () => {
-  const inp = $('inputSociosBulk');
-  if (!inp) return;
-  inp.value = '';
-  inp.click();
-});
+    $('btnSociosBulkUpload')?.addEventListener('click', () => {
+      const inp = $('inputSociosBulk');
+      if (!inp) return;
+      inp.value = '';
+      inp.click();
+    });
 
-$('inputSociosBulk')?.addEventListener('change', async () => {
-  const inp = $('inputSociosBulk');
-  const file = inp?.files?.[0];
-  if (!file) return;
+    $('inputSociosBulk')?.addEventListener('change', async () => {
+      const inp = $('inputSociosBulk');
+      const file = inp?.files?.[0];
+      if (!file) return;
 
-  const clubId = getActiveClubId();
-  const fd = new FormData();
-  fd.append('file', file);
+      const clubId = getActiveClubId();
+      const fd = new FormData();
+      fd.append('file', file);
 
-  const res = await fetch(`/club/${clubId}/socios/import.xlsx`, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + getToken() },
-    body: fd
-  });
+      const res = await fetch(`/club/${clubId}/socios/import.xlsx`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + getToken() },
+        body: fd
+      });
 
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = { ok:false, error:text }; }
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { ok: false, error: text };
+      }
 
-  if (!res.ok || !data.ok) {
-    alert(data.error || 'Error en carga masiva');
-    return;
-  }
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'Error en carga masiva');
+        return;
+      }
 
-  // refrescar socios y mostrar log
-  await loadSocios();
-  showBulkLog(data);
-});
+      await loadSocios();
+      showBulkLog(data);
+    });
 
-function showBulkLog(data){
-  const modal = document.getElementById('modalBulkLog');
-  const body = document.getElementById('bulkLogBody');
-  if (!modal || !body) return;
+    function showBulkLog(data) {
+      const modal = document.getElementById('modalBulkLog');
+      const body = document.getElementById('bulkLogBody');
+      if (!modal || !body) return;
 
-  const ok = Number(data.insertedCount || 0);
-  const err = Number(data.errorCount || 0);
+      const ok = Number(data.insertedCount || 0);
+      const err = Number(data.errorCount || 0);
 
-  let html = `
-    <div style="padding:10px; border-radius:10px; background:#f9fafb; border:1px solid #e5e7eb;">
-      <b>Insertados:</b> ${ok} &nbsp;&nbsp; <b>Errores:</b> ${err}
-    </div>
-  `;
+      let html = `
+        <div style="padding:10px; border-radius:10px; background:#f9fafb; border:1px solid #e5e7eb;">
+          <b>Insertados:</b> ${ok} &nbsp;&nbsp; <b>Errores:</b> ${err}
+        </div>
+      `;
 
-  const rows = data.errors || [];
-  if (!rows.length) {
-    html += `<div class="muted" style="margin-top:10px;">Sin errores.</div>`;
-  } else {
-    html += `
-      <div style="margin-top:10px;">
-        <table class="socios-table" style="background:#fff;">
-          <thead>
-            <tr>
-              <th>Fila</th>
-              <th>DNI</th>
-              <th>N° socio</th>
-              <th>Error</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(r => `
-              <tr>
-                <td>${r.row ?? '-'}</td>
-                <td>${r.dni ?? '-'}</td>
-                <td>${r.numero_socio ?? '-'}</td>
-                <td>${r.error ?? '-'}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
+      const rows = data.errors || [];
+      if (!rows.length) {
+        html += `<div class="muted" style="margin-top:10px;">Sin errores.</div>`;
+      } else {
+        html += `
+          <div style="margin-top:10px;">
+            <table class="socios-table" style="background:#fff;">
+              <thead>
+                <tr>
+                  <th>Fila</th>
+                  <th>DNI</th>
+                  <th>N° socio</th>
+                  <th>Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows
+                  .map(
+                    (r) => `
+                  <tr>
+                    <td>${r.row ?? '-'}</td>
+                    <td>${r.dni ?? '-'}</td>
+                    <td>${r.numero_socio ?? '-'}</td>
+                    <td>${r.error ?? '-'}</td>
+                  </tr>
+                `
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
 
-  body.innerHTML = html;
-  modal.classList.remove('hidden');
+      body.innerHTML = html;
+      modal.classList.remove('hidden');
 
-  const close = () => modal.classList.add('hidden');
-  document.getElementById('btnBulkLogClose')?.addEventListener('click', close);
-  document.getElementById('btnBulkLogOk')?.addEventListener('click', close);
-  modal.addEventListener('click', (ev) => { if (ev.target === modal) close(); });
-}
+      const close = () => modal.classList.add('hidden');
+      document.getElementById('btnBulkLogClose')?.addEventListener('click', close);
+      document.getElementById('btnBulkLogOk')?.addEventListener('click', close);
+      modal.addEventListener('click', (ev) => {
+        if (ev.target === modal) close();
+      });
+    }
 
-    // =============================
-    // DOBLE CLICK fila -> abrir Carnet (pero NO si fue WA o Acciones)
-    // =============================
+    // Doble click fila -> abrir Carnet (pero NO si fue WA o Acciones)
     root.addEventListener('dblclick', (ev) => {
-      // ✅ Si fue WhatsApp, no abrir carnet
       if (ev.target.closest('.wa-action')) return;
-
-      // ✅ Si fue un botón de Acciones, no abrir carnet
       if (ev.target.closest('button[data-act]')) return;
 
       const tr = ev.target.closest('#sociosTableBody tr');
       if (!tr || !tr.dataset.id) return;
 
-      const socio = sociosCache.find(x => String(x.id) === String(tr.dataset.id));
+      const socio = sociosCache.find((x) => String(x.id) === String(tr.dataset.id));
       if (socio) window.openCarnet(socio);
     });
 

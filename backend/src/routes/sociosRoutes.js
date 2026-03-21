@@ -8,9 +8,14 @@ const ExcelJS = require('exceljs');
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB (Excel)
 });
-``
+
+// Upload para adjuntos de socio (máx 10 MB por archivo)
+const uploadAdjunto = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB
+});
 
 const router = express.Router();
 
@@ -282,9 +287,11 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
     ws.getCell('N1').value = 'NOTA';
     ws.getCell('N2').value = 'Dejá numero_socio vacío para autogenerar. Fechas en formato DD/MM/AAAA.';
 
-
     // Descargar
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
     res.setHeader('Content-Disposition', `attachment; filename="socios_${clubId}.xlsx"`);
 
     await wb.xlsx.write(res);
@@ -294,10 +301,9 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+
 // ===============================
 // IMPORTAR EXCEL (CARGA MASIVA)
-// POST /club/:clubId/socios/import.xlsx  (multipart/form-data file)
-// Respuesta: { ok, insertedCount, errors[] }
 // ===============================
 router.post(
   '/:clubId/socios/import.xlsx',
@@ -323,10 +329,14 @@ router.post(
         `SELECT numero_socio, dni FROM socios WHERE club_id = $1`,
         [clubId]
       );
-      const dniExist = new Set((rExist.rows || []).map(x => String(x.dni ?? '').trim()).filter(Boolean));
-      const numExist = new Set((rExist.rows || []).map(x => String(x.numero_socio ?? '').trim()).filter(Boolean));
+      const dniExist = new Set(
+        (rExist.rows || []).map(x => String(x.dni ?? '').trim()).filter(Boolean)
+      );
+      const numExist = new Set(
+        (rExist.rows || []).map(x => String(x.numero_socio ?? '').trim()).filter(Boolean)
+      );
 
-      // 2) Leer filas (desde fila 2) — guardamos el row completo para poder leer celdas tipo Date
+      // 2) Leer filas (desde fila 2)
       const rows = [];
       ws.eachRow((row, rowNumber) => {
         if (rowNumber === 1) return;
@@ -349,8 +359,8 @@ router.post(
       const toInsert = [];
 
       // helpers
-      const norm = (v) => String(v ?? '').trim();
-      const onlyDigits = (v) => String(v ?? '').replace(/\D+/g, '');
+      const norm = v => String(v ?? '').trim();
+      const onlyDigits = v => String(v ?? '').replace(/\D+/g, '');
       const parseBoolSI = (v, defVal) => {
         const s = norm(v).toUpperCase();
         if (!s) return defVal;
@@ -359,7 +369,9 @@ router.post(
         return defVal;
       };
 
-      function pad2(n) { return String(n).padStart(2, '0'); }
+      function pad2(n) {
+        return String(n).padStart(2, '0');
+      }
 
       function dateToISO(d) {
         const yyyy = d.getFullYear();
@@ -368,10 +380,7 @@ router.post(
         return `${yyyy}-${mm}-${dd}`;
       }
 
-      // Por si Excel devuelve serial numérico (raro, pero puede pasar)
       function excelSerialToISO(serial) {
-        // Excel 1900 date system approximation
-        // 25569 = days between 1899-12-30 and 1970-01-01
         const n = Number(serial);
         if (!Number.isFinite(n)) return null;
         const ms = Math.round((n - 25569) * 86400 * 1000);
@@ -380,57 +389,47 @@ router.post(
         return dateToISO(d);
       }
 
-      // Acepta:
-      // - Date real
-      // - serial number
-      // - "DD/MM/AAAA"
-      // - "MM/DD/AAAA" (si segundo > 12 o primero <=12 y segundo >12)
-      // - "DD-MM-AAAA"
-      // - "AAAA-MM-DD"
       function parseExcelDateToISO(value) {
         if (value === null || value === undefined || value === '') return null;
 
-        // ExcelJS a veces devuelve objeto { text, result, richText } etc.
-        // Nos quedamos con .text si existe.
         if (typeof value === 'object' && value && value.text) {
           value = value.text;
         }
 
-        // Date real
         if (value instanceof Date && !Number.isNaN(value.getTime())) {
           return dateToISO(value);
         }
 
-        // Serial numérico
         if (typeof value === 'number') {
           return excelSerialToISO(value);
         }
 
         const s = String(value).trim();
 
-        // AAAA-MM-DD
         if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
-        // DD/MM/AAAA o MM/DD/AAAA
         let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         if (m) {
-          let a = Number(m[1]); // puede ser DD o MM
-          let b = Number(m[2]); // puede ser MM o DD
+          let a = Number(m[1]);
+          let b = Number(m[2]);
           const yyyy = Number(m[3]);
 
           let dd, mm;
-          // Caso claro MM/DD cuando b > 12 (ej: 11/23/1998) [1](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/_layouts/15/Doc.aspx?sourcedoc=%7B948D12D4-D9FE-4B5D-9EE8-B1D031FD4D3E%7D&file=socios_8ba422eb-f2f6-421d-b87f-a4af5eb8f065.xlsx&action=default&mobileredirect=true)
-          if (b > 12) { mm = a; dd = b; }
-          // Caso claro DD/MM cuando a > 12
-          else if (a > 12) { dd = a; mm = b; }
-          // Ambiguo (<=12 y <=12): asumimos DD/MM (Argentina)
-          else { dd = a; mm = b; }
+          if (b > 12) {
+            mm = a;
+            dd = b;
+          } else if (a > 12) {
+            dd = a;
+            mm = b;
+          } else {
+            dd = a;
+            mm = b;
+          }
 
           if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
           return `${yyyy}-${pad2(mm)}-${pad2(dd)}`;
         }
 
-        // DD-MM-AAAA
         m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
         if (m) {
           const dd = Number(m[1]);
@@ -443,15 +442,10 @@ router.post(
         return null;
       }
 
-      // 4) Validar y preparar inserts (sin frenar por errores)
+      // 4) Validar y preparar inserts
       for (const r of rows) {
         const rowNumber = r.rowNumber;
         const row = r.row;
-
-        // columnas según plantilla:
-        // A numero_socio (1), B dni (2), C nombre (3), D apellido (4),
-        // E actividad (5), F categoria (6), G telefono (7), H direccion (8),
-        // I fecha_nacimiento (9), J fecha_ingreso (10), K activo (11), L becado (12)
 
         let numero = norm(row.getCell(1).value);
         const dniRaw = norm(row.getCell(2).value);
@@ -469,22 +463,26 @@ router.post(
         const activo = parseBoolSI(row.getCell(11).value, true);
         const becado = parseBoolSI(row.getCell(12).value, false);
 
-        // Validaciones mínimas requeridas (como el alta normal)
         if (!dni || dni.length < 7) {
-          errors.push({ row: rowNumber, error: 'DNI inválido o vacío', dni: dniRaw, numero_socio: numero });
+          errors.push({
+            row: rowNumber,
+            error: 'DNI inválido o vacío',
+            dni: dniRaw,
+            numero_socio: numero
+          });
           continue;
         }
         if (!nombre || !apellido || !actividad || !categoria || !fecha_nacimiento_raw) {
           errors.push({
             row: rowNumber,
-            error: 'Faltan campos obligatorios (nombre/apellido/actividad/categoria/fecha_nacimiento)',
+            error:
+              'Faltan campos obligatorios (nombre/apellido/actividad/categoria/fecha_nacimiento)',
             dni,
             numero_socio: numero
           });
           continue;
         }
 
-        // ✅ Parse fechas (acepta Date real, DD/MM y también MM/DD si corresponde)
         const fnISO = parseExcelDateToISO(fecha_nacimiento_raw);
         if (!fnISO) {
           errors.push({
@@ -510,13 +508,16 @@ router.post(
           }
         }
 
-        // Duplicados contra DB
         if (dniExist.has(dni)) {
-          errors.push({ row: rowNumber, error: 'DNI ya existe en el club', dni, numero_socio: numero });
+          errors.push({
+            row: rowNumber,
+            error: 'DNI ya existe en el club',
+            dni,
+            numero_socio: numero
+          });
           continue;
         }
 
-        // número autogenerado si está vacío
         if (!numero) {
           while (numExist.has(String(nextNum))) nextNum++;
           numero = String(nextNum);
@@ -524,11 +525,15 @@ router.post(
         }
 
         if (numExist.has(String(numero))) {
-          errors.push({ row: rowNumber, error: 'Número de socio ya existe en el club', dni, numero_socio: numero });
+          errors.push({
+            row: rowNumber,
+            error: 'Número de socio ya existe en el club',
+            dni,
+            numero_socio: numero
+          });
           continue;
         }
 
-        // reservar en sets para evitar duplicados intra-excel
         dniExist.add(dni);
         numExist.add(String(numero));
 
@@ -548,7 +553,7 @@ router.post(
         });
       }
 
-      // 5) Insertar uno por uno (para permitir carga parcial)
+      // 5) Insertar uno por uno
       let insertedCount = 0;
 
       for (const s of toInsert) {
@@ -588,7 +593,6 @@ router.post(
         }
       }
 
-      // 6) Actualizar counter con el nextNum usado (solo si avanzó)
       await db.query(
         `UPDATE club_counters SET next_socio_num = $2 WHERE club_id = $1`,
         [clubId, nextNum]
@@ -606,6 +610,7 @@ router.post(
     }
   }
 );
+
 // ===============================
 // CREAR SOCIO
 // ===============================
@@ -636,7 +641,6 @@ router.post('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) 
 
     await db.query('BEGIN');
 
-    // Inicializar contador si no existe
     await db.query(
       `
       INSERT INTO club_counters (club_id, next_socio_num)
@@ -855,6 +859,144 @@ router.post('/:clubId/socios/:id/foto', requireAuth, requireClubAccess, async (r
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+// ===============================
+// ADJUNTOS DE SOCIO – LISTAR
+// ===============================
+router.get(
+  '/:clubId/socios/:id/adjuntos',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId, id: socioId } = req.params;
+
+    try {
+      const r = await db.query(
+        `
+        SELECT
+          id,
+          filename,
+          mimetype,
+          size_bytes,
+          comentario,
+          url,
+          created_at
+        FROM socios_adjuntos
+        WHERE club_id = $1 AND socio_id = $2
+        ORDER BY created_at DESC
+        `,
+        [clubId, socioId]
+      );
+
+      res.json({ ok: true, adjuntos: r.rows });
+    } catch (e) {
+      console.error('❌ list socios_adjuntos', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
+// ADJUNTOS DE SOCIO – SUBIR
+// ===============================
+router.post(
+  '/:clubId/socios/:id/adjuntos',
+  requireAuth,
+  requireClubAccess,
+  uploadAdjunto.single('file'),
+  async (req, res) => {
+    const { clubId, id: socioId } = req.params;
+    const comentario = (req.body?.comentario || '').toString().trim();
+
+    try {
+      if (!req.file) {
+        return res.status(400).json({ ok: false, error: 'Falta archivo (file)' });
+      }
+
+      const { buffer, mimetype, originalname, size } = req.file;
+
+      const up = await uploadImageBuffer({
+        buffer,
+        mimetype,
+        originalname,
+        folder: `clubs/${clubId}/socios-adjuntos`
+      });
+
+      const r = await db.query(
+        `
+        INSERT INTO socios_adjuntos (
+          club_id,
+          socio_id,
+          url,
+          filename,
+          mimetype,
+          size_bytes,
+          comentario
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7
+        )
+        RETURNING
+          id,
+          club_id,
+          socio_id,
+          url,
+          filename,
+          mimetype,
+          size_bytes,
+          comentario,
+          created_at
+        `,
+        [clubId, socioId, up.url, originalname, mimetype, size, comentario || null]
+      );
+
+      res.status(201).json({ ok: true, adjunto: r.rows[0] });
+    } catch (e) {
+      console.error('❌ upload socio adjunto', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
+// ADJUNTOS DE SOCIO – ELIMINAR
+// ===============================
+router.delete(
+  '/:clubId/socios/:id/adjuntos/:adjuntoId',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId, id: socioId, adjuntoId } = req.params;
+
+    try {
+      const prev = await db.query(
+        `SELECT url FROM socios_adjuntos WHERE id = $1 AND club_id = $2 AND socio_id = $3`,
+        [adjuntoId, clubId, socioId]
+      );
+
+      if (!prev.rowCount) {
+        return res.status(404).json({ ok: false, error: 'Adjunto no encontrado' });
+      }
+
+      const url = prev.rows[0].url;
+
+      await db.query(
+        `DELETE FROM socios_adjuntos WHERE id = $1 AND club_id = $2 AND socio_id = $3`,
+        [adjuntoId, clubId, socioId]
+      );
+
+      try {
+        await deleteFirebaseObjectByUrl(url);
+      } catch (err) {
+        console.warn('⚠️ No se pudo borrar archivo adjunto de Firebase:', err.message);
+      }
+
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('❌ delete socio adjunto', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
 
 // ===============================
 // EXPORT CSV
