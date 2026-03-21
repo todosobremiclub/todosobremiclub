@@ -75,117 +75,75 @@
       </div>
     </div>
 
-    <!-- ===============================================
-         PANEL 3 – INGRESOS VS GASTOS
-         =============================================== -->
-    <div class="report-card" id="card-ingresos">
-      <div class="card-header">
-        <div>
-          <h3 class="card-title">Ingresos vs Gastos</h3>
-          <div class="card-subtitle muted">
-            Comparativo mensual y anual.
-          </div>
-        </div>
-
-        <div class="card-toolbar stacked">
-          <div class="toolbar-row">
-            <button id="btnIGMesPrev" class="btn-nav">◀</button>
-            <span id="igMesLabel" class="nav-label">Mes actual</span>
-            <button id="btnIGMesNext" class="btn-nav">▶</button>
-          </div>
-          <div class="toolbar-row small">
-            <button id="btnIGAnioPrev" class="btn-nav-sm">◀</button>
-            <span id="igAnioLabel" class="nav-label small">Año actual</span>
-            <button id="btnIGAnioNext" class="btn-nav-sm">▶</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="card-body">
-        <!-- Gráfico mensual -->
-        <div class="card-chart" style="min-height:180px;">
-          <canvas id="chartIGMes"></canvas>
-       <div class="card-body">
-
-  <!-- RESUMEN MENSUAL ARRIBA DEL GRÁFICO -->
-  <div class="ig-month-summary">
-    <div class="ig-month-item">
-      <span class="ig-label">Ingresos mes</span>
-      <span id="igMesIngresos" class="ig-month-value">–</span>
-    </div>
-    <div class="ig-month-item">
-      <span class="ig-label">Gastos mes</span>
-      <span id="igMesGastos" class="ig-month-value">–</span>
-    </div>
-    <div class="ig-month-item">
-      <span class="ig-label">Resultado mes</span>
-      <span id="igMesResultado" class="ig-month-value">–</span>
-    </div>
-  </div>
-
-  <!-- GRÁFICO MENSUAL -->
-  <div class="card-chart" style="min-height:180px;">
-    <canvas id="chartIGMes"></canvas>
-  </div>
-
-  <!-- RESUMEN ANUAL -->
-  <div class="ig-summary">
-    <div class="ig-summary-item">
-      <span class="ig-label">Ingresos año</span>
-      <span id="igAnualIngresos" class="ig-value">–</span>
-    </div>
-    <div class="ig-summary-item">
-      <span class="ig-label">Gastos año</span>
-      <span id="igAnualGastos" class="ig-value">–</span>
-    </div>
-    <div class="ig-summary-item">
-      <span class="ig-label">Resultado año</span>
-      <span id="igAnualResultado" class="ig-value">–</span>
-    </div>
-  </div>
-
-</div>
-
-
-  <!-- Gráfico mensual -->
-  <div class="card-chart" style="min-height:180px;">
-    <canvas id="chartIGMes"></canvas>
-  </div>
-
-  <!-- Resumen anual -->
-  <div class="ig-summary">
-    <div class="ig-summary-item">
-      <span class="ig-label">Ingresos año</span>
-      <span id="igAnualIngresos" class="ig-value">–</span>
-    </div>
-    <div class="ig-summary-item">
-      <span class="ig-label">Gastos año</span>
-      <span id="igAnualGastos" class="ig-value">–</span>
-    </div>
-    <div class="ig-summary-item">
-      <span class="ig-label">Resultado</span>
-      <span id="igAnualResultado" class="ig-value">–</span>
-    </div>
-  </div>
-</div>
-
-        <!-- Resumen anual -->
-        <div class="ig-summary">
-          <div class="ig-summary-item">
-            <span class="ig-label">Ingresos año</span>
-            <span id="igAnualIngresos" class="ig-value">–</span>
-          </div>
-          <div class="ig-summary-item">
-            <span class="ig-label">Gastos año</span>
-            <span id="igAnualGastos" class="ig-value">–</span>
-          </div>
-          <div class="ig-summary-item">
-            <span class="ig-label">Resultado</span>
-            <span id="igAnualResultado" class="ig-value">–</span>
-          </div>
-        </div>
+   <!-- ===============================================
+     PANEL 3 – INGRESOS VS GASTOS
+     =============================================== -->
+<div class="report-card" id="card-ingresos">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title">Ingresos vs Gastos</h3>
+      <div class="card-subtitle muted">
+        Comparativo mensual y anual.
       </div>
     </div>
+
+    <div class="card-toolbar stacked">
+      <div class="toolbar-row">
+        <button id="btnIGMesPrev" class="btn-nav">◀</button>
+        <span id="igMesLabel" class="nav-label">Mes actual</span>
+        <button id="btnIGMesNext" class="btn-nav">▶</button>
+      </div>
+      <div class="toolbar-row small">
+        <button id="btnIGAnioPrev" class="btn-nav-sm">◀</button>
+        <span id="igAnioLabel" class="nav-label small">Año actual</span>
+        <button id="btnIGAnioNext" class="btn-nav-sm">▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUERPO DEL PANEL (UNO SOLO) -->
+  <div class="card-body">
+
+    <!-- RESUMEN MENSUAL (Ingresos mes / Gastos mes / Resultado mes) -->
+    <div class="ig-month-summary">
+      <div class="ig-month-item">
+        <span class="ig-label">Ingresos mes</span>
+        <span id="igMesIngresos" class="ig-month-value">–</span>
+      </div>
+      <div class="ig-month-item">
+        <span class="ig-label">Gastos mes</span>
+        <span id="igMesGastos" class="ig-month-value">–</span>
+      </div>
+      <div class="ig-month-item">
+        <span class="ig-label">Resultado mes</span>
+        <span id="igMesResultado" class="ig-month-value">–</span>
+      </div>
+    </div>
+
+    <!-- GRÁFICO MENSUAL -->
+    <div class="card-chart" style="min-height:180px;">
+      <canvas id="chartIGMes"></canvas>
+    </div>
+
+    <!-- RESUMEN ANUAL -->
+    <div class="ig-summary">
+      <div class="ig-summary-item">
+        <span class="ig-label">Ingresos año</span>
+        <span id="igAnualIngresos" class="ig-value">–</span>
+      </div>
+      <div class="ig-summary-item">
+        <span class="ig-label">Gastos año</span>
+        <span id="igAnualGastos" class="ig-value">–</span>
+      </div>
+      <div class="ig-summary-item">
+        <span class="ig-label">Resultado año</span>
+        <span id="igAnualResultado" class="ig-value">–</span>
+      </div>
+    </div>
+
+  </div> <!-- cierre único del card-body -->
+
+</div> <!-- cierre del report-card -->
 
   </div> <!-- /reportes-grid -->
 
