@@ -2,6 +2,8 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
+let currentChart = null; // gráfico activo en el canvas
+
 // =============================
   // Formato moneda ARS ($ 12.345,67)
   // =============================
@@ -312,16 +314,118 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
     container.innerHTML = `<div class="muted" style="color:#b91c1c;">${msg}</div>`;
   }
 
+// =============================
+  // Gráficos (Chart.js)
   // =============================
-  // Carga de reportes
+  function clearChart() {
+    if (currentChart) {
+      currentChart.destroy();
+      currentChart = null;
+    }
+  }
+
+  function renderChartForReport(reporteId, data) {
+    const card = document.getElementById('reportesChartCard');
+    const titleEl = document.getElementById('reportesChartTitle');
+    const subtitleEl = document.getElementById('reportesChartSubtitle');
+    const canvas = document.getElementById('reportesChartCanvas');
+
+    if (!card || !canvas) return;
+
+    clearChart();
+
+    const ctx = canvas.getContext('2d');
+    const rows = data.rows || [];
+
+    // Por ahora, sólo mostramos gráficos para estos reportes
+    if (!['socios-actividad-categoria', 'ingresos-vs-gastos'].includes(reporteId)) {
+      card.classList.add('hidden');
+      return;
+    }
+
+    card.classList.remove('hidden');
+
+    if (reporteId === 'socios-actividad-categoria') {
+      titleEl.textContent = 'Socios por Actividad';
+      subtitleEl.textContent = 'Distribución de socios activos por actividad';
+
+      const labels = rows.map(r => r.actividad || 'Sin actividad');
+      const valores = rows.map(r => Number(r.cantidad || r.total || 0));
+
+      currentChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: valores,
+            backgroundColor: [
+              '#22c55e','#3b82f6','#f97316',
+              '#e11d48','#a855f7','#06b6d4',
+              '#facc15','#64748b','#16a34a'
+            ],
+            borderWidth: 1,
+          }]
+        },
+        options: {
+          plugins: {
+            legend: { position: 'right' }
+          },
+          maintainAspectRatio: false
+        }
+      });
+      return;
+    }
+
+    if (reporteId === 'ingresos-vs-gastos') {
+      titleEl.textContent = 'Ingresos vs Gastos por año';
+      subtitleEl.textContent = 'Comparativo de totales anuales';
+
+      const labels = rows.map(r => r.anio);
+      const ingresos = rows.map(r => Number(r.ingresos || 0));
+      const gastos = rows.map(r => Number(r.gastos || 0));
+
+      currentChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Ingresos',
+              data: ingresos,
+              backgroundColor: '#22c55e'
+            },
+            {
+              label: 'Gastos',
+              data: gastos,
+              backgroundColor: '#ef4444'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { stacked: false },
+            y: { beginAtZero: true }
+          }
+        }
+      });
+      return;
+    }
+  }
+
   // =============================
-  async function loadReporte(reporteId, opts = {}) {
-  const content = $('reportesContent');
-  if (!content) return;
+// Carga de reportes
+// =============================
+async function loadReporte(reporteId, opts = {}) {
+  // Usamos las tarjetas nuevas: gráfico + tabla
+  const tableCard = $('reportesTableCard') || $('reportesContent');
+  const chartCard = $('reportesChartCard');
+  if (!tableCard) return;
 
   const meta = REPORTS[reporteId];
   if (!meta) {
-    showError(content, 'Reporte no reconocido.');
+    showError(tableCard, 'Reporte no reconocido.');
     return;
   }
 
@@ -348,7 +452,10 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
     if (yearWrapper) yearWrapper.style.display = 'none';
   }
 
-  showLoading(content, `Cargando "${meta.titulo}"...`);
+  // limpiamos contenido previo y mostramos loading en la tarjeta de tabla
+  if (chartCard) chartCard.classList.add('hidden');
+  tableCard.innerHTML = '';
+  showLoading(tableCard, `Cargando "${meta.titulo}"...`);
 
   try {
     const clubId = getActiveClubId();
@@ -360,29 +467,33 @@ ${JSON.stringify(payload.raw ?? payload ?? {}, null, 2)}
     }
 
     const { res, data } = await fetchAuth(url);
-    
 
-      if (!res.ok || !data.ok) {
-        showError(content, data.error || 'Error al cargar el reporte.');
-        return;
-      }
-
-      const title = data.title ?? meta.titulo;
-      const desc  = data.description ?? meta.descripcion ?? '';
-
-      let html = `<h3 style="margin-top:0;">${title}</h3>`;
-      if (desc) {
-        html += `<div class="muted" style="margin-bottom:8px;">${desc}</div>`;
-      }
-
-      html += buildTableHTML(reporteId, data);
-      content.innerHTML = html;
-
-    } catch (e) {
-      console.error(e);
-      showError(content, e.message ?? 'Error inesperado al cargar el reporte.');
+    if (!res.ok || !data.ok) {
+      showError(tableCard, data.error || 'Error al cargar el reporte.');
+      return;
     }
+
+    const title = data.title ?? meta.titulo;
+    const desc  = data.description ?? meta.descripcion ?? '';
+
+    let html = `<h3 style="margin-top:0;">${title}</h3>`;
+    if (desc) {
+      html += `<div class="muted" style="margin-bottom:8px;">${desc}</div>`;
+    }
+
+    html += buildTableHTML(reporteId, data);
+    tableCard.innerHTML = html;
+
+    // Renderizar gráfico (si aplica para este reporte)
+    if (typeof renderChartForReport === 'function') {
+      renderChartForReport(reporteId, data);
+    }
+
+  } catch (e) {
+    console.error(e);
+    showError(tableCard, e.message ?? 'Error inesperado al cargar el reporte.');
   }
+}
 
   // =============================
   // Chips / navegación de reportes
