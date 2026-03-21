@@ -44,7 +44,7 @@
     <div class="report-card" id="card-impagos">
       <div class="card-header">
         <div>
-          <h3 class="card-title">Socios impagos por mes</h3>
+          <h3 class="card-title">Cuotas impagas</h3>
           <div class="card-subtitle muted">
             Morosidad mensual de socios activos.
           </div>
@@ -158,6 +158,25 @@
 
   </div>
 
+<!-- Modal detalle de cuotas impagas -->
+<div id="impagosModal" class="modal hidden">
+  <div class="modal-content" style="max-width: 800px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <h3 id="impagosModalTitle" style="margin:0;">Cuotas impagas</h3>
+      <button id="impagosModalClose" class="btn btn-secondary">✕</button>
+    </div>
+    <div id="impagosModalSub" class="muted" style="margin-top:4px; font-size:13px;"></div>
+    <div id="impagosModalBody" style="margin-top:10px; max-height:60vh; overflow:auto;"></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+      <div id="impagosModalInfo" class="muted small"></div>
+      <div>
+        <button id="impagosModalPrev" class="btn btn-secondary btn-xs">◀</button>
+        <button id="impagosModalNext" class="btn btn-secondary btn-xs">▶</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </section>
 
 <style>
@@ -260,34 +279,44 @@
     font-size:13px;
   }
 
-  /* KPI Impagos */
-  .impagos-top {
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    gap:8px;
-  }
+ /* KPI Cuotas impagas */
+.impagos-top {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  gap:4px;
+}
 
-  .impagos-kpi {
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-  }
+.impagos-kpi {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+}
 
-  .impagos-label {
-    font-size:12px;
-    color:#6b7280;
-  }
+.impagos-label {
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  color:#6b7280;
+}
 
-  .impagos-value {
-    font-size:28px;
-    font-weight:800;
-    color:#b91c1c;
-  }
+.impagos-value {
+  font-size:36px;
+  font-weight:800;
+  color:#b91c1c;
+  line-height:1.1;
+}
 
-  .impagos-year {
-    margin-top:2px;
-  }
+.impagos-year {
+  margin-top:2px;
+}
+
+.impagos-secondary {
+  text-align:center;
+  margin-top:4px;
+}
 
   /* Ingresos/Gastos summary */
   .ig-summary {

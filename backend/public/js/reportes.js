@@ -50,8 +50,11 @@
 
   const impagosState = {
     anio: new Date().getFullYear(),
-    rows: [],                      // [{ anio, mes, cantidad, mes_num }]
-    currentIndex: 0
+    rows: [],            // [{ anio, mes, cantidad, mes_num }]
+    currentIndex: 0,     // índice del mes seleccionado
+    page: 0,             // página actual en el modal
+    pageSize: 20,        // 20 socios por página
+    totalForCurrent: 0   // total de socios impagos para el mes seleccionado
   };
 
   const igState = {
@@ -500,36 +503,117 @@ subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más
     tabela.innerHTML = html;
   }
 
-  async function loadImpagosDetalleForCurrent() {
-    const rows = impagosState.rows || [];
-    const idx = impagosState.currentIndex;
-    const detailBody = $('detailImpagosBody');
-    if (!detailBody) return;
-    if (!rows.length) {
-      detailBody.innerHTML = '<div class="muted small">No hay datos para este mes.</div>';
-      return;
+// =============================
+  // MODAL IMPAGOS (POPUP)
+  // =============================
+  function ensureImpagosModal() {
+    const modal = $('impagosModal');
+    if (!modal) return null;
+
+    if (modal.dataset.bound === '1') return modal;
+    modal.dataset.bound = '1';
+
+    const btnClose = $('impagosModalClose');
+    const btnPrev  = $('impagosModalPrev');
+    const btnNext  = $('impagosModalNext');
+
+    const close = () => {
+      modal.classList.add('hidden');
+    };
+
+    if (btnClose) {
+      btnClose.addEventListener('click', (e) => {
+        e.preventDefault();
+        close();
+      });
     }
+
+    modal.addEventListener('click', (ev) => {
+      if (ev.target === modal) close();
+    });
+
+    if (btnPrev) {
+      btnPrev.addEventListener('click', async () => {
+        if (impagosState.page <= 0) return;
+        impagosState.page -= 1;
+        await loadImpagosPageForCurrent();
+      });
+    }
+
+    if (btnNext) {
+      btnNext.addEventListener('click', async () => {
+        const maxPage = Math.max(
+          0,
+          Math.ceil(impagosState.totalForCurrent / impagosState.pageSize) - 1
+        );
+        if (impagosState.page >= maxPage) return;
+        impagosState.page += 1;
+        await loadImpagosPageForCurrent();
+      });
+    }
+
+    return modal;
+  }
+
+  async function openImpagosModalForCurrent() {
+    const rows = impagosState.rows || [];
+    if (!rows.length) return;
+
+    const idx = impagosState.currentIndex;
     const sel = rows[idx];
 
-    showLoading(detailBody, `Cargando socios impagos de ${sel.mes} ${sel.anio}...`);
+    const modal   = ensureImpagosModal();
+    const titleEl = $('impagosModalTitle');
+    const subEl   = $('impagosModalSub');
+
+    if (!modal) return;
+
+    if (titleEl) titleEl.textContent = 'Cuotas impagas';
+    if (subEl)   subEl.textContent   = `${sel.mes} ${sel.anio} · socios activos sin registro de pago`;
+
+    impagosState.page = 0;  // siempre arrancamos en página 0
+    modal.classList.remove('hidden');
+    await loadImpagosPageForCurrent();
+  }
+
+  async function loadImpagosPageForCurrent() {
+    const rows = impagosState.rows || [];
+    const idx  = impagosState.currentIndex;
+    const body = $('impagosModalBody');
+    const info = $('impagosModalInfo');
+
+    if (!body || !rows.length) return;
+
+    const sel   = rows[idx];
+    const limit = impagosState.pageSize;
+    const offset= impagosState.page * impagosState.pageSize;
+
+    body.innerHTML = '<div class="muted">Cargando socios impagos...</div>';
+    if (info) info.textContent = '';
 
     try {
       const clubId = getActiveClubId();
       const params = new URLSearchParams({
-        anio: String(sel.anio),
-        mes: String(sel.mes_num),
-        limit: '200',
-        offset: '0'
+        anio:   String(sel.anio),
+        mes:    String(sel.mes_num),
+        limit:  String(limit),
+        offset: String(offset)
       });
+
       const url = `/club/${clubId}/reportes/impagos-mes/detalle?${params.toString()}`;
       const { data } = await fetchAuth(url);
+
       if (!data.ok) {
-        showError(detailBody, data.error || 'Error cargando detalle de impagos');
+        body.innerHTML = `<div class="muted" style="color:#b91c1c;">${data.error || 'Error cargando socios'}</div>`;
         return;
       }
+
       const items = data.items || [];
+      impagosState.totalForCurrent = Number(data.total || items.length);
+
       if (!items.length) {
-        detailBody.innerHTML = '<div class="muted small">No hay socios impagos para ese mes.</div>';
+        body.innerHTML = '<div class="muted">No hay socios impagos para este mes.</div>';
+        if (info) info.textContent = '';
         return;
       }
 
@@ -563,11 +647,23 @@ subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más
           </tbody>
         </table>
       `;
-      detailBody.innerHTML = html;
+      body.innerHTML = html;
+
+      if (info) {
+        const desde = offset + 1;
+        const hasta = offset + items.length;
+        info.textContent = `Mostrando ${desde}-${hasta} de ${impagosState.totalForCurrent} socios impagos`;
+      }
+
     } catch (e) {
       console.error(e);
-      showError(detailBody, e.message || 'Error inesperado cargando detalle de impagos');
+      body.innerHTML = `<div class="muted" style="color:#b91c1c;">${e.message || 'Error inesperado cargando socios impagos'}</div>`;
     }
+  }
+
+  async function loadImpagosDetalleForCurrent() {
+    // Esta función queda como helper pero ahora sólo abre el modal
+    await openImpagosModalForCurrent();
   }
 
   function bindImpagosInteractions() {
@@ -577,11 +673,12 @@ subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más
     const tabela = $('tablaImpagos');
 
     if (kpi) {
-      kpi.style.cursor = 'pointer';
-      kpi.addEventListener('click', () => {
-        loadImpagosDetalleForCurrent();
-      });
-    }
+    kpi.style.cursor = 'pointer';
+    kpi.addEventListener('click', () => {
+      // click en el número → popup con hasta 20 socios + paginación
+      loadImpagosDetalleForCurrent();
+    });
+  }
 
     if (btnPrev) {
       btnPrev.addEventListener('click', () => {
