@@ -796,87 +796,101 @@
   }
 
   function openCarnet(socio) {
-    const modal = ensureCarnetModal();
-    carnetSocioId = socio.id;
+  const modal = ensureCarnetModal();
+  carnetSocioId = socio.id;
 
-    const foto = socio.foto_url || '/img/user-placeholder.png';
-    const img = modal.querySelector('#carnetFoto');
-    if (img) {
-      img.src = foto;
-      img.onerror = function () {
-        this.src = '/img/user-placeholder.png';
-      };
+  const foto = socio.foto_url || '/img/user-placeholder.png';
+
+  // --------------------------
+  // CABECERA LIMPIA
+  // --------------------------
+  modal.querySelector('#carnetFoto').src = foto;
+
+  modal.querySelector('#carnetNombre').textContent =
+    `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim();
+
+  modal.querySelector('#carnetDni').textContent =
+    `DNI: ${fmtDni(socio.dni)}`;
+
+  modal.querySelector('#carnetCategoria').textContent =
+    `Categoría: ${socio.categoria ?? '-'}`;
+
+  const pago = pagoEstado(socio);
+  modal.querySelector('#carnetPago').innerHTML =
+    `<span class="pay-pill ${pago.ok ? 'pay-ok' : 'pay-bad'}">${pago.label}</span>`;
+
+  // --------------------------
+  // ARMAMOS FICHA ORDENADA
+  // --------------------------
+  const extraEl = modal.querySelector('#carnetExtra');
+
+  const ficha = [
+    ["Estado de pago", pago.label],
+    ["N° Socio", socio.numero_socio ?? "-"],
+    ["Actividad", socio.actividad ?? "-"],
+    ["Teléfono", socio.telefono ?? "-"],
+    ["Dirección", socio.direccion ?? "-"],
+    ["Nacimiento", fmtDMY(socio.fecha_nacimiento)],
+    ["Año nacimiento", socio.anio_nacimiento ?? yearFromISO(socio.fecha_nacimiento)],
+    ["Ingreso", fmtDMY(socio.fecha_ingreso)],
+    ["Activo", socio.activo ? "Sí" : "No"],
+    ["Becado", socio.becado ? "Sí" : "No"]
+  ];
+
+  let html = "";
+
+  html += `<div class="carnet-section">`;
+  ficha.forEach(([k, v]) => {
+    html += `
+      <div class="carnet-item">
+        <span class="carnet-label">${k}:</span>
+        <span class="carnet-value">${escapeHtml(v)}</span>
+      </div>
+    `;
+  });
+  html += `</div>`;
+
+  // --------------------------
+  // ESTADO DE ADJUNTOS / COMENTARIOS
+  // --------------------------
+  const est = socioEstados[String(socio.id)] || {};
+
+  const tAdj = est.tieneAdjuntos ? "📎 Tiene adjuntos" : "";
+  const tCom = est.tieneComentario ? "💬 Tiene comentario" : "";
+
+  if (tAdj || tCom) {
+    html += `<hr><div class="carnet-label" style="margin-bottom:6px;">Documentación:</div>`;
+    if (tAdj) {
+      html += `<div class="carnet-doc" data-doc="adjuntos">📎 Ver adjuntos</div>`;
     }
-
-    const nombre = `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
-    const elNombre = modal.querySelector('#carnetNombre');
-    if (elNombre) elNombre.textContent = nombre;
-
-    const elDni = modal.querySelector('#carnetDni');
-    if (elDni) elDni.textContent = `DNI: ${fmtDni(socio.dni) || '—'}`;
-
-    const elCat = modal.querySelector('#carnetCategoria');
-    if (elCat) elCat.textContent = `Categoría: ${socio.categoria ?? '—'}`;
-
-    const est = pagoEstado(socio);
-    const pagoEl = modal.querySelector('#carnetPago');
-    if (pagoEl) {
-      pagoEl.innerHTML = `<span class="pay-pill ${est.ok ? 'pay-ok' : 'pay-bad'}">${escapeHtml(
-        est.label
-      )}</span>`;
+    if (tCom) {
+      html += `<div class="carnet-doc" data-doc="comentarios">💬 Ver comentario</div>`;
     }
-
-    const extraEl = modal.querySelector('#carnetExtra');
-    if (extraEl) {
-      const items = [
-        ['Estado de pago', est.label],
-        ['Nº Socio', socio.numero_socio ?? '—'],
-        ['DNI', socio.dni ?? '—'],
-        ['Nombre', `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim() || '—'],
-        ['Actividad', socio.actividad ?? '—'],
-        ['Categoría', socio.categoria ?? '—'],
-        ['Teléfono', socio.telefono ?? '—'],
-        ['Dirección', socio.direccion ?? '—'],
-        ['Nacimiento', fmtDMY(socio.fecha_nacimiento) || '—'],
-        [
-          'Año nacimiento',
-          socio.anio_nacimiento ?? yearFromISO(socio.fecha_nacimiento) ?? '—'
-        ],
-        ['Ingreso', fmtDMY(socio.fecha_ingreso) || '—'],
-        ['Activo', socio.activo ? 'Sí' : 'No'],
-        ['Becado', socio.becado ? 'Sí' : 'No']
-      ];
-
-      extraEl.innerHTML = items
-        .map(([k, v]) => `<div><b>${escapeHtml(k)}:</b> ${escapeHtml(v)}</div>`)
-        .join('');
-    }
-
-    // Adjuntos en carnet
-    (async () => {
-      const clubId = getActiveClubId();
-      const adjuntos = await fetchAdjuntos(clubId, socio.id);
-      if (!adjuntos.length) return;
-      const extraEl = modal.querySelector('#carnetExtra');
-      if (!extraEl) return;
-
-      extraEl.innerHTML += '<div><b>Adjuntos:</b></div>';
-      adjuntos.forEach((a) => {
-        extraEl.innerHTML += `
-          <div>
-            <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
-              ${escapeHtml(a.filename)}
-            </a>
-            ${a.comentario ? `<br><small>${escapeHtml(a.comentario)}</small>` : ''}
-          </div>
-        `;
-      });
-    })().catch(console.error);
-
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-    modal.style.pointerEvents = 'auto';
   }
+
+  extraEl.innerHTML = html;
+
+  // --------------------------
+  // CLICK EN VER ADJUNTOS / COMENTARIO
+  // --------------------------
+  extraEl.querySelectorAll(".carnet-doc").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const type = btn.dataset.doc;
+      if (type === "adjuntos") {
+        cargarAdjuntosEnModal(socio.id); // Usa el modal del socio
+        openModalEdit(socio);
+      }
+      else if (type === "comentarios") {
+        cargarAdjuntosEnModal(socio.id);
+        openModalEdit(socio);
+      }
+    });
+  });
+
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+}
+
 
   function closeCarnet() {
     const modal = document.getElementById('modalCarnet');
