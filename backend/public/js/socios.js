@@ -604,7 +604,9 @@ async function cargarComentariosEnModal(socioId) {
     if (showAdjuntos) partesTitulo.push('Adjuntos');
     if (showComentarios) partesTitulo.push('Comentarios');
 
-    titleEl.textContent = partesTitulo.join(' y ') || 'Documentación';
+    titleEl.textContent = partesTitulo.length
+    ? partesTitulo.join(' y ')
+    : 'Documentación';
 
     let html = '';
 
@@ -1655,20 +1657,7 @@ if (btnToggleAdj && listaAdj && formAdj) {
   });
 }
 
-    // CLICK en tabla: foto / editar / eliminar / WhatsApp / flags
-    $('sociosTableBody')?.addEventListener('click', async (ev) => {
-      const img = ev.target.closest('[data-act="viewphoto"]');
-      if (img) {
-        const url = img.dataset.url;
-        if (url) openPhotoViewer(url);
-        return;
-      }
-
-      if (ev.target.closest('.wa-action')) {
-        return;
-      }
-
-     // CLICK en tabla: foto / editar / eliminar / WhatsApp / flags
+         // CLICK en tabla: foto / editar / eliminar / WhatsApp / flags
 $('sociosTableBody')?.addEventListener('click', async (ev) => {
   // Ver foto grande
   const img = ev.target.closest('[data-act="viewphoto"]');
