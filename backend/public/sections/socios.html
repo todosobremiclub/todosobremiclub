@@ -185,37 +185,48 @@
 <div id="modalCarnet" class="modal hidden">
   <div class="modal-content carnet-content">
 
-    <!-- HEADER PREMIUM -->
-    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
-      <h3 style="margin:0;">Carnet digital</h3>
-      <button id="btnCarnetClose" class="btn btn-secondary">✕</button>
-    </div>
+   <!-- HEADER PREMIUM -->
+<div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+  <h3 style="margin:0;">Carnet digital</h3>
+  <button id="btnCarnetClose" class="btn btn-secondary" style="background:#ffffff55; color:#fff;">✕</button>
+</div>
 
-    <!-- CUERPO PRINCIPAL PREMIUM -->
-    <div class="carnet-main">
-      <img id="carnetFoto" class="carnet-foto" alt="Foto" />
+<!-- CUERPO PRINCIPAL PREMIUM -->
+<div class="carnet-main">
+  <img id="carnetFoto" class="carnet-foto" alt="Foto" />
 
-      <div class="carnet-info">
-        <div id="carnetNombre" class="carnet-nombre"></div>
-        <div id="carnetDni" class="muted small"></div>
-        <div id="carnetCategoria" class="muted small"></div>
+  <div class="carnet-info">
+    <div id="carnetNombre" class="carnet-nombre"></div>
+    <div id="carnetDni" class="muted small"></div>
+    <div id="carnetCategoria" class="muted small"></div>
 
-        <!-- ICONOS 📎 / 💬 -->
-        <div id="carnetFlags" style="margin-top:6px; font-size:18px;"></div>
+    <!-- ICONOS 📎 / 💬 -->
+    <div id="carnetFlags" style="margin-top:6px; font-size:18px;"></div>
 
-        <!-- ESTADO DE PAGO -->
-        <div id="carnetPago" class="carnet-pago" style="margin-top:12px;"></div>
-      </div>
-    </div>
+    <!-- ESTADO DE PAGO -->
+    <div id="carnetPago" class="carnet-pago" style="margin-top:12px;"></div>
+  </div>
+</div>
 
-    <!-- FICHA COMPLETA DINÁMICA (DATOS DEL SOCIO) -->
-    <div id="carnetExtra" class="carnet-extra"></div>
+<!-- FICHA COMPLETA -->
+<div id="carnetExtra" class="carnet-extra"></div>
 
-    <!-- FOOTER -->
-    <div class="modal-actions footer" style="padding: 16px 22px; display:flex; justify-content:flex-end; gap:10px;">
-      <button id="btnCarnetEdit" class="btn btn-primary">Editar</button>
-      <button id="btnCarnetOk" class="btn btn-secondary">Cerrar</button>
-    </div>
+<!-- FOOTER / BOTONES -->
+<div class="modal-actions footer" 
+     style="padding: 16px 22px; display:flex; justify-content:flex-end; gap:10px;">
+
+  <button id="btnCarnetEdit" 
+          class="btn btn-primary" 
+          style="background: var(--color-primary); border: none; color: #fff;">
+    Editar
+  </button>
+
+  <button id="btnCarnetOk" 
+          class="btn btn-secondary" 
+          style="background:#e4e4e4; border:1px solid #ccc; color:#333;">
+    Cerrar
+  </button>
+</div>
 
   </div>
 </div>
