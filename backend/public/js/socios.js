@@ -1397,39 +1397,60 @@
       }
     });
 
-    // CLICK en tabla: foto / editar / eliminar / WhatsApp
-    $('sociosTableBody')?.addEventListener('click', async (ev) => {
-      const img = ev.target.closest('[data-act="viewphoto"]');
-      if (img) {
-        const url = img.dataset.url;
-        if (url) openPhotoViewer(url);
-        return;
-      }
-
-      if (ev.target.closest('.wa-action')) {
-        return;
-      }
-
-      const btn = ev.target.closest('button[data-act]');
-      if (!btn) return;
-
-      const act = btn.dataset.act;
-      const id = btn.dataset.id;
-      if (!id) return;
-
-      if (act === 'edit') {
-        const socio = sociosCache.find((x) => String(x.id) === String(id));
-        if (socio) openModalEdit(socio);
-        return;
-      }
-
-      if (act === 'del') {
-        if (confirm('¿Eliminar socio definitivamente?')) {
-          await deleteSocio(id);
+  // CLICK en tabla: foto / editar / eliminar / WhatsApp
+      $('sociosTableBody')?.addEventListener('click', async (ev) => {
+        const img = ev.target.closest('[data-act="viewphoto"]');
+        if (img) {
+          const url = img.dataset.url;
+          if (url) openPhotoViewer(url);
+          return;
         }
-        return;
-      }
-    });
+
+        if (ev.target.closest('.wa-action')) {
+          // Si el click fue en WhatsApp, no seguimos con otras acciones
+          return;
+        }
+
+        // NUEVO: click en iconos de adjuntos/comentarios (📎 / 💬)
+        const flagsEl = ev.target.closest('.socio-flags');
+        if (flagsEl) {
+          const tr = flagsEl.closest('tr');
+          const id = tr?.dataset.id;
+
+          if (id) {
+            const socio = sociosCache.find((x) => String(x.id) === String(id));
+            if (socio) {
+              // Abrimos el mismo modal de edición del socio
+              // (con la sección Documentación adjunta adentro)
+              openModalEdit(socio);
+            }
+          }
+
+          // No dejamos que el click siga bajando al handler de botones
+          return;
+        }
+
+        const btn = ev.target.closest('button[data-act]');
+        if (!btn) return;
+
+        const act = btn.dataset.act;
+        const id = btn.dataset.id;
+        if (!id) return;
+
+        if (act === 'edit') {
+          const socio = sociosCache.find((x) => String(x.id) === String(id));
+          if (socio) openModalEdit(socio);
+          return;
+        }
+
+        if (act === 'del') {
+          if (confirm('¿Eliminar socio definitivamente?')) {
+            await deleteSocio(id);
+          }
+          return;
+        }
+      });
+
 
     // DOBLE CLICK WhatsApp – abrir WA
     $('sociosTableBody')?.addEventListener('dblclick', (ev) => {

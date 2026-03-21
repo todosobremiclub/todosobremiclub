@@ -1,14 +1,12 @@
 <section id="socios-section" class="section-socios">
 
-  <!-- ✅ TOOLBAR -->
+  <!-- =======================
+       TOOLBAR / FILTROS
+  ======================== -->
   <div class="socios-toolbar">
+
     <div class="socios-filters-inline">
-      <input
-        type="text"
-        id="sociosSearch"
-        placeholder="Buscar por Nombre, Apellido o DNI"
-        style="min-width:220px;"
-      />
+      <input id="sociosSearch" type="text" placeholder="Buscar por Nombre, Apellido o DNI" />
 
       <select id="filtroActividad">
         <option value="">Todas las actividades</option>
@@ -34,14 +32,19 @@
       <button id="btnNuevoSocio" title="Nuevo socio">➕</button>
       <button id="btnExportSocios" title="Descargar Excel">📥</button>
     </div>
+
   </div>
 
-  <!-- INFO -->
+  <!-- =======================
+       INFO
+  ======================== -->
   <div class="socios-info">
     <span id="sociosActivosCount">Socios activos: 0</span>
   </div>
 
-  <!-- TABLA -->
+  <!-- =======================
+       TABLA
+  ======================== -->
   <div class="table-wrapper">
     <table class="socios-table">
       <thead>
@@ -68,436 +71,341 @@
 
   <div id="sociosPagination" class="pagination"></div>
 
-<!-- ✅ CARGA MASIVA (abajo a la derecha) -->
-<div class="socios-bulk-bar">
-  <button id="btnSociosTemplate" class="btn btn-secondary">📥 Excel (plantilla)</button>
-  <button id="btnSociosBulkUpload" class="btn btn-primary">⬆️ Carga masiva</button>
-  <input id="inputSociosBulk" type="file" accept=".xlsx" style="display:none;" />
-</div>
+  <!-- =======================
+       CARGA MASIVA
+  ======================== -->
+  <div class="socios-bulk-bar">
+    <button id="btnSociosTemplate" class="btn btn-secondary">📥 Excel (plantilla)</button>
+    <button id="btnSociosBulkUpload" class="btn btn-primary">⬆️ Carga masiva</button>
+    <input id="inputSociosBulk" type="file" accept=".xlsx" style="display:none;">
+  </div>
 
-<!-- ✅ MODAL LOG CARGA MASIVA -->
-<div id="modalBulkLog" class="modal hidden">
-  <div class="modal-content" style="max-width:900px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <h3 style="margin:0;">Log carga masiva</h3>
-      <button id="btnBulkLogClose" class="btn btn-secondary">✕</button>
-    </div>
-    <div id="bulkLogBody" style="margin-top:12px; max-height:60vh; overflow:auto;"></div>
-    <div class="modal-actions" style="margin-top:12px; text-align:right;">
-      <button id="btnBulkLogOk" class="btn btn-primary">Aceptar</button>
+  <!-- =======================
+       MODAL LOG CARGA MASIVA
+  ======================== -->
+  <div id="modalBulkLog" class="modal hidden">
+    <div class="modal-content wide">
+      <div class="modal-header">
+        <h3>Log carga masiva</h3>
+        <button id="btnBulkLogClose" class="btn btn-secondary">✕</button>
+      </div>
+
+      <div id="bulkLogBody" class="modal-scroll"></div>
+
+      <div class="modal-actions">
+        <button id="btnBulkLogOk" class="btn btn-primary">Aceptar</button>
+      </div>
     </div>
   </div>
-</div>
 
-  <!-- ================= MODAL SOCIO ================= -->
+  <!-- =======================
+       MODAL SOCIO (editar/crear)
+  ======================== -->
   <div id="modalSocio" class="modal hidden">
-    <div class="modal-content">
+    <div class="modal-content socio-content">
+
       <h3 id="modalSocioTitle">Nuevo socio</h3>
 
-      <div class="modal-body">
-        <div class="form-grid socios-form-grid">
+      <div class="modal-body socio-body">
+
+        <!-- FORM GRID -->
+        <div class="socios-form-grid">
+
           <div>
             <label>N° Socio</label>
-            <input type="number" id="socioNumero" placeholder="Automático si se deja vacío" />
+            <input id="socioNumero" type="number" placeholder="Automático si se deja vacío">
           </div>
 
           <div>
             <label>DNI *</label>
-            <input type="text" id="socioDni" required />
+            <input id="socioDni" type="text">
           </div>
 
           <div>
             <label>Nombre *</label>
-            <input type="text" id="socioNombre" required />
+            <input id="socioNombre" type="text">
           </div>
 
           <div>
             <label>Apellido *</label>
-            <input type="text" id="socioApellido" required />
+            <input id="socioApellido" type="text">
           </div>
 
           <div>
             <label>Actividad *</label>
-            <select id="socioActividad" required>
-              <option value="">Cargando...</option>
+            <select id="socioActividad">
+              <option value="">Cargando…</option>
             </select>
-            <div class="muted" style="margin-top:6px;">
-              *Las actividades se administran en Configuración.
-            </div>
+            <div class="muted small">*Las actividades se administran en Configuración.</div>
           </div>
 
           <div>
             <label>Categoría *</label>
-            <select id="socioCategoria" required>
-              <option value="">Seleccionar...</option>
+            <select id="socioCategoria">
+              <option value="">Seleccionar…</option>
             </select>
-            <div class="muted" style="margin-top:6px;">
-              *Las categorías se administran en Configuración.
-            </div>
+            <div class="muted small">*Las categorías se administran en Configuración.</div>
           </div>
 
           <div>
             <label>Teléfono</label>
-            <input type="text" id="socioTelefono" />
+            <input id="socioTelefono" type="text">
           </div>
 
           <div>
             <label>Dirección</label>
-            <input type="text" id="socioDireccion" />
+            <input id="socioDireccion" type="text">
           </div>
 
           <div>
             <label>Fecha de nacimiento *</label>
-            <input type="date" id="socioNacimiento" required />
+            <input id="socioNacimiento" type="date">
           </div>
 
           <div>
             <label>Fecha de ingreso</label>
-            <input type="date" id="socioIngreso" />
+            <input id="socioIngreso" type="date">
           </div>
 
           <div class="col-span-3 checks-row">
-            <label class="checkbox-inline">
-              <input type="checkbox" id="socioActivo" checked /> Activo
-            </label>
-
-            <label class="checkbox-inline">
-              <input type="checkbox" id="socioBecado" /> Becado
-            </label>
+            <label class="checkbox-inline"><input id="socioActivo" type="checkbox" checked> Activo</label>
+            <label class="checkbox-inline"><input id="socioBecado" type="checkbox"> Becado</label>
           </div>
+
         </div>
 
-        <!-- ======================================================= -->
-        <!-- ⭐⭐⭐ DOCUMENTACIÓN ADJUNTA — NUEVA SECCIÓN ⭐⭐⭐ -->
-        <!-- ======================================================= -->
-        <div id="adjuntosSection" style="margin-top:25px;">
-          <h4 style="margin-bottom:6px;">Documentación adjunta</h4>
+        <!-- =======================
+             DOCUMENTACIÓN ADJUNTA
+        ======================== -->
+        <div id="adjuntosSection" class="adjuntos-container">
 
-          <!-- Lista -->
-          <div id="listaAdjuntos"
-               style="
-                 border:1px solid #ddd;
-                 border-radius:8px;
-                 padding:10px;
-                 max-height:220px;
-                 overflow-y:auto;
-                 background:#fafafa;">
-            <div class="text-muted">Aquí verás los archivos del socio...</div>
+          <h4>Documentación adjunta</h4>
+
+          <div id="listaAdjuntos" class="adjuntos-list">
+            <div class="text-muted">Aquí verás los archivos del socio…</div>
           </div>
 
-          <!-- Subir archivo -->
-          <div style="margin-top:12px;">
+          <div>
             <label>Archivo (máx 10MB)</label>
-            <input type="file" id="adjuntoFile" class="form-control" />
+            <input id="adjuntoFile" type="file">
           </div>
 
-          <div style="margin-top:10px;">
+          <div>
             <label>Comentario</label>
-            <textarea id="adjuntoComentario"
-                      rows="2"
-                      class="form-control"
-                      placeholder="Ej: DNI frente, Certificado médico"></textarea>
+            <textarea id="adjuntoComentario" rows="2" placeholder="Ej: DNI frente, certificado médico"></textarea>
           </div>
 
-          <button id="btnSubirAdjunto"
-                  class="btn btn-secondary"
-                  style="margin-top:12px;">
-            📎 Subir adjunto
-          </button>
+          <button id="btnSubirAdjunto" class="btn btn-secondary">📎 Subir adjunto</button>
+
         </div>
-        <!-- ======================================================= -->
 
       </div>
 
-      <div class="modal-actions modal-footer">
-        <button id="btnCancelarSocio" class="btn btn-secondary" type="button">Cancelar</button>
-        <button id="btnGuardarSocio" class="btn btn-primary" type="button">Guardar</button>
+      <div class="modal-actions footer">
+        <button id="btnCancelarSocio" class="btn btn-secondary">Cancelar</button>
+        <button id="btnGuardarSocio" class="btn btn-primary">Guardar</button>
       </div>
+
     </div>
   </div>
 
-  <!-- ================= MODAL CARNET ================= -->
+  <!-- =======================
+       MODAL CARNET
+  ======================== -->
   <div id="modalCarnet" class="modal hidden">
-    <div class="modal-content" style="max-width:560px;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h3 style="margin:0;">Carnet digital</h3>
+    <div class="modal-content carnet-content">
+      <div class="modal-header">
+        <h3>Carnet digital</h3>
         <button id="btnCarnetClose">✕</button>
       </div>
 
-      <div style="display:flex; gap:12px; margin-top:12px;">
-        <img
-          id="carnetFoto"
-          style="width:90px; height:90px; border-radius:12px; object-fit:cover;"
-        />
-        <div>
-          <div id="carnetNombre" style="font-size:18px; font-weight:800;"></div>
-          <div id="carnetDni" class="muted"></div>
-          <div id="carnetCategoria" class="muted"></div>
-          <div id="carnetPago" style="margin-top:8px;"></div>
+      <div class="carnet-main">
+        <img id="carnetFoto" class="carnet-foto" />
+        <div class="carnet-info">
+          <div id="carnetNombre" class="carnet-nombre"></div>
+          <div id="carnetDni" class="muted small"></div>
+          <div id="carnetCategoria" class="muted small"></div>
+          <div id="carnetPago" class="carnet-pago"></div>
         </div>
       </div>
 
-      <div id="carnetExtra" class="muted"></div>
+      <div id="carnetExtra" class="carnet-extra"></div>
 
-      <div class="modal-actions">
-        <button id="btnCarnetEdit">✏️ Editar</button>
-        <button id="btnCarnetOk">Cerrar</button>
+      <div class="modal-actions footer">
+        <button id="btnCarnetEdit" class="btn btn-primary">Editar</button>
+        <button id="btnCarnetOk" class="btn btn-secondary">Cerrar</button>
       </div>
+
     </div>
   </div>
 
-  <!-- ================= ESTILOS ================= -->
+  <!-- =======================
+       ESTILOS
+  ======================== -->
   <style>
-    /* -----------------------
-       CARNET DIGITAL
-    ----------------------- */
-    #modalCarnet .modal-content {
-      border: 2px solid var(--color-primary);
-      box-shadow: 0 20px 50px rgba(0,0,0,0.25);
-    }
-    #carnetFoto {
-      border: 3px solid var(--color-primary);
-    }
-    #carnetNombre {
-      color: var(--color-primary);
-    }
-    #carnetPago {
-      display:inline-block;
-      padding:4px 10px;
-      border-radius:999px;
-      font-weight:800;
-      font-size:13px;
-      background: color-mix(in srgb, var(--color-primary) 15%, white);
-      color: var(--color-primary);
-    }
-    #carnetExtra {
-      margin-top:14px;
-      display:grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap:8px 14px;
-    }
-    #carnetExtra > div {
-      padding:6px 8px;
-      border-radius:8px;
-      background:#f9fafb;
-      border-left:3px solid var(--color-primary);
-      font-size:13px;
-    }
-    @media (max-width:520px){
-      #carnetExtra { grid-template-columns:1fr; }
-    }
+    /* =====================================================
+       GENERAL
+    ===================================================== */
+    .small { font-size: 12px; }
+    .muted { color: #6b7280; }
 
-    /* -----------------------
-       FILTROS / TOOLBAR
-    ----------------------- */
-    .socios-toolbar {
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 2000;
+    }
+    .modal.hidden { display:none; }
+
+    .modal-content {
+      background: white;
+      border-radius: 14px;
+      padding: 18px;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+      position: relative;
+    }
+    .modal-content.wide { max-width: 900px; }
+
+    .modal-header {
       display:flex;
       justify-content:space-between;
       align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-bottom:10px;
-    }
-
-    .socios-filters-inline {
-      display:flex;
-      align-items:center;
       gap:10px;
-      flex-wrap:wrap;
     }
 
-    .socios-filters-inline input,
-    .socios-filters-inline select,
-    .socios-filters-inline button {
-      height:32px;
-      padding:4px 10px;
+    .modal-scroll {
+      max-height: 60vh;
+      overflow-y: auto;
+      margin-top: 12px;
     }
 
-    .socios-actions-inline {
-      display:flex;
-      gap:8px;
+    .modal-actions.footer {
+      text-align:right;
+      margin-top: 12px;
     }
 
-    /* -----------------------
-       TABLA
-    ----------------------- */
-    th.sortable {
-      cursor:pointer;
-      user-select:none;
-    }
-    th.sortable:hover { background:#eee; }
-
-    .pagination {
-      display:flex;
-      justify-content:center;
-      gap:8px;
-      margin-top:12px;
+    /* =====================================================
+       SOCIOS TABLE
+    ===================================================== */
+    .table-wrapper {
+      overflow-x: auto;
+      margin-top: 10px;
     }
 
-    /* -----------------------
-       RESPONSIVE
-    ----------------------- */
-    @media (max-width:768px){
-
-      .socios-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-      }
-
-      .socios-filters-inline {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-      }
-
-      .socios-actions-inline {
-        justify-content: flex-start;
-      }
-
-      table {
-        font-size:12px;
-      }
-
-      th, td {
-        padding:6px;
-      }
-
-      .modal-content {
-        width: 100%;
-        max-width: 92vw;
-      }
-
-      .form-grid {
-        display:flex;
-        flex-direction:column;
-        gap:12px;
-      }
-    }
-
-    /* ===============================
-    FORMULARIO SOCIOS – HORIZONTAL
-    =============================== */
-
-    .socios-form-grid{
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .col-span-3{
-      grid-column: span 3;
-    }
-
-    .checks-row{
-      display: flex;
-      gap: 20px;
-      align-items: center;
-      padding-top: 4px;
-    }
-
-    .checkbox-inline{
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      font-weight: 600;
-    }
-
-    /* Modal más ancho pero más bajo */
-    #modalSocio .modal-content{
-      max-width: 820px;
-      border: 2px solid color-mix(in srgb, var(--color-primary) 35%, #d1d5db);
-      border-top: 5px solid var(--color-primary);
-      border-radius: 16px;
-    }
-    /* Responsive: en mobile vuelve a 1 columna */
-    @media (max-width: 768px){
-      .socios-form-grid{
-        grid-template-columns: 1fr;
-      }
-
-      .col-span-3{
-        grid-column: auto;
-      }
-
-      .checks-row{
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-      }
-    }
-
-    /* ===============================
-       IDENTIDAD VISUAL – SOCIOS
-    =============================== */
-
-    #socios-section{
-      border: 1px solid color-mix(in srgb, var(--color-primary) 25%, #d1d5db);
-      border-left: 4px solid var(--color-primary);
-      border-radius: 14px;
-      padding: 14px;
-      background: #ffffff;
-    }
-
-    #modalSocio input:focus,
-    #modalSocio select:focus{
-      outline: none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
-    }
-
-    .socios-table{
+    .socios-table {
       border-collapse: separate;
       border-spacing: 0 6px;
+      width: 100%;
     }
 
-    .socios-table tbody td{
-      background:#fff;
-      border-top: 1px solid color-mix(in srgb, var(--color-secondary) 55%, transparent) !important;
-      border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 55%, transparent) !important;
+    .socios-table td {
+      background: #fff;
+      border-top: 1px solid #e5e7eb;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 8px 10px;
     }
 
-    .socios-table tbody td:first-child{
-      border-left: 1px solid color-mix(in srgb, var(--color-secondary) 55%, transparent) !important;
+    .socios-table tbody td:first-child {
+      border-left: 1px solid #e5e7eb;
       border-top-left-radius: 10px;
       border-bottom-left-radius: 10px;
     }
 
-    .socios-table tbody td:last-child{
-      border-right: 1px solid color-mix(in srgb, var(--color-secondary) 55%, transparent) !important;
+    .socios-table tbody td:last-child {
+      border-right: 1px solid #e5e7eb;
       border-top-right-radius: 10px;
       border-bottom-right-radius: 10px;
     }
 
-    .wa-link{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      margin-left:8px;
-      text-decoration:none;
+    th.sortable {
+      cursor: pointer;
+      user-select:none;
     }
-    .wa-link svg{
-      width:14px;
-      height:14px;
-      display:block;
+    th.sortable:hover { background:#eee; }
+
+    /* =====================================================
+       ICONOS 📎 / 💬
+    ===================================================== */
+    .socio-flags {
+      font-size: 13px;
+      opacity: 0.55;
+      cursor: pointer;
+      transition: all .15s ease;
     }
-    .wa-phone{
-      cursor:pointer;
+    .socio-flags:hover {
+      opacity: 1;
+      transform: translateY(-1px);
     }
 
-    .socios-bulk-bar{
-      display:flex;
-      justify-content:flex-end;
-      gap:10px;
-      margin-top:10px;
+    /* =====================================================
+       MODAL SOCIO
+    ===================================================== */
+    .socio-content {
+      max-width: 820px;
+      max-height: 90vh;
+      overflow-y: auto;
+      border: 2px solid #d1d5db;
+      border-top: 5px solid var(--color-primary);
     }
-    @media(max-width:768px){
-      .socios-bulk-bar{
-        flex-direction:column;
-        align-items:stretch;
+
+    .socio-body {
+      max-height: calc(90vh - 160px);
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+
+    .socios-form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .col-span-3 { grid-column: span 3; }
+
+    .checks-row {
+      display:flex;
+      gap: 20px;
+      align-items:center;
+    }
+
+    .adjuntos-container {
+      margin-top: 25px;
+    }
+
+    .adjuntos-list {
+      border:1px solid #ddd;
+      border-radius:8px;
+      padding:10px;
+      background:#fafafa;
+      max-height:220px;
+      overflow-y:auto;
+      margin-bottom:12px;
+    }
+
+    /* =====================================================
+       RESPONSIVE
+    ===================================================== */
+    @media (max-width: 768px){
+
+      .socios-form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .checks-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .modal-content {
+        max-width: 92vw;
       }
     }
-
   </style>
 
 </section>
