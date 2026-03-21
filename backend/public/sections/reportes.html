@@ -2,7 +2,7 @@
 
   <h2 style="margin-bottom:16px;">📊 Reportes</h2>
 
-  <!-- SELECTOR DE AÑO (debajo del título, pero oculto hasta que un reporte lo necesite) -->
+  <!-- SELECTOR DE AÑO -->
   <div id="select-anio-wrapper" style="margin: 10px 0 20px; display:none;">
     <label><strong>Año:</strong></label>
     <select id="select-anio" style="padding:4px 6px; font-size:14px;">
@@ -54,31 +54,31 @@
   </div>
 
   <!-- ===============================
-     ÁREA DE CONTENIDO DEL REPORTE
+         ÁREA DE RESULTADOS DEL REPORTE
      =============================== -->
-<div id="reportesContent" class="reportes-content">
+  <div id="reportesContent" class="reportes-content">
 
-  <!-- TARJETA DE GRÁFICO -->
-  <div id="reportesChartCard" class="reportes-chart-card hidden">
-    <div class="reportes-chart-header">
-      <div>
-        <h3 id="reportesChartTitle" class="reportes-chart-title">Gráfico</h3>
-        <div id="reportesChartSubtitle" class="reportes-chart-subtitle muted"></div>
+    <!-- TARJETA DE GRÁFICO -->
+    <div id="reportesChartCard" class="reportes-chart-card hidden">
+      <div class="reportes-chart-header">
+        <div>
+          <h3 id="reportesChartTitle" class="reportes-chart-title">Gráfico</h3>
+          <div id="reportesChartSubtitle" class="reportes-chart-subtitle muted"></div>
+        </div>
+      </div>
+      <div class="reportes-chart-body">
+        <canvas id="reportesChartCanvas"></canvas>
       </div>
     </div>
-    <div class="reportes-chart-body">
-      <canvas id="reportesChartCanvas"></canvas>
-    </div>
-  </div>
 
-  <!-- TARJETA DE TABLA / DETALLE -->
-  <div id="reportesTableCard" class="reportes-table-card">
-    <div class="muted">
-      Seleccioná un reporte para comenzar.
+    <!-- TARJETA DE TABLA -->
+    <div id="reportesTableCard" class="reportes-table-card">
+      <div class="muted">
+        Seleccioná un reporte para comenzar.
+      </div>
     </div>
-  </div>
 
-</div>
+  </div>
 
 </section>
 
@@ -118,7 +118,7 @@
 }
 
 /* ------------------------------
-    CONTENEDOR DEL REPORTE
+    CONTENEDOR PRINCIPAL
 ------------------------------ */
 .reportes-content{
   border:1px solid #ddd;
@@ -129,34 +129,8 @@
 }
 
 /* ------------------------------
-    RESPONSIVE
+    TARJETA DE GRÁFICO
 ------------------------------ */
-@media(max-width:600px){
-  .chip{
-    width:100%;
-    text-align:center;
-  }
-}
-
-/* Flechita del acordeón */
-.toggle {
-  cursor: pointer;
-  width: 20px;
-  text-align: center;
-  font-weight: bold;
-}
-
-/* Filas hijas */
-.child-row.hidden {
-  display: none;
-}
-
-.child-row td {
-  background: #fafafa;
-  border-left: 3px solid var(--color-primary);
-}
-
-/* Tarjeta de gráfico */
 .reportes-chart-card {
   border-radius: 14px;
   padding: 14px 16px 12px 16px;
@@ -187,12 +161,43 @@
   min-height: 220px;
 }
 
-/* Tarjeta de tabla */
+/* ------------------------------
+    TARJETA DE TABLA / DETALLE
+------------------------------ */
 .reportes-table-card {
   border-radius: 12px;
   border: 1px solid #e5e7eb;
   background: #ffffff;
   padding: 12px;
+}
+
+/* ------------------------------
+    TABLAS HIJAS
+------------------------------ */
+.toggle {
+  cursor: pointer;
+  width: 20px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.child-row.hidden {
+  display: none;
+}
+
+.child-row td {
+  background: #fafafa;
+  border-left: 3px solid var(--color-primary);
+}
+
+/* ------------------------------
+    RESPONSIVE
+------------------------------ */
+@media(max-width:600px){
+  .chip{
+    width:100%;
+    text-align:center;
+  }
 }
 
 /* Utilidad */
