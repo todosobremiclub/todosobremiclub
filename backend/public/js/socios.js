@@ -345,6 +345,49 @@
   let sociosCache = [];
   let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
 
+  // Estados de adjuntos/comentarios por socio
+  // { [socioId]: { tieneAdjuntos: boolean, tieneComentario: boolean } }
+  let socioEstados = {};
+
+  function buildSocioEstadosMap(estados) {
+    socioEstados = {};
+    (estados || []).forEach((e) => {
+      if (!e || e.socio_id == null) return;
+      const id = String(e.socio_id);
+      socioEstados[id] = {
+        tieneAdjuntos: !!e.tiene_adjuntos,
+        tieneComentario: !!e.tiene_comentario
+      };
+    });
+  }
+
+  function getEstadoIconosForSocio(id) {
+    const st = socioEstados[String(id)];
+    if (!st) return '';
+    const { tieneAdjuntos, tieneComentario } = st;
+    if (tieneAdjuntos && tieneComentario) return '📎💬';
+    if (tieneAdjuntos) return '📎';
+    if (tieneComentario) return '💬';
+    return '';
+  }
+
+  async function loadSocioEstadosFromBackend() {
+    const clubId = getActiveClubId();
+    try {
+      const res = await fetchAuth(`/club/${clubId}/socios/estados`);
+      const data = await safeJson(res);
+      if (!res.ok || !data.ok) {
+        console.warn('No se pudieron cargar estados de adjuntos/comentarios:', data.error);
+        socioEstados = {};
+        return;
+      }
+      buildSocioEstadosMap(data.estados || []);
+    } catch (e) {
+      console.error('Error cargando estados de socios (adjuntos/comentarios)', e);
+      socioEstados = {};
+    }
+  }
+
   // =============================
   // Orden + paginación
   // =============================
@@ -1019,6 +1062,7 @@
 
       const waUrl = buildWaUrl(s.telefono);
       const telTxt = (s.telefono ?? '').toString();
+      const iconosEstado = getEstadoIconosForSocio(s.id);
 
       const tr = document.createElement('tr');
       tr.dataset.id = s.id;
@@ -1047,6 +1091,11 @@
         <td>${s.becado ? 'Sí' : 'No'}</td>
         <td>${fotoHtml}</td>
         <td style="white-space:nowrap;">
+          ${
+            iconosEstado
+              ? `<span class="socio-flags" title="Adjuntos / comentarios" style="margin-right:6px;">${iconosEstado}</span>`
+              : ''
+          }
           <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
           <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
         </td>
@@ -1115,12 +1164,28 @@
 
     currentPage = 1;
 
-    const res = await fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`);
-    const data = await safeJson(res);
+    // Pedimos socios y estados en paralelo para no sumar latencia
+    const [resSocios, resEstados] = await Promise.all([
+      fetchAuth(`/club/${clubId}/socios${qs ? `?${qs}` : ''}`),
+      fetchAuth(`/club/${clubId}/socios/estados`).catch((e) => e) // por si falla, no rompe todo
+    ]);
 
-    if (!res.ok || !data.ok) {
+    const data = await safeJson(resSocios);
+    if (!resSocios.ok || !data.ok) {
       alert(data.error || 'Error cargando socios');
       return;
+    }
+
+    // Procesar estados de adjuntos/comentarios (si la llamada no reventó)
+    if (resEstados && resEstados.ok) {
+      const dataEstados = await safeJson(resEstados);
+      if (dataEstados.ok && Array.isArray(dataEstados.estados)) {
+        buildSocioEstadosMap(dataEstados.estados);
+      } else {
+        socioEstados = {};
+      }
+    } else {
+      socioEstados = {};
     }
 
     refreshAnioOptions(data.socios || []);
@@ -1322,6 +1387,8 @@
         fileInput.value = '';
         commentInput.value = '';
         await cargarAdjuntosEnModal(editingId);
+        // Actualizamos estados para que se vea el 📎/💬 sin recargar toda la lista
+        await loadSocioEstadosFromBackend().catch(() => {});
       } finally {
         if (btn) {
           btn.disabled = false;
@@ -1464,7 +1531,6 @@
           <b>Insertados:</b> ${ok} &nbsp;&nbsp; <b>Errores:</b> ${err}
         </div>
       `;
-
       const rows = data.errors || [];
       if (!rows.length) {
         html += `<div class="muted" style="margin-top:10px;">Sin errores.</div>`;

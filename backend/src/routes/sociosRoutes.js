@@ -182,6 +182,44 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
   }
 });
 
+
+// ===============================
+// ESTADO ADJUNTOS / COMENTARIO – RESUMEN PARA TABLA
+// GET /club/:clubId/socios/estados
+// ===============================
+router.get('/:clubId/socios/estados', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const q = `
+      SELECT
+        s.id AS socio_id,
+        -- al menos un adjunto
+        (COUNT(a.id) > 0) AS tiene_adjuntos,
+        -- al menos un adjunto con comentario no vacío
+        (
+          COUNT(
+            CASE
+              WHEN a.comentario IS NOT NULL AND btrim(a.comentario) <> '' THEN 1
+              ELSE NULL
+            END
+          ) > 0
+        ) AS tiene_comentario
+      FROM socios s
+      LEFT JOIN socios_adjuntos a
+        ON a.club_id = s.club_id
+       AND a.socio_id = s.id
+      WHERE s.club_id = $1
+      GROUP BY s.id
+      ORDER BY s.numero_socio ASC;
+    `;
+    const r = await db.query(q, [clubId]);
+    res.json({ ok: true, estados: r.rows });
+  } catch (e) {
+    console.error('❌ estados socios (adjuntos/comentario)', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ===============================
 // DESCARGAR PLANTILLA EXCEL (CARGA MASIVA)
 // GET /club/:clubId/socios/template.xlsx
@@ -285,7 +323,8 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
 
     // Nota en fila 2 (opcional, no rompe import)
     ws.getCell('N1').value = 'NOTA';
-    ws.getCell('N2').value = 'Dejá numero_socio vacío para autogenerar. Fechas en formato DD/MM/AAAA.';
+    ws.getCell('N2').value =
+      'Dejá numero_socio vacío para autogenerar. Fechas en formato DD/MM/AAAA.';
 
     // Descargar
     res.setHeader(
