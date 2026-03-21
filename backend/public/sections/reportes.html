@@ -29,6 +29,7 @@
 
       <div class="card-body">
 
+
   <div class="card-chart">
     <canvas id="chartActividades"></canvas>
   </div>
@@ -74,73 +75,146 @@
         </div>
       </div>
     </div>
-<!-- ===============================================
-     PANEL 3 – INGRESOS VS GASTOS
-     =============================================== -->
-<div class="report-card" id="card-ingresos">
-  <div class="card-header">
-    <div>
-      <h3 class="card-title">Ingresos vs Gastos</h3>
-      <div class="card-subtitle muted">
-        Comparativo mensual y anual.
+<!-- ===============================
+     GRID PRINCIPAL (3 COLUMNAS)
+     =============================== -->
+<div class="reportes-grid">
+
+  <!-- ===============================================
+       PANEL 1 – SOCIOS POR ACTIVIDAD / CATEGORÍA
+       =============================================== -->
+  <div class="report-card" id="card-actividades">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Socios por Actividad / Categoría</h3>
+        <div id="actividadesSubtitle" class="card-subtitle muted">
+          Distribución de socios activos por actividad.
+        </div>
+      </div>
+      <button id="btnActividadesReset" class="btn btn-secondary btn-xs hidden">
+        ← Ver actividades
+      </button>
+    </div>
+
+    <div class="card-body">
+
+      <div class="card-chart">
+        <canvas id="chartActividades"></canvas>
+      </div>
+
+      <div class="card-table hidden" id="tablaActividades">
+        <!-- Tabla oculta: solo usamos el gráfico en este panel -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===============================================
+       PANEL 2 – CUOTAS IMPAGAS
+       =============================================== -->
+  <div class="report-card" id="card-impagos">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Cuotas impagas</h3>
+        <div class="card-subtitle muted">
+          Morosidad mensual de socios activos.
+        </div>
+      </div>
+
+      <div class="card-toolbar">
+        <button id="btnImpagosPrev" class="btn-nav">◀</button>
+        <span id="impagosMesLabel" class="nav-label">Mes actual</span>
+        <button id="btnImpagosNext" class="btn-nav">▶</button>
       </div>
     </div>
 
-    <div class="card-toolbar stacked">
-      <div class="toolbar-row">
-        <button id="btnIGMesPrev" class="btn-nav">◀</button>
-        <span id="igMesLabel" class="nav-label">Mes actual</span>
-        <button id="btnIGMesNext" class="btn-nav">▶</button>
+    <div class="card-body">
+      <div class="impagos-top">
+        <div class="impagos-kpi">
+          <div class="impagos-label">Socios sin pago</div>
+          <div id="impagosCount" class="impagos-value">–</div>
+          <div id="impagosYearLabel" class="impagos-year muted small"></div>
+        </div>
+        <div class="impagos-secondary muted small">
+          Click en la cantidad para ver el detalle de socios.
+        </div>
       </div>
-      <div class="toolbar-row small">
-        <button id="btnIGAnioPrev" class="btn-nav-sm">◀</button>
-        <span id="igAnioLabel" class="nav-label small">Año actual</span>
-        <button id="btnIGAnioNext" class="btn-nav-sm">▶</button>
+
+      <div class="card-table" id="tablaImpagos">
+        <div class="muted">Seleccionando mes…</div>
       </div>
     </div>
   </div>
 
-  <div class="card-body">
-    <!-- RESUMEN MENSUAL -->
-    <div class="ig-month-summary">
-      <div class="ig-month-item">
-        <span class="ig-label">Ingresos mes</span>
-        <span id="igMesIngresos" class="ig-month-value">–</span>
+  <!-- ===============================================
+       PANEL 3 – INGRESOS VS GASTOS
+       =============================================== -->
+  <div class="report-card" id="card-ingresos">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Ingresos vs Gastos</h3>
+        <div class="card-subtitle muted">
+          Comparativo mensual y anual.
+        </div>
       </div>
-      <div class="ig-month-item">
-        <span class="ig-label">Gastos mes</span>
-        <span id="igMesGastos" class="ig-month-value">–</span>
-      </div>
-      <div class="ig-month-item">
-        <span class="ig-label">Resultado mes</span>
-        <span id="igMesResultado" class="ig-month-value">–</span>
+
+      <div class="card-toolbar stacked">
+        <div class="toolbar-row">
+          <button id="btnIGMesPrev" class="btn-nav">◀</button>
+          <span id="igMesLabel" class="nav-label">Mes actual</span>
+          <button id="btnIGMesNext" class="btn-nav">▶</button>
+        </div>
+        <div class="toolbar-row small">
+          <button id="btnIGAnioPrev" class="btn-nav-sm">◀</button>
+          <span id="igAnioLabel" class="nav-label small">Año actual</span>
+          <button id="btnIGAnioNext" class="btn-nav-sm">▶</button>
+        </div>
       </div>
     </div>
 
-    <!-- GRÁFICO MENSUAL -->
-    <div class="card-chart" style="min-height:180px;">
-      <canvas id="chartIGMes"></canvas>
-    </div>
+    <div class="card-body">
 
-    <!-- RESUMEN ANUAL -->
-    <div class="ig-summary">
-      <div class="ig-summary-item">
-        <span class="ig-label">Ingresos año</span>
-        <span id="igAnualIngresos" class="ig-value">–</span>
+      <!-- RESUMEN MENSUAL -->
+      <div class="ig-month-summary">
+        <div class="ig-month-item">
+          <span class="ig-label">Ingresos mes</span>
+          <span id="igMesIngresos" class="ig-month-value">–</span>
+        </div>
+        <div class="ig-month-item">
+          <span class="ig-label">Gastos mes</span>
+          <span id="igMesGastos" class="ig-month-value">–</span>
+        </div>
+        <div class="ig-month-item">
+          <span class="ig-label">Resultado mes</span>
+          <span id="igMesResultado" class="ig-month-value">–</span>
+        </div>
       </div>
-      <div class="ig-summary-item">
-        <span class="ig-label">Gastos año</span>
-        <span id="igAnualGastos" class="ig-value">–</span>
+
+      <!-- GRÁFICO MENSUAL -->
+      <div class="card-chart" style="min-height:180px;">
+        <canvas id="chartIGMes"></canvas>
       </div>
-      <div class="ig-summary-item">
-        <span class="ig-label">Resultado año</span>
-        <span id="igAnualResultado" class="ig-value">–</span>
+
+      <!-- RESUMEN ANUAL -->
+      <div class="ig-summary">
+        <div class="ig-summary-item">
+          <span class="ig-label">Ingresos año</span>
+          <span id="igAnualIngresos" class="ig-value">–</span>
+        </div>
+        <div class="ig-summary-item">
+          <span class="ig-label">Gastos año</span>
+          <span id="igAnualGastos" class="ig-value">–</span>
+        </div>
+        <div class="ig-summary-item">
+          <span class="ig-label">Resultado año</span>
+          <span id="igAnualResultado" class="ig-value">–</span>
+        </div>
       </div>
+
     </div>
   </div>
-</div>
 
-  </div> <!-- /reportes-grid -->
+</div> <!-- /reportes-grid -->
 
   <!-- =============================
        ZONA DE DETALLES (ABAJO)
