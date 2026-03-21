@@ -533,6 +533,139 @@ async function cargarComentariosEnModal(socioId) {
   });
 }
 
+// =============================
+  // VISOR SIMPLE DE ADJUNTOS / COMENTARIOS
+  // =============================
+  function ensureDocsViewerModal() {
+    let modal = document.getElementById('docsViewerModal');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'docsViewerModal';
+    modal.className = 'modal hidden';
+    modal.style.position = 'fixed';
+    modal.style.inset = '0';
+    modal.style.background = 'rgba(0,0,0,0.55)';
+    modal.style.zIndex = '20000';
+    modal.style.display = 'none';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.padding = '18px';
+
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width:640px; pointer-events:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h3 id="docsViewerTitle" style="margin:0;"></h3>
+          <button type="button" id="docsViewerClose" class="btn btn-secondary">✕</button>
+        </div>
+        <div id="docsViewerBody" style="margin-top:10px; max-height:60vh; overflow-y:auto;"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const close = () => {
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+      const body = document.getElementById('docsViewerBody');
+      if (body) body.innerHTML = '';
+    };
+
+    modal.addEventListener('click', (ev) => {
+      if (ev.target === modal) close();
+    });
+
+    const btnClose = modal.querySelector('#docsViewerClose');
+    if (btnClose) {
+      btnClose.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        close();
+      });
+    }
+
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && modal.style.display === 'flex') {
+        close();
+      }
+    });
+
+    return modal;
+  }
+
+  async function openDocsViewer({ socioId, showAdjuntos, showComentarios }) {
+    const clubId = getActiveClubId();
+    const modal = ensureDocsViewerModal();
+    if (!modal) return;
+
+    const titleEl = document.getElementById('docsViewerTitle');
+    const bodyEl = document.getElementById('docsViewerBody');
+    if (!titleEl || !bodyEl) return;
+
+    const partesTitulo = [];
+    if (showAdjuntos) partesTitulo.push('Adjuntos');
+    if (showComentarios) partesTitulo.push('Comentarios');
+
+    titleEl.textContent = partesTitulo.join(' y ') || 'Documentación';
+
+    let html = '';
+
+    // Adjuntos
+    if (showAdjuntos) {
+      const adjuntos = await fetchAdjuntos(clubId, socioId);
+      html += '<h4 style="margin:10px 0 4px;">Adjuntos</h4>';
+      if (!adjuntos.length) {
+        html += '<div class="text-muted">No hay adjuntos.</div>';
+      } else {
+        adjuntos.forEach((a) => {
+          const fecha = fmtDMYShort(a.created_at);
+          const nombreArchivo = a.filename || '(sin archivo)';
+          html += `
+            <div style="padding:6px 0; border-bottom:1px solid #eee;">
+              <div>
+                <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
+                  <b>${escapeHtml(nombreArchivo)}</b>
+                </a>
+              </div>
+              <div>
+                <small>
+                  ${fecha || ''}${fecha && a.size_bytes ? ' · ' : ''}
+                  ${a.size_bytes ? formatBytes(a.size_bytes) : ''}
+                </small>
+              </div>
+              ${a.comentario ? `<div><small>${escapeHtml(a.comentario)}</small></div>` : ''}
+            </div>
+          `;
+        });
+      }
+    }
+
+    // Comentarios
+    if (showComentarios) {
+      const comentarios = await fetchComentarios(clubId, socioId);
+      html += '<h4 style="margin:14px 0 4px;">Comentarios</h4>';
+      if (!comentarios.length) {
+        html += '<div class="text-muted">No hay comentarios.</div>';
+      } else {
+        comentarios.forEach((c) => {
+          const fecha = fmtDMYShort(c.created_at);
+          html += `
+            <div style="padding:6px 0; border-bottom:1px solid #eee;">
+              <div><b>${fecha}</b></div>
+              <div>${escapeHtml(c.comentario)}</div>
+            </div>
+          `;
+        });
+      }
+    }
+
+    if (!html) {
+      html = '<div class="text-muted">No hay información para mostrar.</div>';
+    }
+
+    bodyEl.innerHTML = html;
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+  }
+
 
 
   // =============================
@@ -909,8 +1042,20 @@ function openCarnet(socio) {
     // Clicks en "Ver adjuntos / Ver comentario"
     extraEl.querySelectorAll('.carnet-doc').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        cargarAdjuntosEnModal(socio.id);
-        openModalEdit(socio);
+        const tipo = btn.dataset.doc;
+        if (tipo === 'adjuntos') {
+          await openDocsViewer({
+            socioId: socio.id,
+            showAdjuntos: true,
+            showComentarios: false
+          });
+        } else if (tipo === 'comentarios') {
+          await openDocsViewer({
+            socioId: socio.id,
+            showAdjuntos: false,
+            showComentarios: true
+          });
+        }
       });
     });
 
@@ -1523,41 +1668,66 @@ if (btnToggleAdj && listaAdj && formAdj) {
         return;
       }
 
-      // click en iconos de adjuntos/comentarios (📎 / 💬)
-      const flagsEl = ev.target.closest('.socio-flags');
-      if (flagsEl) {
-        const tr = flagsEl.closest('tr');
-        const id = tr?.dataset.id;
+     // CLICK en tabla: foto / editar / eliminar / WhatsApp / flags
+$('sociosTableBody')?.addEventListener('click', async (ev) => {
+  // Ver foto grande
+  const img = ev.target.closest('[data-act="viewphoto"]');
+  if (img) {
+    const url = img.dataset.url;
+    if (url) openPhotoViewer(url);
+    return;
+  }
 
-        if (id) {
-          const socio = sociosCache.find((x) => String(x.id) === String(id));
-          if (socio) {
-            openModalEdit(socio);
-          }
-        }
-        return;
-      }
+  // Click en WhatsApp (no seguir con otras acciones)
+  if (ev.target.closest('.wa-action')) {
+    return;
+  }
 
-      const btn = ev.target.closest('button[data-act]');
-      if (!btn) return;
+  // click en iconos de adjuntos/comentarios (📎 / 💬)
+  const flagsEl = ev.target.closest('.socio-flags');
+  if (flagsEl) {
+    const tr = flagsEl.closest('tr');
+    const id = tr?.dataset.id;
+    if (!id) return;
 
-      const act = btn.dataset.act;
-      const id = btn.dataset.id;
-      if (!id) return;
+    const socio = sociosCache.find((x) => String(x.id) === String(id));
+    if (!socio) return;
 
-      if (act === 'edit') {
-        const socio = sociosCache.find((x) => String(x.id) === String(id));
-        if (socio) openModalEdit(socio);
-        return;
-      }
+    const texto = flagsEl.textContent || '';
+    const showAdj = texto.includes('📎');
+    const showCom = texto.includes('💬');
 
-      if (act === 'del') {
-        if (confirm('¿Eliminar socio definitivamente?')) {
-          await deleteSocio(id);
-        }
-        return;
-      }
+    await openDocsViewer({
+      socioId: socio.id,
+      showAdjuntos: showAdj,
+      showComentarios: showCom
     });
+
+    return;
+  }
+
+  // Botones Editar / Eliminar
+  const btn = ev.target.closest('button[data-act]');
+  if (!btn) return;
+
+  const act = btn.dataset.act;
+  const id = btn.dataset.id;
+  if (!id) return;
+
+  if (act === 'edit') {
+    const socio = sociosCache.find((x) => String(x.id) === String(id));
+    if (socio) openModalEdit(socio);
+    return;
+  }
+
+  if (act === 'del') {
+    if (confirm('¿Eliminar socio definitivamente?')) {
+      await deleteSocio(id);
+    }
+    return;
+  }
+});
+
 
     // DOBLE CLICK WhatsApp – abrir WA
     $('sociosTableBody')?.addEventListener('dblclick', (ev) => {
