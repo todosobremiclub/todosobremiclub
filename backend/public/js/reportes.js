@@ -155,25 +155,31 @@
   }
 
   function renderActividadesView() {
-    const cardTable = $('tablaActividades');
-    const subtitle = $('actividadesSubtitle');
-    const resetBtn  = $('btnActividadesReset');
-    const detailBody = $('detailActividadesBody');
-    const canvas = $('chartActividades');
+    const cardTable   = $('tablaActividades');
+    const subtitle    = $('actividadesSubtitle');
+    const resetBtn    = $('btnActividadesReset');
+    const detailBody  = $('detailActividadesBody');
+    const canvas      = $('chartActividades');
+    const totalWrap   = $('actividadesTotalWrapper');
+    const totalEl     = $('actividadesTotal');
+
     if (!cardTable || !canvas) return;
 
     destroyChartActividades();
 
-    const ctx = canvas.getContext('2d');
-    let labels = [];
+    const ctx  = canvas.getContext('2d');
+    const modo = actividadesState.modo;
+
+    let labels   = [];
     let dataVals = [];
     let htmlTable = '';
-    const modo = actividadesState.modo;
+    let totalSocios = 0;
 
     if (modo === 'actividades') {
       const rows = actividadesState.actividadesRows || [];
-      labels = rows.map(r => r.actividad || 'Sin actividad');
+      labels   = rows.map(r => r.actividad || 'Sin actividad');
       dataVals = rows.map(r => Number(r.cantidad || 0));
+      totalSocios = rows.reduce((acc, r) => acc + Number(r.cantidad || 0), 0);
 
       htmlTable = `
         <table class="socios-table" style="font-size:13px;">
@@ -195,19 +201,20 @@
       `;
 
       if (subtitle) {
-        subtitle.textContent = 'Distribución de socios activos por actividad. Hacé clic en una actividad para ver sus categorías.';
+        subtitle.textContent = 'Distribución de socios activos por actividad. Doble click en el gráfico o en una fila para ver sus categorías.';
       }
       if (resetBtn) resetBtn.classList.add('hidden');
       if (detailBody) {
-        detailBody.innerHTML = `<div class="muted small">Hacé clic en una actividad arriba para ver el detalle por categoría y luego los socios.</div>`;
+        detailBody.innerHTML = `<div class="muted small">Doble click en una actividad o categoría para ver el detalle de socios.</div>`;
       }
 
     } else { // modo === 'categorias'
       const actividad = actividadesState.actividadSeleccionada || '';
-      const catRows = actividadesState.categoriasByActividad[actividad] || [];
+      const catRows   = actividadesState.categoriasByActividad[actividad] || [];
 
-      labels = catRows.map(r => r.categoria || 'Sin categoría');
+      labels   = catRows.map(r => r.categoria || 'Sin categoría');
       dataVals = catRows.map(r => Number(r.cantidad || 0));
+      totalSocios = catRows.reduce((acc, r) => acc + Number(r.cantidad || 0), 0);
 
       htmlTable = `
         <table class="socios-table" style="font-size:13px;">
@@ -231,12 +238,18 @@
       `;
 
       if (subtitle) {
-        subtitle.textContent = `Categorías dentro de la actividad "${actividad}". Hacé clic en una categoría para ver los socios.`;
+        subtitle.textContent = `Categorías dentro de la actividad "${actividad}". Doble click en una categoría para ver los socios.`;
       }
       if (resetBtn) resetBtn.classList.remove('hidden');
       if (detailBody) {
-        detailBody.innerHTML = `<div class="muted small">Hacé clic en una categoría arriba para ver el listado de socios.</div>`;
+        detailBody.innerHTML = `<div class="muted small">Doble click en una categoría para ver el listado de socios.</div>`;
       }
+    }
+
+    // Actualizar KPI total socios
+    if (totalWrap && totalEl) {
+      totalEl.textContent = totalSocios;
+      totalWrap.classList.remove('hidden');
     }
 
     // Render tabla
@@ -353,25 +366,57 @@
 
   function bindActividadesInteractions() {
     const tableContainer = $('tablaActividades');
-    const resetBtn = $('btnActividadesReset');
+    const resetBtn       = $('btnActividadesReset');
+    const canvas         = $('chartActividades');
 
+    // Doble click en tabla
     if (tableContainer) {
-      tableContainer.addEventListener('click', (ev) => {
+      tableContainer.addEventListener('dblclick', (ev) => {
         const rowAct = ev.target.closest('.row-actividad');
-        if (rowAct) {
+        if (rowAct && actividadesState.modo === 'actividades') {
           const actividad = rowAct.dataset.actividad;
-          loadCategoriasForActividad(actividad);
+          if (actividad) loadCategoriasForActividad(actividad);
           return;
         }
+
         const rowCat = ev.target.closest('.row-categoria');
-        if (rowCat) {
+        if (rowCat && actividadesState.modo === 'categorias') {
           const actividad = rowCat.dataset.actividad;
           const categoria = rowCat.dataset.categoria;
-          loadSociosForActividadCategoria(actividad, categoria);
+          if (actividad && categoria) {
+            loadSociosForActividadCategoria(actividad, categoria);
+          }
         }
       });
     }
 
+    // Doble click en el gráfico de actividades
+    if (canvas) {
+      canvas.addEventListener('dblclick', (evt) => {
+        if (!chartActividades) return;
+        // buscamos el segmento más cercano al click
+        const points = chartActividades.getElementsAtEventForMode(
+          evt,
+          'nearest',
+          { intersect: true },
+          true
+        );
+        if (!points || !points.length) return;
+        const idx = points[0].index;
+
+        if (actividadesState.modo === 'actividades') {
+          const rows = actividadesState.actividadesRows || [];
+          const row  = rows[idx];
+          if (row && row.actividad) {
+            loadCategoriasForActividad(row.actividad);
+          }
+        } else {
+          // En modo categorías, por ahora no hacemos nada extra con el doble click en el gráfico.
+        }
+      });
+    }
+
+    // Botón reset (volver a vista por actividad)
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
         actividadesState.modo = 'actividades';

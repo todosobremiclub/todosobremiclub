@@ -28,15 +28,20 @@
       </div>
 
       <div class="card-body">
-        <div class="card-chart">
-          <canvas id="chartActividades"></canvas>
-        </div>
-
-        <div class="card-table" id="tablaActividades">
-          <div class="muted">Cargando actividades…</div>
-        </div>
-      </div>
+    <!-- KPI TOTAL SOCIOS DEL GRÁFICO -->
+    <div id="actividadesTotalWrapper" class="panel-kpi hidden">
+      <span class="panel-kpi-label">Total socios</span>
+      <span id="actividadesTotal" class="panel-kpi-value">0</span>
     </div>
+
+    <div class="card-chart">
+      <canvas id="chartActividades"></canvas>
+    </div>
+
+    <div class="card-table" id="tablaActividades">
+      <div class="muted">Cargando actividades…</div>
+    </div>
+  </div>
 
     <!-- ===============================================
          PANEL 2 – SOCIOS IMPAGOS POR MES
@@ -228,6 +233,27 @@
     flex-direction:column;
     gap:10px;
   }
+
+/* KPI del panel de actividades */
+.panel-kpi {
+  display:flex;
+  align-items:baseline;
+  gap:6px;
+  margin-bottom:8px;
+}
+
+.panel-kpi-label {
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  color:#6b7280;
+}
+
+.panel-kpi-value {
+  font-size:20px;
+  font-weight:800;
+  color:#111827;
+}
 
   .card-chart {
     position:relative;
