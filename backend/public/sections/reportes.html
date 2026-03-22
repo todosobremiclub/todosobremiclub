@@ -28,19 +28,16 @@
       </div>
 
       <div class="card-body">
-
-
-  <div class="card-chart">
-    <canvas id="chartActividades"></canvas>
-  </div>
-
-  <div class="card-table hidden" id="tablaActividades">
-    <!-- Tabla oculta: solo usamos el gráfico en este panel -->
-  </div>
-</div>
+        <div class="card-chart">
+          <canvas id="chartActividades"></canvas>
+        </div>
+        <!-- Tabla oculta: solo usamos el gráfico en este panel -->
+        <div class="card-table hidden" id="tablaActividades"></div>
+      </div>
+    </div>
 
     <!-- ===============================================
-         PANEL 2 – SOCIOS IMPAGOS POR MES
+         PANEL 2 – CUOTAS IMPAGAS
          =============================================== -->
     <div class="report-card" id="card-impagos">
       <div class="card-header">
@@ -75,133 +72,75 @@
         </div>
       </div>
     </div>
-<!-- ===============================
-     GRID PRINCIPAL (3 COLUMNAS)
-     =============================== -->
-<div class="reportes-grid">
 
-  <!-- PANEL 1 – ACTIVIDAD / CATEGORÍA -->
-  <div class="report-card" id="card-actividades">
-    <div class="card-header">
-      <div>
-        <h3 class="card-title">Socios por Actividad / Categoría</h3>
-        <div id="actividadesSubtitle" class="card-subtitle muted">
-          Distribución de socios activos por actividad.
+    <!-- ===============================================
+         PANEL 3 – INGRESOS VS GASTOS
+         =============================================== -->
+    <div class="report-card" id="card-ingresos">
+
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Ingresos vs Gastos</h3>
+          <div class="card-subtitle muted">Comparativo mensual y anual.</div>
         </div>
-      </div>
-      <button id="btnActividadesReset" class="btn btn-secondary btn-xs hidden">
-        ← Ver actividades
-      </button>
-    </div>
 
-    <div class="card-body">
-      <div class="card-chart">
-        <canvas id="chartActividades"></canvas>
-      </div>
-
-      <div class="card-table hidden" id="tablaActividades"></div>
-    </div>
-  </div>
-
-  <!-- PANEL 2 – CUOTAS IMPAGAS -->
-  <div class="report-card" id="card-impagos">
-    <div class="card-header">
-      <div>
-        <h3 class="card-title">Cuotas impagas</h3>
-        <div class="card-subtitle muted">Morosidad mensual de socios activos.</div>
-      </div>
-
-      <div class="card-toolbar">
-        <button id="btnImpagosPrev" class="btn-nav">◀</button>
-        <span id="impagosMesLabel" class="nav-label">Mes actual</span>
-        <button id="btnImpagosNext" class="btn-nav">▶</button>
-      </div>
-    </div>
-
-    <div class="card-body">
-      <div class="impagos-top">
-        <div class="impagos-kpi">
-          <div class="impagos-label">Socios sin pago</div>
-          <div id="impagosCount" class="impagos-value">–</div>
-          <div id="impagosYearLabel" class="impagos-year muted small"></div>
-        </div>
-        <div class="impagos-secondary muted small">
-          Click en la cantidad para ver el detalle de socios.
+        <div class="card-toolbar stacked">
+          <div class="toolbar-row">
+            <button id="btnIGMesPrev" class="btn-nav">◀</button>
+            <span id="igMesLabel" class="nav-label">Mes actual</span>
+            <button id="btnIGMesNext" class="btn-nav">▶</button>
+          </div>
+          <div class="toolbar-row small">
+            <button id="btnIGAnioPrev" class="btn-nav-sm">◀</button>
+            <span id="igAnioLabel" class="nav-label small">Año actual</span>
+            <button id="btnIGAnioNext" class="btn-nav-sm">▶</button>
+          </div>
         </div>
       </div>
 
-      <div class="card-table" id="tablaImpagos">
-        <div class="muted">Seleccionando mes…</div>
-      </div>
-    </div>
-  </div>
+      <div class="card-body">
 
-  <!-- PANEL 3 – INGRESOS VS GASTOS -->
-  <div class="report-card" id="card-ingresos">
-
-    <div class="card-header">
-      <div>
-        <h3 class="card-title">Ingresos vs Gastos</h3>
-        <div class="card-subtitle muted">Comparativo mensual y anual.</div>
-      </div>
-
-      <div class="card-toolbar stacked">
-        <div class="toolbar-row">
-          <button id="btnIGMesPrev" class="btn-nav">◀</button>
-          <span id="igMesLabel" class="nav-label">Mes actual</span>
-          <button id="btnIGMesNext" class="btn-nav">▶</button>
+        <!-- RESUMEN MENSUAL -->
+        <div class="ig-month-summary">
+          <div class="ig-month-item">
+            <span class="ig-label">Ingresos mes</span>
+            <span id="igMesIngresos" class="ig-month-value">–</span>
+          </div>
+          <div class="ig-month-item">
+            <span class="ig-label">Gastos mes</span>
+            <span id="igMesGastos" class="ig-month-value">–</span>
+          </div>
+          <div class="ig-month-item">
+            <span class="ig-label">Resultado mes</span>
+            <span id="igMesResultado" class="ig-month-value">–</span>
+          </div>
         </div>
-        <div class="toolbar-row small">
-          <button id="btnIGAnioPrev" class="btn-nav-sm">◀</button>
-          <span id="igAnioLabel" class="nav-label small">Año actual</span>
-          <button id="btnIGAnioNext" class="btn-nav-sm">▶</button>
+
+        <!-- GRÁFICO MENSUAL -->
+        <div class="card-chart" style="min-height:180px;">
+          <canvas id="chartIGMes"></canvas>
         </div>
+
+        <!-- RESUMEN ANUAL -->
+        <div class="ig-summary">
+          <div class="ig-summary-item">
+            <span class="ig-label">Ingresos año</span>
+            <span id="igAnualIngresos" class="ig-value">–</span>
+          </div>
+          <div class="ig-summary-item">
+            <span class="ig-label">Gastos año</span>
+            <span id="igAnualGastos" class="ig-value">–</span>
+          </div>
+          <div class="ig-summary-item">
+            <span class="ig-label">Resultado año</span>
+            <span id="igAnualResultado" class="ig-value">–</span>
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <div class="card-body">
-
-      <!-- RESUMEN MENSUAL -->
-      <div class="ig-month-summary">
-        <div class="ig-month-item">
-          <span class="ig-label">Ingresos mes</span>
-          <span id="igMesIngresos" class="ig-month-value">–</span>
-        </div>
-        <div class="ig-month-item">
-          <span class="ig-label">Gastos mes</span>
-          <span id="igMesGastos" class="ig-month-value">–</span>
-        </div>
-        <div class="ig-month-item">
-          <span class="ig-label">Resultado mes</span>
-          <span id="igMesResultado" class="ig-month-value">–</span>
-        </div>
-      </div>
-
-      <!-- GRÁFICO -->
-      <div class="card-chart" style="min-height:180px;">
-        <canvas id="chartIGMes"></canvas>
-      </div>
-
-      <!-- RESUMEN ANUAL -->
-      <div class="ig-summary">
-        <div class="ig-summary-item">
-          <span class="ig-label">Ingresos año</span>
-          <span id="igAnualIngresos" class="ig-value">–</span>
-        </div>
-        <div class="ig-summary-item">
-          <span class="ig-label">Gastos año</span>
-          <span id="igAnualGastos" class="ig-value">–</span>
-        </div>
-        <div class="ig-summary-item">
-          <span class="ig-label">Resultado año</span>
-          <span id="igAnualResultado" class="ig-value">–</span>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-</div> <!-- /reportes-grid -->
+  </div> <!-- /reportes-grid -->
 
   <!-- =============================
        ZONA DE DETALLES (ABAJO)
@@ -212,7 +151,9 @@
     <div class="detail-card" id="detail-actividades">
       <h3 class="detail-title">Detalle de actividades / categorías</h3>
       <div id="detailActividadesBody" class="detail-body">
-        <div class="muted small">Hacé click en una actividad o categoría para ver el detalle de socios.</div>
+        <div class="muted small">
+          Hacé click en una actividad o categoría para ver el detalle de socios.
+        </div>
       </div>
     </div>
 
@@ -220,7 +161,9 @@
     <div class="detail-card" id="detail-impagos">
       <h3 class="detail-title">Detalle de socios impagos</h3>
       <div id="detailImpagosBody" class="detail-body">
-        <div class="muted small">Seleccioná un mes y hacé click en la cantidad para ver el listado.</div>
+        <div class="muted small">
+          Seleccioná un mes y hacé click en la cantidad para ver el listado.
+        </div>
       </div>
     </div>
 
@@ -228,30 +171,32 @@
     <div class="detail-card" id="detail-ingresos">
       <h3 class="detail-title">Detalle de ingresos / gastos</h3>
       <div id="detailIngresosBody" class="detail-body">
-        <div class="muted small">Seleccioná un mes para ver el detalle de ingresos y gastos.</div>
+        <div class="muted small">
+          Seleccioná un mes para ver el detalle de ingresos y gastos.
+        </div>
       </div>
     </div>
 
   </div>
 
-<!-- Modal detalle de cuotas impagas -->
-<div id="impagosModal" class="modal hidden">
-  <div class="modal-content" style="max-width: 800px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <h3 id="impagosModalTitle" style="margin:0;">Cuotas impagas</h3>
-      <button id="impagosModalClose" class="btn btn-secondary">✕</button>
-    </div>
-    <div id="impagosModalSub" class="muted" style="margin-top:4px; font-size:13px;"></div>
-    <div id="impagosModalBody" style="margin-top:10px; max-height:60vh; overflow:auto;"></div>
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-      <div id="impagosModalInfo" class="muted small"></div>
-      <div>
-        <button id="impagosModalPrev" class="btn btn-secondary btn-xs">◀</button>
-        <button id="impagosModalNext" class="btn btn-secondary btn-xs">▶</button>
+  <!-- Modal detalle de cuotas impagas -->
+  <div id="impagosModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 800px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <h3 id="impagosModalTitle" style="margin:0;">Cuotas impagas</h3>
+        <button id="impagosModalClose" class="btn btn-secondary">✕</button>
+      </div>
+      <div id="impagosModalSub" class="muted" style="margin-top:4px; font-size:13px;"></div>
+      <div id="impagosModalBody" style="margin-top:10px; max-height:60vh; overflow:auto;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+        <div id="impagosModalInfo" class="muted small"></div>
+        <div>
+          <button id="impagosModalPrev" class="btn btn-secondary btn-xs">◀</button>
+          <button id="impagosModalNext" class="btn btn-secondary btn-xs">▶</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
 </section>
 
@@ -324,27 +269,6 @@
     gap:10px;
   }
 
-/* KPI del panel de actividades */
-.panel-kpi {
-  display:flex;
-  align-items:baseline;
-  gap:6px;
-  margin-bottom:8px;
-}
-
-.panel-kpi-label {
-  font-size:11px;
-  text-transform:uppercase;
-  letter-spacing:0.04em;
-  color:#6b7280;
-}
-
-.panel-kpi-value {
-  font-size:20px;
-  font-weight:800;
-  color:#111827;
-}
-
   .card-chart {
     position:relative;
     min-height:160px;
@@ -355,75 +279,52 @@
     font-size:13px;
   }
 
- /* KPI Cuotas impagas */
-.impagos-top {
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  text-align:center;
-  gap:4px;
-}
+  /* KPI Cuotas impagas */
+  .impagos-top {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:4px;
+  }
 
-.impagos-kpi {
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:2px;
-}
+  .impagos-kpi {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+  }
 
-.impagos-label {
-  font-size:11px;
-  text-transform:uppercase;
-  letter-spacing:0.05em;
-  color:#6b7280;
-}
+  .impagos-label {
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:#6b7280;
+  }
 
-.impagos-value {
-  font-size:36px;
-  font-weight:800;
-  color:#b91c1c;
-  line-height:1.1;
-}
+  .impagos-value {
+    font-size:36px;
+    font-weight:800;
+    color:#b91c1c;
+    line-height:1.1;
+  }
 
-.impagos-year {
-  margin-top:2px;
-}
+  .impagos-year {
+    margin-top:2px;
+  }
 
-.impagos-secondary {
-  text-align:center;
-  margin-top:4px;
-}
+  .impagos-secondary {
+    text-align:center;
+    margin-top:4px;
+  }
 
-  /* Ingresos/Gastos summary */
+  /* Ingresos/Gastos summary anual */
   .ig-summary {
     display:flex;
     justify-content:space-between;
     gap:8px;
     margin-top:6px;
   }
-
-/* Resumen mensual Ingresos vs Gastos */
-.ig-month-summary {
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:10px;
-}
-
-.ig-month-item {
-  flex:1;
-  background:#f9fafb;
-  border-radius:8px;
-  padding:6px 8px;
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-}
-
-.ig-month-value {
-  font-size:14px;
-  font-weight:700;
-}
 
   .ig-summary-item {
     flex:1;
@@ -441,6 +342,29 @@
   }
 
   .ig-value {
+    font-size:14px;
+    font-weight:700;
+  }
+
+  /* Resumen mensual Ingresos vs Gastos */
+  .ig-month-summary {
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+  }
+
+  .ig-month-item {
+    flex:1;
+    background:#f9fafb;
+    border-radius:8px;
+    padding:6px 8px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+
+  .ig-month-value {
     font-size:14px;
     font-weight:700;
   }
@@ -529,44 +453,43 @@
       grid-template-columns: 1fr;
     }
   }
-/* ==========================
-   MODAL (POPUP GLOBAL)
-   ========================== */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.45);
-  backdrop-filter: blur(2px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-  z-index: 9999;
-}
 
-.modal.hidden {
-  display: none !important;
-}
+  /* ==========================
+     MODAL (POPUP GLOBAL)
+     ========================== */
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(2px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    z-index: 9999;
+  }
 
-.modal-content {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 16px;
-  max-height: 90vh;
-  overflow-y: auto;
-  width: 100%;
-  max-width: 800px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
-  animation: modalFade 0.18s ease-out;
-}
+  .modal.hidden {
+    display: none !important;
+  }
 
-@keyframes modalFade {
-  from { opacity: 0; transform: scale(0.96); }
-  to   { opacity: 1; transform: scale(1); }
-}
+  .modal-content {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    max-height: 90vh;
+    overflow-y: auto;
+    width: 100%;
+    max-width: 800px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+    animation: modalFade 0.18s ease-out;
+  }
 
-
+  @keyframes modalFade {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
 </style>
