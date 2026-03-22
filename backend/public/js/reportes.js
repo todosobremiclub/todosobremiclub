@@ -979,78 +979,81 @@
     }
   }
 
-  // =============================
-  // SOCIOS NUEVOS POR MES (ABAJO IZQUIERDA)
-  // =============================
-  async function loadNuevos() {
-    const tabela = $('tablaNuevos');
-    showLoading(tabela, 'Cargando meses...');
+ // =============================
+// SOCIOS NUEVOS POR MES (ABAJO IZQUIERDA)
+// =============================
+async function loadNuevos() {
+  const tabela = $('tablaNuevos');
+  showLoading(tabela, 'Cargando meses...');
 
-    try {
-      const clubId = getActiveClubId();
-      const anio   = nuevosState.anio;
-      const url    = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${anio}`;
-      const { data } = await fetchAuth(url);
-      if (!data.ok) {
-        showError(tabela, data.error || 'Error cargando socios nuevos');
-        return;
-      }
-
-      const rows = data.rows || [];
-      // agregamos el año a cada fila
-      nuevosState.rows = rows.map(r => ({
-        ...r,
-        anio
-      }));
-
-      const now = new Date();
-      const mesAct = now.getMonth() + 1;
-      let idx = nuevosState.rows.findIndex(r => r.mes_num === mesAct);
-      if (idx < 0) idx = 0;
-      nuevosState.mesIndex = idx;
-
-      renderNuevos();
-    } catch (e) {
-      console.error(e);
-      showError($('tablaNuevos'), e.message || 'Error inesperado cargando socios nuevos');
+  try {
+    const clubId = getActiveClubId();
+    const anio   = nuevosState.anio;
+    const url    = `/club/${clubId}/reportes/socios-nuevos-mes/meses?anio=${anio}`;
+    const { data } = await fetchAuth(url);
+    if (!data.ok) {
+      showError(tabela, data.error || 'Error cargando socios nuevos');
+      return;
     }
+
+    const rows = data.rows || [];
+
+    // 👇 ACÁ agregamos el año manualmente a cada fila
+    nuevosState.rows = rows.map(r => ({
+      ...r,
+      anio
+    }));
+
+    const now = new Date();
+    const mesAct = now.getMonth() + 1;
+    let idx = nuevosState.rows.findIndex(r => r.mes_num === mesAct);
+    if (idx < 0) idx = 0;
+    nuevosState.mesIndex = idx;
+
+    renderNuevos();
+  } catch (e) {
+    console.error(e);
+    showError($('tablaNuevos'), e.message || 'Error inesperado cargando socios nuevos');
   }
+}
 
-  function renderNuevos() {
-    const rows = nuevosState.rows;
-    const idx  = nuevosState.mesIndex;
-    const sel  = rows[idx];
+function renderNuevos() {
+  const rows = nuevosState.rows;
+  const idx  = nuevosState.mesIndex;
+  const sel  = rows[idx];
 
-    $('nuevosCount').textContent = sel ? sel.cantidad : '–';
+  // número grande
+  $('nuevosCount').textContent = sel ? sel.cantidad : '–';
 
-    const labelMes = sel ? `${sel.mes} ${sel.anio}` : '';
-    $('nuevosMesLabel').textContent = labelMes;
+  // 👇 Texto del mes + año (usamos el anio que agregamos en loadNuevos)
+  const labelMes = sel ? `${sel.mes} ${sel.anio}` : '';
+  $('nuevosMesLabel').textContent = labelMes;
 
-    const tabela = $('tablaNuevos');
-    if (!tabela) return;
+  const tabela = $('tablaNuevos');
+  if (!tabela) return;
 
-    const html = `
-      <div class="small-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Mes</th>
-              <th style="text-align:right;">Nuevos</th>
+  const html = `
+    <div class="small-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Mes</th>
+            <th style="text-align:right;">Nuevos</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r,i)=>`
+            <tr data-index="${i}" class="row-nuevo" style="cursor:pointer;">
+              <td>${r.mes}</td>
+              <td style="text-align:right;">${r.cantidad}</td>
             </tr>
-          </thead>
-          <tbody>
-            ${rows.map((r,i)=>`
-              <tr data-index="${i}" class="row-nuevo" style="cursor:pointer;">
-                <td>${r.mes}</td>
-                <td style="text-align:right;">${r.cantidad}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
-    tabela.innerHTML = html;
-  }
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  tabela.innerHTML = html;
+}
 
   async function loadNuevosDetalle(idx) {
     const row = nuevosState.rows[idx];
