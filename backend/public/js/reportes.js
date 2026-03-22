@@ -51,8 +51,8 @@
   const impagosState = {
     anio: new Date().getFullYear(),
     rows: [],            // [{ anio, mes, cantidad, mes_num }]
-    currentIndex: 0,     // índice del mes seleccionado
-    page: 0,             // pagina actual del modal
+    currentIndex: 0,
+    page: 0,
     pageSize: 20,
     totalForCurrent: 0
   };
@@ -235,11 +235,11 @@
       totalSocios = catRows.reduce((acc, r) => acc + Number(r.cantidad || 0), 0);
 
       if (subtitle) {
-        subtitle.textContent = `Categorías dentro de la actividad "${actividad}". (Más adelante podemos hacer click para ver socios directamente.)`;
+        subtitle.textContent = `Categorías dentro de la actividad "${actividad}".`;
       }
       if (resetBtn) resetBtn.classList.remove('hidden');
       if (detailBody) {
-        detailBody.innerHTML = `<div class="muted small">Usá el gráfico para explorar categorías. El detalle de socios se puede cargar más adelante.</div>`;
+        detailBody.innerHTML = `<div class="muted small">Hacé click en una categoría para ver el listado de socios.</div>`;
       }
     }
 
@@ -324,34 +324,31 @@
       }
 
       const html = `
-  <h4 class="ranking-title">Ingresos por responsable</h4>
-  <div class="small-table">
-    <table>
-      <tbody>
-      ${ingresos.map(r=>`
-        <tr>
-          <td>${r.tipo}</td>
-          <td style="text-align:right;">${moneyARS.format(Number(r.total||0))}</td>
-        </tr>
-      `).join('')}
-      </tbody>
-    </table>
-  </div>
-
-  <h4 class="ranking-title" style="margin-top:10px;">Gastos por responsable</h4>
-  <div class="small-table">
-    <table>
-      <tbody>
-      ${gastos.map(r=>`
-        <tr>
-          <td>${r.responsable}</td>
-          <td style="text-align:right;">${moneyARS.format(Number(r.total||0))}</td>
-        </tr>
-      `).join('')}
-      </tbody>
-    </table>
-  </div>
-`;
+        <table class="socios-table" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>N° Socio</th>
+              <th>DNI</th>
+              <th>Nombre</th>
+              <th>Apellido</th>
+              <th>Teléfono</th>
+              <th>Fecha ingreso</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(s => `
+              <tr>
+                <td>${s.numero_socio ?? ''}</td>
+                <td>${s.dni ?? ''}</td>
+                <td>${s.nombre ?? ''}</td>
+                <td>${s.apellido ?? ''}</td>
+                <td>${s.telefono ?? ''}</td>
+                <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0,10) : ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
       detailBody.innerHTML = html;
     } catch (e) {
       console.error(e);
@@ -808,7 +805,7 @@
     const ingValsFull = meses.map(r => Number(r.ingresos || 0));
     const gasValsFull = meses.map(r => Number(r.gastos   || 0));
 
-    // Ventana de 5 meses centrada en el seleccionado
+    // Ventana de 5 meses centrada
     let start = Math.max(0, idx - 2);
     let end   = Math.min(meses.length, idx + 3);
 
@@ -998,7 +995,13 @@
         showError(tabela, data.error || 'Error cargando socios nuevos');
         return;
       }
-      nuevosState.rows = data.rows || [];
+
+      const rows = data.rows || [];
+      // agregamos el año a cada fila
+      nuevosState.rows = rows.map(r => ({
+        ...r,
+        anio
+      }));
 
       const now = new Date();
       const mesAct = now.getMonth() + 1;
@@ -1020,8 +1023,8 @@
 
     $('nuevosCount').textContent = sel ? sel.cantidad : '–';
 
-const labelMes = sel ? `${sel.mes} ${nuevosState.anio}` : '';
-$('nuevosMesLabel').textContent = labelMes;
+    const labelMes = sel ? `${sel.mes} ${sel.anio}` : '';
+    $('nuevosMesLabel').textContent = labelMes;
 
     const tabela = $('tablaNuevos');
     if (!tabela) return;
@@ -1212,7 +1215,7 @@ $('nuevosMesLabel').textContent = labelMes;
       const ingresos = dIng.rows || [];
 
       const html = `
-        <h4 class="ranking-title">Ingresos por cuenta</h4>
+        <h4 class="ranking-title">Ingresos por responsable</h4>
         <div class="small-table">
           <table>
             <tbody>
@@ -1277,27 +1280,25 @@ $('nuevosMesLabel').textContent = labelMes;
       });
     }
 
-// Flechas de Socios nuevos (mes anterior / siguiente)
-const btnNPrev = $('btnNuevosMesPrev');
-const btnNNext = $('btnNuevosMesNext');
+    const btnNPrev = $('btnNuevosMesPrev');
+    const btnNNext = $('btnNuevosMesNext');
 
-if (btnNPrev) {
-  btnNPrev.addEventListener('click', () => {
-    if (!nuevosState.rows.length) return;
-    nuevosState.mesIndex =
-      (nuevosState.mesIndex - 1 + nuevosState.rows.length) % nuevosState.rows.length;
-    renderNuevos();
-  });
-}
-if (btnNNext) {
-  btnNNext.addEventListener('click', () => {
-    if (!nuevosState.rows.length) return;
-    nuevosState.mesIndex =
-      (nuevosState.mesIndex + 1) % nuevosState.rows.length;
-    renderNuevos();
-  });
-}
-
+    if (btnNPrev) {
+      btnNPrev.addEventListener('click', () => {
+        if (!nuevosState.rows.length) return;
+        nuevosState.mesIndex =
+          (nuevosState.mesIndex - 1 + nuevosState.rows.length) % nuevosState.rows.length;
+        renderNuevos();
+      });
+    }
+    if (btnNNext) {
+      btnNNext.addEventListener('click', () => {
+        if (!nuevosState.rows.length) return;
+        nuevosState.mesIndex =
+          (nuevosState.mesIndex + 1) % nuevosState.rows.length;
+        renderNuevos();
+      });
+    }
 
     // Abajo centro – ranking
     const btnRankPrev = $('btnRankMesPrev');
