@@ -1730,4 +1730,55 @@ router.get('/:clubId/reportes/gastos-responsable-mes/detalle', requireAuth, requ
   }
 });
 
+// ===============================
+// Ingresos por RESPONSABLE (CUENTA) por mes
+// GET /club/:clubId/reportes/ingresos-por-responsable?anio=2026&mes=3
+// ===============================
+router.get(
+  '/:clubId/reportes/ingresos-por-responsable',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes  = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({
+        ok: false,
+        error: 'anio y mes son obligatorios'
+      });
+    }
+
+    try {
+      const q = `
+        SELECT
+          COALESCE(ig.cuenta, 'Sin cuenta') AS responsable,
+          SUM(ig.monto) AS total
+        FROM ingresos_generales ig
+        WHERE ig.club_id = $1
+          AND ig.activo = TRUE
+          AND EXTRACT(YEAR FROM ig.fecha) = $2
+          AND EXTRACT(MONTH FROM ig.fecha) = $3
+        GROUP BY COALESCE(ig.cuenta, 'Sin cuenta')
+        ORDER BY responsable;
+      `;
+
+      const r = await db.query(q, [clubId, anio, mes]);
+
+      return res.json({
+        ok: true,
+        rows: r.rows
+      });
+
+    } catch (e) {
+      console.error('❌ ingresos-por-responsable', e);
+      return res.status(500).json({
+        ok: false,
+        error: e.message
+      });
+    }
+  }
+);
+
 module.exports = router;

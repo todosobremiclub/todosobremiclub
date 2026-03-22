@@ -1199,7 +1199,7 @@
       $('cuentasMesLabel').textContent = MESES[mes-1];
 
       const urlGas = `/club/${clubId}/reportes/gastos-responsable-mes/responsables?anio=${anio}&mes=${mes}`;
-      const urlIng = `/club/${clubId}/reportes/ingresos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
+      const urlIng = `/club/${clubId}/reportes/ingresos-por-responsable?anio=${anio}&mes=${mes}`;
 
       const [{ data: dGas }, { data: dIng }] = await Promise.all([
         fetchAuth(urlGas),
