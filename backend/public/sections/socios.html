@@ -73,6 +73,7 @@
     </div>
   </div>
 
+
   <!-- ================= MODAL SOCIO ================= -->
   <div id="modalSocio" class="modal hidden">
     <div class="modal-content socio-content">
@@ -110,66 +111,52 @@
             <label class="checkbox-inline"><input id="socioActivo" type="checkbox"> Activo</label>
             <label class="checkbox-inline"><input id="socioBecado" type="checkbox"> Becado</label>
           </div>
+
         </div>
 
         <!-- ================= ADJUNTOS ================= -->
         <div id="adjuntosSection" class="adjuntos-container">
-          <h4>Documentación adjunta</h4>
 
-          <div id="listaAdjuntos" class="adjuntos-list">
+          <div class="adjuntos-header">
+            <h4>Documentación adjunta</h4>
+            <button id="btnToggleAdjuntos" class="btn btn-secondary btn-sm">Mostrar adjuntos</button>
+          </div>
+
+          <div id="listaAdjuntos" class="adjuntos-list hidden">
             <div class="text-muted">Aquí verás los archivos del socio…</div>
           </div>
 
-          <label>Archivo (máx 10MB)</label>
-          <input id="adjuntoFile" type="file">
+          <div id="formAdjunto" class="hidden">
+            <label>Archivo (máx 10MB)</label>
+            <input id="adjuntoFile" type="file">
+            <button id="btnSubirAdjunto" class="btn btn-secondary" style="margin-top:8px;">📎 Subir adjunto</button>
+          </div>
 
-          <button id="btnSubirAdjunto" class="btn btn-secondary">📎 Subir adjunto</button>
-        </div><div id="adjuntosSection" class="adjuntos-container">
+        </div>
 
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <h4 style="margin:0;">Documentación adjunta</h4>
-    <button id="btnToggleAdjuntos" class="btn btn-secondary btn-sm">Mostrar adjuntos</button>
-  </div>
-
-  <!-- LISTA DE ADJUNTOS OCULTA POR DEFECTO -->
-  <div id="listaAdjuntos" class="adjuntos-list hidden">
-    <div class="text-muted">Aquí verás los archivos del socio…</div>
-  </div>
-
-  <!-- FORM PARA SUBIR ADJUNTO OCULTO INICIALMENTE -->
-  <div id="formAdjunto" class="hidden" style="margin-top:12px;">
-    <label>Archivo (máx 10MB)</label>
-    <input id="adjuntoFile" type="file">
-
-    <button id="btnSubirAdjunto" class="btn btn-secondary" style="margin-top:8px;">
-      📎 Subir adjunto
-    </button>
-  </div>
-
-</div>
 
         <!-- ================= COMENTARIOS ================= -->
         <div id="comentariosSection" class="comentarios-container" style="margin-top:25px;">
 
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <h4 style="margin:0;">Comentarios</h4>
-    <button id="btnToggleComentarios" class="btn btn-secondary btn-sm">Mostrar comentarios</button>
-  </div>
+          <div class="comentarios-header">
+            <h4>Comentarios</h4>
+            <button id="btnToggleComentarios" class="btn btn-secondary btn-sm">Mostrar comentarios</button>
+          </div>
 
-  <!-- LISTA REPLEGADA POR DEFECTO -->
-  <div id="listaComentarios" class="adjuntos-list hidden">
-    <div class="text-muted">Aquí verás los comentarios del socio…</div>
-  </div>
+          <div id="listaComentarios" class="adjuntos-list hidden">
+            <div class="text-muted">Aquí verás los comentarios del socio…</div>
+          </div>
 
-  <div style="margin-top:12px;">
-    <label>Nuevo comentario</label>
-    <textarea id="nuevoComentario" rows="2" placeholder="Escribí un comentario…"></textarea>
-  </div>
+          <div style="margin-top:12px;">
+            <label>Nuevo comentario</label>
+            <textarea id="nuevoComentario" rows="2" placeholder="Escribí un comentario…"></textarea>
+          </div>
 
-  <button id="btnSubirComentario" class="btn btn-secondary" style="margin-top:12px;">
-    💬 Subir comentario
-  </button>
-</div>
+          <button id="btnSubirComentario" class="btn btn-secondary" style="margin-top:12px;">
+            💬 Subir comentario
+          </button>
+
+        </div>
 
       </div>
 
@@ -181,55 +168,49 @@
     </div>
   </div>
 
+
   <!-- ================= MODAL CARNET ================= -->
-<div id="modalCarnet" class="modal hidden">
-  <div class="modal-content carnet-content">
+  <div id="modalCarnet" class="modal hidden">
+    <div class="modal-content carnet-content">
 
-   <!-- HEADER PREMIUM -->
-<div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
-  <h3 style="margin:0;">Carnet digital</h3>
-  <button id="btnCarnetClose" class="btn btn-secondary" style="background:#ffffff55; color:#fff;">✕</button>
-</div>
+      <div class="modal-header">
+        <h3>Carnet digital</h3>
+        <button id="btnCarnetClose" class="btn btn-secondary" style="background:#ffffff55; color:#fff;">✕</button>
+      </div>
 
-<!-- CUERPO PRINCIPAL PREMIUM -->
-<div class="carnet-main">
-  <img id="carnetFoto" class="carnet-foto" alt="Foto" />
+      <div class="carnet-main">
+        <img id="carnetFoto" class="carnet-foto" alt="Foto" />
 
-  <div class="carnet-info">
-    <div id="carnetNombre" class="carnet-nombre"></div>
-    <div id="carnetDni" class="muted small"></div>
-    <div id="carnetCategoria" class="muted small"></div>
+        <div class="carnet-info">
+          <div id="carnetNombre" class="carnet-nombre"></div>
+          <div id="carnetDni" class="muted small"></div>
+          <div id="carnetCategoria" class="muted small"></div>
+          <div id="carnetFlags" style="margin-top:6px; font-size:18px;"></div>
+          <div id="carnetPago" class="carnet-pago" style="margin-top:12px;"></div>
+        </div>
+      </div>
 
-    <!-- ICONOS 📎 / 💬 -->
-    <div id="carnetFlags" style="margin-top:6px; font-size:18px;"></div>
+      <div id="carnetExtra" class="carnet-extra"></div>
 
-    <!-- ESTADO DE PAGO -->
-    <div id="carnetPago" class="carnet-pago" style="margin-top:12px;"></div>
+      <div class="modal-actions footer" 
+           style="padding: 16px 22px; display:flex; justify-content:flex-end; gap:10px;">
+
+        <button id="btnCarnetEdit" class="btn btn-primary"
+                style="background: var(--color-primary); border: none; color: #fff;">
+          Editar
+        </button>
+
+        <button id="btnCarnetOk" class="btn btn-secondary"
+                style="background:#e4e4e4; border:1px solid #ccc; color:#333;">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
   </div>
-</div>
 
-<!-- FICHA COMPLETA -->
-<div id="carnetExtra" class="carnet-extra"></div>
+</section>
 
-<!-- FOOTER / BOTONES -->
-<div class="modal-actions footer" 
-     style="padding: 16px 22px; display:flex; justify-content:flex-end; gap:10px;">
-
-  <button id="btnCarnetEdit" 
-          class="btn btn-primary" 
-          style="background: var(--color-primary); border: none; color: #fff;">
-    Editar
-  </button>
-
-  <button id="btnCarnetOk" 
-          class="btn btn-secondary" 
-          style="background:#e4e4e4; border:1px solid #ccc; color:#333;">
-    Cerrar
-  </button>
-</div>
-
-  </div>
-</div>
 
 /* ================= TOOLBAR (RESPONSIVE) ================= */
 
@@ -237,7 +218,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  flex-wrap: wrap;                /* <-- ANTES: nowrap (rompía en mobile) */
+  flex-wrap: wrap;         /* antes nowrap -> rompía en mobile */
   gap: 12px;
   width: 100%;
 }
@@ -245,7 +226,7 @@
 /* FILTROS */
 .socios-filters-inline {
   display: flex;
-  flex-wrap: wrap;                /* <-- ANTES: nowrap */
+  flex-wrap: wrap;         /* antes nowrap */
   gap: 10px;
   align-items: center;
   flex: 1 1 100%;
@@ -331,12 +312,12 @@
   }
 }
 
-  /* -----------------------------------
-     CARNET DIGITAL – ESTILO PREMIUM
-     ----------------------------------- */
+/* -----------------------------------
+   CARNET DIGITAL – ESTILO PREMIUM
+----------------------------------- */
 
-  /* Contenedor del carnet */
-  .carnet-content {
+/* Contenedor del carnet */
+.carnet-content {
   width: 760px !important;
   max-width: 90vw !important;
   max-height: 90vh !important;
@@ -344,9 +325,8 @@
   border: 2px solid var(--color-primary);
   background: #ffffff;
 
-  /* 🔥 CAMBIOS CLAVE AQUÍ */
   padding-bottom: 24px !important;   /* espacio para los botones */
-  overflow-y: auto !important;       /* permite scrollear si queda largo */
+  overflow-y: auto !important;
   overflow-x: hidden !important;
 
   display: flex;
@@ -354,173 +334,173 @@
   box-shadow: 0 4px 18px rgba(0,0,0,0.18);
 }
 
+/* Header */
+.carnet-content .modal-header {
+  background: linear-gradient(120deg, var(--color-primary), #f97316);
+  color: #fff;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
 
-  /* Header */
-  .carnet-content .modal-header {
-    background: linear-gradient(120deg, var(--color-primary), #f97316);
-    color: #fff;
-    padding: 10px 14px;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
+.carnet-content .modal-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.carnet-content .modal-header button {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: #fff;
+  border-radius: 999px;
+  padding: 4px 9px;
+  cursor: pointer;
+}
+
+.carnet-content .modal-header button:hover {
+  background: rgba(255,255,255,0.35);
+}
+
+/* Cuerpo */
+.carnet-main {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 18px 22px 12px 22px;
+}
+
+/* Foto */
+.carnet-foto {
+  width: 110px;
+  height: 110px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 3px var(--color-primary);
+  background: #fff;
+}
+
+.carnet-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.carnet-nombre {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.carnet-extra {
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 0 22px 18px 22px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.carnet-section {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.carnet-item {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.carnet-label {
+  font-weight: 600;
+  min-width: 150px; 
+  color: #444;
+}
+
+.carnet-value {
+  flex: 1;
+  color: #111;
+}
+
+.carnet-doc {
+  background: #f4f4f4;
+  padding: 7px 10px;
+  display: inline-block;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: 0.15s ease;
+  font-size: 13px;
+}
+
+.carnet-doc:hover {
+  background: #e9e9e9;
+}
+
+@media (max-width: 820px) {
+  .carnet-content {
+    width: 96vw !important;
   }
 
-  .carnet-content .modal-header h3 {
-    font-size: 16px;
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .carnet-content .modal-header button {
-    background: rgba(255,255,255,0.2);
-    border: none;
-    color: #fff;
-    border-radius: 999px;
-    padding: 4px 9px;
-    cursor: pointer;
-  }
-
-  .carnet-content .modal-header button:hover {
-    background: rgba(255,255,255,0.35);
-  }
-
-  /* Cuerpo */
   .carnet-main {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 18px;
-    padding: 18px 22px 12px 22px;
-  }
-
-  /* Foto */
-  .carnet-foto {
-    width: 110px;
-    height: 110px;
-    border-radius: 14px;
-    object-fit: cover;
-    border: 3px solid #fff;
-    box-shadow: 0 0 0 3px var(--color-primary);
-    background: #fff;
-  }
-
-  .carnet-info {
-    flex: 1;
-    display: flex;
     flex-direction: column;
-    gap: 3px;
+    align-items: flex-start;
   }
 
-  .carnet-nombre {
-    font-size: 18px;
-    font-weight: 700;
-  }
-
-  .carnet-extra {
-    font-size: 14px;
-    line-height: 1.4;
-    padding: 0 22px 18px 22px;
-    border-top: 1px solid #e5e5e5;
-  }
-
-  .carnet-section {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 6px;
-    margin-top: 10px;
-  }
-
-  .carnet-item {
-    display: flex;
-    gap: 8px;
-    padding: 6px 0;
-    border-bottom: 1px solid #f0f0f0;
+  .carnet-foto {
+    width: 96px;
+    height: 96px;
   }
 
   .carnet-label {
-    font-weight: 600;
-    min-width: 150px; 
-    color: #444;
+    min-width: 120px;
   }
+}
 
-  .carnet-value {
-    flex: 1;
-    color: #111;
-  }
+/* Flags */
+.socio-flags {
+  font-size: 13px;
+  opacity: .45;
+  margin-right: 5px;
+  display: inline-block;
+  cursor: pointer;
+}
 
-  .carnet-doc {
-    background: #f4f4f4;
-    padding: 7px 10px;
-    display: inline-block;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-top: 6px;
-    transition: 0.15s ease;
-    font-size: 13px;
-  }
+.socio-flags:hover {
+  opacity: 1;
+}
 
-  .carnet-doc:hover {
-    background: #e9e9e9;
-  }
+/* Modal Socio bounds */
+#modalSocio .modal-content {
+  max-height: 90vh;
+  overflow-y: auto;
+  padding-bottom: 10px;
+}
 
-  @media (max-width: 820px) {
-    .carnet-content {
-      width: 96vw !important;
-    }
+#modalSocio .modal-body {
+  max-height: calc(90vh - 170px);
+  overflow-y: auto;
+  padding-right: 8px;
+}
 
-    .carnet-main {
-      flex-direction: column;
-      align-items: flex-start;
-    }
+/* Lista de adjuntos */
+.adjuntos-list {
+  border:1px solid #ddd;
+  border-radius:8px;
+  padding:10px;
+  background:#fafafa;
+  max-height:220px;
+  overflow-y:auto;
+  margin-bottom:12px;
+}
 
-    .carnet-foto {
-      width: 96px;
-      height: 96px;
-    }
+.hidden {
+  display: none !important;
+}
 
-    .carnet-label {
-      min-width: 120px;
-    }
-  }
-
-  /* Flags */
-  .socio-flags {
-    font-size: 13px;
-    opacity: .45;
-    margin-right: 5px;
-    display: inline-block;
-    cursor: pointer;
-  }
-
-  .socio-flags:hover {
-    opacity: 1;
-  }
-
-  /* Modal Socio bounds */
-  #modalSocio .modal-content {
-    max-height: 90vh;
-    overflow-y: auto;
-    padding-bottom: 10px;
-  }
-
-  #modalSocio .modal-body {
-    max-height: calc(90vh - 170px);
-    overflow-y: auto;
-    padding-right: 8px;
-  }
-
-  /* Lista de adjuntos */
-  .adjuntos-list {
-    border:1px solid #ddd;
-    border-radius:8px;
-    padding:10px;
-    background:#fafafa;
-    max-height:220px;
-    overflow-y:auto;
-    margin-bottom:12px;
-  }
-
-  .hidden {
-    display: none !important;
-  }
 </style>
 
 </section>
