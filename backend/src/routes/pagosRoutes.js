@@ -1,4 +1,3 @@
-// src/routes/pagosRoutes.js
 const express = require('express');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
@@ -181,7 +180,8 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
 //   meses: [1..12],
 //   fecha_pago: "YYYY-MM-DD",
 //   es_parcial?: boolean,
-//   monto_parcial?: number
+//   monto_parcial?: number,
+//   cuenta?: string   <-- NUEVO
 // }
 // ============================================================
 router.post(
@@ -198,6 +198,7 @@ router.post(
         fecha_pago,
         es_parcial = false,
         monto_parcial = null,
+        cuenta = null,       // 👈 NUEVO: cuenta/responsable (Leonardo, Marcos, MP, etc.)
       } = req.body ?? {};
 
       // Validación básica
@@ -322,13 +323,13 @@ router.post(
         const rIns = await db.query(
           `
           INSERT INTO pagos_mensuales
-            (club_id, socio_id, anio, mes, monto, fecha_pago)
+            (club_id, socio_id, anio, mes, monto, fecha_pago, cuenta)
           VALUES
-            ($1,$2,$3,$4,$5,$6)
+            ($1,$2,$3,$4,$5,$6,$7)
           ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING
-          RETURNING id, anio, mes, monto, fecha_pago
+          RETURNING id, anio, mes, monto, fecha_pago, cuenta
           `,
-          [clubId, socio_id, anioNum, mes, montoPorMes, fecha_pago]
+          [clubId, socio_id, anioNum, mes, montoPorMes, fecha_pago, cuenta || null]
         );
         if (rIns.rowCount) inserted.push(rIns.rows[0]);
       }
@@ -350,7 +351,7 @@ router.post(
 );
 
 // ============================================================
-// INGRESOS GENERALES (no asociados a socio) – se deja igual
+// INGRESOS GENERALES (no asociados a socio)
 // ============================================================
 
 router.get(
@@ -405,6 +406,7 @@ router.get(
           ig.monto,
           ig.observacion,
           ig.tipo_ingreso_id,
+          ig.cuenta,
           ti.nombre AS tipo_ingreso
         FROM ingresos_generales ig
         JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
@@ -450,6 +452,7 @@ router.post(
       fecha,
       monto,
       observacion,
+      cuenta = null,   // 👈 NUEVO: cuenta/responsable del ingreso general
     } = req.body || {};
     try {
       if (!tipo_ingreso_id || !fecha || monto === undefined || monto === null) {
@@ -484,10 +487,10 @@ router.post(
       const r = await db.query(
         `
         INSERT INTO ingresos_generales
-          (id, club_id, tipo_ingreso_id, fecha, monto, observacion, created_at, activo)
+          (id, club_id, tipo_ingreso_id, fecha, monto, observacion, cuenta, created_at, activo)
         VALUES
-          (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), true)
-        RETURNING id, club_id, tipo_ingreso_id, fecha, monto, observacion, created_at
+          (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW(), true)
+        RETURNING id, club_id, tipo_ingreso_id, fecha, monto, observacion, cuenta, created_at
         `,
         [
           clubId,
@@ -495,6 +498,7 @@ router.post(
           String(fecha),
           montoNum,
           observacion ?? null,
+          cuenta ?? null
         ]
       );
 

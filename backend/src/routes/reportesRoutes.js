@@ -1731,7 +1731,8 @@ router.get('/:clubId/reportes/gastos-responsable-mes/detalle', requireAuth, requ
 });
 
 // ===============================
-// Ingresos por RESPONSABLE (CUENTA) por mes
+// Ingresos totales por responsable (cuenta)
+// Suma ingresos_generales + pagos_mensuales
 // GET /club/:clubId/reportes/ingresos-por-responsable?anio=2026&mes=3
 // ===============================
 router.get(
@@ -1744,41 +1745,64 @@ router.get(
     const mes  = Number(req.query.mes);
 
     if (!anio || !mes) {
-      return res.status(400).json({
-        ok: false,
-        error: 'anio y mes son obligatorios'
-      });
+      return res.status(400).json({ ok: false, error: 'anio y mes son obligatorios' });
     }
 
     try {
-      const q = `
-        SELECT
+      // 1) Ingresos generales (manuales)
+      const q1 = `
+        SELECT 
           COALESCE(ig.cuenta, 'Sin cuenta') AS responsable,
           SUM(ig.monto) AS total
         FROM ingresos_generales ig
-        WHERE ig.club_id = $1
-          AND ig.activo = TRUE
+        WHERE ig.club_id = $1 
+          AND ig.activo = true
           AND EXTRACT(YEAR FROM ig.fecha) = $2
           AND EXTRACT(MONTH FROM ig.fecha) = $3
         GROUP BY COALESCE(ig.cuenta, 'Sin cuenta')
-        ORDER BY responsable;
       `;
 
-      const r = await db.query(q, [clubId, anio, mes]);
+      // 2) Cuotas sociales (pagos_mensuales)
+      const q2 = `
+        SELECT 
+          COALESCE(pm.cuenta, 'Sin cuenta') AS responsable,
+          SUM(pm.monto) AS total
+        FROM pagos_mensuales pm
+        WHERE pm.club_id = $1
+          AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+          AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
+        GROUP BY COALESCE(pm.cuenta, 'Sin cuenta')
+      `;
 
-      return res.json({
-        ok: true,
-        rows: r.rows
-      });
+      const [r1, r2] = await Promise.all([
+        db.query(q1, [clubId, anio, mes]),
+        db.query(q2, [clubId, anio, mes])
+      ]);
+
+      // Unificar resultados
+      const map = new Map();
+
+      const acumular = (rows) => {
+        rows.forEach(row => {
+          const responsable = row.responsable;
+          const total = Number(row.total || 0);
+          map.set(responsable, (map.get(responsable) || 0) + total);
+        });
+      };
+
+      acumular(r1.rows);
+      acumular(r2.rows);
+
+      const rows = Array.from(map.entries())
+        .map(([responsable, total]) => ({ responsable, total }))
+        .sort((a,b) => a.responsable.localeCompare(b.responsable));
+
+      res.json({ ok: true, rows });
 
     } catch (e) {
       console.error('❌ ingresos-por-responsable', e);
-      return res.status(500).json({
-        ok: false,
-        error: e.message
-      });
+      res.status(500).json({ ok: false, error: e.message });
     }
   }
 );
-
 module.exports = router;
