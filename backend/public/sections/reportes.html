@@ -82,7 +82,7 @@
             <span id="igMesLabel" class="nav-label">Mes actual</span>
             <button id="btnIGMesNext" class="btn-nav">▶</button>
           </div>
-                  </div>
+        </div>
       </div>
 
       <div class="card-body">
@@ -135,32 +135,31 @@
   <div class="reportes-detail-grid">
 
     <!-- BLOQUE 1 – SOCIOS NUEVOS POR MES -->
-   <div class="detail-card" id="card-nuevos">
-  <h3 class="detail-title">Socios nuevos por mes</h3>
+    <div class="detail-card" id="card-nuevos">
+      <h3 class="detail-title">Socios nuevos por mes</h3>
 
-  <!-- Selector de mes -->
-  <div class="ranking-toolbar">
-    <button id="btnNuevosMesPrev" class="btn-nav-sm">◀</button>
-    <span id="nuevosMesLabel" class="nav-label small">Mes actual</span>
-    <button id="btnNuevosMesNext" class="btn-nav-sm">▶</button>
-  </div>
+      <!-- Selector de mes -->
+      <div class="ranking-toolbar">
+        <button id="btnNuevosMesPrev" class="btn-nav-sm">◀</button>
+        <span id="nuevosMesLabel" class="nav-label small">Mes actual</span>
+        <button id="btnNuevosMesNext" class="btn-nav-sm">▶</button>
+      </div>
 
-  <!-- KPI -->
-  <div id="nuevosTop" class="nuevos-top">
-    <div class="nuevos-label">Socios nuevos</div>
-    <div id="nuevosCount" class="nuevos-value">–</div>
-  </div>
+      <!-- KPI -->
+      <div id="nuevosTop" class="nuevos-top">
+        <div class="nuevos-label">Socios nuevos</div>
+        <div id="nuevosCount" class="nuevos-value">–</div>
+      </div>
 
-  <!-- Tabla meses -->
-  <div id="tablaNuevos" class="detail-body">
-    <div class="muted small">Cargando meses…</div>
-  </div>
-</div>
+      <!-- Tabla meses -->
+      <div id="tablaNuevos" class="detail-body">
+        <div class="muted small">Cargando meses…</div>
+      </div>
+    </div>
 
     <!-- BLOQUE 2 – RANKING INGRESOS / GASTOS -->
     <div class="detail-card" id="card-ranking">
       <h3 class="detail-title">Ranking por Gastos / Ingresos</h3>
-
 
       <div class="ranking-toolbar">
         <button id="btnRankMesPrev" class="btn-nav-sm">◀</button>
@@ -173,10 +172,9 @@
       </div>
     </div>
 
-    <!-- BLOQUE 3 – INGRESOS / GASTOS POR CUENTA -->
+    <!-- BLOQUE 3 – INGRESOS / GASTOS POR RESPONSABLE -->
     <div class="detail-card" id="card-cuentas">
-      <h3 class="detail-title">Ingresos por cuenta / Gastos por responsable</h3>
-
+      <h3 class="detail-title">Ingresos por responsable / Gastos por responsable</h3>
 
       <div class="cuentas-toolbar">
         <button id="btnCuentasMesPrev" class="btn-nav-sm">◀</button>
@@ -296,30 +294,32 @@
     color:#b91c1c;
   }
 
-  /* Ingresos/Gastos resumen mensual */
+  /* Ingresos/Gastos resumen mensual y anual */
   .ig-month-summary {
     display:flex;
     gap:10px;
   }
-  .ig-month-item,
-.ig-summary-item {
-  padding:4px 6px;
-}
-.ig-month-value,
-.ig-value {
-  font-size:13px;
-  font-weight:600;
-}
 
-  .ig-summary {
-    display:flex;
-    gap:8px;
-  }
+  .ig-month-item,
   .ig-summary-item {
     flex:1;
     background:#f9fafb;
     border-radius:8px;
-    padding:6px;
+    padding:4px 6px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+
+  .ig-month-value,
+  .ig-value {
+    font-size:13px;
+    font-weight:600;
+  }
+
+  .ig-summary {
+    display:flex;
+    gap:8px;
   }
 
   /* DETALLES (abajo) */
@@ -353,6 +353,10 @@
   /* NUEVOS SOCIOS */
   .nuevos-top {
     text-align:center;
+  }
+  .nuevos-label {
+    font-size:12px;
+    color:#6b7280;
   }
   .nuevos-value {
     font-size:32px;
@@ -398,5 +402,15 @@
     overflow:auto;
     width:100%;
     max-width:800px;
+  }
+
+  @media (max-width: 1024px) {
+    .reportes-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .reportes-detail-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
