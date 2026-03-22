@@ -10,9 +10,7 @@
        =============================== -->
   <div class="reportes-grid">
 
-    <!-- ===============================================
-         PANEL 1 – SOCIOS POR ACTIVIDAD / CATEGORÍA
-         =============================================== -->
+    <!-- PANEL 1 – SOCIOS POR ACTIVIDAD / CATEGORÍA -->
     <div class="report-card" id="card-actividades">
       <div class="card-header">
         <div>
@@ -21,8 +19,7 @@
             Distribución de socios activos por actividad.
           </div>
         </div>
-        <button id="btnActividadesReset"
-                class="btn btn-secondary btn-xs hidden">
+        <button id="btnActividadesReset" class="btn btn-secondary btn-xs hidden">
           ← Ver actividades
         </button>
       </div>
@@ -31,14 +28,11 @@
         <div class="card-chart">
           <canvas id="chartActividades"></canvas>
         </div>
-        <!-- Tabla oculta: solo usamos el gráfico en este panel -->
         <div class="card-table hidden" id="tablaActividades"></div>
       </div>
     </div>
 
-    <!-- ===============================================
-         PANEL 2 – CUOTAS IMPAGAS
-         =============================================== -->
+    <!-- PANEL 2 – CUOTAS IMPAGAS -->
     <div class="report-card" id="card-impagos">
       <div class="card-header">
         <div>
@@ -73,9 +67,7 @@
       </div>
     </div>
 
-    <!-- ===============================================
-         PANEL 3 – INGRESOS VS GASTOS
-         =============================================== -->
+    <!-- PANEL 3 – INGRESOS VS GASTOS -->
     <div class="report-card" id="card-ingresos">
 
       <div class="card-header">
@@ -116,7 +108,7 @@
           </div>
         </div>
 
-        <!-- GRÁFICO MENSUAL -->
+        <!-- GRÁFICO -->
         <div class="card-chart" style="min-height:180px;">
           <canvas id="chartIGMes"></canvas>
         </div>
@@ -143,43 +135,58 @@
   </div> <!-- /reportes-grid -->
 
   <!-- =============================
-       ZONA DE DETALLES (ABAJO)
+       ZONA DE DETALLES NUEVA (3 REPORTES)
        ============================= -->
   <div class="reportes-detail-grid">
 
-    <!-- Detalle Actividades / Categorías / Socios -->
-    <div class="detail-card" id="detail-actividades">
-      <h3 class="detail-title">Detalle de actividades / categorías</h3>
-      <div id="detailActividadesBody" class="detail-body">
-        <div class="muted small">
-          Hacé click en una actividad o categoría para ver el detalle de socios.
-        </div>
+    <!-- BLOQUE 1 – SOCIOS NUEVOS POR MES -->
+    <div class="detail-card" id="card-nuevos">
+      <h3 class="detail-title">Socios nuevos por mes</h3>
+
+      <div id="nuevosTop" class="nuevos-top">
+        <div class="nuevos-label">Socios nuevos</div>
+        <div id="nuevosCount" class="nuevos-value">–</div>
+        <div id="nuevosMesLabel" class="nuevos-month"></div>
+      </div>
+
+      <div id="tablaNuevos" class="detail-body">
+        <div class="muted small">Cargando meses…</div>
       </div>
     </div>
 
-    <!-- Detalle Impagos -->
-    <div class="detail-card" id="detail-impagos">
-      <h3 class="detail-title">Detalle de socios impagos</h3>
-      <div id="detailImpagosBody" class="detail-body">
-        <div class="muted small">
-          Seleccioná un mes y hacé click en la cantidad para ver el listado.
-        </div>
+    <!-- BLOQUE 2 – RANKING INGRESOS / GASTOS -->
+    <div class="detail-card" id="card-ranking">
+      <h3 class="detail-title">Ranking por tipo (mes)</h3>
+
+      <div class="ranking-toolbar">
+        <button id="btnRankMesPrev" class="btn-nav-sm">◀</button>
+        <span id="rankMesLabel" class="nav-label small">Mes actual</span>
+        <button id="btnRankMesNext" class="btn-nav-sm">▶</button>
+      </div>
+
+      <div id="rankingBody" class="detail-body">
+        <div class="muted small">Cargando ranking…</div>
       </div>
     </div>
 
-    <!-- Detalle Ingresos vs Gastos -->
-    <div class="detail-card" id="detail-ingresos">
-      <h3 class="detail-title">Detalle de ingresos / gastos</h3>
-      <div id="detailIngresosBody" class="detail-body">
-        <div class="muted small">
-          Seleccioná un mes para ver el detalle de ingresos y gastos.
-        </div>
+    <!-- BLOQUE 3 – INGRESOS / GASTOS POR CUENTA -->
+    <div class="detail-card" id="card-cuentas">
+      <h3 class="detail-title">Ingresos &amp; Gastos por cuenta</h3>
+
+      <div class="cuentas-toolbar">
+        <button id="btnCuentasMesPrev" class="btn-nav-sm">◀</button>
+        <span id="cuentasMesLabel" class="nav-label small">Mes actual</span>
+        <button id="btnCuentasMesNext" class="btn-nav-sm">▶</button>
+      </div>
+
+      <div id="cuentasBody" class="detail-body">
+        <div class="muted small">Cargando datos…</div>
       </div>
     </div>
 
   </div>
 
-  <!-- Modal detalle de cuotas impagas -->
+  <!-- MODAL IMPAGOS -->
   <div id="impagosModal" class="modal hidden">
     <div class="modal-content" style="max-width: 800px;">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
@@ -220,12 +227,11 @@
   }
 
   .card-header {
-    padding:10px 12px 6px 12px;
+    padding:10px 12px;
     border-bottom:1px solid #e5e7eb;
     display:flex;
     justify-content:space-between;
     align-items:flex-start;
-    gap:10px;
   }
 
   .card-title {
@@ -262,7 +268,7 @@
   }
 
   .card-body {
-    padding:10px 12px 12px 12px;
+    padding:10px 12px;
     flex:1;
     display:flex;
     flex-direction:column;
@@ -274,150 +280,57 @@
     min-height:160px;
   }
 
-  .card-table {
-    margin-top:6px;
-    font-size:13px;
-  }
-
-  /* KPI Cuotas impagas */
+  /* Impagos */
   .impagos-top {
-    display:flex;
-    flex-direction:column;
-    align-items:center;
     text-align:center;
-    gap:4px;
-  }
-
-  .impagos-kpi {
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:2px;
-  }
-
-  .impagos-label {
-    font-size:11px;
-    text-transform:uppercase;
-    letter-spacing:0.05em;
-    color:#6b7280;
   }
 
   .impagos-value {
     font-size:36px;
     font-weight:800;
     color:#b91c1c;
-    line-height:1.1;
   }
 
-  .impagos-year {
-    margin-top:2px;
-  }
-
-  .impagos-secondary {
-    text-align:center;
-    margin-top:4px;
-  }
-
-  /* Ingresos/Gastos summary anual */
-  .ig-summary {
-    display:flex;
-    justify-content:space-between;
-    gap:8px;
-    margin-top:6px;
-  }
-
-  .ig-summary-item {
-    flex:1;
-    background:#f9fafb;
-    border-radius:8px;
-    padding:6px 8px;
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-  }
-
-  .ig-label {
-    font-size:11px;
-    color:#6b7280;
-  }
-
-  .ig-value {
-    font-size:14px;
-    font-weight:700;
-  }
-
-  /* Resumen mensual Ingresos vs Gastos */
+  /* Ingresos/Gastos resumen mensual */
   .ig-month-summary {
     display:flex;
-    justify-content:space-between;
     gap:10px;
-    margin-bottom:10px;
   }
-
   .ig-month-item {
     flex:1;
     background:#f9fafb;
     border-radius:8px;
-    padding:6px 8px;
-    display:flex;
-    flex-direction:column;
-    gap:2px;
+    padding:6px;
   }
-
   .ig-month-value {
     font-size:14px;
     font-weight:700;
   }
 
-  /* NAV BOTONES */
-  .btn-nav,
-  .btn-nav-sm {
-    border-radius:999px;
-    border:1px solid #e5e7eb;
+  .ig-summary {
+    display:flex;
+    gap:8px;
+  }
+  .ig-summary-item {
+    flex:1;
     background:#f9fafb;
-    padding:2px 7px;
-    font-size:12px;
-    cursor:pointer;
+    border-radius:8px;
+    padding:6px;
   }
 
-  .btn-nav-sm {
-    padding:1px 5px;
-    font-size:11px;
-  }
-
-  .btn-nav:hover,
-  .btn-nav-sm:hover {
-    background:#e5e7eb;
-  }
-
-  .nav-label {
-    font-size:13px;
-    font-weight:600;
-  }
-
-  .nav-label.small {
-    font-size:11px;
-  }
-
-  .btn-xs {
-    font-size:11px;
-    padding:2px 6px;
-  }
-
-  /* GRID DE DETALLES (ABAJO) */
+  /* DETALLES (abajo) */
   .reportes-detail-grid {
     display:grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap:16px;
+    margin-top:20px;
   }
 
   .detail-card {
     background:#ffffff;
     border-radius:12px;
     border:1px solid #e5e7eb;
-    box-shadow:0 1px 4px rgba(0,0,0,0.03);
     padding:10px 12px;
-    min-height:180px;
     display:flex;
     flex-direction:column;
   }
@@ -429,67 +342,57 @@
   }
 
   .detail-body {
-    font-size:13px;
     flex:1;
     overflow:auto;
   }
 
-  /* Utilidades */
-  .muted {
-    color:#6b7280;
+  /* NUEVOS SOCIOS */
+  .nuevos-top {
+    text-align:center;
   }
-  .small {
-    font-size:12px;
-  }
-  .hidden {
-    display:none !important;
-  }
-
-  @media (max-width: 1024px) {
-    .reportes-grid {
-      grid-template-columns: 1fr;
-    }
-    .reportes-detail-grid {
-      grid-template-columns: 1fr;
-    }
+  .nuevos-value {
+    font-size:32px;
+    font-weight:800;
+    color:#2563eb;
   }
 
-  /* ==========================
-     MODAL (POPUP GLOBAL)
-     ========================== */
+  /* Ranking y cuentas */
+  .ranking-toolbar,
+  .cuentas-toolbar {
+    display:flex;
+    justify-content:center;
+    gap:6px;
+    margin-bottom:8px;
+  }
+
+  .small-table table {
+    width:100%;
+    font-size:13px;
+    border-collapse:collapse;
+  }
+  .small-table td {
+    padding:4px 0;
+  }
+
+  /* Modal */
   .modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    inset: 0;
     background: rgba(0,0,0,0.45);
-    backdrop-filter: blur(2px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    z-index: 9999;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
   }
-
-  .modal.hidden {
-    display: none !important;
-  }
+  .modal.hidden { display:none !important; }
 
   .modal-content {
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 16px;
-    max-height: 90vh;
-    overflow-y: auto;
-    width: 100%;
-    max-width: 800px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.15);
-    animation: modalFade 0.18s ease-out;
-  }
-
-  @keyframes modalFade {
-    from { opacity: 0; transform: scale(0.96); }
-    to   { opacity: 1; transform: scale(1); }
+    background:#ffffff;
+    padding:16px;
+    border-radius:12px;
+    max-height:90vh;
+    overflow:auto;
+    width:100%;
+    max-width:800px;
   }
 </style>
