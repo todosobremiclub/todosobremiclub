@@ -402,21 +402,27 @@ function renderSociosMini(query){
   }
 
   const clubId = getActiveClubId();
-  const body = {
-    socio_id: selectedSocioId,
-    anio: selectedYear,
-    meses: Array.from(mesesSeleccionados),
-    fecha_pago: fecha,
-    es_parcial: esParcial
-  };
+const body = {
+  socio_id: selectedSocioId,
+  anio: selectedYear,
+  meses: Array.from(mesesSeleccionados),
+  fecha_pago: fecha,
+  es_parcial: esParcial
+};
 
-  const cuentaId = $('pagoCuenta')?.value;
+// Cuenta / responsable
+const cuentaId = $('pagoCuenta')?.value;
 if (!cuentaId) return alert('Seleccioná una cuenta');
-body.cuenta_id = cuentaId;
+
+const cuentaNombre = getCuentaNombreById(cuentaId);
+if (!cuentaNombre) return alert('Cuenta inválida');
+
+body.cuenta = cuentaNombre;  // 👈 el backend guarda 'cuenta' (texto), no cuenta_id
 
 if (esParcial) {
   body.monto_parcial = montoNum;
 }
+
 
   const btn = $('btnPagoSave');
   if (btn) btn.disabled = true;
@@ -561,6 +567,12 @@ function fillCuentasSelects() {
   });
 }
 
+function getCuentaNombreById(id) {
+  if (!id) return '';
+  const r = responsablesCache.find(x => String(x.id) === String(id));
+  return r ? r.nombre : '';
+}
+
   async function loadIngresos() {
     ensureIngresosUI();
     const clubId = getActiveClubId();
@@ -680,29 +692,20 @@ async function deleteIngreso(id) {
  const obs = $('ingresoObs')?.value;
 const cuentaId = $('ingresoCuenta')?.value;
 if (!cuentaId) return alert('Seleccioná una cuenta');
+
+const cuentaNombre = getCuentaNombreById(cuentaId);
+if (!cuentaNombre) return alert('Cuenta inválida');
+
 if (!tipo) return alert('Seleccioná un tipo de ingreso');
-;
-    if (!fecha) return alert('Seleccioná una fecha');
-    if (monto === '' || monto == null) return alert('Ingresá un monto');
+// ...
 
-    const montoNum = Number(monto);
-    if (Number.isNaN(montoNum) || montoNum < 0) return alert('Monto inválido');
-
-    const btn = $('btnIngresoSave');
-    if (btn) btn.disabled = true;
-
-    try {
-      const { res, data } = await fetchAuth(`/club/${clubId}/ingresos`, {
-        method: 'POST',
-        json: true,
-        body: JSON.stringify({
+body: JSON.stringify({
   tipo_ingreso_id: tipo,
   fecha,
   monto: montoNum,
-  observacion: (obs || '').trim() || null,
-  cuenta_id: cuentaId
-})
-      });
+  observacion: (obs ?? '').trim() || null,
+  cuenta: cuentaNombre   // 👈 de nuevo, enviar 'cuenta' (texto)
+})      });
 
       if (!res.ok || !data.ok) {
         alert(data.error || 'Error guardando ingreso');
