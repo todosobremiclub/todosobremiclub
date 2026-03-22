@@ -87,6 +87,9 @@
 
       <div class="card-body">
 
+        <!-- span oculto para que el JS pueda escribir el año sin romper -->
+        <span id="igAnioLabel" class="nav-label small" style="display:none;"></span>
+
         <!-- RESUMEN MENSUAL -->
         <div class="ig-month-summary">
           <div class="ig-month-item">
@@ -288,16 +291,30 @@
     text-align:center;
   }
 
+  .impagos-label {
+    font-size:12px;
+    color:#6b7280;
+  }
+
   .impagos-value {
     font-size:36px;
     font-weight:800;
     color:#b91c1c;
   }
 
+  .impagos-year {
+    font-size:12px;
+  }
+
+  .impagos-secondary {
+    text-align:center;
+    margin-top:4px;
+  }
+
   /* Ingresos/Gastos resumen mensual y anual */
   .ig-month-summary {
     display:flex;
-    gap:10px;
+    gap:8px;
   }
 
   .ig-month-item,
@@ -309,6 +326,11 @@
     display:flex;
     flex-direction:column;
     gap:2px;
+  }
+
+  .ig-label {
+    font-size:11px;
+    color:#6b7280;
   }
 
   .ig-month-value,
@@ -354,10 +376,12 @@
   .nuevos-top {
     text-align:center;
   }
+
   .nuevos-label {
     font-size:12px;
     color:#6b7280;
   }
+
   .nuevos-value {
     font-size:32px;
     font-weight:800;
@@ -408,7 +432,6 @@
     .reportes-grid {
       grid-template-columns: 1fr;
     }
-
     .reportes-detail-grid {
       grid-template-columns: 1fr;
     }
