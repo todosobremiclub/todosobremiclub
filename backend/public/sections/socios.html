@@ -218,7 +218,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  flex-wrap: wrap;         /* antes nowrap -> rompía en mobile */
+  flex-wrap: wrap;
   gap: 12px;
   width: 100%;
 }
@@ -226,13 +226,12 @@
 /* FILTROS */
 .socios-filters-inline {
   display: flex;
-  flex-wrap: wrap;         /* antes nowrap */
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   flex: 1 1 100%;
 }
 
-/* Inputs y selects */
 .socios-filters-inline input,
 .socios-filters-inline select {
   padding: 7px 10px;
@@ -316,7 +315,6 @@
    CARNET DIGITAL – ESTILO PREMIUM
 ----------------------------------- */
 
-/* Contenedor del carnet */
 .carnet-content {
   width: 760px !important;
   max-width: 90vw !important;
@@ -324,17 +322,14 @@
   border-radius: 16px;
   border: 2px solid var(--color-primary);
   background: #ffffff;
-
-  padding-bottom: 24px !important;   /* espacio para los botones */
+  padding-bottom: 24px !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-
   display: flex;
   flex-direction: column;
   box-shadow: 0 4px 18px rgba(0,0,0,0.18);
 }
 
-/* Header */
 .carnet-content .modal-header {
   background: linear-gradient(120deg, var(--color-primary), #f97316);
   color: #fff;
@@ -361,7 +356,6 @@
   background: rgba(255,255,255,0.35);
 }
 
-/* Cuerpo */
 .carnet-main {
   display: flex;
   flex-direction: row;
@@ -370,7 +364,6 @@
   padding: 18px 22px 12px 22px;
 }
 
-/* Foto */
 .carnet-foto {
   width: 110px;
   height: 110px;
@@ -416,7 +409,7 @@
 
 .carnet-label {
   font-weight: 600;
-  min-width: 150px; 
+  min-width: 150px;
   color: #444;
 }
 
@@ -460,7 +453,6 @@
   }
 }
 
-/* Flags */
 .socio-flags {
   font-size: 13px;
   opacity: .45;
@@ -473,7 +465,6 @@
   opacity: 1;
 }
 
-/* Modal Socio bounds */
 #modalSocio .modal-content {
   max-height: 90vh;
   overflow-y: auto;
@@ -486,7 +477,6 @@
   padding-right: 8px;
 }
 
-/* Lista de adjuntos */
 .adjuntos-list {
   border:1px solid #ddd;
   border-radius:8px;
@@ -500,7 +490,6 @@
 .hidden {
   display: none !important;
 }
-
 </style>
 
 </section>
