@@ -140,23 +140,32 @@
   <div class="reportes-detail-grid">
 
     <!-- BLOQUE 1 – SOCIOS NUEVOS POR MES -->
-    <div class="detail-card" id="card-nuevos">
-      <h3 class="detail-title">Socios nuevos por mes</h3>
+   <div class="detail-card" id="card-nuevos">
+  <h3 class="detail-title">Socios nuevos por mes</h3>
 
-      <div id="nuevosTop" class="nuevos-top">
-        <div class="nuevos-label">Socios nuevos</div>
-        <div id="nuevosCount" class="nuevos-value">–</div>
-        <div id="nuevosMesLabel" class="nuevos-month"></div>
-      </div>
+  <!-- Selector de mes -->
+  <div class="ranking-toolbar">
+    <button id="btnNuevosMesPrev" class="btn-nav-sm">◀</button>
+    <span id="nuevosMesLabel" class="nav-label small">Mes actual</span>
+    <button id="btnNuevosMesNext" class="btn-nav-sm">▶</button>
+  </div>
 
-      <div id="tablaNuevos" class="detail-body">
-        <div class="muted small">Cargando meses…</div>
-      </div>
-    </div>
+  <!-- KPI -->
+  <div id="nuevosTop" class="nuevos-top">
+    <div class="nuevos-label">Socios nuevos</div>
+    <div id="nuevosCount" class="nuevos-value">–</div>
+  </div>
+
+  <!-- Tabla meses -->
+  <div id="tablaNuevos" class="detail-body">
+    <div class="muted small">Cargando meses…</div>
+  </div>
+</div>
 
     <!-- BLOQUE 2 – RANKING INGRESOS / GASTOS -->
     <div class="detail-card" id="card-ranking">
-      <h3 class="detail-title">Ranking por tipo (mes)</h3>
+      <h3 class="detail-title">Ranking por Gastos / Ingresos</h3>
+
 
       <div class="ranking-toolbar">
         <button id="btnRankMesPrev" class="btn-nav-sm">◀</button>

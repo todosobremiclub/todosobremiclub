@@ -324,31 +324,34 @@
       }
 
       const html = `
-        <table class="socios-table" style="font-size:13px;">
-          <thead>
-            <tr>
-              <th>N° Socio</th>
-              <th>DNI</th>
-              <th>Nombre</th>
-              <th>Apellido</th>
-              <th>Teléfono</th>
-              <th>Fecha ingreso</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(s => `
-              <tr>
-                <td>${s.numero_socio ?? ''}</td>
-                <td>${s.dni ?? ''}</td>
-                <td>${s.nombre ?? ''}</td>
-                <td>${s.apellido ?? ''}</td>
-                <td>${s.telefono ?? ''}</td>
-                <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0,10) : ''}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
+  <h4 class="ranking-title">Ingresos por responsable</h4>
+  <div class="small-table">
+    <table>
+      <tbody>
+      ${ingresos.map(r=>`
+        <tr>
+          <td>${r.tipo}</td>
+          <td style="text-align:right;">${moneyARS.format(Number(r.total||0))}</td>
+        </tr>
+      `).join('')}
+      </tbody>
+    </table>
+  </div>
+
+  <h4 class="ranking-title" style="margin-top:10px;">Gastos por responsable</h4>
+  <div class="small-table">
+    <table>
+      <tbody>
+      ${gastos.map(r=>`
+        <tr>
+          <td>${r.responsable}</td>
+          <td style="text-align:right;">${moneyARS.format(Number(r.total||0))}</td>
+        </tr>
+      `).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
       detailBody.innerHTML = html;
     } catch (e) {
       console.error(e);
@@ -1015,8 +1018,10 @@
     const idx  = nuevosState.mesIndex;
     const sel  = rows[idx];
 
-    $('nuevosCount').textContent   = sel ? sel.cantidad : '–';
-    $('nuevosMesLabel').textContent= sel ? `${sel.mes} ${sel.anio}` : '';
+    $('nuevosCount').textContent = sel ? sel.cantidad : '–';
+
+const labelMes = sel ? `${sel.mes} ${nuevosState.anio}` : '';
+$('nuevosMesLabel').textContent = labelMes;
 
     const tabela = $('tablaNuevos');
     if (!tabela) return;
@@ -1271,6 +1276,28 @@
         loadNuevosDetalle(idx);
       });
     }
+
+// Flechas de Socios nuevos (mes anterior / siguiente)
+const btnNPrev = $('btnNuevosMesPrev');
+const btnNNext = $('btnNuevosMesNext');
+
+if (btnNPrev) {
+  btnNPrev.addEventListener('click', () => {
+    if (!nuevosState.rows.length) return;
+    nuevosState.mesIndex =
+      (nuevosState.mesIndex - 1 + nuevosState.rows.length) % nuevosState.rows.length;
+    renderNuevos();
+  });
+}
+if (btnNNext) {
+  btnNNext.addEventListener('click', () => {
+    if (!nuevosState.rows.length) return;
+    nuevosState.mesIndex =
+      (nuevosState.mesIndex + 1) % nuevosState.rows.length;
+    renderNuevos();
+  });
+}
+
 
     // Abajo centro – ranking
     const btnRankPrev = $('btnRankMesPrev');
