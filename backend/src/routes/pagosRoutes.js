@@ -23,8 +23,7 @@ function requireClubAccess(req, res, next) {
   const { clubId } = req.params;
   const roles = req.user?.roles || [];
   const allowed = roles.some(
-    (r) =>
-      String(r.club_id) === String(clubId) || r.role === 'superadmin'
+    (r) => String(r.club_id) === String(clubId) || r.role === 'superadmin'
   );
   if (!allowed) {
     return res
@@ -52,8 +51,7 @@ router.get(
   async (req, res) => {
     try {
       const { clubId } = req.params;
-      const anio =
-        Number(req.query.anio) || new Date().getFullYear();
+      const anio = Number(req.query.anio) || new Date().getFullYear();
 
       const r = await db.query(
         `
@@ -94,13 +92,11 @@ router.get(
 router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
   try {
     const { clubId, socioId } = req.params;
-    const anio =
-      Number(req.query.anio) || new Date().getFullYear();
+    const anio = Number(req.query.anio) || new Date().getFullYear();
 
     const roles = req.user?.roles || [];
     const esAdmin = roles.some(
-      (r) =>
-        String(r.club_id) === String(clubId) || r.role === 'superadmin'
+      (r) => String(r.club_id) === String(clubId) || r.role === 'superadmin'
     );
 
     // Caso ADMIN: se comporta como antes (requireClubAccess)
@@ -140,10 +136,7 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
     }
 
     // Si el token trae clubId, validamos que coincida
-    if (
-      req.user.clubId &&
-      String(req.user.clubId) !== String(clubId)
-    ) {
+    if (req.user.clubId && String(req.user.clubId) !== String(clubId)) {
       return res.status(403).json({
         ok: false,
         error: 'El socio no pertenece a este club',
@@ -181,7 +174,8 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
 //   fecha_pago: "YYYY-MM-DD",
 //   es_parcial?: boolean,
 //   monto_parcial?: number,
-//   cuenta?: string   <-- NUEVO
+//   cuenta?: string,
+//   cuenta_id?: uuid
 // }
 // ============================================================
 router.post(
@@ -198,7 +192,8 @@ router.post(
         fecha_pago,
         es_parcial = false,
         monto_parcial = null,
-        cuenta = null,       // 👈 NUEVO: cuenta/responsable (Leonardo, Marcos, MP, etc.)
+        cuenta = null,
+        cuenta_id = null
       } = req.body ?? {};
 
       // Validación básica
@@ -252,6 +247,30 @@ router.post(
           ok: false,
           error: 'Año o meses inválidos',
         });
+      }
+
+      // ------------------------------
+      // Resolver nombre de cuenta
+      // ------------------------------
+      let cuentaFinal = cuenta;
+
+      if (!cuentaFinal && cuenta_id) {
+        try {
+          const rCuenta = await db.query(
+            `
+            SELECT nombre
+            FROM responsables_gasto
+            WHERE id = $1 AND club_id = $2
+            LIMIT 1
+            `,
+            [cuenta_id, clubId]
+          );
+          if (rCuenta.rowCount) {
+            cuentaFinal = rCuenta.rows[0].nombre;
+          }
+        } catch (e) {
+          console.error('Error resolviendo cuenta desde cuenta_id (pagos)', e);
+        }
       }
 
       // ------------------------------
@@ -329,7 +348,7 @@ router.post(
           ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING
           RETURNING id, anio, mes, monto, fecha_pago, cuenta
           `,
-          [clubId, socio_id, anioNum, mes, montoPorMes, fecha_pago, cuenta || null]
+          [clubId, socio_id, anioNum, mes, montoPorMes, fecha_pago, cuentaFinal || null]
         );
         if (rIns.rowCount) inserted.push(rIns.rows[0]);
       }
@@ -452,8 +471,10 @@ router.post(
       fecha,
       monto,
       observacion,
-      cuenta = null,   // 👈 NUEVO: cuenta/responsable del ingreso general
+      cuenta = null,
+      cuenta_id = null
     } = req.body || {};
+
     try {
       if (!tipo_ingreso_id || !fecha || monto === undefined || monto === null) {
         return res
@@ -484,6 +505,28 @@ router.post(
         });
       }
 
+      // Resolver nombre de cuenta
+      let cuentaFinal = cuenta;
+
+      if (!cuentaFinal && cuenta_id) {
+        try {
+          const rCuenta = await db.query(
+            `
+            SELECT nombre
+            FROM responsables_gasto
+            WHERE id = $1 AND club_id = $2
+            LIMIT 1
+            `,
+            [cuenta_id, clubId]
+          );
+          if (rCuenta.rowCount) {
+            cuentaFinal = rCuenta.rows[0].nombre;
+          }
+        } catch (e) {
+          console.error('Error resolviendo cuenta desde cuenta_id (ingresos)', e);
+        }
+      }
+
       const r = await db.query(
         `
         INSERT INTO ingresos_generales
@@ -498,7 +541,7 @@ router.post(
           String(fecha),
           montoNum,
           observacion ?? null,
-          cuenta ?? null
+          cuentaFinal ?? null
         ]
       );
 
