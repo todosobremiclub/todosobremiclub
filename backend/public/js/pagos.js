@@ -685,40 +685,60 @@ async function deleteIngreso(id) {
 }
 
   async function saveIngreso() {
-    const clubId = getActiveClubId();
-    const tipo = $('ingresoTipo')?.value;
-    const fecha = $('ingresoFecha')?.value;
-    const monto = $('ingresoMonto')?.value;
- const obs = $('ingresoObs')?.value;
-const cuentaId = $('ingresoCuenta')?.value;
-if (!cuentaId) return alert('Seleccioná una cuenta');
+  const clubId = getActiveClubId();
 
-const cuentaNombre = getCuentaNombreById(cuentaId);
-if (!cuentaNombre) return alert('Cuenta inválida');
+  const tipo   = $('ingresoTipo')?.value;
+  const fecha  = $('ingresoFecha')?.value;
+  const monto  = $('ingresoMonto')?.value;
+  const obs    = $('ingresoObs')?.value || '';
+  const cuentaId = $('ingresoCuenta')?.value;
 
-if (!tipo) return alert('Seleccioná un tipo de ingreso');
-// ...
+  if (!cuentaId) return alert('Seleccioná una cuenta');
 
-body: JSON.stringify({
-  tipo_ingreso_id: tipo,
-  fecha,
-  monto: montoNum,
-  observacion: (obs ?? '').trim() || null,
-  cuenta: cuentaNombre   // 👈 de nuevo, enviar 'cuenta' (texto)
-})      });
+  const cuentaNombre = getCuentaNombreById(cuentaId);
+  if (!cuentaNombre) return alert('Cuenta inválida');
 
-      if (!res.ok || !data.ok) {
-        alert(data.error || 'Error guardando ingreso');
-        return;
-      }
+  if (!tipo)  return alert('Seleccioná un tipo de ingreso');
+  if (!fecha) return alert('Seleccioná una fecha');
+  if (monto === '' || monto == null) return alert('Ingresá un monto');
 
-      closeIngresoModal();
-      await loadIngresos();
-      alert('✅ Ingreso registrado');
-    } finally {
-      if (btn) btn.disabled = false;
-    }
+  const montoNum = Number(monto);
+  if (Number.isNaN(montoNum) || montoNum < 0) {
+    return alert('Monto inválido');
   }
+
+  const btn = $('btnIngresoSave');
+  if (btn) btn.disabled = true;
+
+  try {
+    const { res, data } = await fetchAuth(`/club/${clubId}/ingresos`, {
+      method: 'POST',
+      json: true,
+      body: JSON.stringify({
+        tipo_ingreso_id: tipo,
+        fecha,
+        monto: montoNum,
+        observacion: obs.trim() || null,
+        cuenta: cuentaNombre   // 👈 se envía el nombre de la cuenta al backend
+      })
+    });
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error guardando ingreso');
+      return;
+    }
+
+    closeIngresoModal();
+    await loadIngresos();
+    alert('✅ Ingreso registrado');
+  } catch (e) {
+    console.error(e);
+    alert(e.message || 'Error guardando ingreso');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 
   /* =============================
    * Año selector + bind
