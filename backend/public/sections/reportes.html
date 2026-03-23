@@ -87,10 +87,8 @@
 
       <div class="card-body">
 
-        <!-- span oculto para que el JS pueda escribir el año sin romper -->
         <span id="igAnioLabel" class="nav-label small" style="display:none;"></span>
 
-        <!-- RESUMEN MENSUAL -->
         <div class="ig-month-summary">
           <div class="ig-month-item">
             <span class="ig-label">Ingresos mes</span>
@@ -106,12 +104,10 @@
           </div>
         </div>
 
-        <!-- GRÁFICO -->
         <div class="card-chart" style="min-height:180px;">
           <canvas id="chartIGMes"></canvas>
         </div>
 
-        <!-- RESUMEN ANUAL -->
         <div class="ig-summary">
           <div class="ig-summary-item">
             <span class="ig-label">Ingresos año</span>
@@ -141,20 +137,17 @@
     <div class="detail-card" id="card-nuevos">
       <h3 class="detail-title">Socios nuevos por mes</h3>
 
-      <!-- Selector de mes -->
       <div class="ranking-toolbar">
         <button id="btnNuevosMesPrev" class="btn-nav-sm">◀</button>
         <span id="nuevosMesLabel" class="nav-label small">Mes actual</span>
         <button id="btnNuevosMesNext" class="btn-nav-sm">▶</button>
       </div>
 
-      <!-- KPI -->
       <div id="nuevosTop" class="nuevos-top">
         <div class="nuevos-label">Socios nuevos</div>
         <div id="nuevosCount" class="nuevos-value">–</div>
       </div>
 
-      <!-- Tabla meses -->
       <div id="tablaNuevos" class="detail-body">
         <div class="muted small">Cargando meses…</div>
       </div>
@@ -190,6 +183,20 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- =============================
+       MODAL SOCIOS NUEVOS (NUEVO)
+       ============================= -->
+  <div id="nuevosModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 800px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <h3 id="nuevosModalTitle" style="margin:0;">Socios nuevos</h3>
+        <button id="nuevosModalClose" class="btn btn-secondary">✕</button>
+      </div>
+      <div id="nuevosModalSub" class="muted" style="margin-top:4px; font-size:13px;"></div>
+      <div id="nuevosModalBody" style="margin-top:10px; max-height:60vh; overflow:auto;"></div>
+    </div>
   </div>
 
   <!-- MODAL IMPAGOS -->

@@ -484,6 +484,21 @@
     tabela.innerHTML = html;
   }
 
+<!-- MODAL SOCIOS NUEVOS -->
+  <div id="nuevosModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 800px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <h3 id="nuevosModalTitle" style="margin:0;">Socios nuevos</h3>
+        <button id="nuevosModalClose" class="btn btn-secondary">✕</button>
+      </div>
+
+      <div id="nuevosModalSub" class="muted" style="margin-top:4px; font-size:13px;"></div>
+
+      <div id="nuevosModalBody"
+           style="margin-top:10px; max-height:60vh; overflow:auto;"></div>
+    </div>
+  </div>
+
   // MODAL IMPAGOS
   function ensureImpagosModal() {
     const modal = $('impagosModal');
@@ -1053,59 +1068,67 @@
   }
 
   async function loadNuevosDetalle(idx) {
-    const row = nuevosState.rows[idx];
-    const detailBody = $('detailActividadesBody');
-    if (!row || !detailBody) return;
+  const row = nuevosState.rows[idx];
+  const modal = $('nuevosModal');
+  const body = $('nuevosModalBody');
+  const sub  = $('nuevosModalSub');
 
-    showLoading(detailBody, `Cargando socios nuevos de ${row.mes} ${row.anio}...`);
+  if (!row || !modal || !body || !sub) return;
 
-    try {
-      const clubId = getActiveClubId();
-      const url = `/club/${clubId}/reportes/socios-nuevos-mes/detalle?anio=${row.anio}&mes=${row.mes_num}`;
-      const { data } = await fetchAuth(url);
-      if (!data.ok) {
-        showError(detailBody, data.error || 'Error cargando socios nuevos');
-        return;
-      }
-      const socios = data.rows || [];
-      if (!socios.length) {
-        showError(detailBody, 'No hay socios nuevos en ese mes.');
-        return;
-      }
+  sub.textContent = `${row.mes} ${row.anio}`;
+  showLoading(body, `Cargando socios nuevos de ${row.mes} ${row.anio}...`);
+  modal.classList.remove('hidden');
 
-      const html = `
-        <h4>Socios nuevos en ${row.mes} ${row.anio}</h4>
-        <div class="small-table">
-          <table>
-            <thead>
-              <tr>
-                <th>N°</th>
-                <th>Apellido</th>
-                <th>Nombre</th>
-                <th>Actividad</th>
-                <th>Fecha ingreso</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${socios.map(s => `
-                <tr>
-                  <td>${s.numero_socio ?? ''}</td>
-                  <td>${s.apellido ?? ''}</td>
-                  <td>${s.nombre ?? ''}</td>
-                  <td>${s.actividad ?? ''}</td>
-                  <td>${formatFecha(s.fecha_ingreso)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-      detailBody.innerHTML = html;
-    } catch (e) {
-      console.error(e);
-      showError(detailBody, e.message || 'Error inesperado cargando socios nuevos');
+  try {
+    const clubId = getActiveClubId();
+    const url = `/club/${clubId}/reportes/socios-nuevos-mes/detalle?anio=${row.anio}&mes=${row.mes_num}`;
+    const { data } = await fetchAuth(url);
+
+    if (!data.ok) {
+      showError(body, data.error || 'Error cargando socios nuevos');
+      return;
     }
+
+    const socios = data.rows || [];
+    if (!socios.length) {
+      showError(body, 'No hay socios nuevos en ese mes.');
+      return;
+    }
+
+    const html = `
+      <table class="socios-table" style="font-size:13px;">
+        <thead>
+          <tr>
+            <th>N°</th>
+            <th>DNI</th>
+            <th>Apellido</th>
+            <th>Nombre</th>
+            <th>Actividad</th>
+            <th>Fecha ingreso</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${socios.map(s => `
+            <tr>
+              <td>${s.numero_socio ?? ''}</td>
+              <td>${s.dni ?? ''}</td>
+              <td>${s.apellido ?? ''}</td>
+              <td>${s.nombre ?? ''}</td>
+              <td>${s.actividad ?? ''}</td>
+              <td>${formatFecha(s.fecha_ingreso)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    body.innerHTML = html;
+  } catch (e) {
+    console.error(e);
+    showError(body, e.message || 'Error inesperado cargando socios nuevos');
   }
+}
+
+
 
   // =============================
   // RANKING INGRESO / GASTO (ABAJO CENTRO)
@@ -1251,95 +1274,111 @@
   }
 
   // =============================
-  // INIT DASHBOARD
+// INIT DASHBOARD
+// =============================
+async function initReportesSection() {
+  // Panel 1 – actividades / categorías
+  bindActividadesInteractions();
+  await loadActividadesMain();
+
+  // Panel 2 – impagos
+  bindImpagosInteractions();
+  await loadImpagosData(impagosState.anio);
+
+  // Panel 3 – ingresos vs gastos
+  bindIGInteractions();
+  await loadIGAnual();
+
   // =============================
-  async function initReportesSection() {
-    // Panel 1 – actividades / categorías
-    bindActividadesInteractions();
-    await loadActividadesMain();
+  // ABAJO IZQUIERDA – SOCIOS NUEVOS
+  // =============================
+  await loadNuevos();
+  const tablaNuevos = $('tablaNuevos');
+  if (tablaNuevos) {
+    tablaNuevos.addEventListener('click', (e) => {
+      const row = e.target.closest('.row-nuevo');
+      if (!row) return;
 
-    // Panel 2 – impagos
-    bindImpagosInteractions();
-    await loadImpagosData(impagosState.anio);
+      const idx = Number(row.dataset.index || '0');
+      nuevosState.mesIndex = idx;
 
-    // Panel 3 – ingresos vs gastos
-    bindIGInteractions();
-    await loadIGAnual();
-
-    // Abajo izquierda – socios nuevos
-    await loadNuevos();
-    const tablaNuevos = $('tablaNuevos');
-    if (tablaNuevos) {
-      tablaNuevos.addEventListener('click', (e) => {
-        const row = e.target.closest('.row-nuevo');
-        if (!row) return;
-        const idx = Number(row.dataset.index || '0');
-        nuevosState.mesIndex = idx;
-        renderNuevos();
-        loadNuevosDetalle(idx);
-      });
-    }
-
-    const btnNPrev = $('btnNuevosMesPrev');
-    const btnNNext = $('btnNuevosMesNext');
-
-    if (btnNPrev) {
-      btnNPrev.addEventListener('click', () => {
-        if (!nuevosState.rows.length) return;
-        nuevosState.mesIndex =
-          (nuevosState.mesIndex - 1 + nuevosState.rows.length) % nuevosState.rows.length;
-        renderNuevos();
-      });
-    }
-    if (btnNNext) {
-      btnNNext.addEventListener('click', () => {
-        if (!nuevosState.rows.length) return;
-        nuevosState.mesIndex =
-          (nuevosState.mesIndex + 1) % nuevosState.rows.length;
-        renderNuevos();
-      });
-    }
-
-    // Abajo centro – ranking
-    const btnRankPrev = $('btnRankMesPrev');
-    const btnRankNext = $('btnRankMesNext');
-    if (btnRankPrev) {
-      btnRankPrev.addEventListener('click', () => {
-        rankingState.mes = rankingState.mes === 1 ? 12 : rankingState.mes - 1;
-        loadRanking();
-      });
-    }
-    if (btnRankNext) {
-      btnRankNext.addEventListener('click', () => {
-        rankingState.mes = rankingState.mes === 12 ? 1 : rankingState.mes + 1;
-        loadRanking();
-      });
-    }
-    loadRanking();
-
-    // Abajo derecha – cuentas
-    const btnCPrev = $('btnCuentasMesPrev');
-    const btnCNext = $('btnCuentasMesNext');
-    if (btnCPrev) {
-      btnCPrev.addEventListener('click', () => {
-        cuentasState.mes = cuentasState.mes === 1 ? 12 : cuentasState.mes - 1;
-        loadCuentas();
-      });
-    }
-    if (btnCNext) {
-      btnCNext.addEventListener('click', () => {
-        cuentasState.mes = cuentasState.mes === 12 ? 1 : cuentasState.mes + 1;
-        loadCuentas();
-      });
-    }
-    loadCuentas();
+      renderNuevos();        // actualiza el selector
+      loadNuevosDetalle(idx); // 🔥 ABRE EL MODAL Y MUESTRA DETALLE
+    });
   }
 
-  window.initReportesSection = initReportesSection;
+  // Navegación meses (prev / next)
+  const btnNPrev = $('btnNuevosMesPrev');
+  const btnNNext = $('btnNuevosMesNext');
 
-  document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('reportes-section')) {
-      initReportesSection();
-    }
-  });
+  if (btnNPrev) {
+    btnNPrev.addEventListener('click', () => {
+      if (!nuevosState.rows.length) return;
+      nuevosState.mesIndex =
+        (nuevosState.mesIndex - 1 + nuevosState.rows.length) % nuevosState.rows.length;
+      renderNuevos();
+    });
+  }
+
+  if (btnNNext) {
+    btnNNext.addEventListener('click', () => {
+      if (!nuevosState.rows.length) return;
+      nuevosState.mesIndex =
+        (nuevosState.mesIndex + 1) % nuevosState.rows.length;
+      renderNuevos();
+    });
+  }
+
+  // =============================
+  // ABAJO CENTRO – RANKING
+  // =============================
+  const btnRankPrev = $('btnRankMesPrev');
+  const btnRankNext = $('btnRankMesNext');
+
+  if (btnRankPrev) {
+    btnRankPrev.addEventListener('click', () => {
+      rankingState.mes = rankingState.mes === 1 ? 12 : rankingState.mes - 1;
+      loadRanking();
+    });
+  }
+
+  if (btnRankNext) {
+    btnRankNext.addEventListener('click', () => {
+      rankingState.mes = rankingState.mes === 12 ? 1 : rankingState.mes + 1;
+      loadRanking();
+    });
+  }
+
+  loadRanking();
+
+  // =============================
+  // ABAJO DERECHA – CUENTAS
+  // =============================
+  const btnCPrev = $('btnCuentasMesPrev');
+  const btnCNext = $('btnCuentasMesNext');
+
+  if (btnCPrev) {
+    btnCPrev.addEventListener('click', () => {
+      cuentasState.mes = cuentasState.mes === 1 ? 12 : cuentasState.mes - 1;
+      loadCuentas();
+    });
+  }
+
+  if (btnCNext) {
+    btnCNext.addEventListener('click', () => {
+      cuentasState.mes = cuentasState.mes === 12 ? 1 : cuentasState.mes + 1;
+      loadCuentas();
+    });
+  }
+
+  loadCuentas();
+}
+
+window.initReportesSection = initReportesSection;
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('reportes-section')) {
+    initReportesSection();
+  }
+});
 })();
