@@ -484,21 +484,6 @@
     tabela.innerHTML = html;
   }
 
-<!-- MODAL SOCIOS NUEVOS -->
-  <div id="nuevosModal" class="modal hidden">
-    <div class="modal-content" style="max-width: 800px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-        <h3 id="nuevosModalTitle" style="margin:0;">Socios nuevos</h3>
-        <button id="nuevosModalClose" class="btn btn-secondary">✕</button>
-      </div>
-
-      <div id="nuevosModalSub" class="muted" style="margin-top:4px; font-size:13px;"></div>
-
-      <div id="nuevosModalBody"
-           style="margin-top:10px; max-height:60vh; overflow:auto;"></div>
-    </div>
-  </div>
-
   // MODAL IMPAGOS
   function ensureImpagosModal() {
     const modal = $('impagosModal');
