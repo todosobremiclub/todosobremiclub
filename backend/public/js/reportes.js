@@ -1258,7 +1258,7 @@
     }
   }
 
-  // =============================
+ // =============================
 // INIT DASHBOARD
 // =============================
 async function initReportesSection() {
@@ -1287,12 +1287,11 @@ async function initReportesSection() {
       const idx = Number(row.dataset.index || '0');
       nuevosState.mesIndex = idx;
 
-      renderNuevos();        // actualiza el selector
-      loadNuevosDetalle(idx); // 🔥 ABRE EL MODAL Y MUESTRA DETALLE
+      renderNuevos();
+      loadNuevosDetalle(idx); // abre el modal con el detalle
     });
   }
 
-  // Navegación meses (prev / next)
   const btnNPrev = $('btnNuevosMesPrev');
   const btnNNext = $('btnNuevosMesNext');
 
@@ -1311,6 +1310,26 @@ async function initReportesSection() {
       nuevosState.mesIndex =
         (nuevosState.mesIndex + 1) % nuevosState.rows.length;
       renderNuevos();
+    });
+  }
+
+  // =============================
+  // CIERRE MODAL SOCIOS NUEVOS
+  // =============================
+  const nuevosModal = $('nuevosModal');
+  const btnNuevosClose = $('nuevosModalClose');
+
+  if (nuevosModal && btnNuevosClose) {
+    // Cerrar con la X
+    btnNuevosClose.addEventListener('click', () => {
+      nuevosModal.classList.add('hidden');
+    });
+
+    // Cerrar haciendo click en el fondo oscuro
+    nuevosModal.addEventListener('click', (ev) => {
+      if (ev.target === nuevosModal) {
+        nuevosModal.classList.add('hidden');
+      }
     });
   }
 
