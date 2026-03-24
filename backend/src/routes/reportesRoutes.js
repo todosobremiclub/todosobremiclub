@@ -924,13 +924,17 @@ router.get(
     try {
       const q = `
         WITH cuotas AS (
-          SELECT
-            'Cuotas'::text AS tipo,
-            SUM(pm.monto) AS total
-          FROM pagos_mensuales pm
-          WHERE pm.club_id = $1 AND pm.anio = $2 AND pm.mes = $3
-          GROUP BY tipo
-        ),
+  SELECT
+    'Cuotas'::text AS tipo,
+    SUM(pm.monto) AS total
+  FROM pagos_mensuales pm
+  WHERE pm.club_id = $1
+    AND pm.fecha_pago IS NOT NULL
+    AND EXTRACT(YEAR  FROM pm.fecha_pago) = $2
+    AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
+  GROUP BY tipo
+),
+
         otros AS (
           SELECT
             COALESCE(ti.nombre, 'Otros') AS tipo,
