@@ -115,31 +115,34 @@ router.get('/:clubId/noticias', requireAuth, async (req, res) => {
   const { clubId } = req.params;
   const socioId = req.user?.socioId;  // viene desde /app/login
   try {
-    // Si NO hay socioId en el token -> es admin/staff -> devolvemos todas como antes
-    if (!socioId) {
-      const r = await db.query(
-        `
-        SELECT
-          id,
-          club_id,
-          titulo,
-          texto,
-          imagen_url,
-          destino_tipo,
-          destino_valor1,
-          destino_valor2,
-          created_at,
-          updated_at,
-          activo
-        FROM noticias
-        WHERE club_id = $1
-          AND activo = true
-        ORDER BY created_at DESC
-        `,
-        [clubId]
-      );
-      return res.json({ ok: true, noticias: r.rows });
-    }
+   // Si NO hay socioId -> SOLO permitir sin filtro si es admin o staff
+const isAdmin = (req.user?.roles || []).some(r =>
+  r.role === 'admin' || r.role === 'superadmin' || r.role === 'staff'
+);
+
+if (!socioId && isAdmin) {
+  const r = await db.query(`
+    SELECT
+      id, club_id, titulo, texto, imagen_url,
+      destino_tipo, destino_valor1, destino_valor2,
+      created_at, updated_at, activo
+    FROM noticias
+    WHERE club_id = $1
+      AND activo = true
+    ORDER BY created_at DESC
+  `, [clubId]);
+
+  return res.json({ ok: true, noticias: r.rows });
+}
+
+if (!socioId) {
+  return res.status(401).json({
+    ok: false,
+    error: 'Token de socio inválido (falta socioId)'
+  });
+}
+
+
 
     // Si HAY socioId -> filtramos según actividad / categoría / año y falta de pago
 const now = new Date();
