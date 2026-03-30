@@ -74,46 +74,81 @@
   </div>
 
 
-  <!-- ================= MODAL SOCIO ================= -->
-  <div id="modalSocio" class="modal hidden">
-    <div class="modal-content socio-content">
+ <!-- ================= MODAL SOCIO ================= -->
+<div id="modalSocio" class="modal hidden">
+  <div class="modal-content socio-content">
+    <h3 id="modalSocioTitle">Nuevo socio</h3>
 
-      <h3 id="modalSocioTitle">Nuevo socio</h3>
+    <div class="modal-body socio-body">
+      <!-- FORM GRID -->
+      <div class="socios-form-grid">
+        <div><label>N° Socio</label><input id="socioNumero" type="number"></div>
+        <div><label>DNI *</label><input id="socioDni" type="text"></div>
+        <div><label>Nombre *</label><input id="socioNombre" type="text"></div>
+        <div><label>Apellido *</label><input id="socioApellido" type="text"></div>
 
-      <div class="modal-body socio-body">
-
-        <!-- FORM GRID -->
-        <div class="socios-form-grid">
-
-          <div><label>N° Socio</label><input id="socioNumero" type="number"></div>
-          <div><label>DNI *</label><input id="socioDni" type="text"></div>
-          <div><label>Nombre *</label><input id="socioNombre" type="text"></div>
-          <div><label>Apellido *</label><input id="socioApellido" type="text"></div>
-
-          <div>
-            <label>Actividad *</label>
-            <select id="socioActividad"><option value="">Cargando…</option></select>
-            <div class="muted small">*Las actividades se administran en Configuración.</div>
-          </div>
-
-          <div>
-            <label>Categoría *</label>
-            <select id="socioCategoria"><option value="">Seleccionar…</option></select>
-            <div class="muted small">*Las categorías se administran en Configuración.</div>
-          </div>
-
-          <div><label>Teléfono</label><input id="socioTelefono" type="text"></div>
-          <div><label>Dirección</label><input id="socioDireccion" type="text"></div>
-          <div><label>Fecha de nacimiento *</label><input id="socioNacimiento" type="date"></div>
-          <div><label>Fecha de ingreso</label><input id="socioIngreso" type="date"></div>
-
-          <div class="col-span-3 checks-row">
-            <label class="checkbox-inline"><input id="socioActivo" type="checkbox"> Activo</label>
-            <label class="checkbox-inline"><input id="socioBecado" type="checkbox"> Becado</label>
-          </div>
-
+        <div>
+          <label>Actividad *</label>
+          <select id="socioActividad"><option value="">Cargando…</option></select>
+          <div class="muted small">*Las actividades se administran en Configuración.</div>
         </div>
 
+        <div>
+          <label>Categoría *</label>
+          <select id="socioCategoria"><option value="">Seleccionar…</option></select>
+          <div class="muted small">*Las categorías se administran en Configuración.</div>
+        </div>
+
+        <div><label>Teléfono</label><input id="socioTelefono" type="text"></div>
+        <div><label>Dirección</label><input id="socioDireccion" type="text"></div>
+        <div><label>Fecha de nacimiento *</label><input id="socioNacimiento" type="date"></div>
+        <div><label>Fecha de ingreso</label><input id="socioIngreso" type="date"></div>
+
+        <div class="col-span-3 checks-row">
+          <label class="checkbox-inline"><input id="socioActivo" type="checkbox"> Activo</label>
+          <label class="checkbox-inline"><input id="socioBecado" type="checkbox"> Becado</label>
+        </div>
+      </div>
+
+      <!-- ================= ADJUNTOS ================= -->
+      <div id="adjuntosSection" class="adjuntos-container">
+        <div class="adjuntos-header">
+          <h4>Documentación adjunta</h4>
+          <div class="muted small">Podés subir archivos. Para verlos, usá el Carnet digital o Acciones.</div>
+        </div>
+
+        <div id="formAdjunto">
+          <label>Archivo (máx 10MB)</label>
+          <input id="adjuntoFile" type="file">
+          <button id="btnSubirAdjunto" class="btn btn-secondary" style="margin-top:8px;">📎 Subir adjunto</button>
+        </div>
+      </div>
+
+      <!-- ================= COMENTARIOS ================= -->
+      <div id="comentariosSection" class="comentarios-container" style="margin-top:25px;">
+        <div class="comentarios-header">
+          <h4>Comentarios</h4>
+          <div class="muted small">Para ver el historial, usá el Carnet digital o Acciones.</div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <label>Nuevo comentario</label>
+          <textarea id="nuevoComentario" rows="2" placeholder="Escribí un comentario…"></textarea>
+        </div>
+
+        <button id="btnSubirComentario" class="btn btn-secondary" style="margin-top:12px;">
+          💬 Subir comentario
+        </button>
+      </div>
+    </div>
+
+    <!-- ✅ ACCIONES DENTRO DEL MODAL-CONTENT -->
+    <div class="modal-actions footer">
+      <button id="btnCancelarSocio" class="btn btn-secondary">Cancelar</button>
+      <button id="btnGuardarSocio" class="btn btn-primary">Guardar</button>
+    </div>
+  </div>
+</div>
        <!-- ================= ADJUNTOS ================= -->
 <div id="adjuntosSection" class="adjuntos-container">
   <div class="adjuntos-header">
@@ -483,6 +518,14 @@
 
 .hidden {
   display: none !important;
+}
+
+#modalSocio .modal-actions.footer{
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
 }
 
 </style>
