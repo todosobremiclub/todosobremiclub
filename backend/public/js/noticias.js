@@ -136,6 +136,7 @@ function escapeHtml(str) {
     cont.innerHTML = '';
 
     if (tipo === 'todos') return;
+    if (tipo === 'falta_pago') return;
 
     if (tipo === 'actividad') {
       const sel = document.createElement('select');
@@ -230,27 +231,45 @@ if (tipo === 'act_cat') {
   }
 
   function getDestinoPayload() {
-    const tipo = $('#notiDestinoTipo')?.value || 'todos';
-    let v1 = null;
-    let v2 = null;
+  const tipo = $('#notiDestinoTipo')?.value || 'todos';
+  let v1 = null;
+  let v2 = null;
 
-    if (tipo === 'actividad') {
-      v1 = $('#notiDestinoActividad')?.value?.trim() || '';
-      if (!v1) throw new Error('Seleccioná una actividad');
-    } else if (tipo === 'categoria') {
-      v1 = $('#notiDestinoCategoria')?.value?.trim() || '';
-      if (!v1) throw new Error('Seleccioná una categoría');
-    } else if (tipo === 'anio_nac') {
-      v1 = $('#notiDestinoAnio')?.value?.trim() || '';
-      if (!v1) throw new Error('Ingresá un año de nacimiento');
-    } else if (tipo === 'cat_anio') {
-      v1 = $('#notiDestinoCategoria')?.value?.trim() || '';
-      v2 = $('#notiDestinoAnio')?.value?.trim() || '';
-      if (!v1 || !v2) throw new Error('Seleccioná categoría y año de nacimiento');
-    }
-
-    return { destino_tipo: tipo, destino_valor1: v1 || null, destino_valor2: v2 || null };
+  if (tipo === 'actividad') {
+    v1 = $('#notiDestinoActividad')?.value?.trim() || '';
+    if (!v1) throw new Error('Seleccioná una actividad');
+  } 
+  else if (tipo === 'categoria') {
+    v1 = $('#notiDestinoCategoria')?.value?.trim() || '';
+    if (!v1) throw new Error('Seleccioná una categoría');
+  } 
+  else if (tipo === 'anio_nac') {
+    v1 = $('#notiDestinoAnio')?.value?.trim() || '';
+    if (!v1) throw new Error('Ingresá un año de nacimiento');
+  } 
+  else if (tipo === 'cat_anio') {
+    v1 = $('#notiDestinoCategoria')?.value?.trim() || '';
+    v2 = $('#notiDestinoAnio')?.value?.trim() || '';
+    if (!v1 || !v2) throw new Error('Seleccioná categoría y año');
+  } 
+  else if (tipo === 'act_cat') {
+    v1 = $('#notiDestinoActividad')?.value?.trim() || '';
+    v2 = $('#notiDestinoCategoria')?.value?.trim() || '';
+    if (!v1 || !v2) throw new Error('Seleccioná actividad y categoría');
+  } 
+  else if (tipo === 'falta_pago') {
+    // No requiere valores extra
+    v1 = null;
+    v2 = null;
   }
+
+  return {
+    destino_tipo: tipo,
+    destino_valor1: v1,
+    destino_valor2: v2
+  };
+}
+
 
   function destinoHumanLabel(n) {
     const tipo = n.destino_tipo;
@@ -264,6 +283,7 @@ if (tipo === 'act_cat') {
       case 'anio_nac': return `Año nacimiento: ${v1}`;
       case 'cat_anio': return `Categoría: ${v1} · Año: ${v2}`;
       case 'act_cat': return `Actividad: ${v1} · Categoría: ${v2}`;
+      case 'falta_pago': return 'En falta de pago';
      default: return tipo || '—';
     }
   }

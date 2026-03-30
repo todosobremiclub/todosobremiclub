@@ -68,6 +68,7 @@ const DESTINO_TIPOS_VALIDOS = new Set([
   'anio_nac',
   'cat_anio',
   'act_cat',
+'falta_pago',
 ]);
 
 function validateDestino({ destino_tipo, destino_valor1, destino_valor2 }) {
@@ -140,65 +141,97 @@ router.get('/:clubId/noticias', requireAuth, async (req, res) => {
       return res.json({ ok: true, noticias: r.rows });
     }
 
-    // Si HAY socioId -> filtramos según actividad / categoría / año
-    const rSocio = await db.query(
-      `
-      SELECT actividad, categoria, fecha_nacimiento
-      FROM socios
-      WHERE id = $1 AND club_id = $2
-      LIMIT 1
-      `,
-      [socioId, clubId]
-    );
-    if (!rSocio.rowCount) {
-      return res
-        .status(404)
-        .json({ ok: false, error: 'Socio no encontrado para este club' });
-    }
+    // Si HAY socioId -> filtramos según actividad / categoría / año y falta de pago
+const now = new Date();
+const curY = now.getFullYear();
+const curM = now.getMonth() + 1;
+let prevY = curY;
+let prevM = curM - 1;
+if (prevM === 0) {
+  prevM = 12;
+  prevY = curY - 1;
+}
 
-    const socio = rSocio.rows[0];
-    const actividad = socio.actividad || null;
-    const categoria = socio.categoria || null;
+const rSocio = await db.query(
+  `
+  SELECT
+    s.actividad,
+    s.categoria,
+    s.fecha_nacimiento,
+    s.becado,
+    CASE
+      WHEN s.becado = true THEN true
+      WHEN EXISTS (
+        SELECT 1
+        FROM pagos_mensuales pm
+        WHERE pm.club_id = s.club_id
+          AND pm.socio_id = s.id
+          AND (
+            (pm.anio = $3 AND pm.mes = $4)
+            OR
+            (pm.anio = $5 AND pm.mes = $6)
+          )
+      ) THEN true
+      ELSE false
+    END AS pago_al_dia
+  FROM socios s
+  WHERE s.id = $1 AND s.club_id = $2
+  LIMIT 1
+  `,
+  [socioId, clubId, curY, curM, prevY, prevM]
+);
 
-    let anioNac = null;
-    if (socio.fecha_nacimiento) {
-      const d = new Date(socio.fecha_nacimiento);
-      if (!isNaN(d.getTime())) {
-        anioNac = String(d.getFullYear());
-      }
-    }
+if (!rSocio.rowCount) {
+  return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+}
 
-    const r = await db.query(
-      `
-      SELECT
-        id,
-        club_id,
-        titulo,
-        texto,
-        imagen_url,
-        destino_tipo,
-        destino_valor1,
-        destino_valor2,
-        created_at,
-        updated_at,
-        activo
-      FROM noticias
-      WHERE club_id = $1
-        AND activo = true
-        AND (
-          destino_tipo = 'todos'
-          OR (destino_tipo = 'actividad' AND destino_valor1 = $2)
-          OR (destino_tipo = 'categoria' AND destino_valor1 = $3)
-          OR (destino_tipo = 'anio_nac' AND destino_valor1 = $4)
-          OR (destino_tipo = 'cat_anio' AND destino_valor1 = $3 AND destino_valor2 = $4)
-          OR (destino_tipo = 'act_cat' AND destino_valor1 = $2 AND destino_valor2 = $3)
-        )
-      ORDER BY created_at DESC
-      `,
-      [clubId, actividad, categoria, anioNac]
-    );
+const socio = rSocio.rows[0];
+const actividad = socio.actividad || null;
+const categoria = socio.categoria || null;
 
-    return res.json({ ok: true, noticias: r.rows });
+let anioNac = null;
+if (socio.fecha_nacimiento) {
+  const d = new Date(socio.fecha_nacimiento);
+  if (!isNaN(d.getTime())) {
+    anioNac = String(d.getFullYear());
+  }
+}
+
+// 🔴 En falta de pago si NO está al día
+const enFaltaPago = socio.pago_al_dia === false;
+
+const r = await db.query(
+  `
+  SELECT
+    id,
+    club_id,
+    titulo,
+    texto,
+    imagen_url,
+    destino_tipo,
+    destino_valor1,
+    destino_valor2,
+    created_at,
+    updated_at,
+    activo
+  FROM noticias
+  WHERE club_id = $1
+    AND activo = true
+    AND (
+      destino_tipo = 'todos'
+      OR (destino_tipo = 'actividad' AND destino_valor1 = $2)
+      OR (destino_tipo = 'categoria' AND destino_valor1 = $3)
+      OR (destino_tipo = 'anio_nac' AND destino_valor1 = $4)
+      OR (destino_tipo = 'cat_anio' AND destino_valor1 = $3 AND destino_valor2 = $4)
+      OR (destino_tipo = 'act_cat' AND destino_valor1 = $2 AND destino_valor2 = $3)
+      OR (destino_tipo = 'falta_pago' AND $5 = true)
+    )
+  ORDER BY created_at DESC
+  `,
+  [clubId, actividad, categoria, anioNac, enFaltaPago]
+);
+
+return res.json({ ok: true, noticias: r.rows });
   } catch (e) {
     console.error('❌ GET noticias', e);
     res.status(500).json({ ok: false, error: e.message });
