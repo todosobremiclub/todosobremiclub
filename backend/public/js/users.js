@@ -1,15 +1,17 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  // Cache interno (antes no era accesible desde consola)
+  // =============================
+  // Estado
+  // =============================
   let usersCache = [];
   let activeClubUsersId = null;
   let activeClubUsersName = null;
   let usersLoadedOnce = false;
 
-  // Exponer para debug en consola
+  // Debug en consola
   function syncDebugCache() {
-    window.usersCache = usersCache; // ahora podés hacer usersCache[0] en consola
+    window.usersCache = usersCache;
   }
 
   // =============================
@@ -51,8 +53,27 @@
     }
   }
 
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
   // =============================
-  // Cargar usuarios SIEMPRE (aunque no exista #users-table)
+  // Mensajes
+  // =============================
+  function showMsg(elId, text, ok = true) {
+    const box = $(elId);
+    if (!box) return;
+    box.className = 'msg ' + (ok ? 'ok' : 'err');
+    box.textContent = text;
+  }
+
+  // =============================
+  // Cargar usuarios SIEMPRE
   // =============================
   async function ensureUsersLoaded(force = false) {
     if (usersLoadedOnce && !force) return;
@@ -74,7 +95,7 @@
   }
 
   // =============================
-  // Render panel "Usuarios del club"
+  // Render: Usuarios del club
   // =============================
   function renderUsersForActiveClub() {
     const card = $('clubUsersCard');
@@ -100,7 +121,7 @@
     if (!rows.length) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="3" style="color:#6b7280;">
+          <td colspan="4" style="color:#6b7280;">
             No hay usuarios asignados a este club.
           </td>
         </tr>
@@ -113,14 +134,167 @@
         (r) => String(r.club_id) === String(activeClubUsersId)
       );
 
+      const roleTxt = roleObj?.role || '—';
+      const estadoTxt = u.is_active ? 'Activo' : 'Inactivo';
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${u.email || ''}</td>
-        <td>${roleObj?.role || '—'}</td>
-        <td>${u.is_active ? 'Activo' : 'Inactivo'}</td>
+        <td>${escapeHtml(u.email || '')}</td>
+        <td>${escapeHtml(roleTxt)}</td>
+        <td>${escapeHtml(estadoTxt)}</td>
+        <td style="white-space:nowrap;">
+          <button data-act="edit" data-id="${escapeHtml(String(u.id))}">Editar</button>
+          <button data-act="toggle" data-id="${escapeHtml(String(u.id))}" data-active="${u.is_active ? '1' : '0'}">
+            ${u.is_active ? 'Desactivar' : 'Activar'}
+          </button>
+          <button data-act="del" data-id="${escapeHtml(String(u.id))}" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 8px;">
+            Eliminar
+          </button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
+  }
+
+  // =============================
+  // Form usuario del club
+  // =============================
+  function openClubUserForm(editMode = false) {
+    const card = $('clubUserFormCard');
+    if (card) card.style.display = 'block';
+
+    const title = $('clubUserFormTitle');
+    const pass = $('clubUser_password');
+    const passLabel = $('clubUser_pass_label');
+
+    if (title) title.textContent = editMode ? 'Editar usuario del club' : 'Crear usuario del club';
+
+    // En edición: password no obligatorio
+    if (passLabel) passLabel.textContent = editMode ? 'Contraseña (opcional)' : 'Contraseña *';
+    if (pass) pass.placeholder = editMode ? '(dejar vacío para no cambiar)' : '••••••••';
+
+    showMsg('clubUserMsg', '', true);
+  }
+
+  function closeClubUserForm() {
+    const card = $('clubUserFormCard');
+    if (card) card.style.display = 'none';
+    resetClubUserForm();
+  }
+
+  function resetClubUserForm() {
+    $('clubUserForm')?.reset();
+    if ($('clubUser_id')) $('clubUser_id').value = '';
+    if ($('clubUser_role')) $('clubUser_role').value = 'admin';
+    showMsg('clubUserMsg', '', true);
+  }
+
+  function fillFormForEdit(userId) {
+    const u = (usersCache || []).find((x) => String(x.id) === String(userId));
+    if (!u) return;
+
+    const roleObj = (u.roles || []).find(
+      (r) => String(r.club_id) === String(activeClubUsersId)
+    );
+
+    $('clubUser_id').value = u.id;
+    $('clubUser_full_name').value = u.full_name || '';
+    $('clubUser_email').value = u.email || '';
+    $('clubUser_password').value = '';
+    $('clubUser_role').value = roleObj?.role || 'staff';
+
+    openClubUserForm(true);
+  }
+
+  async function submitClubUserForm(ev) {
+    ev.preventDefault();
+
+    if (!activeClubUsersId) {
+      alert('No hay club seleccionado.');
+      return;
+    }
+
+    const id = $('clubUser_id')?.value?.trim() || '';
+    const email = $('clubUser_email')?.value?.trim().toLowerCase() || '';
+    const full_name = $('clubUser_full_name')?.value?.trim() || '';
+    const password = $('clubUser_password')?.value || '';
+    const role = $('clubUser_role')?.value || 'staff';
+
+    if (!email) return showMsg('clubUserMsg', 'Completá el email.', false);
+    if (!id && !password) return showMsg('clubUserMsg', 'Completá la contraseña.', false);
+
+    const payload = {
+      email,
+      assignments: [{ club_id: activeClubUsersId, role }],
+    };
+    if (full_name) payload.full_name = full_name;
+    if (password) payload.password = password;
+
+    const url = id ? `/admin/users/${id}` : `/admin/users`;
+    const method = id ? 'PUT' : 'POST';
+
+    const btn = $('clubUserSubmitBtn');
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await fetchAuth(url, {
+        method,
+        json: true,
+        body: JSON.stringify(payload),
+      });
+      const data = await safeJson(res);
+
+      if (!res.ok || !data.ok) {
+        showMsg('clubUserMsg', data.error || 'Error guardando usuario', false);
+        return;
+      }
+
+      showMsg('clubUserMsg', id ? '✅ Usuario actualizado' : '✅ Usuario creado', true);
+
+      // refrescar cache y tabla
+      await ensureUsersLoaded(true);
+      renderUsersForActiveClub();
+
+      // cerrar form luego de guardar
+      closeClubUserForm();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // =============================
+  // Acciones (activar/desactivar/eliminar)
+  // =============================
+  async function toggleUser(userId, isActive) {
+    const res = await fetchAuth(`/admin/users/${userId}/active`, {
+      method: 'PATCH',
+      json: true,
+      body: JSON.stringify({ is_active: !isActive }),
+    });
+    const data = await safeJson(res);
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error cambiando estado');
+      return;
+    }
+
+    await ensureUsersLoaded(true);
+    renderUsersForActiveClub();
+  }
+
+  async function deleteUser(userId) {
+    if (!confirm('¿Seguro que querés eliminar este usuario?')) return;
+
+    const res = await fetchAuth(`/admin/users/${userId}`, { method: 'DELETE', json: true });
+    const data = await safeJson(res);
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error eliminando usuario');
+      return;
+    }
+
+    await ensureUsersLoaded(true);
+    renderUsersForActiveClub();
   }
 
   // =============================
@@ -130,26 +304,59 @@
     activeClubUsersId = String(clubId);
     activeClubUsersName = String(clubName || '');
 
-    // clave: cargar usuarios antes de renderizar
     await ensureUsersLoaded(false);
     renderUsersForActiveClub();
+    closeClubUserForm();
   };
 
   window.closeUsersForClub = function () {
     activeClubUsersId = null;
     activeClubUsersName = null;
     renderUsersForActiveClub();
+    closeClubUserForm();
   };
 
-  // Botones del panel (si existen)
+  // =============================
+  // Bind botones y tabla
+  // =============================
   function bindClubUsersPanelButtons() {
     $('btnClubUsersClose')?.addEventListener('click', () => {
       window.closeUsersForClub?.();
     });
 
     $('btnClubUsersNew')?.addEventListener('click', () => {
-      // Por ahora solo dejamos aviso (hasta armar el modal/form dentro del club)
-      alert('Crear usuario dentro del club: próximo paso (form embebido).');
+      if (!activeClubUsersId) return alert('Seleccioná un club primero.');
+      resetClubUserForm();
+      openClubUserForm(false);
+    });
+
+    $('clubUserCancelBtn')?.addEventListener('click', () => {
+      closeClubUserForm();
+    });
+
+    $('clubUserForm')?.addEventListener('submit', submitClubUserForm);
+
+    // Acciones en la tabla (editar / toggle / delete)
+    $('clubUsersTableBody')?.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button[data-act]');
+      if (!btn) return;
+
+      const act = btn.dataset.act;
+      const id = btn.dataset.id;
+
+      if (act === 'edit') {
+        fillFormForEdit(id);
+        return;
+      }
+      if (act === 'toggle') {
+        const isActive = btn.dataset.active === '1';
+        await toggleUser(id, isActive);
+        return;
+      }
+      if (act === 'del') {
+        await deleteUser(id);
+        return;
+      }
     });
   }
 
@@ -158,8 +365,6 @@
   // =============================
   document.addEventListener('DOMContentLoaded', async () => {
     bindClubUsersPanelButtons();
-
-    // Cargamos usuarios una vez al entrar al superadmin (aunque no se vea nada todavía)
     await ensureUsersLoaded(false);
   });
 })();

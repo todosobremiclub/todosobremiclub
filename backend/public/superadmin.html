@@ -264,6 +264,38 @@
           </div>
         </div>
 
+<!-- FORM USUARIO DEL CLUB (EMBEBIDO) -->
+<div id="clubUserFormCard" class="subcard" style="display:none; margin-top:12px;">
+  <h4 id="clubUserFormTitle" style="margin:0 0 10px;">Crear usuario del club</h4>
+
+  <form id="clubUserForm">
+    <input type="hidden" id="clubUser_id">
+
+    <label>Nombre completo</label>
+    <input id="clubUser_full_name" placeholder="Nombre y apellido">
+
+    <label>Email *</label>
+    <input id="clubUser_email" type="email" required placeholder="usuario@club.com">
+
+    <label id="clubUser_pass_label">Contraseña *</label>
+    <input id="clubUser_password" type="password" placeholder="••••••••">
+
+    <label>Rol</label>
+    <select id="clubUser_role">
+      <option value="admin">admin</option>
+      <option value="staff">staff</option>
+    </select>
+
+    <div style="display:flex; gap:10px; margin-top:10px;">
+      <button id="clubUserSubmitBtn" class="primary" type="submit">Guardar usuario</button>
+      <button id="clubUserCancelBtn" type="button">Cancelar</button>
+    </div>
+
+    <div id="clubUserMsg" class="msg"></div>
+  </form>
+</div>
+<!-- FIN FORM USUARIO -->
+
         <table>
           <thead>
             <tr>
