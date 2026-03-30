@@ -1,11 +1,23 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
+  // =============================
+  // UI helpers
+  // =============================
   function showClubMsg(text, ok = true) {
     const box = $('clubMsg');
     if (!box) return;
     box.className = 'msg ' + (ok ? 'ok' : 'err');
     box.textContent = text;
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
   }
 
   // =============================
@@ -21,11 +33,9 @@
     return token;
   }
 
-  // ✅ Fetch auth SOLO para /admin/clubs (token Bearer)
-  // - No setea Content-Type si mandamos FormData (browser lo arma)
+  // Fetch auth SOLO para /admin/clubs
   async function fetchAuthClubs(url, options = {}) {
     const token = getTokenOrRedirect();
-
     const headers = options.headers || {};
     headers['Authorization'] = 'Bearer ' + token;
 
@@ -51,135 +61,79 @@
   }
 
   // =============================
-  // Estado / UI
+  // Estado
   // =============================
   let clubsCache = [];
 
+  // =============================
+  // Form helpers
+  // =============================
+  function validHexColor(v) {
+    if (!v) return false;
+    return /^#[0-9a-fA-F]{6}$/.test(String(v).trim());
+  }
+
   function setEditMode(on) {
-    const cancelBtn = $('club_cancel_btn');
-    const submitBtn = $('club_submit_btn');
-    if (cancelBtn) cancelBtn.style.display = on ? 'inline-block' : 'none';
+    const title = $('clubFormTitle');
+    if (title) title.textContent = on ? 'Editar club' : 'Crear club';
+
+    // En el HTML nuevo el botón submit no tiene id: lo buscamos dentro del form
+    const submitBtn = $('formClub')?.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.textContent = on ? 'Guardar cambios' : 'Guardar club';
   }
 
   function resetClubForm() {
     $('formClub')?.reset();
     if ($('club_id')) $('club_id').value = '';
-    setEditMode(false);
 
-    // limpiar campos de contacto
-    if ($('club_contact_name')) $('club_contact_name').value = '';
-    if ($('club_contact_phone')) $('club_contact_phone').value = '';
-    if ($('club_instagram')) $('club_instagram').value = '';
-
-    // Defaults de colores (por si el navegador deja vacío)
+    // Defaults de colores
     if ($('club_color_primary') && !$('club_color_primary').value)
       $('club_color_primary').value = '#2563eb';
     if ($('club_color_secondary') && !$('club_color_secondary').value)
       $('club_color_secondary').value = '#1e40af';
     if ($('club_color_accent') && !$('club_color_accent').value)
       $('club_color_accent').value = '#facc15';
+
+    setEditMode(false);
   }
 
-// =============================
-// Abrir / Cerrar formulario de Club
-// =============================
-function openClubForm(editMode = false) {
-  const card = $('clubFormCard');
-  if (card) card.style.display = 'block';
-
-  const title = $('clubFormTitle');
-  if (title) {
-    title.textContent = editMode ? 'Editar club' : 'Crear club';
-  }
-}
-
-function closeClubForm() {
-  const card = $('clubFormCard');
-  if (card) card.style.display = 'none';
-
-  resetClubForm();
-  showClubMsg('Edición cancelada', true);
-}
-
-  function escapeHtml(str) {
-    return String(str ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
+  function openClubForm(editMode = false) {
+    const card = $('clubFormCard');
+    if (card) card.style.display = 'block';
+    setEditMode(editMode);
   }
 
+  function closeClubForm() {
+    const card = $('clubFormCard');
+    if (card) card.style.display = 'none';
+    resetClubForm();
+  }
+
+  // =============================
+  // Render tabla clubes
+  // =============================
   function renderRow(c) {
-    // Logo miniatura
     const logoHtml = c.logo_url
       ? `<img class="thumb" src="${escapeHtml(c.logo_url)}" alt="logo" />`
       : '—';
 
-    // Colores (si vienen del backend)
-    const p = c.color_primary || c.club_color_primary;
-    const s = c.color_secondary || c.club_color_secondary;
-    const a = c.color_accent || c.club_color_accent;
-
-    const colorsHtml =
-      p || s || a
-        ? `
-      <div style="display:flex; gap:6px; align-items:center;">
-        ${
-          p
-            ? `<span title="Primario ${escapeHtml(
-                p
-              )}" style="width:14px;height:14px;border-radius:4px;border:1px solid #ddd;background:${escapeHtml(
-                p
-              )};"></span>`
-            : ''
-        }
-        ${
-          s
-            ? `<span title="Secundario ${escapeHtml(
-                s
-              )}" style="width:14px;height:14px;border-radius:4px;border:1px solid #ddd;background:${escapeHtml(
-                s
-              )};"></span>`
-            : ''
-        }
-        ${
-          a
-            ? `<span title="Acento ${escapeHtml(
-                a
-              )}" style="width:14px;height:14px;border-radius:4px;border:1px solid #ddd;background:${escapeHtml(
-                a
-              )};"></span>`
-            : ''
-        }
-      </div>
-    `
-        : '—';
-
     return `
       <td>${logoHtml}</td>
-      <td>
-        <div style="font-weight:700;">${escapeHtml(c.name ?? '')}</div>
-        <div style="color:#6b7280; font-size:12px; margin-top:4px;">
-          Colores: ${colorsHtml}
-        </div>
-      </td>
+      <td>${escapeHtml(c.name ?? '')}</td>
       <td>${escapeHtml(c.city ?? '')}</td>
       <td>${escapeHtml(c.province ?? '')}</td>
       <td style="white-space:nowrap;">
-  <button data-action="users" data-id="${escapeHtml(String(c.id))}" data-name="${escapeHtml(String(c.name ?? ''))}">
-    Usuarios
-  </button>
-  <button data-action="edit" data-id="${escapeHtml(String(c.id))}">Editar</button>
-  <button data-action="delete" data-id="${escapeHtml(String(c.id))}">Eliminar</button>
-</td>
+        <button data-action="users"
+                data-id="${escapeHtml(String(c.id))}"
+                data-name="${escapeHtml(String(c.name ?? ''))}">
+          Usuarios
+        </button>
+        <button data-action="edit" data-id="${escapeHtml(String(c.id))}">Editar</button>
+        <button data-action="delete" data-id="${escapeHtml(String(c.id))}">Eliminar</button>
+      </td>
     `;
   }
 
-  // =============================
-  // API calls
-  // =============================
   async function loadClubs() {
     const tbody = $('clubs-table');
     if (!tbody) return;
@@ -210,11 +164,9 @@ function closeClubForm() {
     });
   }
 
-  function validHexColor(v) {
-    if (!v) return false;
-    return /^#[0-9a-fA-F]{6}$/.test(String(v).trim());
-  }
-
+  // =============================
+  // Crear / editar club
+  // =============================
   async function saveClub(e) {
     e.preventDefault();
 
@@ -225,10 +177,6 @@ function closeClubForm() {
     const color_primary = $('club_color_primary')?.value?.trim() || '';
     const color_secondary = $('club_color_secondary')?.value?.trim() || '';
     const color_accent = $('club_color_accent')?.value?.trim() || '';
-
-    const contact_name = $('club_contact_name')?.value?.trim() || '';
-    const contact_phone = $('club_contact_phone')?.value?.trim() || '';
-    const instagram_url = $('club_instagram')?.value?.trim() || '';
 
     if ($('club_color_primary') && color_primary && !validHexColor(color_primary)) {
       return showClubMsg('Color primario inválido (use formato #RRGGBB).', false);
@@ -246,18 +194,15 @@ function closeClubForm() {
     fd.append('city', $('club_city')?.value?.trim() || '');
     fd.append('province', $('club_province')?.value?.trim() || '');
 
-    // campos de contacto
-    fd.append('contact_name', contact_name);
-    fd.append('contact_phone', contact_phone);
-    fd.append('instagram_url', instagram_url);
+    // contacto
+    fd.append('contact_name', $('club_contact_name')?.value?.trim() || '');
+    fd.append('contact_phone', $('club_contact_phone')?.value?.trim() || '');
+    fd.append('instagram_url', $('club_instagram')?.value?.trim() || '');
 
     // colores
-    if ($('club_color_primary'))
-      fd.append('color_primary', color_primary || '#2563eb');
-    if ($('club_color_secondary'))
-      fd.append('color_secondary', color_secondary || '#1e40af');
-    if ($('club_color_accent'))
-      fd.append('color_accent', color_accent || '#facc15');
+    fd.append('color_primary', color_primary || '#2563eb');
+    fd.append('color_secondary', color_secondary || '#1e40af');
+    fd.append('color_accent', color_accent || '#facc15');
 
     const logoFile = $('club_logo')?.files?.[0];
     const bgFile = $('club_background')?.files?.[0];
@@ -267,58 +212,59 @@ function closeClubForm() {
     const url = id ? `/admin/clubs/${id}` : '/admin/clubs';
     const method = id ? 'PUT' : 'POST';
 
-    const res = await fetchAuthClubs(url, { method, body: fd });
+    const submitBtn = $('formClub')?.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
 
-    const text = await res.text();
-    let data;
     try {
-      data = JSON.parse(text);
-    } catch {
-      return showClubMsg('Error guardando club: ' + text.slice(0, 180), false);
+      const res = await fetchAuthClubs(url, { method, body: fd });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        showClubMsg(data.error || 'No se pudo guardar', false);
+        return;
+      }
+
+      showClubMsg(id ? '✅ Club actualizado' : '✅ Club creado', true);
+      await loadClubs();
+
+      // Si fue alta, abrir panel de usuarios del club recién creado
+      if (!id && data?.club?.id) {
+        window.openUsersForClub?.(String(data.club.id), String(data.club.name || name));
+      }
+
+      closeClubForm();
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
-
-    if (!res.ok || !data.ok) {
-      showClubMsg(data.error || 'No se pudo guardar', false);
-      return;
-    }
-
-    showClubMsg(id ? '✅ Club actualizado' : '✅ Club creado', true);
-resetClubForm();
-await loadClubs();
-
-// ✅ Si fue ALTA, abrir panel de usuarios del club recién creado
-if (!id && data?.club?.id) {
-  window.openUsersForClub?.(String(data.club.id), String(data.club.name || name));
-}
+  }
 
   function startEdit(id) {
-  const c = clubsCache.find((x) => String(x.id) === String(id));
-  if (!c) return;
-  $('club_id').value = c.id;
-  $('club_name').value = c.name ?? '';
-  $('club_address').value = c.address ?? '';
-  $('club_city').value = c.city ?? '';
-  $('club_province').value = c.province ?? '';
-  if ($('club_contact_name'))
-    $('club_contact_name').value = c.contact_name ?? '';
-  if ($('club_contact_phone'))
-    $('club_contact_phone').value = c.contact_phone ?? '';
-  if ($('club_instagram'))
-    $('club_instagram').value = c.instagram_url ?? '';
-  const p = c.color_primary ?? c.club_color_primary;
-  const s = c.color_secondary ?? c.club_color_secondary;
-  const a = c.color_accent ?? c.club_color_accent;
-  if ($('club_color_primary'))
-    $('club_color_primary').value = validHexColor(p) ? p : '#2563eb';
-  if ($('club_color_secondary'))
-    $('club_color_secondary').value = validHexColor(s) ? s : '#1e40af';
-  if ($('club_color_accent'))
-    $('club_color_accent').value = validHexColor(a) ? a : '#facc15';
-  setEditMode(true);
-  showClubMsg('Editando: ' + c.name, true);
-  openClubForm(true); // 👈 NUEVO
-}
+    const c = clubsCache.find((x) => String(x.id) === String(id));
+    if (!c) return;
 
+    $('club_id').value = c.id;
+    $('club_name').value = c.name ?? '';
+    $('club_address').value = c.address ?? '';
+    $('club_city').value = c.city ?? '';
+    $('club_province').value = c.province ?? '';
+    $('club_contact_name').value = c.contact_name ?? '';
+    $('club_contact_phone').value = c.contact_phone ?? '';
+    $('club_instagram').value = c.instagram_url ?? '';
+
+    const p = c.color_primary ?? '#2563eb';
+    const s = c.color_secondary ?? '#1e40af';
+    const a = c.color_accent ?? '#facc15';
+
+    $('club_color_primary').value = validHexColor(p) ? p : '#2563eb';
+    $('club_color_secondary').value = validHexColor(s) ? s : '#1e40af';
+    $('club_color_accent').value = validHexColor(a) ? a : '#facc15';
+
+    openClubForm(true);
+    showClubMsg('Editando: ' + (c.name ?? ''), true);
+
+    // Opcional: al editar también podés abrir el panel de usuarios del club
+    // window.openUsersForClub?.(String(c.id), String(c.name ?? ''));
+  }
 
   async function delClub(id) {
     const c = clubsCache.find((x) => String(x.id) === String(id));
@@ -333,49 +279,41 @@ if (!id && data?.club?.id) {
     }
 
     showClubMsg('✅ Club eliminado', true);
-    resetClubForm();
     await loadClubs();
   }
 
   // =============================
-  // Bind
+  // Init / Bind
   // =============================
- document.addEventListener('DOMContentLoaded', () => {
-  if ($('club_color_primary') && !$('club_color_primary').value)
-    $('club_color_primary').value = '#2563eb';
-  if ($('club_color_secondary') && !$('club_color_secondary').value)
-    $('club_color_secondary').value = '#1e40af';
-  if ($('club_color_accent') && !$('club_color_accent').value)
-    $('club_color_accent').value = '#facc15';
+  document.addEventListener('DOMContentLoaded', () => {
+    // Defaults colores
+    if ($('club_color_primary') && !$('club_color_primary').value)
+      $('club_color_primary').value = '#2563eb';
+    if ($('club_color_secondary') && !$('club_color_secondary').value)
+      $('club_color_secondary').value = '#1e40af';
+    if ($('club_color_accent') && !$('club_color_accent').value)
+      $('club_color_accent').value = '#facc15';
 
-  $('formClub')?.addEventListener('submit', saveClub);
+    $('formClub')?.addEventListener('submit', saveClub);
+    $('btnOpenClubForm')?.addEventListener('click', () => openClubForm(false));
+    $('btnCloseClubForm')?.addEventListener('click', closeClubForm);
 
-  // 👇 NUEVO: botones del formulario de Clubes
-  $('btnOpenClubForm')?.addEventListener('click', () => openClubForm(false));
-  $('btnCloseClubForm')?.addEventListener('click', closeClubForm);
-  // ☝️ FIN NUEVO
+    $('clubs-table')?.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button');
+      if (!btn) return;
 
-  $('club_cancel_btn')?.addEventListener('click', () => {
-    resetClubForm();
-    showClubMsg('Edición cancelada', true);
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      const name = btn.dataset.name;
+
+      if (action === 'users') {
+        window.openUsersForClub?.(id, name);
+        return;
+      }
+      if (action === 'edit') startEdit(id);
+      if (action === 'delete') delClub(id);
+    });
+
+    loadClubs();
   });
-
-  $('clubs-table')?.addEventListener('click', (ev) => {
-  const btn = ev.target.closest('button');
-  if (!btn) return;
-  const action = btn.dataset.action;
-  const id = btn.dataset.id;
-  const name = btn.dataset.name;
-
-  if (action === 'users') {
-    // abre panel de usuarios del club (lo maneja users.js)
-    window.openUsersForClub?.(id, name);
-    return;
-  }
-  if (action === 'edit') startEdit(id);
-  if (action === 'delete') delClub(id);
-});
-
-  loadClubs();
-});
 })();

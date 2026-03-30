@@ -5,7 +5,7 @@
   <title>Super Admin</title>
 
   <style>
-    /* ==== ESTILO BASE MODERNO ==== */
+    /* ==== ESTILO BASE ==== */
     :root {
       --bg: #f3f4f6;
       --card: #ffffff;
@@ -23,6 +23,7 @@
       font-family: system-ui, sans-serif;
       margin: 0;
       color: var(--text);
+      font-size: 13px;
     }
 
     /* ==== HEADER ==== */
@@ -46,9 +47,6 @@
       color: white;
       cursor: pointer;
     }
-    .topbar button:hover {
-      background: var(--danger-hover);
-    }
 
     /* ==== LAYOUT ==== */
     .container {
@@ -61,93 +59,83 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 22px;
-      margin-bottom: 32px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      padding: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      border-left: 5px solid var(--primary);
     }
 
     h3 {
-      margin: 0 0 12px;
       font-size: 18px;
-      font-weight: 700;
+      margin: 0 0 10px;
+      color: var(--primary);
     }
 
     h4 {
-      margin-top: 22px;
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 13px;
+      margin-top: 14px;
       color: var(--muted);
+      font-weight: 600;
     }
 
-    /* ==== FORMULARIOS ==== */
+    /* ==== FORM ==== */
     label {
-      font-size: 13px;
-      font-weight: 500;
+      font-size: 12px;
       color: var(--muted);
     }
 
     input, select {
       width: 100%;
-      padding: 10px;
+      padding: 6px 8px;
       border-radius: 8px;
       border: 1px solid var(--border);
-      margin: 6px 0 14px;
-      background: white;
-      font-size: 14px;
+      margin: 4px 0 10px;
+      font-size: 13px;
     }
 
     input[type="color"] {
-      padding: 4px;
-      height: 40px;
+      height: 32px;
+      padding: 2px;
     }
 
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 14px;
+      gap: 10px;
     }
 
     @media (max-width: 900px) {
-      .form-grid {
-        grid-template-columns: 1fr;
-      }
+      .form-grid { grid-template-columns: 1fr; }
     }
 
     button.primary {
       background: var(--primary);
       color: white;
       border: none;
-      padding: 10px 16px;
+      padding: 8px 12px;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 14px;
-    }
-    button.primary:hover {
-      background: var(--primary-hover);
+      font-size: 13px;
     }
 
     /* ==== TABLAS ==== */
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 18px;
+      margin-top: 12px;
       background: white;
-      font-size: 14px;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
     }
 
     th {
       background: #f9fafb;
-      text-align: left;
-      padding: 10px;
-      font-weight: 600;
       color: var(--muted);
-      border-bottom: 1px solid var(--border);
-    }
-
-    td {
-      padding: 10px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: middle;
+      font-weight: 600;
     }
 
     .thumb {
@@ -158,188 +146,24 @@
       border: 1px solid var(--border);
     }
 
-    /* ==== PAGINACIÓN ==== */
-    .pagination {
-      margin-top: 18px;
-      display: flex;
-      gap: 10px;
-    }
-    .pagination button {
-      padding: 8px 12px;
+    /* ==== SUBCARD ==== */
+    .subcard {
+      background: #fff;
       border: 1px solid var(--border);
-      background: white;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .pagination button:hover {
-      background: #f3f4f6;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 12px;
     }
 
-    /* ==== MENSAJES ==== */
     .msg {
       display: none;
-      padding: 10px;
+      padding: 8px;
+      margin-top: 10px;
       border-radius: 8px;
-      margin-top: 14px;
-      font-size: 14px;
-      border: 1px solid transparent;
+      font-size: 13px;
     }
-    .msg.ok {
-      display: block;
-      background: #e7f7ea;
-      color: #11601d;
-      border-color: #aad7b5;
-    }
-    .msg.err {
-      display: block;
-      background: #fdeaea;
-      color: #a11a1a;
-      border-color: #e2b2b2;
-    }
-
-/* ============================
-   COMPACCIÓN GENERAL
-============================ */
-body {
-  font-size: 13px;
-}
-
-.card {
-  padding: 16px;
-  margin-bottom: 20px;
-}
-
-h3 {
-  font-size: 16px;
-  margin-bottom: 8px;
-}
-
-h4 {
-  font-size: 13px;
-  margin-top: 14px;
-}
-
-/* ============================
-   FORMULARIOS
-============================ */
-input, select {
-  padding: 6px 8px;
-  margin: 4px 0 10px;
-  font-size: 13px;
-}
-
-input[type="color"] {
-  height: 32px;
-  padding: 2px;
-}
-
-.form-grid {
-  gap: 10px;
-}
-
-/* Botón principal más compacto */
-button.primary {
-  padding: 8px 12px;
-  font-size: 13px;
-}
-
-/* ============================
-   TABLAS COMPACTAS
-============================ */
-table {
-  font-size: 13px;
-  margin-top: 12px;
-}
-
-th, td {
-  padding: 6px 8px !important;
-}
-
-table button {
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 6px;
-}
-
-/* ============================
-   PAGINACIÓN
-============================ */
-.pagination {
-  margin-top: 10px;
-}
-
-.pagination button {
-  padding: 4px 8px;
-  font-size: 12px;
-}
-
-/* ============================
-   COMPACTACIÓN DE MENSAJES
-============================ */
-.msg {
-  font-size: 13px;
-  padding: 8px;
-  margin-top: 10px;
-}
-
-/* Separación visual fuerte entre módulos */
-.card {
-  border-left: 5px solid var(--primary);
-}
-
-.card:nth-of-type(2) {
-  border-left-color: var(--danger);
-}
-
-/* Títulos más destacados */
-.card h3 {
-  font-size: 18px;
-  color: var(--primary);
-  margin-bottom: 6px;
-}
-
-.card:nth-of-type(2) h3 {
-  color: var(--danger);
-}
-
-/* DASHBOARD COMPACTO */
-.card {
-  padding: 16px;
-}
-
-input, select {
-  padding: 6px 8px;
-  font-size: 13px;
-}
-
-table th, table td {
-  padding: 6px 8px;
-  font-size: 13px;
-}
-
-table button {
-  padding: 4px 8px;
-  font-size: 12px;
-}
-
-.primary {
-  padding: 8px 12px !important;
-  font-size: 13px;
-}
-
-/* Subcard para CLUBES igual que USUARIOS */
-.clubs-card {
-  border-left: 5px solid var(--primary);
-}
-
-/* El formulario de clubes tipo subcard */
-#clubFormCard {
-  background: #fff;
-  border: 1px solid var(--border);
-  padding: 16px;
-  border-radius: 10px;
-}
-
+    .msg.ok { display:block; background:#e7f7ea; color:#11601d; }
+    .msg.err { display:block; background:#fdeaea; color:#a11a1a; }
   </style>
 </head>
 
@@ -352,208 +176,121 @@ table button {
 
   <div class="container">
 
-    <!-- ======================================
-     SECCIÓN CLUBES
-======================================= -->
-<div class="card clubs-card">
+    <!-- ================= CLUBES ================= -->
+    <div class="card">
 
-  <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
-    <h3>Clubes</h3>
-    <button id="btnOpenClubForm" class="primary" type="button">➕ Crear club</button>
-  </div>
-
-  <!-- FORMULARIO (OCULTO POR DEFECTO) -->
-  <div id="clubFormCard" class="subcard" style="display:none; margin-top:12px;">
-    
-    <h4 id="clubFormTitle">Crear club</h4>
-
-    <form id="formClub">
-
-      <input type="hidden" id="club_id">
-
-      <label>Nombre del club *</label>
-      <input id="club_name" required>
-
-      <label>Dirección</label>
-      <input id="club_address">
-
-      <div class="form-grid">
-        <div>
-          <label>Ciudad</label>
-          <input id="club_city">
-        </div>
-        <div>
-          <label>Provincia</label>
-          <input id="club_province">
-        </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Clubes</h3>
+        <button id="btnOpenClubForm" class="primary">➕ Crear club</button>
       </div>
 
-      <h4>Contacto</h4>
+      <!-- FORM CLUB -->
+      <div id="clubFormCard" class="subcard" style="display:none;">
+        <h4 id="clubFormTitle">Crear club</h4>
 
-      <div class="form-grid">
-        <div>
-          <label>Persona de contacto</label>
-          <input id="club_contact_name">
-        </div>
-        <div>
-          <label>Teléfono</label>
-          <input id="club_contact_phone">
-        </div>
+        <form id="formClub">
+          <input type="hidden" id="club_id">
+
+          <label>Nombre *</label>
+          <input id="club_name" required>
+
+          <label>Dirección</label>
+          <input id="club_address">
+
+          <div class="form-grid">
+            <div>
+              <label>Ciudad</label>
+              <input id="club_city">
+            </div>
+            <div>
+              <label>Provincia</label>
+              <input id="club_province">
+            </div>
+          </div>
+
+          <h4>Contacto</h4>
+          <div class="form-grid">
+            <div>
+              <label>Persona de contacto</label>
+              <input id="club_contact_name">
+            </div>
+            <div>
+              <label>Teléfono</label>
+              <input id="club_contact_phone">
+            </div>
+          </div>
+
+          <label>Instagram</label>
+          <input id="club_instagram">
+
+          <h4>Identidad visual</h4>
+          <div class="form-grid">
+            <div>
+              <label>Color primario</label>
+              <input type="color" id="club_color_primary" value="#2563eb">
+            </div>
+            <div>
+              <label>Color secundario</label>
+              <input type="color" id="club_color_secondary" value="#1e40af">
+            </div>
+          </div>
+
+          <label>Color acento</label>
+          <input type="color" id="club_color_accent" value="#facc15">
+
+          <h4>Imágenes</h4>
+          <label>Logo</label>
+          <input type="file" id="club_logo" accept="image/*">
+
+          <label>Fondo</label>
+          <input type="file" id="club_background" accept="image/*">
+
+          <div style="margin-top:10px; display:flex; gap:10px;">
+            <button class="primary" type="submit">Guardar club</button>
+            <button type="button" id="btnCloseClubForm">Cancelar</button>
+          </div>
+        </form>
+
+        <div id="clubMsg" class="msg"></div>
       </div>
 
-      <label>Instagram</label>
-      <input id="club_instagram">
-
-      <h4>Identidad visual</h4>
-
-      <div class="form-grid">
-        <div>
-          <label>Color primario</label>
-          <input type="color" id="club_color_primary" value="#2563eb">
+      <!-- USUARIOS DEL CLUB -->
+      <div id="clubUsersCard" class="subcard" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4>Usuarios del club: <span id="clubUsersTitle"></span></h4>
+          <div>
+            <button id="btnClubUsersNew" class="primary">➕ Crear usuario</button>
+            <button id="btnClubUsersClose">Cerrar</button>
+          </div>
         </div>
-        <div>
-          <label>Color secundario</label>
-          <input type="color" id="club_color_secondary" value="#1e40af">
-        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="clubUsersTableBody"></tbody>
+        </table>
       </div>
 
-      <label>Color acento</label>
-      <input type="color" id="club_color_accent" value="#facc15">
+      <!-- TABLA CLUBES -->
+      <table>
+        <thead>
+          <tr>
+            <th>Logo</th>
+            <th>Nombre</th>
+            <th>Ciudad</th>
+            <th>Provincia</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="clubs-table"></tbody>
+      </table>
 
-      <h4>Imágenes</h4>
-
-      <label>Logo</label>
-      <input type="file" id="club_logo" accept="image/*">
-
-      <label>Fondo</label>
-      <input type="file" id="club_background" accept="image/*">
-
-      <div style="margin-top:10px; display:flex; gap:10px;">
-        <button id="clubSubmitBtn" class="primary" type="submit">Guardar club</button>
-        <button type="button" class="btn-cancel" id="btnCloseClubForm">Cancelar</button>
-      </div>
-
-    </form>
-
-    <div id="clubMsg" class="msg"></div>
-
-  </div>
-
-<!-- ============ USUARIOS DEL CLUB (NUEVO) ============ -->
-<div id="clubUsersCard" class="subcard" style="display:none; margin-top:12px;">
-  <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-    <h4 style="margin:0;">
-      Usuarios del club: <span id="clubUsersTitle" style="color:var(--text); font-weight:700;"></span>
-    </h4>
-    <div style="display:flex; gap:8px;">
-      <button id="btnClubUsersNew" class="primary" type="button">➕ Crear usuario</button>
-      <button id="btnClubUsersClose" type="button">Cerrar</button>
     </div>
-  </div>
-
-  <div class="muted" style="margin-top:6px;">
-    Estos usuarios son los que tienen acceso al club seleccionado (roles en user_clubs).
-  </div>
-
-  <table style="margin-top:12px;">
-    <thead>
-      <tr>
-        <th>Email</th>
-        <th>Rol</th>
-        <th>Estado</th>
-      </tr>
-    </thead>
-    <tbody id="clubUsersTableBody"></tbody>
-  </table>
-</div>
-<!-- ============ FIN USUARIOS DEL CLUB ============ -->
-
-
-  <!-- TABLA DE CLUBES -->
-  <table>
-    <thead>
-      <tr>
-        <th>Logo</th>
-<th>Nombre</th>
-<th>Ciudad</th>
-<th>Provincia</th>
-<th>Estado</th>
-<th>Acciones</th>
-
-      </tr>
-    </thead>
-    <tbody id="clubs-table"></tbody>
-  </table>
-
-  <div class="pagination">
-    <button onclick="prevPageClubs()">⟵ Anterior</button>
-    <button onclick="nextPageClubs()">Siguiente ⟶</button>
-  </div>
-
-</div>
-
-    <!-- ======================================
-     SECCIÓN USUARIOS
-======================================= -->
-<div class="card users-card">
-
-  <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
-    <h3>Usuarios</h3>
-    <button id="btnOpenUserForm" class="primary" type="button">➕ Crear usuario</button>
-  </div>
-
-  <!-- FORMULARIO (oculto por defecto) -->
-  <div id="userFormCard" class="subcard" style="display:none; margin-top:12px;">
-    
-    <h4 id="userFormTitle">Crear usuario</h4>
-
-    <form id="formUser">
-      <input type="hidden" id="user_id">
-
-      <label>Nombre completo</label>
-      <input id="user_full_name">
-
-      <label>Email</label>
-      <input id="user_email" type="email" required>
-
-      <label>Contraseña</label>
-      <input id="user_password" type="password">
-
-      <label>Rol</label>
-      <select id="user_role">
-        <option value="staff">staff</option>
-        <option value="admin">admin</option>
-        <option value="superadmin">superadmin</option>
-      </select>
-
-      <label>Clubes asignados</label>
-      <select id="user_club_id" multiple size="5"></select>
-
-      <div style="margin-top:10px; display:flex; gap:10px;">
-        <button id="userSubmitBtn" class="primary" type="submit">Crear usuario</button>
-        <button type="button" class="btn-cancel" id="btnCloseUserForm">Cancelar</button>
-      </div>
-    </form>
-
-    <div id="userMsg" class="msg"></div>
-
-  </div>
-
-  <!-- TABLA DE USUARIOS -->
-  <table>
-    <thead>
-      <tr>
-        <th>Email</th>
-        <th>Roles</th>
-        <th>Estado</th>
-        <th>Acciones</th>
-      </tr>
-    </thead>
-    <tbody id="users-table"></tbody>
-  </table>
-
-</div>
-
   </div>
 
   <script src="/js/clubs.js"></script>
