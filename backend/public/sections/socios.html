@@ -114,46 +114,36 @@
 
         </div>
 
-        <!-- ================= ADJUNTOS ================= -->
-        <div id="adjuntosSection" class="adjuntos-container">
+       <!-- ================= ADJUNTOS ================= -->
+<div id="adjuntosSection" class="adjuntos-container">
+  <div class="adjuntos-header">
+    <h4>Documentación adjunta</h4>
+    <div class="muted small">Podés subir archivos. Para verlos, usá el Carnet digital o Acciones.</div>
+  </div>
 
-          <div class="adjuntos-header">
-            <h4>Documentación adjunta</h4>
-            <button id="btnToggleAdjuntos" class="btn btn-secondary btn-sm">Mostrar adjuntos</button>
-          </div>
-
-          <div id="listaAdjuntos" class="adjuntos-list hidden">
-            <div class="text-muted">Aquí verás los archivos del socio…</div>
-          </div>
-
-          <div id="formAdjunto" class="hidden">
-            <label>Archivo (máx 10MB)</label>
-            <input id="adjuntoFile" type="file">
-            <button id="btnSubirAdjunto" class="btn btn-secondary" style="margin-top:8px;">📎 Subir adjunto</button>
-          </div>
-
-        </div>
+  <div id="formAdjunto">
+    <label>Archivo (máx 10MB)</label>
+    <input id="adjuntoFile" type="file">
+    <button id="btnSubirAdjunto" class="btn btn-secondary" style="margin-top:8px;">📎 Subir adjunto</button>
+  </div>
+</div>
 
         <!-- ================= COMENTARIOS ================= -->
-        <div id="comentariosSection" class="comentarios-container" style="margin-top:25px;">
+<div id="comentariosSection" class="comentarios-container" style="margin-top:25px;">
+  <div class="comentarios-header">
+    <h4>Comentarios</h4>
+    <div class="muted small">Para ver el historial, usá el Carnet digital o Acciones.</div>
+  </div>
 
-          <div class="comentarios-header">
-            <h4>Comentarios</h4>
-            <button id="btnToggleComentarios" class="btn btn-secondary btn-sm">Mostrar comentarios</button>
-          </div>
+  <div style="margin-top:12px;">
+    <label>Nuevo comentario</label>
+    <textarea id="nuevoComentario" rows="2" placeholder="Escribí un comentario…"></textarea>
+  </div>
 
-          <div id="listaComentarios" class="adjuntos-list hidden">
-            <div class="text-muted">Aquí verás los comentarios del socio…</div>
-          </div>
-
-          <div style="margin-top:12px;">
-            <label>Nuevo comentario</label>
-            <textarea id="nuevoComentario" rows="2" placeholder="Escribí un comentario…"></textarea>
-          </div>
-
-          <button id="btnSubirComentario" class="btn btn-secondary" style="margin-top:12px;">
-            💬 Subir comentario
-          </button>
+  <button id="btnSubirComentario" class="btn btn-secondary" style="margin-top:12px;">
+    💬 Subir comentario
+  </button>
+</div>
 
         </div>
 
