@@ -224,8 +224,9 @@
   // =============================
   function renderRow(c) {
     const logoHtml = c.logo_url
-      ? `<img class="thumb" src="${escapeHtml(c.logo_url)}" alt="logo" />`
-      : '—';
+  ? `<img src="${escapeHtml(c.logo_url)}" class="club-logo-thumb" alt="logo club">`
+  : '—';
+
 
     const extra = [
       c.socios_cantidad != null ? `Socios: ${escapeHtml(String(c.socios_cantidad))}` : null,
