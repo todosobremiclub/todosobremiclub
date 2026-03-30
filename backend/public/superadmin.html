@@ -439,6 +439,36 @@ table button {
 
   </div>
 
+<!-- ============ USUARIOS DEL CLUB (NUEVO) ============ -->
+<div id="clubUsersCard" class="subcard" style="display:none; margin-top:12px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+    <h4 style="margin:0;">
+      Usuarios del club: <span id="clubUsersTitle" style="color:var(--text); font-weight:700;"></span>
+    </h4>
+    <div style="display:flex; gap:8px;">
+      <button id="btnClubUsersNew" class="primary" type="button">➕ Crear usuario</button>
+      <button id="btnClubUsersClose" type="button">Cerrar</button>
+    </div>
+  </div>
+
+  <div class="muted" style="margin-top:6px;">
+    Estos usuarios son los que tienen acceso al club seleccionado (roles en user_clubs).
+  </div>
+
+  <table style="margin-top:12px;">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Rol</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody id="clubUsersTableBody"></tbody>
+  </table>
+</div>
+<!-- ============ FIN USUARIOS DEL CLUB ============ -->
+
+
   <!-- TABLA DE CLUBES -->
   <table>
     <thead>

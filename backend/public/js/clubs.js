@@ -168,9 +168,12 @@ function closeClubForm() {
       <td>${escapeHtml(c.city ?? '')}</td>
       <td>${escapeHtml(c.province ?? '')}</td>
       <td style="white-space:nowrap;">
-        <button data-action="edit" data-id="${escapeHtml(String(c.id))}">Editar</button>
-        <button data-action="delete" data-id="${escapeHtml(String(c.id))}">Eliminar</button>
-      </td>
+  <button data-action="users" data-id="${escapeHtml(String(c.id))}" data-name="${escapeHtml(String(c.name ?? ''))}">
+    Usuarios
+  </button>
+  <button data-action="edit" data-id="${escapeHtml(String(c.id))}">Editar</button>
+  <button data-action="delete" data-id="${escapeHtml(String(c.id))}">Eliminar</button>
+</td>
     `;
   }
 
@@ -280,9 +283,13 @@ function closeClubForm() {
     }
 
     showClubMsg(id ? '✅ Club actualizado' : '✅ Club creado', true);
-    resetClubForm();
-    await loadClubs();
-  }
+resetClubForm();
+await loadClubs();
+
+// ✅ Si fue ALTA, abrir panel de usuarios del club recién creado
+if (!id && data?.club?.id) {
+  window.openUsersForClub?.(String(data.club.id), String(data.club.name || name));
+}
 
   function startEdit(id) {
   const c = clubsCache.find((x) => String(x.id) === String(id));
@@ -354,13 +361,20 @@ function closeClubForm() {
   });
 
   $('clubs-table')?.addEventListener('click', (ev) => {
-    const btn = ev.target.closest('button');
-    if (!btn) return;
-    const action = btn.dataset.action;
-    const id = btn.dataset.id;
-    if (action === 'edit') startEdit(id);
-    if (action === 'delete') delClub(id);
-  });
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  const name = btn.dataset.name;
+
+  if (action === 'users') {
+    // abre panel de usuarios del club (lo maneja users.js)
+    window.openUsersForClub?.(id, name);
+    return;
+  }
+  if (action === 'edit') startEdit(id);
+  if (action === 'delete') delClub(id);
+});
 
   loadClubs();
 });

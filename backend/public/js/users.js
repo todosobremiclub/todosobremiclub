@@ -4,6 +4,54 @@
   let usersCache = [];
   let clubsCache = [];
 
+let activeClubUsersId = null;
+let activeClubUsersName = null;
+
+function renderUsersForActiveClub() {
+  const card = document.getElementById('clubUsersCard');
+  const title = document.getElementById('clubUsersTitle');
+  const tbody = document.getElementById('clubUsersTableBody');
+  if (!card || !title || !tbody) return;
+
+  if (!activeClubUsersId) {
+    card.style.display = 'none';
+    return;
+  }
+
+  card.style.display = 'block';
+  title.textContent = activeClubUsersName || activeClubUsersId;
+
+  const rows = (usersCache || []).filter(u =>
+    (u.roles || []).some(r => String(r.club_id) === String(activeClubUsersId))
+  );
+
+  tbody.innerHTML = '';
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="3" class="muted">No hay usuarios asignados a este club.</td></tr>`;
+    return;
+  }
+
+  rows.forEach(u => {
+    const roleObj = (u.roles || []).find(r => String(r.club_id) === String(activeClubUsersId));
+    const roleTxt = roleObj?.role || '—';
+    const estado = u.is_active ? 'Activo' : 'Inactivo';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${u.email}</td>
+      <td>${roleTxt}</td>
+      <td>${estado}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.openUsersForClub = function(clubId, clubName) {
+  activeClubUsersId = String(clubId);
+  activeClubUsersName = String(clubName || '');
+  renderUsersForActiveClub();
+};
+
   // =============================
   // Auth helpers
   // =============================
@@ -333,18 +381,26 @@ openUserForm(true);
   };
 
   // =============================
-  // Init
-  // =============================
-  document.addEventListener('DOMContentLoaded', async () => {
+// Init
+// =============================
+document.addEventListener('DOMContentLoaded', async () => {
+  // Submit del formulario (crear / editar usuario)
   $('formUser')?.addEventListener('submit', createOrUpdateUser);
+
+  // Reset inicial del form (modo "Crear usuario")
   resetUserForm();
 
-  // 👇 AGREGAR ESTO AQUÍ
+  // Botón "Crear usuario"
   $('btnOpenUserForm')?.addEventListener('click', () => openUserForm(false));
-  $('btnCloseUserForm')?.addEventListener('click', closeUserForm);
-  // ☝️ FIN DE LO NUEVO
 
+  // Botón "Cancelar / Cerrar formulario"
+  $('btnCloseUserForm')?.addEventListener('click', closeUserForm);
+
+  // Cargar clubes en el selector del formulario de usuario
   await loadClubsIntoUserSelect();
+
+  // Cargar lista de usuarios
   await loadUsers();
 });
 })();
+
