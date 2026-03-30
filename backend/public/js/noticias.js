@@ -334,8 +334,15 @@ if (tipo === 'act_cat') {
                   onerror="this.style.display='none';" />`
             : '—'}
         </td>
-        <td>${escapeHtml(n.titulo ?? '')}</td>
-        <td>${escapeHtml(n.texto ?? '').slice(0, 120)}${(n.texto || '').length > 120 ? '…' : ''}</td>
+        <td>
+  <div style="font-weight:600; text-decoration:underline; margin-bottom:4px;">
+    ${escapeHtml(n.titulo ?? '')}
+  </div>
+  <div style="font-size:13px; color:#374151;">
+    ${escapeHtml(n.texto ?? '').slice(0, 120)}${(n.texto || '').length > 120 ? '…' : ''}
+  </div>
+</td>
+
         <td>${escapeHtml(destinoHumanLabel(n))}</td>
         <td>${escapeHtml(fecha)}</td>
         <td style="white-space:nowrap;">
