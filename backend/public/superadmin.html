@@ -5,7 +5,6 @@
   <title>Super Admin</title>
 
   <style>
-    /* ==== ESTILO BASE ==== */
     :root {
       --bg: #f3f4f6;
       --card: #ffffff;
@@ -15,7 +14,6 @@
       --primary: #2563eb;
       --primary-hover: #1d4ed8;
       --danger: #dc2626;
-      --danger-hover: #b91c1c;
     }
 
     body {
@@ -26,7 +24,7 @@
       font-size: 13px;
     }
 
-    /* ==== HEADER ==== */
+    /* HEADER */
     .topbar {
       background: #111827;
       padding: 16px 22px;
@@ -35,10 +33,12 @@
       justify-content: space-between;
       align-items: center;
     }
+
     .topbar h2 {
       margin: 0;
       font-size: 20px;
     }
+
     .topbar button {
       background: var(--danger);
       border: none;
@@ -48,7 +48,7 @@
       cursor: pointer;
     }
 
-    /* ==== LAYOUT ==== */
+    /* LAYOUT */
     .container {
       max-width: 1200px;
       margin: auto;
@@ -78,13 +78,12 @@
       font-weight: 600;
     }
 
-    /* ==== FORM ==== */
     label {
       font-size: 12px;
       color: var(--muted);
     }
 
-    input, select {
+    input, select, textarea {
       width: 100%;
       padding: 6px 8px;
       border-radius: 8px;
@@ -96,6 +95,10 @@
     input[type="color"] {
       height: 32px;
       padding: 2px;
+    }
+
+    textarea {
+      resize: vertical;
     }
 
     .form-grid {
@@ -118,7 +121,6 @@
       font-size: 13px;
     }
 
-    /* ==== TABLAS ==== */
     table {
       width: 100%;
       border-collapse: collapse;
@@ -138,15 +140,6 @@
       font-weight: 600;
     }
 
-    .thumb {
-      width: 46px;
-      height: 46px;
-      object-fit: cover;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-
-    /* ==== SUBCARD ==== */
     .subcard {
       background: #fff;
       border: 1px solid var(--border);
@@ -223,6 +216,18 @@
           <label>Instagram</label>
           <input id="club_instagram">
 
+          <h4>Datos del club</h4>
+          <div class="form-grid">
+            <div>
+              <label>Cantidad de socios</label>
+              <input id="club_socios_cantidad" type="number" min="0" placeholder="Ej: 120">
+            </div>
+            <div>
+              <label>Valor mensual</label>
+              <input id="club_valor_mensual" type="number" step="0.01" min="0" placeholder="Ej: 15000">
+            </div>
+          </div>
+
           <h4>Identidad visual</h4>
           <div class="form-grid">
             <div>
@@ -245,6 +250,13 @@
           <label>Fondo</label>
           <input type="file" id="club_background" accept="image/*">
 
+          <h4>Comentarios</h4>
+          <textarea id="club_new_comment" rows="2"
+            placeholder="Agregar comentario (queda como historial)"></textarea>
+          <button type="button" id="btnAddClubComment">➕ Agregar comentario</button>
+
+          <div id="clubCommentsList" style="margin-top:10px;"></div>
+
           <div style="margin-top:10px; display:flex; gap:10px;">
             <button class="primary" type="submit">Guardar club</button>
             <button type="button" id="btnCloseClubForm">Cancelar</button>
@@ -264,37 +276,36 @@
           </div>
         </div>
 
-<!-- FORM USUARIO DEL CLUB (EMBEBIDO) -->
-<div id="clubUserFormCard" class="subcard" style="display:none; margin-top:12px;">
-  <h4 id="clubUserFormTitle" style="margin:0 0 10px;">Crear usuario del club</h4>
+        <!-- FORM USUARIO DEL CLUB -->
+        <div id="clubUserFormCard" class="subcard" style="display:none;">
+          <h4 id="clubUserFormTitle">Crear usuario del club</h4>
 
-  <form id="clubUserForm">
-    <input type="hidden" id="clubUser_id">
+          <form id="clubUserForm">
+            <input type="hidden" id="clubUser_id">
 
-    <label>Nombre completo</label>
-    <input id="clubUser_full_name" placeholder="Nombre y apellido">
+            <label>Nombre completo</label>
+            <input id="clubUser_full_name">
 
-    <label>Email *</label>
-    <input id="clubUser_email" type="email" required placeholder="usuario@club.com">
+            <label>Email *</label>
+            <input id="clubUser_email" type="email" required>
 
-    <label id="clubUser_pass_label">Contraseña *</label>
-    <input id="clubUser_password" type="password" placeholder="••••••••">
+            <label id="clubUser_pass_label">Contraseña *</label>
+            <input id="clubUser_password" type="password">
 
-    <label>Rol</label>
-    <select id="clubUser_role">
-      <option value="admin">admin</option>
-      <option value="staff">staff</option>
-    </select>
+            <label>Rol</label>
+            <select id="clubUser_role">
+              <option value="admin">admin</option>
+              <option value="staff">staff</option>
+            </select>
 
-    <div style="display:flex; gap:10px; margin-top:10px;">
-      <button id="clubUserSubmitBtn" class="primary" type="submit">Guardar usuario</button>
-      <button id="clubUserCancelBtn" type="button">Cancelar</button>
-    </div>
+            <div style="display:flex; gap:10px;">
+              <button id="clubUserSubmitBtn" class="primary" type="submit">Guardar usuario</button>
+              <button id="clubUserCancelBtn" type="button">Cancelar</button>
+            </div>
 
-    <div id="clubUserMsg" class="msg"></div>
-  </form>
-</div>
-<!-- FIN FORM USUARIO -->
+            <div id="clubUserMsg" class="msg"></div>
+          </form>
+        </div>
 
         <table>
           <thead>
@@ -302,6 +313,7 @@
               <th>Email</th>
               <th>Rol</th>
               <th>Estado</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody id="clubUsersTableBody"></tbody>

@@ -29,11 +29,14 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
         contact_name, 
         contact_phone, 
         instagram_url, 
+        socios_cantidad,
+        valor_mensual,
         logo_url, 
         background_url, 
         color_primary, 
         color_secondary, 
         color_accent, 
+        apply_token,
         created_at
       FROM clubs 
       ORDER BY created_at DESC 
@@ -62,6 +65,8 @@ router.post(
         contact_name,
         contact_phone,
         instagram_url,
+        socios_cantidad,
+        valor_mensual,
         color_primary,
         color_secondary,
         color_accent
@@ -94,27 +99,29 @@ router.post(
         background_url = up.url;
       }
 
-      // ✅ Token para QR de postulación (no puede quedar null)
-      const apply_token = crypto.randomBytes(16).toString('hex'); // 32 chars
+      // ✅ Token para QR de postulación
+      const apply_token = crypto.randomBytes(16).toString('hex');
 
       const r = await db.query(
         `
         INSERT INTO clubs (
-          name, 
-          address, 
-          city, 
-          province, 
-          contact_name, 
-          contact_phone, 
-          instagram_url, 
-          logo_url, 
-          background_url, 
-          color_primary, 
-          color_secondary, 
+          name,
+          address,
+          city,
+          province,
+          contact_name,
+          contact_phone,
+          instagram_url,
+          socios_cantidad,
+          valor_mensual,
+          logo_url,
+          background_url,
+          color_primary,
+          color_secondary,
           color_accent,
           apply_token
-        ) 
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) 
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
         RETURNING *
         `,
         [
@@ -125,6 +132,8 @@ router.post(
           contact_name ?? null,
           contact_phone ?? null,
           instagram_url ?? null,
+          socios_cantidad ? Number(socios_cantidad) : null,
+          valor_mensual ? Number(valor_mensual) : null,
           logo_url,
           background_url,
           color_primary ?? '#2563eb',
@@ -159,6 +168,8 @@ router.put(
         contact_name,
         contact_phone,
         instagram_url,
+        socios_cantidad,
+        valor_mensual,
         color_primary,
         color_secondary,
         color_accent
@@ -202,20 +213,22 @@ router.put(
       const r = await db.query(
         `
         UPDATE clubs
-        SET 
-          name = $1, 
-          address = $2, 
-          city = $3, 
-          province = $4, 
-          contact_name  = $5, 
-          contact_phone = $6, 
-          instagram_url = $7, 
-          logo_url = COALESCE($8, logo_url), 
-          background_url = COALESCE($9, background_url), 
-          color_primary = COALESCE($10, color_primary), 
-          color_secondary = COALESCE($11, color_secondary), 
-          color_accent = COALESCE($12, color_accent) 
-        WHERE id = $13 
+        SET
+          name = $1,
+          address = $2,
+          city = $3,
+          province = $4,
+          contact_name = $5,
+          contact_phone = $6,
+          instagram_url = $7,
+          socios_cantidad = $8,
+          valor_mensual = $9,
+          logo_url = COALESCE($10, logo_url),
+          background_url = COALESCE($11, background_url),
+          color_primary = COALESCE($12, color_primary),
+          color_secondary = COALESCE($13, color_secondary),
+          color_accent = COALESCE($14, color_accent)
+        WHERE id = $15
         RETURNING *
         `,
         [
@@ -226,6 +239,8 @@ router.put(
           contact_name ?? null,
           contact_phone ?? null,
           instagram_url ?? null,
+          socios_cantidad ? Number(socios_cantidad) : null,
+          valor_mensual ? Number(valor_mensual) : null,
           logo_url,
           background_url,
           color_primary,
@@ -243,8 +258,57 @@ router.put(
   }
 );
 
-// ================== ACTIVAR / DESACTIVAR CLUB ==================
-// PATCH /admin/clubs/:id/active
+// ================== COMENTARIOS DEL CLUB ==================
+
+// Listar comentarios
+router.get('/:id/comments', requireAuth, requireRole('superadmin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const r = await db.query(
+      `
+      SELECT id, club_id, comment, created_at
+      FROM club_comments
+      WHERE club_id = $1
+      ORDER BY created_at DESC
+      `,
+      [id]
+    );
+
+    res.json({ ok: true, comments: r.rows });
+  } catch (err) {
+    console.error('❌ get club comments:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Agregar comentario
+router.post('/:id/comments', requireAuth, requireRole('superadmin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body ?? {};
+
+    if (!comment?.trim()) {
+      return res.status(400).json({ ok: false, error: 'Comentario vacío' });
+    }
+
+    const r = await db.query(
+      `
+      INSERT INTO club_comments (club_id, comment)
+      VALUES ($1, $2)
+      RETURNING id, club_id, comment, created_at
+      `,
+      [id, comment.trim()]
+    );
+
+    res.json({ ok: true, comment: r.rows[0] });
+  } catch (err) {
+    console.error('❌ add club comment:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ================== ACTIVAR / DESACTIVAR ==================
 router.patch('/:id/active', requireAuth, requireRole('superadmin'), async (req, res) => {
   const { id } = req.params;
   const { is_active } = req.body || {};
