@@ -45,23 +45,37 @@ function isAdminToken(req) {
 // ===============================
 // Helper: enviar push a topic del club
 // (solo dispositivos suscriptos a ese club)
+// ✅ Incluye clubName en el título y en data
 // ===============================
-async function sendPushToClubTopic({ clubId, titulo, cuerpo, notificacionId }) {
+async function sendPushToClubTopic({
+  clubId,
+  clubName,
+  titulo,
+  cuerpo,
+  notificacionId,
+}) {
   const admin = initFirebase();
   if (!admin) throw new Error('Firebase no inicializado (faltan FIREBASE_*)');
 
   const topic = `club_${clubId}`;
 
+  // ✅ Título con nombre del club
+  // Ej: "Club Atlético — Suspensión por lluvia"
+  const titleFinal = clubName
+    ? `${String(clubName).trim()} — ${String(titulo ?? '').trim()}`
+    : String(titulo ?? '').trim();
+
   // data en FCM debe ser string
   const message = {
     topic,
     notification: {
-      title: String(titulo ?? '').slice(0, 120),
+      title: String(titleFinal).slice(0, 120),
       body: String(cuerpo ?? '').slice(0, 200),
     },
     data: {
       type: 'notificacion',
       clubId: String(clubId),
+      clubNombre: String(clubName ?? ''), // ✅ NUEVO
       notificacionId: String(notificacionId),
     },
   };
@@ -82,7 +96,9 @@ router.get('/:clubId/notificaciones', requireAuth, async (req, res) => {
     // Caso SOCIO: token de /app/login trae socioId y clubId
     if (req.user?.socioId) {
       if (req.user.clubId && String(req.user.clubId) !== String(clubId)) {
-        return res.status(403).json({ ok: false, error: 'El socio no pertenece a este club' });
+        return res
+          .status(403)
+          .json({ ok: false, error: 'El socio no pertenece a este club' });
       }
 
       const r = await db.query(
@@ -101,7 +117,9 @@ router.get('/:clubId/notificaciones', requireAuth, async (req, res) => {
 
     // Caso ADMIN: token con roles
     if (!isAdminToken(req)) {
-      return res.status(401).json({ ok: false, error: 'Token inválido (no es socio ni admin)' });
+      return res
+        .status(401)
+        .json({ ok: false, error: 'Token inválido (no es socio ni admin)' });
     }
 
     // Validar que tenga el club en roles (mismo criterio que otros routes)
@@ -135,6 +153,7 @@ router.get('/:clubId/notificaciones', requireAuth, async (req, res) => {
 // POST /club/:clubId/notificaciones
 // Guarda + envía automáticamente al guardar (push a topic club_<clubId>)
 // body: { titulo, cuerpo, data? }
+// ✅ Incluye nombre del club en el push
 // ============================================================
 router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
@@ -144,6 +163,13 @@ router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (re
     if (!titulo?.trim() || !cuerpo?.trim()) {
       return res.status(400).json({ ok: false, error: 'Completá título y cuerpo.' });
     }
+
+    // ✅ Traer nombre del club (para mostrar en push)
+    const rClub = await db.query(
+      `SELECT name FROM clubs WHERE id = $1 LIMIT 1`,
+      [clubId]
+    );
+    const clubName = rClub.rowCount ? rClub.rows[0].name : 'Club';
 
     // 1) Insertar en DB
     const rIns = await db.query(
@@ -160,6 +186,7 @@ router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (re
     // 2) Enviar push (FCM)
     const messageId = await sendPushToClubTopic({
       clubId,
+      clubName,
       titulo: noti.titulo,
       cuerpo: noti.cuerpo,
       notificacionId: noti.id,
