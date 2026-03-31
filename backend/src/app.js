@@ -33,6 +33,7 @@ app.use('/club', require('./routes/cumplesRoutes'));
 app.use('/club', require('./routes/pagosRoutes'));
 app.use('/club', require('./routes/reportesRoutes'));
 app.use('/club', require('./routes/noticiasRoutes'));
+app.use('/club', require('./routes/notificacionesRoutes'));
 app.use('/public', require('./routes/publicApplyRoutes'));
 app.use('/club', require('./routes/pendientesRoutes'));
 app.use('/app', require('./routes/appRoutes'));

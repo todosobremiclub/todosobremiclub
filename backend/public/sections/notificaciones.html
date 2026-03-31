@@ -1,0 +1,55 @@
+<section id="notificaciones-section" class="section-notificaciones">
+  <h2 style="margin-bottom:16px;">🔔 Enviar notificación</h2>
+
+  <div class="card">
+    <div class="noti-form">
+      <label>Título</label>
+      <input type="text" id="pushTitulo" placeholder="Título de la notificación" />
+
+      <label>Mensaje</label>
+      <textarea id="pushCuerpo" rows="3" placeholder="Texto corto (push)"></textarea>
+
+      <label>Imagen (opcional)</label>
+      <input type="file" id="pushImagen" accept="image/*" />
+
+      <button id="btnPushEnviar" class="btn btn-primary" style="margin-top:14px; width:100%; font-size:15px;">
+        📤 Guardar y enviar
+      </button>
+      <div class="muted" style="margin-top:8px;">
+        Se enviará automáticamente SOLO a socios del club activo.
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:24px;">📜 Historial</h3>
+  <div class="table-wrapper" style="margin-top:12px;">
+    <table class="socios-table">
+      <thead>
+        <tr>
+          <th style="width:180px;">Título</th>
+          <th>Mensaje</th>
+          <th style="width:140px;">Fecha</th>
+          <th style="width:140px;">Enviada</th>
+          <th style="width:90px;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="notificacionesTableBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<style>
+  .noti-form{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .noti-form input[type="text"],
+  .noti-form textarea{
+    width:100%;
+    padding:10px;
+    border-radius:8px;
+    border:1px solid #ccc;
+    font-size:14px;
+  }
+</style>

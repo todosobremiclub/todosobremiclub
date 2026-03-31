@@ -321,6 +321,9 @@ if (sectionName === 'acceso' && window.initAccesoSection) {
       if (sectionName === 'noticias' && window.initNoticiasSection) {
         await window.initNoticiasSection();
       }
+if (sectionName === 'notificaciones' && window.initNotificacionesSection) {
+  await window.initNotificacionesSection();
+}
     } catch (e) {
       container.innerHTML = `<pre>Error: ${e.message}</pre>`;
     }
