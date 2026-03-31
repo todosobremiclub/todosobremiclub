@@ -271,6 +271,11 @@ bindQROnce(); // (puede quedar, no molesta)
     const container = document.getElementById('sectionContainer');
     if (!container) return;
 
+// Si veníamos de Control de acceso, apagamos cámara antes de cambiar de sección
+if (window.currentSection === 'acceso' && window.cleanupAccesoSection) {
+  try { window.cleanupAccesoSection(); } catch {}
+}
+
     try {
       window.currentSection = sectionName;
 
@@ -283,6 +288,11 @@ bindQROnce(); // (puede quedar, no molesta)
       if (sectionName === 'socios' && window.initSociosSection) {
         await window.initSociosSection();
       }
+
+if (sectionName === 'acceso' && window.initAccesoSection) {
+  await window.initAccesoSection();
+}
+
 
       if (sectionName === 'pendientes' && window.initPendientesSection) {
         await window.initPendientesSection();
