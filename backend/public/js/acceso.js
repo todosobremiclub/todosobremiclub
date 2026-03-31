@@ -119,6 +119,13 @@
       const video = $('qrVideo');
       if (!video) return;
 
+// Asegurar configuración del video (evita pantalla negra en varios navegadores)
+video.setAttribute('playsinline', 'true');
+video.setAttribute('autoplay', 'true');
+video.muted = true;            // clave para que autoplay no falle
+video.autoplay = true;
+video.controls = false;
+
       if (!navigator.mediaDevices?.getUserMedia) {
         setErr('Este navegador no soporta cámara.');
         setOverlay('Cámara no disponible');
@@ -138,12 +145,39 @@
           stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
         }
 
-        video.srcObject = stream;
+       video.srcObject = stream;
 
-        // Fix “pantalla negra”: esperar metadata y forzar play
-        video.onloadedmetadata = () => {
-          video.play().catch(() => {});
-        };
+// Esperar metadata para conocer dimensiones y luego reproducir
+await new Promise((resolve) => {
+  if (video.readyState >= 1) return resolve();
+  video.onloadedmetadata = () => resolve();
+});
+
+// Intentar play (a veces falla a la primera por políticas de autoplay)
+try {
+  await video.play();
+  setOverlay('Apuntá al QR…');
+} catch (e) {
+  // Si falla y era auto-start, pedimos interacción del usuario
+  if (auto) {
+    setErr('Para habilitar la cámara, tocá “Iniciar cámara” y aceptá permisos.');
+    setOverlay('Tocá “Iniciar cámara”');
+    setStatus(null, 'Esperando lectura…', '');
+    return;
+  }
+  // Si falla incluso con click, avisar
+  setErr('No se pudo reproducir el video de cámara. Verificá permisos del navegador.');
+  setOverlay('Permiso requerido');
+  return;
+}
+// Si en 1s no hay frames visibles, avisar (cámara ocupada o permiso raro)
+setTimeout(() => {
+  const hasSize = video.videoWidth > 0 && video.videoHeight > 0;
+  if (!hasSize) {
+    setErr('La cámara no está entregando imagen (¿otra app la está usando?).');
+    setOverlay('No hay imagen de cámara');
+  }
+}, 1000);
 
         detector = detector || new BarcodeDetector({ formats: ['qr_code'] });
 
