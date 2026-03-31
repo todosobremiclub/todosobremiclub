@@ -8,17 +8,25 @@
 
     const $ = (id) => document.getElementById(id);
 
-    const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const MONTHS_ES = [
+      'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+    ];
 
     let stream = null;
     let detector = null;
     let scanning = false;
     let lastValue = null;
     let cooldownTimer = null;
-let zxingReader = null;
-let zxingControls = null;
-let cooldownActive = false;
+    let cooldownActive = false;
 
+    // ZXing fallback
+    let zxingReader = null;
+    let zxingControls = null;
+
+    // =============================
+    // Helpers fecha/mes
+    // =============================
     function ymToIndex(ym) {
       if (!ym) return null;
       const s = String(ym).trim();
@@ -47,15 +55,37 @@ let cooldownActive = false;
       const last = ymToIndex(ultimoPagoYM);
       const now = nowIndex();
 
-      if (last == null) return { ok: false, pill: 'RECHAZADO ❌', msg: 'No hay último pago válido en el QR.', ultimoFmt: '—' };
+      if (last == null) {
+        return {
+          ok: false,
+          pill: 'RECHAZADO ❌',
+          msg: 'No hay último pago válido en el QR.',
+          ultimoFmt: '—'
+        };
+      }
 
-      // ✅ autoriza si: actual, anterior o siguiente
+      // Autoriza si: mes actual, anterior o siguiente
       const ok = (last >= (now - 1)) && (last <= (now + 1));
-      if (ok) return { ok: true, pill: 'HABILITADO ✅', msg: 'Cuota al día (mes actual/anterior/siguiente).', ultimoFmt: fmtYM(ultimoPagoYM) };
+      if (ok) {
+        return {
+          ok: true,
+          pill: 'HABILITADO ✅',
+          msg: 'Cuota al día (mes actual / anterior / siguiente).',
+          ultimoFmt: fmtYM(ultimoPagoYM)
+        };
+      }
 
-      return { ok: false, pill: 'RECHAZADO ❌', msg: 'Cuota vencida (último pago anterior al mes anterior).', ultimoFmt: fmtYM(ultimoPagoYM) };
+      return {
+        ok: false,
+        pill: 'RECHAZADO ❌',
+        msg: 'Cuota vencida (último pago anterior al mes anterior).',
+        ultimoFmt: fmtYM(ultimoPagoYM)
+      };
     }
 
+    // =============================
+    // UI helpers
+    // =============================
     function setOverlay(text) {
       const el = $('qrOverlayText');
       if (el) el.textContent = text || '';
@@ -72,49 +102,91 @@ let cooldownActive = false;
       if (!pillEl || !msgEl) return;
 
       pillEl.textContent = pill || '—';
-      pillEl.classList.remove('ok','bad','neutral');
+      pillEl.classList.remove('ok', 'bad', 'neutral');
       pillEl.classList.add(ok === true ? 'ok' : ok === false ? 'bad' : 'neutral');
 
       msgEl.textContent = msg || '';
       msgEl.classList.toggle('muted', !msg);
     }
 
-    function renderCard(qr, ultimoPagoYM) {
+    function setScanningVisual(on) {
+      const video = $('qrVideo');
+      if (!video) return;
+      if (on) video.classList.add('scanning');
+      else video.classList.remove('scanning');
+    }
+
+    function clearCard() {
       const card = $('qrCard');
-      if (!card) return;
-      card.classList.remove('hidden');
+      if (card) card.classList.add('hidden');
+
+      const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+      setText('qrNombre', '');
+      setText('qrMeta', '');
+      setText('qrClub', '');
+      setText('qrAct', '');
+      setText('qrCat', '');
+      setText('qrUltimoPago', '');
 
       const fotoEl = $('qrFoto');
       if (fotoEl) fotoEl.src = '/img/user-placeholder.png';
+    }
+
+    function renderCard(qr, ultimoPagoYM) {
+      const card = $('qrCard');
+      if (!card) return;
+
+      // Foto desde QR si existe (fotoUrl o foto_url)
+      const fotoEl = $('qrFoto');
+      const fotoUrl = qr.fotoUrl || qr.foto_url || qr.fotoURL || qr.foto || null;
+      if (fotoEl) {
+        fotoEl.src = fotoUrl || '/img/user-placeholder.png';
+      }
 
       const nombreCompleto = `${String(qr.nombre || '')} ${String(qr.apellido || '')}`.trim();
       $('qrNombre') && ($('qrNombre').textContent = nombreCompleto || '—');
-      $('qrMeta') && ($('qrMeta').textContent = `DNI: ${String(qr.dni || '—')} · Socio Nº ${String(qr.numero || '—')}`);
+
+      const dni = String(qr.dni || '—');
+      const num = String(qr.numero || qr.numero_socio || '—');
+      $('qrMeta') && ($('qrMeta').textContent = `DNI: ${dni} · Socio Nº ${num}`);
 
       $('qrClub') && ($('qrClub').textContent = String(qr.clubNombre || qr.clubId || '—'));
       $('qrAct') && ($('qrAct').textContent = String(qr.actividad || '—'));
       $('qrCat') && ($('qrCat').textContent = String(qr.categoria || '—'));
       $('qrUltimoPago') && ($('qrUltimoPago').textContent = fmtYM(ultimoPagoYM));
+
+      card.classList.remove('hidden');
     }
 
+    // =============================
+    // Parse QR
+    // =============================
     function parseQrPayload(raw) {
       const s = String(raw || '').trim();
       if (!s) throw new Error('QR vacío');
 
       let obj;
-      try { obj = JSON.parse(s); }
-      catch {
-        try { obj = JSON.parse(decodeURIComponent(s)); }
-        catch { throw new Error('El QR no es JSON válido'); }
+      try {
+        obj = JSON.parse(s);
+      } catch {
+        try {
+          obj = JSON.parse(decodeURIComponent(s));
+        } catch {
+          throw new Error('El QR no es JSON válido');
+        }
       }
 
       if (!obj || typeof obj !== 'object') throw new Error('Formato de QR inválido');
-      // El carnet Flutter incluye ultimoPago (YYYY-MM) [3](https://secarsecurity-my.sharepoint.com/personal/lsardella_securion_com_ar/Documents/Archivos%20de%20chat%20de%20Microsoft%C2%A0Copilot/socio.dart)
+
       const up = obj.ultimoPago || obj.ultimo_pago;
       if (!up) throw new Error('El QR no trae "ultimoPago".');
+
       return obj;
     }
 
+    // =============================
+    // Start/Stop Camera
+    // =============================
     async function startCamera(auto = false) {
       setErr('');
       setOverlay('Iniciando cámara…');
@@ -122,12 +194,12 @@ let cooldownActive = false;
       const video = $('qrVideo');
       if (!video) return;
 
-// Asegurar configuración del video (evita pantalla negra en varios navegadores)
-video.setAttribute('playsinline', 'true');
-video.setAttribute('autoplay', 'true');
-video.muted = true;            // clave para que autoplay no falle
-video.autoplay = true;
-video.controls = false;
+      // Config del video para evitar negro y autoplay block
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('autoplay', 'true');
+      video.muted = true;
+      video.autoplay = true;
+      video.controls = false;
 
       if (!navigator.mediaDevices?.getUserMedia) {
         setErr('Este navegador no soporta cámara.');
@@ -135,115 +207,124 @@ video.controls = false;
         return;
       }
 
-      // Si no hay BarcodeDetector, usamos ZXing (fallback)
-const hasNative = ('BarcodeDetector' in window);
-const hasZXing = !!(window.ZXingBrowser && window.ZXingBrowser.BrowserQRCodeReader);
+      const hasNative = ('BarcodeDetector' in window);
+      const hasZXing = !!(window.ZXingBrowser && window.ZXingBrowser.BrowserQRCodeReader);
 
-if (!hasNative && !hasZXing) {
-  setErr('Este navegador no soporta lectura QR nativa y no se cargó ZXing. Verificá que /js/vendor/zxing-browser.min.js esté incluido.');
-  setOverlay('Pegá el QR manual');
-  return;
-}
-
+      if (!hasNative && !hasZXing) {
+        setErr('Este navegador no soporta lectura QR nativa y no se cargó ZXing. Verificá /js/vendor/zxing-browser.min.js.');
+        setOverlay('Pegá el QR manual');
+        return;
+      }
 
       try {
-        // si ya hay stream, no pedir de nuevo
+        // pedir stream una sola vez
         if (!stream) {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' },
+            audio: false
+          });
         }
 
-       video.srcObject = stream;
+        // Attach stream
+        video.srcObject = stream;
 
-// Esperar metadata para conocer dimensiones y luego reproducir
-await new Promise((resolve) => {
-  if (video.readyState >= 1) return resolve();
-  video.onloadedmetadata = () => resolve();
-});
+        // esperar metadata
+        await new Promise((resolve) => {
+          if (video.readyState >= 1) return resolve();
+          video.onloadedmetadata = () => resolve();
+        });
 
-// Intentar play (a veces falla a la primera por políticas de autoplay)
-try {
-  await video.play();
-  setOverlay('Apuntá al QR…');
-} catch (e) {
-  // Si falla y era auto-start, pedimos interacción del usuario
-  if (auto) {
-    setErr('Para habilitar la cámara, tocá “Iniciar cámara” y aceptá permisos.');
-    setOverlay('Tocá “Iniciar cámara”');
-    setStatus(null, 'Esperando lectura…', '');
-    return;
-  }
-  // Si falla incluso con click, avisar
-  setErr('No se pudo reproducir el video de cámara. Verificá permisos del navegador.');
-  setOverlay('Permiso requerido');
-  return;
-}
-// Si en 1s no hay frames visibles, avisar (cámara ocupada o permiso raro)
-setTimeout(() => {
-  const hasSize = video.videoWidth > 0 && video.videoHeight > 0;
-  if (!hasSize) {
-    setErr('La cámara no está entregando imagen (¿otra app la está usando?).');
-    setOverlay('No hay imagen de cámara');
-  }
-}, 1000);
+        // play
+        try {
+          await video.play();
+        } catch (e) {
+          if (auto) {
+            setErr('Para habilitar la cámara, tocá “Iniciar cámara” y aceptá permisos.');
+            setOverlay('Tocá “Iniciar cámara”');
+            setStatus(null, 'Esperando lectura…', '');
+            setScanningVisual(false);
+            return;
+          }
+          setErr('No se pudo reproducir el video de cámara. Verificá permisos.');
+          setOverlay('Permiso requerido');
+          setScanningVisual(false);
+          return;
+        }
 
-        const hasNative = ('BarcodeDetector' in window);
-const hasZXing = !!(window.ZXingBrowser && window.ZXingBrowser.BrowserQRCodeReader);
+        // reset estado
+        cooldownActive = false;
+        scanning = false;
+        lastValue = null;
 
-cooldownActive = false;
+        setStatus(null, 'Leyendo…', 'Apuntá al QR del carnet');
+        setOverlay('📡 Leyendo QR…');
+        setScanningVisual(true);
 
-if (hasNative) {
-  detector = detector || new BarcodeDetector({ formats: ['qr_code'] });
-  scanning = true;
-  setOverlay('Apuntá al QR…');
-  setStatus(null, 'Leyendo…', 'Esperando QR del carnet.');
-  scanLoop();
-  return;
-}
+        // Nativo
+        if (hasNative) {
+          detector = detector || new BarcodeDetector({ formats: ['qr_code'] });
+          scanning = true;
+          scanLoop();
+          return;
+        }
 
-// --- ZXing fallback ---
-zxingReader = zxingReader || new window.ZXingBrowser.BrowserQRCodeReader();
+        // ZXing fallback
+        zxingReader = zxingReader || new window.ZXingBrowser.BrowserQRCodeReader();
 
-setOverlay('Apuntá al QR…');
-setStatus(null, 'Leyendo…', 'Esperando QR del carnet.');
+        // Si había controls previos, frenarlos
+        try { zxingControls?.stop(); } catch {}
+        zxingControls = null;
 
-// ZXing ya maneja el loop y el video
-// decodeFromVideoDevice usa la cámara y llama callback cuando detecta QR
-zxingControls = await zxingReader.decodeFromVideoDevice(
-  null,            // null = cámara trasera si existe
-  'qrVideo',       // id del video
-  async (result, err) => {
-    if (cooldownActive) return;
-    if (result) {
-      const text = result.getText();
-      if (!text) return;
-      if (text === lastValue) return;
-      lastValue = text;
-      await handleQr(text);
-    }
-  }
-);
+        // ZXing maneja el loop con callback
+        zxingControls = await zxingReader.decodeFromVideoDevice(
+          null,
+          'qrVideo',
+          async (result, err) => {
+            // err suele venir como "NotFoundException" mientras busca: ignorar
+            if (cooldownActive) return;
+
+            if (result) {
+              const text = result.getText();
+              if (!text) return;
+              if (text === lastValue) return; // evita duplicados
+              lastValue = text;
+              await handleQr(text);
+            }
+          }
+        );
       } catch (e) {
-        // Si auto-start falla por permisos, no es error grave: se informa y queda botón manual.
         if (auto) {
           setErr('Para habilitar la cámara, tocá “Iniciar cámara” y aceptá permisos.');
           setOverlay('Tocá “Iniciar cámara”');
           setStatus(null, 'Esperando lectura…', '');
+          setScanningVisual(false);
         } else {
-          setErr('No se pudo iniciar la cámara. Revisá permisos del navegador.');
+          setErr('No se pudo iniciar la cámara. Revisá permisos.');
           setOverlay('Permiso requerido');
           setStatus(false, 'RECHAZADO ❌', 'No se pudo iniciar la cámara.');
+          setScanningVisual(false);
         }
       }
     }
 
     function stopCamera() {
       scanning = false;
-// Detener ZXing si estaba activo
-try { zxingControls?.stop(); } catch {}
-zxingControls = null;
+      cooldownActive = true;
+      setScanningVisual(false);
 
-      if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; }
+      if (cooldownTimer) {
+        clearTimeout(cooldownTimer);
+        cooldownTimer = null;
+      }
 
+      // detener ZXing
+      try { zxingControls?.stop(); } catch {}
+      zxingControls = null;
+
+      // detener detector nativo
+      detector = null;
+
+      // parar video/stream
       const video = $('qrVideo');
       if (video) {
         try { video.pause(); } catch {}
@@ -253,13 +334,16 @@ zxingControls = null;
       if (stream) {
         try { stream.getTracks().forEach(t => t.stop()); } catch {}
       }
+
       stream = null;
-      detector = null;
 
       setOverlay('Cámara detenida');
       setStatus(null, 'Esperando lectura…', '');
     }
 
+    // =============================
+    // Scan loop (BarcodeDetector)
+    // =============================
     async function scanLoop() {
       if (!scanning || !detector) return;
       const video = $('qrVideo');
@@ -269,10 +353,10 @@ zxingControls = null;
         const codes = await detector.detect(video);
         if (codes && codes.length) {
           const val = codes[0].rawValue;
-          if (val && val !== lastValue) {
+          if (val && val !== lastValue && !cooldownActive) {
             lastValue = val;
             await handleQr(val);
-            return; // handleQr gestiona el “cooldown” y reanuda
+            return;
           }
         }
       } catch {}
@@ -280,21 +364,40 @@ zxingControls = null;
       requestAnimationFrame(scanLoop);
     }
 
+    // =============================
+    // Handle QR
+    // =============================
     async function handleQr(raw) {
       setErr('');
-      scanning = false; // pausa lectura (no apaga la cámara)
+      cooldownActive = true;     // frenamos lecturas mientras mostramos resultado
+      scanning = false;
+      setScanningVisual(false);
+
+      // IMPORTANTÍSIMO: limpiar carnet previo antes de renderizar el nuevo
+      clearCard();
 
       let qr;
       try {
         qr = parseQrPayload(raw);
       } catch (e) {
         setStatus(false, 'RECHAZADO ❌', e.message || 'QR inválido');
-        // reanudar en 2s si QR inválido
+        setOverlay('QR inválido. Reintentando…');
+
+        // Reanudar en 2s
+        if (cooldownTimer) clearTimeout(cooldownTimer);
         cooldownTimer = setTimeout(() => {
+          cooldownActive = false;
           lastValue = null;
-          scanning = true;
-          setOverlay('Apuntá al QR…');
-          scanLoop();
+          setStatus(null, 'Leyendo…', 'Apuntá al QR del carnet');
+          setOverlay('📡 Leyendo QR…');
+          setScanningVisual(true);
+
+          // Reanudar nativo si aplica
+          if (detector) {
+            scanning = true;
+            scanLoop();
+          }
+          // En ZXing no hay que hacer nada: callback sigue activo
         }, 2000);
         return;
       }
@@ -304,58 +407,60 @@ zxingControls = null;
 
       renderCard(qr, ultimoPagoYM);
       setStatus(decision.ok, decision.pill, `${decision.msg} (Último pago: ${decision.ultimoFmt})`);
-
-// Cooldown 5s: mostrar resultado y luego volver a leer otro carnet
-cooldownActive = true;
-setOverlay('Resultado mostrado. Volviendo a leer en 5s…');
-
-setTimeout(() => {
-  cooldownActive = false;
-  lastValue = null;
-  setStatus(null, 'Leyendo…', 'Esperando QR del carnet.');
-  setOverlay('Apuntá al QR…');
-
-  // Si estamos en modo nativo, reanudamos el loop
-  if (detector) {
-    scanning = true;
-    scanLoop();
-  }
-  // En modo ZXing no hace falta reiniciar nada: el callback sigue activo
-}, 5000);
-
-
-      // ✅ después de 5 segundos vuelve a modo lectura para el próximo
       setOverlay('Resultado mostrado. Volviendo a leer en 5s…');
+
+      // Cooldown 5s y volver a leer
+      if (cooldownTimer) clearTimeout(cooldownTimer);
       cooldownTimer = setTimeout(() => {
+        cooldownActive = false;
         lastValue = null;
-        scanning = true;
-        setStatus(null, 'Leyendo…', 'Esperando QR del carnet.');
-        setOverlay('Apuntá al QR…');
-        scanLoop();
+
+        setStatus(null, 'Leyendo…', 'Apuntá al QR del carnet');
+        setOverlay('📡 Leyendo QR…');
+        setScanningVisual(true);
+
+        // Reanudar nativo
+        if (detector) {
+          scanning = true;
+          scanLoop();
+        }
+        // En ZXing no hay que reiniciar nada: callback sigue corriendo
       }, 5000);
     }
 
+    // =============================
+    // Clear UI
+    // =============================
     function clearUI() {
       setErr('');
-      $('qrManual') && ($('qrManual').value = '');
-      $('qrCard')?.classList.add('hidden');
+      const manual = $('qrManual');
+      if (manual) manual.value = '';
+      clearCard();
       lastValue = null;
+
       setStatus(null, 'Esperando lectura…', '');
       setOverlay('Listo para leer');
+
+      // si hay cámara activa, volvemos a lectura
+      if (stream) {
+        cooldownActive = false;
+        setStatus(null, 'Leyendo…', 'Apuntá al QR del carnet');
+        setOverlay('📡 Leyendo QR…');
+        setScanningVisual(true);
+
+        if (detector) {
+          scanning = true;
+          scanLoop();
+        }
+      }
     }
 
+    // =============================
     // Bind botones
+    // =============================
     $('btnQrStart')?.addEventListener('click', () => startCamera(false));
     $('btnQrStop')?.addEventListener('click', stopCamera);
-    $('btnQrClear')?.addEventListener('click', () => {
-      clearUI();
-      // si la cámara está activa, volvemos a leer sin apagar
-      if (stream && detector) {
-        scanning = true;
-        setOverlay('Apuntá al QR…');
-        scanLoop();
-      }
-    });
+    $('btnQrClear')?.addEventListener('click', () => clearUI());
     $('btnQrProcesar')?.addEventListener('click', async () => {
       const txt = $('qrManual')?.value || '';
       await handleQr(txt);
