@@ -13,6 +13,9 @@
       'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
     ];
 
+    // Detectar mobile (Chrome Android / iOS)
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
     let stream = null;
     let detector = null;
     let scanning = false;
@@ -136,7 +139,7 @@
       const card = $('qrCard');
       if (!card) return;
 
-      // Foto desde QR si existe (fotoUrl o foto_url)
+      // Foto desde QR si existe (fotoUrl o variantes)
       const fotoEl = $('qrFoto');
       const fotoUrl = qr.fotoUrl || qr.foto_url || qr.fotoURL || qr.foto || null;
       if (fotoEl) {
@@ -211,7 +214,7 @@
       const hasZXing = !!(window.ZXingBrowser && window.ZXingBrowser.BrowserQRCodeReader);
 
       if (!hasNative && !hasZXing) {
-        setErr('Este navegador no soporta lectura QR nativa y no se cargó ZXing. Verificá /js/vendor/zxing-browser.min.js.');
+        setErr('No hay lector QR disponible (sin BarcodeDetector y sin ZXing). Verificá /js/vendor/zxing-browser.min.js.');
         setOverlay('Pegá el QR manual');
         return;
       }
@@ -238,15 +241,20 @@
         try {
           await video.play();
         } catch (e) {
+          const msg = (e && (e.name || e.message)) ? `${e.name || ''} ${e.message || ''}`.trim() : 'Error desconocido';
+          console.error('video.play error:', e);
+
           if (auto) {
-            setErr('Para habilitar la cámara, tocá “Iniciar cámara” y aceptá permisos.');
-            setOverlay('Tocá “Iniciar cámara”');
-            setStatus(null, 'Esperando lectura…', '');
+            setErr(`No se pudo auto-iniciar la cámara. (${msg})`);
+            setOverlay('📱 Tocá “Iniciar cámara”');
+            setStatus(null, 'Esperando lectura…', 'En celular se requiere un toque para activar la cámara.');
             setScanningVisual(false);
             return;
           }
-          setErr('No se pudo reproducir el video de cámara. Verificá permisos.');
+
+          setErr(`No se pudo reproducir la cámara. (${msg})`);
           setOverlay('Permiso requerido');
+          setStatus(false, 'RECHAZADO ❌', 'No se pudo reproducir la cámara.');
           setScanningVisual(false);
           return;
         }
@@ -280,26 +288,29 @@
           null,
           'qrVideo',
           async (result, err) => {
-            // err suele venir como "NotFoundException" mientras busca: ignorar
+            // err suele venir como NotFound mientras busca: ignorar
             if (cooldownActive) return;
 
             if (result) {
               const text = result.getText();
               if (!text) return;
-              if (text === lastValue) return; // evita duplicados
+              if (text === lastValue) return;
               lastValue = text;
               await handleQr(text);
             }
           }
         );
       } catch (e) {
+        const msg = (e && (e.name || e.message)) ? `${e.name || ''} ${e.message || ''}`.trim() : 'Error desconocido';
+        console.error('startCamera error:', e);
+
         if (auto) {
-          setErr('Para habilitar la cámara, tocá “Iniciar cámara” y aceptá permisos.');
-          setOverlay('Tocá “Iniciar cámara”');
-          setStatus(null, 'Esperando lectura…', '');
+          setErr(`No se pudo auto-iniciar la cámara. (${msg})`);
+          setOverlay('📱 Tocá “Iniciar cámara”');
+          setStatus(null, 'Esperando lectura…', 'En celular se requiere un toque para activar la cámara.');
           setScanningVisual(false);
         } else {
-          setErr('No se pudo iniciar la cámara. Revisá permisos.');
+          setErr(`No se pudo iniciar la cámara. (${msg})`);
           setOverlay('Permiso requerido');
           setStatus(false, 'RECHAZADO ❌', 'No se pudo iniciar la cámara.');
           setScanningVisual(false);
@@ -369,11 +380,11 @@
     // =============================
     async function handleQr(raw) {
       setErr('');
-      cooldownActive = true;     // frenamos lecturas mientras mostramos resultado
+      cooldownActive = true;
       scanning = false;
       setScanningVisual(false);
 
-      // IMPORTANTÍSIMO: limpiar carnet previo antes de renderizar el nuevo
+      // limpiar carnet previo
       clearCard();
 
       let qr;
@@ -383,7 +394,6 @@
         setStatus(false, 'RECHAZADO ❌', e.message || 'QR inválido');
         setOverlay('QR inválido. Reintentando…');
 
-        // Reanudar en 2s
         if (cooldownTimer) clearTimeout(cooldownTimer);
         cooldownTimer = setTimeout(() => {
           cooldownActive = false;
@@ -392,12 +402,10 @@
           setOverlay('📡 Leyendo QR…');
           setScanningVisual(true);
 
-          // Reanudar nativo si aplica
           if (detector) {
             scanning = true;
             scanLoop();
           }
-          // En ZXing no hay que hacer nada: callback sigue activo
         }, 2000);
         return;
       }
@@ -409,7 +417,6 @@
       setStatus(decision.ok, decision.pill, `${decision.msg} (Último pago: ${decision.ultimoFmt})`);
       setOverlay('Resultado mostrado. Volviendo a leer en 5s…');
 
-      // Cooldown 5s y volver a leer
       if (cooldownTimer) clearTimeout(cooldownTimer);
       cooldownTimer = setTimeout(() => {
         cooldownActive = false;
@@ -419,7 +426,6 @@
         setOverlay('📡 Leyendo QR…');
         setScanningVisual(true);
 
-        // Reanudar nativo
         if (detector) {
           scanning = true;
           scanLoop();
@@ -466,8 +472,22 @@
       await handleQr(txt);
     });
 
-    // Auto-start al entrar (si permisos lo permiten)
-    setTimeout(() => startCamera(true), 150);
+    // En móvil: tocar el área de cámara también inicia (gesto del usuario)
+    const frame = document.querySelector('.scanner-frame');
+    frame?.addEventListener('click', () => {
+      if (!stream) startCamera(false);
+    });
+
+    // Auto-start:
+    // - PC: intentamos auto-start
+    // - Mobile: pedimos gesto (más confiable, evita “Iniciando…” sin prompt)
+    if (!isMobile) {
+      setTimeout(() => startCamera(true), 150);
+    } else {
+      setOverlay('📱 Tocá “Iniciar cámara” para comenzar');
+      setStatus(null, 'Esperando lectura…', 'En celular se requiere un toque para activar la cámara.');
+      setScanningVisual(false);
+    }
 
     // Cleanup al salir de la sección (club.js lo llama)
     window.cleanupAccesoSection = stopCamera;
