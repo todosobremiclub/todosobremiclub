@@ -2,6 +2,8 @@
 (() => {
   console.log('[notificaciones] script cargado ✅');
 
+  const $id = (id) => document.getElementById(id);
+
   function getToken() {
     const t = localStorage.getItem('token');
     if (!t) {
@@ -24,17 +26,88 @@
     const headers = options.headers ?? {};
     headers.Authorization = 'Bearer ' + getToken();
     if (options.json) headers['Content-Type'] = 'application/json';
+    const { json, ...rest } = options;
 
-    const res = await fetch(url, { ...options, headers });
+    const res = await fetch(url, { ...rest, headers });
     const data = await res.json().catch(() => ({}));
     return { res, data };
   }
 
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&')
+      .replaceAll('<', '<')
+      .replaceAll('>', '>')
+      .replaceAll('"', '"')
+      .replaceAll("'", "''");
+  }
+
+  function fmtDT(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleString('es-AR'); }
+    catch { return String(iso); }
+  }
+
+  // =========================
+  // HISTORIAL
+  // =========================
+  let cache = [];
+
+  async function loadNotificaciones() {
+    const tbody = $id('notificacionesTableBody');
+    if (!tbody) return; // si todavía no está la sección cargada
+
+    tbody.innerHTML = `<tr><td colspan="5">Cargando...</td></tr>`;
+
+    const clubId = getActiveClubId();
+    const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones`);
+
+    if (!res.ok || !data.ok) {
+      tbody.innerHTML = `<tr><td colspan="5">Error cargando historial</td></tr>`;
+      console.error('[notificaciones] error load', data);
+      return;
+    }
+
+    cache = data.notificaciones ?? [];
+    renderTable();
+  }
+
+  function renderTable() {
+    const tbody = $id('notificacionesTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!cache.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">No hay notificaciones.</td></tr>`;
+      return;
+    }
+
+    cache.forEach(n => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${escapeHtml(n.titulo ?? '')}</strong></td>
+        <td>${escapeHtml(n.cuerpo ?? '').slice(0, 160)}${(n.cuerpo ?? '').length > 160 ? '…' : ''}</td>
+        <td>${escapeHtml(fmtDT(n.created_at))}</td>
+        <td>${n.sent_at ? escapeHtml(fmtDT(n.sent_at)) : '—'}</td>
+        <td style="white-space:nowrap;">
+          <button id="btnNotiDel" class="btn btn-secondary"
+            style="background:#ef4444;border-color:#ef4444;"
+            data-act="del" data-id="${escapeHtml(n.id)}">🗑️</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // =========================
+  // ENVIAR
+  // =========================
   async function sendNotificacion() {
     console.log('[notificaciones] enviando…');
 
-    const titulo = document.getElementById('pushTitulo')?.value?.trim();
-    const cuerpo = document.getElementById('pushCuerpo')?.value?.trim();
+    const titulo = $id('pushTitulo')?.value?.trim();
+    const cuerpo = $id('pushCuerpo')?.value?.trim();
 
     if (!titulo || !cuerpo) {
       alert('Completá título y mensaje');
@@ -43,40 +116,79 @@
 
     const clubId = getActiveClubId();
 
-    const { res, data } = await fetchAuth(
-      `/club/${clubId}/notificaciones`,
-      {
+    const btn = $id('btnPushEnviar');
+    if (btn) btn.disabled = true;
+
+    try {
+      const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones`, {
         method: 'POST',
         json: true,
         body: JSON.stringify({ titulo, cuerpo })
+      });
+
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'Error enviando');
+        return;
       }
-    );
+
+      alert('✅ Notificación enviada');
+
+      // limpiar
+      if ($id('pushTitulo')) $id('pushTitulo').value = '';
+      if ($id('pushCuerpo')) $id('pushCuerpo').value = '';
+
+      // ✅ refrescar historial
+      await loadNotificaciones();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // =========================
+  // ELIMINAR
+  // =========================
+  async function deleteNotificacion(id) {
+    const clubId = getActiveClubId();
+    if (!confirm('¿Eliminar esta notificación?')) return;
+
+    const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones/${id}`, {
+      method: 'DELETE'
+    });
 
     if (!res.ok || !data.ok) {
-      alert(data.error || 'Error enviando');
+      alert(data.error || 'No se pudo eliminar');
       return;
     }
 
-    alert('✅ Notificación enviada');
-    document.getElementById('pushTitulo').value = '';
-    document.getElementById('pushCuerpo').value = '';
+    await loadNotificaciones();
   }
 
   // ✅ EVENT DELEGATION GLOBAL
   document.addEventListener('click', (e) => {
-    const btn = e.target.closest('#btnPushEnviar');
-    if (!btn) return;
+    const btnSend = e.target.closest('#btnPushEnviar');
+    if (btnSend) {
+      e.preventDefault();
+      console.log('[notificaciones] click Guardar y enviar ✅');
+      sendNotificacion().catch(err => {
+        console.error(err);
+        alert(err.message || 'Error');
+      });
+      return;
+    }
 
-    e.preventDefault();
-    console.log('[notificaciones] click Guardar y enviar ✅');
-    sendNotificacion().catch(err => {
-      console.error(err);
-      alert(err.message || 'Error');
-    });
+    const btnDel = e.target.closest('button[data-act="del"][data-id]');
+    if (btnDel) {
+      e.preventDefault();
+      deleteNotificacion(btnDel.dataset.id).catch(err => {
+        console.error(err);
+        alert(err.message || 'Error');
+      });
+    }
   });
 
-  // opcional: para que club.js no rompa
+  // ✅ init llamado desde club.js cuando carga la sección
   window.initNotificacionesSection = async () => {
-    console.log('[notificaciones] init sección');
+    console.log('[notificaciones] init sección ✅');
+    await loadNotificaciones();
   };
 })();
