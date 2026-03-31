@@ -15,6 +15,9 @@
     let scanning = false;
     let lastValue = null;
     let cooldownTimer = null;
+let zxingReader = null;
+let zxingControls = null;
+let cooldownActive = false;
 
     function ymToIndex(ym) {
       if (!ym) return null;
@@ -132,12 +135,16 @@ video.controls = false;
         return;
       }
 
-      // BarcodeDetector (sin librerías)
-      if (!('BarcodeDetector' in window)) {
-        setErr('Este navegador no soporta lectura QR nativa. Usá el pegado manual.');
-        setOverlay('Pegá el QR manual');
-        return;
-      }
+      // Si no hay BarcodeDetector, usamos ZXing (fallback)
+const hasNative = ('BarcodeDetector' in window);
+const hasZXing = !!(window.ZXingBrowser && window.ZXingBrowser.BrowserQRCodeReader);
+
+if (!hasNative && !hasZXing) {
+  setErr('Este navegador no soporta lectura QR nativa y no se cargó ZXing. Verificá que /js/vendor/zxing-browser.min.js esté incluido.');
+  setOverlay('Pegá el QR manual');
+  return;
+}
+
 
       try {
         // si ya hay stream, no pedir de nuevo
@@ -179,13 +186,42 @@ setTimeout(() => {
   }
 }, 1000);
 
-        detector = detector || new BarcodeDetector({ formats: ['qr_code'] });
+        const hasNative = ('BarcodeDetector' in window);
+const hasZXing = !!(window.ZXingBrowser && window.ZXingBrowser.BrowserQRCodeReader);
 
-        scanning = true;
-        setOverlay('Apuntá al QR…');
-        setStatus(null, 'Leyendo…', 'Esperando QR del carnet.');
+cooldownActive = false;
 
-        scanLoop();
+if (hasNative) {
+  detector = detector || new BarcodeDetector({ formats: ['qr_code'] });
+  scanning = true;
+  setOverlay('Apuntá al QR…');
+  setStatus(null, 'Leyendo…', 'Esperando QR del carnet.');
+  scanLoop();
+  return;
+}
+
+// --- ZXing fallback ---
+zxingReader = zxingReader || new window.ZXingBrowser.BrowserQRCodeReader();
+
+setOverlay('Apuntá al QR…');
+setStatus(null, 'Leyendo…', 'Esperando QR del carnet.');
+
+// ZXing ya maneja el loop y el video
+// decodeFromVideoDevice usa la cámara y llama callback cuando detecta QR
+zxingControls = await zxingReader.decodeFromVideoDevice(
+  null,            // null = cámara trasera si existe
+  'qrVideo',       // id del video
+  async (result, err) => {
+    if (cooldownActive) return;
+    if (result) {
+      const text = result.getText();
+      if (!text) return;
+      if (text === lastValue) return;
+      lastValue = text;
+      await handleQr(text);
+    }
+  }
+);
       } catch (e) {
         // Si auto-start falla por permisos, no es error grave: se informa y queda botón manual.
         if (auto) {
@@ -202,6 +238,10 @@ setTimeout(() => {
 
     function stopCamera() {
       scanning = false;
+// Detener ZXing si estaba activo
+try { zxingControls?.stop(); } catch {}
+zxingControls = null;
+
       if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; }
 
       const video = $('qrVideo');
@@ -264,6 +304,25 @@ setTimeout(() => {
 
       renderCard(qr, ultimoPagoYM);
       setStatus(decision.ok, decision.pill, `${decision.msg} (Último pago: ${decision.ultimoFmt})`);
+
+// Cooldown 5s: mostrar resultado y luego volver a leer otro carnet
+cooldownActive = true;
+setOverlay('Resultado mostrado. Volviendo a leer en 5s…');
+
+setTimeout(() => {
+  cooldownActive = false;
+  lastValue = null;
+  setStatus(null, 'Leyendo…', 'Esperando QR del carnet.');
+  setOverlay('Apuntá al QR…');
+
+  // Si estamos en modo nativo, reanudamos el loop
+  if (detector) {
+    scanning = true;
+    scanLoop();
+  }
+  // En modo ZXing no hace falta reiniciar nada: el callback sigue activo
+}, 5000);
+
 
       // ✅ después de 5 segundos vuelve a modo lectura para el próximo
       setOverlay('Resultado mostrado. Volviendo a leer en 5s…');
