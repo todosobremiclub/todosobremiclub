@@ -3,25 +3,41 @@
 
   <div class="card">
     <div class="noti-form">
-      <label>Título</label>
-      <input type="text" id="pushTitulo" placeholder="Título de la notificación" />
+      <label for="pushTitulo">Título</label>
+      <input
+        type="text"
+        id="pushTitulo"
+        placeholder="Ej: Suspensión de actividades"
+      />
 
-      <label>Mensaje</label>
-      <textarea id="pushCuerpo" rows="3" placeholder="Texto corto (push)"></textarea>
+      <label for="pushCuerpo">Mensaje</label>
+      <textarea
+        id="pushCuerpo"
+        rows="3"
+        placeholder="Escribí el mensaje de la notificación..."
+      ></textarea>
 
-      <label>Imagen (opcional)</label>
-      <input type="file" id="pushImagen" accept="image/*" />
-
-      <button id="btnPushEnviar" class="btn btn-primary" style="margin-top:14px; width:100%; font-size:15px;">
+      <button
+        id="btnPushEnviar"
+        class="btn btn-primary"
+        style="margin-top:14px; width:100%; font-size:15px;"
+      >
         📤 Guardar y enviar
       </button>
+
       <div class="muted" style="margin-top:8px;">
-        Se enviará automáticamente SOLO a socios del club activo.
+        Se enviará automáticamente a todos los socios del club activo.
+      </div>
+
+      <div class="muted" style="margin-top:4px; font-size:12px;">
+        ℹ️ Las notificaciones son solo texto. Para imágenes utilizá la sección
+        <strong>Noticias</strong>.
       </div>
     </div>
   </div>
 
   <h3 style="margin-top:24px;">📜 Historial</h3>
+
   <div class="table-wrapper" style="margin-top:12px;">
     <table class="socios-table">
       <thead>
@@ -39,17 +55,18 @@
 </section>
 
 <style>
-  .noti-form{
-    display:flex;
-    flex-direction:column;
-    gap:10px;
+  .noti-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
+
   .noti-form input[type="text"],
-  .noti-form textarea{
-    width:100%;
-    padding:10px;
-    border-radius:8px;
-    border:1px solid #ccc;
-    font-size:14px;
+  .noti-form textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
   }
 </style>
