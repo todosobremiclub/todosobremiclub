@@ -1809,4 +1809,89 @@ router.get(
     }
   }
 );
+
+// ===============================
+// INGRESOS VS GASTOS POR RESPONSABLE (MES)
+// ===============================
+router.get(
+  '/:clubId/reportes/ingresos-vs-gastos-por-responsable',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({
+        ok: false,
+        error: 'anio y mes son obligatorios'
+      });
+    }
+
+    try {
+      const qIng1 = `
+        SELECT COALESCE(ig.cuenta,'Sin cuenta') AS responsable,
+               SUM(ig.monto) AS total
+        FROM ingresos_generales ig
+        WHERE ig.club_id = $1
+          AND ig.activo = true
+          AND EXTRACT(YEAR FROM ig.fecha) = $2
+          AND EXTRACT(MONTH FROM ig.fecha) = $3
+        GROUP BY COALESCE(ig.cuenta,'Sin cuenta')
+      `;
+
+      const qIng2 = `
+        SELECT COALESCE(pm.cuenta,'Sin cuenta') AS responsable,
+               SUM(pm.monto) AS total
+        FROM pagos_mensuales pm
+        WHERE pm.club_id = $1
+          AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+          AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
+        GROUP BY COALESCE(pm.cuenta,'Sin cuenta')
+      `;
+
+      const qGas = `
+        SELECT COALESCE(rg.nombre,'Sin responsable') AS responsable,
+               SUM(g.monto) AS total
+        FROM gastos g
+        LEFT JOIN responsables_gasto rg ON rg.id = g.responsable_id
+        WHERE g.club_id = $1
+          AND g.activo = true
+          AND EXTRACT(YEAR FROM g.periodo) = $2
+          AND EXTRACT(MONTH FROM g.periodo) = $3
+        GROUP BY COALESCE(rg.nombre,'Sin responsable')
+      `;
+
+      const [rIng1, rIng2, rGas] = await Promise.all([
+        db.query(qIng1, [clubId, anio, mes]),
+        db.query(qIng2, [clubId, anio, mes]),
+        db.query(qGas,  [clubId, anio, mes])
+      ]);
+
+      const map = new Map();
+
+      const acum = (resp, field, val) => {
+        if (!map.has(resp)) {
+          map.set(resp, { responsable: resp, ingresos: 0, gastos: 0 });
+        }
+        map.get(resp)[field] += Number(val || 0);
+      };
+
+      rIng1.rows.forEach(r => acum(r.responsable, 'ingresos', r.total));
+      rIng2.rows.forEach(r => acum(r.responsable, 'ingresos', r.total));
+      rGas.rows.forEach(r => acum(r.responsable, 'gastos', r.total));
+
+      const rows = Array.from(map.values()).map(r => ({
+        ...r,
+        resultado: r.ingresos - r.gastos
+      }));
+
+      res.json({ ok: true, rows });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
 module.exports = router;

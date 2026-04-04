@@ -81,6 +81,11 @@
     mes: new Date().getMonth() + 1
   };
 
+const igRespState = {
+  anio: new Date().getFullYear(),
+  mes: new Date().getMonth() + 1
+};
+
   // =============================
   // HELPERS AUTH + FETCH
   // =============================
@@ -1258,6 +1263,75 @@
     }
   }
 
+// =============================
+// INGRESOS VS GASTOS POR RESPONSABLE (NUEVO)
+// =============================
+async function loadIGResp() {
+  const body = $('igRespBody');
+  if (!body) return;
+
+  showLoading(body, 'Cargando datos...');
+
+  try {
+    const clubId = getActiveClubId();
+    const { anio, mes } = igRespState;
+
+    $('igRespMesLabel').textContent = `${MESES[mes - 1]} ${anio}`;
+
+    const url =
+      `/club/${clubId}/reportes/ingresos-vs-gastos-por-responsable?anio=${anio}&mes=${mes}`;
+
+    const { data } = await fetchAuth(url);
+
+    if (!data.ok) {
+      showError(body, data.error || 'Error cargando reporte');
+      return;
+    }
+
+    if (!data.rows.length) {
+      body.innerHTML =
+        `<div class="muted small">Sin datos para este mes.</div>`;
+      return;
+    }
+
+    body.innerHTML = `
+      <div class="small-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Responsable</th>
+              <th style="text-align:right;">Ingresos</th>
+              <th style="text-align:right;">Gastos</th>
+              <th style="text-align:right;">Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.rows.map(r => {
+              const ing = Number(r.ingresos || 0);
+              const gas = Number(r.gastos || 0);
+              const res = ing - gas;
+              const color = res < 0 ? '#b91c1c' : '#111827';
+              return `
+                <tr>
+                  <td>${r.responsable}</td>
+                  <td style="text-align:right;">${moneyARS.format(ing)}</td>
+                  <td style="text-align:right;">${moneyARS.format(gas)}</td>
+                  <td style="text-align:right; font-weight:600; color:${color};">
+                    ${moneyARS.format(res)}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    console.error(e);
+    showError(body, 'Error inesperado cargando reporte');
+  }
+}
+
  // =============================
 // INIT DASHBOARD
 // =============================
@@ -1354,6 +1428,29 @@ async function initReportesSection() {
   }
 
   loadRanking();
+
+// =============================
+// FILA 2 CENTRO – INGRESOS VS GASTOS POR RESPONSABLE
+// =============================
+const btnIGRespPrev = $('btnIGRespMesPrev');
+const btnIGRespNext = $('btnIGRespMesNext');
+
+if (btnIGRespPrev) {
+  btnIGRespPrev.addEventListener('click', () => {
+    igRespState.mes = igRespState.mes === 1 ? 12 : igRespState.mes - 1;
+    loadIGResp();
+  });
+}
+
+if (btnIGRespNext) {
+  btnIGRespNext.addEventListener('click', () => {
+    igRespState.mes = igRespState.mes === 12 ? 1 : igRespState.mes + 1;
+    loadIGResp();
+  });
+}
+
+// carga inicial
+loadIGResp();
 
   // =============================
   // ABAJO DERECHA – CUENTAS
