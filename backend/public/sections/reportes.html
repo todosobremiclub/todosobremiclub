@@ -186,7 +186,7 @@
 <!-- BLOQUE 7 – INGRESOS VS GASTOS POR RESPONSABLE -->
 <div class="detail-card"
      id="card-ig-responsable"
-     style="grid-column:2; grid-row:2;">
+     style="grid-column: 1 / -1;">
 
   <h3 class="detail-title">Ingresos Vs Gastos por responsable</h3>
 
@@ -520,4 +520,26 @@
 #card-ig-responsable .col-ing,
 #card-ig-responsable .col-gas,
 #card-ig-responsable .col-res { width: 20%; }
+
+/* =============================
+   REPORTE #7 – ANCHO COMPLETO
+   ============================= */
+
+#card-ig-responsable {
+  padding: 16px 20px;
+}
+
+#card-ig-responsable .detail-body {
+  overflow-x: visible;        /* elimina scroll */
+}
+
+#card-ig-responsable table {
+  width: 100%;
+}
+
+#card-ig-responsable .col-resp { width: 35%; }
+#card-ig-responsable .col-ing  { width: 20%; }
+#card-ig-responsable .col-gas  { width: 20%; }
+#card-ig-responsable .col-res  { width: 25%; }
+
 </style>
