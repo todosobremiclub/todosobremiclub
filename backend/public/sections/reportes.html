@@ -463,4 +463,61 @@
       grid-template-columns: 1fr;
     }
   }
+
+/* =============================
+   REPORTE #7: Ingresos vs Gastos por responsable
+   Mejoras de legibilidad: números menos amontonados + bordes por columna
+   ============================= */
+
+#card-ig-responsable .small-table table {
+  width: 100%;
+  border-collapse: separate;      /* permite bordes más “suaves” */
+  border-spacing: 0;              /* sin espacios raros */
+  table-layout: fixed;            /* distribuye mejor columnas */
+  font-size: 12px;                /* achica un poco */
+}
+
+#card-ig-responsable .small-table th,
+#card-ig-responsable .small-table td {
+  padding: 8px 10px;              /* más aire */
+  vertical-align: middle;
+  white-space: nowrap;            /* evita saltos de línea en montos */
+}
+
+#card-ig-responsable .small-table thead th {
+  background: #f3f4f6;
+  font-weight: 700;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Bordes verticales entre columnas */
+#card-ig-responsable .small-table th:not(:last-child),
+#card-ig-responsable .small-table td:not(:last-child) {
+  border-right: 1px solid #e5e7eb;
+}
+
+/* Bordes horizontales entre filas */
+#card-ig-responsable .small-table tbody td {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+/* Redondeo suave en header */
+#card-ig-responsable .small-table thead th:first-child {
+  border-top-left-radius: 8px;
+}
+#card-ig-responsable .small-table thead th:last-child {
+  border-top-right-radius: 8px;
+}
+
+/* Alineación + números más legibles */
+#card-ig-responsable .col-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums; /* columnas numéricas alineadas */
+}
+
+/* Ajuste de anchos para que no se choquen */
+#card-ig-responsable .col-resp { width: 40%; }
+#card-ig-responsable .col-ing,
+#card-ig-responsable .col-gas,
+#card-ig-responsable .col-res { width: 20%; }
 </style>

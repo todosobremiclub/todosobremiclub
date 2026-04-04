@@ -1295,37 +1295,38 @@ async function loadIGResp() {
     }
 
     body.innerHTML = `
-      <div class="small-table">
-        <table>
-          <thead>
+  <div class="small-table">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-resp">Responsable</th>
+          <th class="col-ing col-num">Ingresos</th>
+          <th class="col-gas col-num">Gastos</th>
+          <th class="col-res col-num">Resultado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.rows.map(r => {
+          const ing = Number(r.ingresos || 0);
+          const gas = Number(r.gastos || 0);
+          const res = ing - gas;
+          const color = res < 0 ? '#b91c1c' : '#111827';
+
+          return `
             <tr>
-              <th>Responsable</th>
-              <th style="text-align:right;">Ingresos</th>
-              <th style="text-align:right;">Gastos</th>
-              <th style="text-align:right;">Resultado</th>
+              <td class="col-resp">${r.responsable}</td>
+              <td class="col-ing col-num">${moneyARS.format(ing)}</td>
+              <td class="col-gas col-num">${moneyARS.format(gas)}</td>
+              <td class="col-res col-num" style="font-weight:600; color:${color};">
+                ${moneyARS.format(res)}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            ${data.rows.map(r => {
-              const ing = Number(r.ingresos || 0);
-              const gas = Number(r.gastos || 0);
-              const res = ing - gas;
-              const color = res < 0 ? '#b91c1c' : '#111827';
-              return `
-                <tr>
-                  <td>${r.responsable}</td>
-                  <td style="text-align:right;">${moneyARS.format(ing)}</td>
-                  <td style="text-align:right;">${moneyARS.format(gas)}</td>
-                  <td style="text-align:right; font-weight:600; color:${color};">
-                    ${moneyARS.format(res)}
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
   } catch (e) {
     console.error(e);
     showError(body, 'Error inesperado cargando reporte');
