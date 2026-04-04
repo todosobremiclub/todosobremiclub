@@ -238,6 +238,31 @@
     </div>
   </div>
 
+<!-- =============================
+ MODAL DETALLE (Ranking / Cuentas / IG Responsable)
+ ============================= -->
+<div id="detalleModal" class="modal hidden">
+  <div class="modal-content" style="max-width: 980px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <div>
+        <h3 id="detalleModalTitle" style="margin:0;">Detalle</h3>
+        <div id="detalleModalSub" class="muted" style="margin-top:4px; font-size:13px;"></div>
+      </div>
+      <button id="detalleModalClose" class="btn btn-secondary">✕</button>
+    </div>
+
+    <div id="detalleModalBody" style="margin-top:12px; max-height:65vh; overflow:auto;">
+      <div class="muted small">Seleccioná un ítem para ver el detalle…</div>
+    </div>
+
+    <div id="detalleModalFooter"
+         style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
+      <div class="muted small" id="detalleModalInfo"></div>
+      <div style="font-weight:700;" id="detalleModalTotal"></div>
+    </div>
+  </div>
+</div>
+
 </section>
 
 <style>

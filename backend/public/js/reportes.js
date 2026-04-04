@@ -148,7 +148,7 @@ const igRespState = {
     el.innerHTML = `<div class="muted" style="color:#b91c1c;">${msg}</div>`;
   }
 
-  function formatFecha(d) {
+  	
     if (!d) return '';
     const dt = new Date(d);
     if (Number.isNaN(dt.getTime())) return '';
@@ -157,6 +157,101 @@ const igRespState = {
     const yyyy = dt.getFullYear();
     return `${dd}-${mm}-${yyyy}`;
   }
+
+// =============================
+// MODAL DETALLE (Ranking / Cuentas / IG Responsable)
+// =============================
+function ensureDetalleModal() {
+  const modal = $('detalleModal');
+  if (!modal) return null;
+  if (modal.dataset.bound === '1') return modal;
+
+  modal.dataset.bound = '1';
+  const btnClose = $('detalleModalClose');
+  const close = () => modal.classList.add('hidden');
+
+  if (btnClose) btnClose.addEventListener('click', (e) => { e.preventDefault(); close(); });
+  modal.addEventListener('click', (ev) => { if (ev.target === modal) close(); });
+
+  return modal;
+}
+
+function setDetalleHeader({ title, sub }) {
+  const t = $('detalleModalTitle');
+  const s = $('detalleModalSub');
+  if (t) t.textContent = title || 'Detalle';
+  if (s) s.textContent = sub || '';
+}
+
+function setDetalleFooter({ info, total }) {
+  const i = $('detalleModalInfo');
+  const tot = $('detalleModalTotal');
+  if (i) i.textContent = info || '';
+  if (tot) tot.textContent = total || '';
+}
+
+function renderTableGeneric({ columns, rows, moneyKey = 'monto', dateKey = 'fecha' }) {
+  if (!rows || !rows.length) {
+    return `<div class="muted small">Sin movimientos para este filtro.</div>`;
+  }
+
+  const total = rows.reduce((a, r) => a + Number(r[moneyKey] || 0), 0);
+
+  const head = columns.map(c => `<th>${c.label}</th>`).join('');
+  const body = rows.map(r => `
+    <tr>
+      ${columns.map(c => {
+        const v = r[c.key];
+        if (c.key === moneyKey) return `<td style="text-align:right;">${moneyARS.format(Number(v || 0))}</td>`;
+        if (c.key === dateKey) return `<td>${formatFecha(v)}</td>`;
+        return `<td>${v ?? ''}</td>`;
+      }).join('')}
+    </tr>
+  `).join('');
+
+  return {
+    html: `
+      <table class="socios-table" style="font-size:12px;">
+        <thead><tr>${head}</tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    `,
+    total
+  };
+}
+
+async function openDetalleModal({ title, sub, url, columns, moneyKey, dateKey }) {
+  const modal = ensureDetalleModal();
+  const body = $('detalleModalBody');
+  if (!modal || !body) return;
+
+  setDetalleHeader({ title, sub });
+  setDetalleFooter({ info: '', total: '' });
+  body.innerHTML = `<div class="muted">Cargando detalle...</div>`;
+  modal.classList.remove('hidden');
+
+  try {
+    const { data } = await fetchAuth(url);
+    if (!data.ok) {
+      body.innerHTML = `<div class="muted" style="color:#b91c1c;">${data.error || 'Error cargando detalle'}</div>`;
+      return;
+    }
+
+    // data.rows puede ser array o objeto (en IG Resp)
+    const rows = Array.isArray(data.rows) ? data.rows : (data.rows || []);
+
+    const rendered = renderTableGeneric({ columns, rows, moneyKey, dateKey });
+    body.innerHTML = rendered.html;
+    setDetalleFooter({
+      info: `${rows.length} movimientos`,
+      total: `Total: ${moneyARS.format(rendered.total)}`
+    });
+
+  } catch (e) {
+    console.error(e);
+    body.innerHTML = `<div class="muted" style="color:#b91c1c;">${e.message || 'Error inesperado'}</div>`;
+  }
+}
 
   // =============================
   // PANEL 1 – ACTIVIDADES / CATEGORÍAS
@@ -1120,151 +1215,167 @@ const igRespState = {
 
 
 
-  // =============================
-  // RANKING INGRESO / GASTO (ABAJO CENTRO)
-  // =============================
-  async function loadRanking() {
-    const body = $('rankingBody');
-    if (!body) return;
-    showLoading(body, 'Cargando ranking...');
+ 
+/ =============================
+// RANKING INGRESO / GASTO (ABAJO CENTRO)
+// =============================
+async function loadRanking() {
+  const body = $('rankingBody');
+  if (!body) return;
+  showLoading(body, 'Cargando ranking...');
 
-    try {
-      const clubId = getActiveClubId();
-      const { anio, mes } = rankingState;
-      $('rankMesLabel').textContent = MESES[mes-1];
+  try {
+    const clubId = getActiveClubId();
+    const { anio, mes } = rankingState;
+    $('rankMesLabel').textContent = MESES[mes - 1];
 
-      const urlIng = `/club/${clubId}/reportes/ingresos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
-      const urlGas = `/club/${clubId}/reportes/gastos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
+    const urlIng = `/club/${clubId}/reportes/ingresos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
+    const urlGas = `/club/${clubId}/reportes/gastos-por-tipo/tipos?anio=${anio}&mes=${mes}`;
 
-      const [{ data: dIng }, { data: dGas }] = await Promise.all([
-        fetchAuth(urlIng),
-        fetchAuth(urlGas)
-      ]);
+    const [{ data: dIng }, { data: dGas }] = await Promise.all([
+      fetchAuth(urlIng),
+      fetchAuth(urlGas)
+    ]);
 
-      if (!dIng.ok || !dGas.ok) {
-        showError(body, (dIng.error || dGas.error) || 'Error cargando ranking');
-        return;
-      }
+    if (!dIng.ok || !dGas.ok) {
+      showError(body, (dIng.error || dGas.error) || 'Error cargando ranking');
+      return;
+    }
 
-      const ingresos = dIng.rows || [];
-      const gastos   = dGas.rows || [];
+    const ingresos = dIng.rows || [];
+    const gastos = dGas.rows || [];
 
-      const totalIng = ingresos.reduce((a,b)=>a + Number(b.total || 0),0) || 1;
-      const totalGas = gastos.reduce((a,b)=>a + Number(b.total || 0),0) || 1;
+    const totalIng = ingresos.reduce((a, b) => a + Number(b.total || 0), 0) || 1;
+    const totalGas = gastos.reduce((a, b) => a + Number(b.total || 0), 0) || 1;
 
-      const topIng = [...ingresos]
-        .sort((a,b)=>Number(b.total)-Number(a.total))
-        .slice(0,3);
+    const topIng = [...ingresos]
+      .sort((a, b) => Number(b.total) - Number(a.total))
+      .slice(0, 3);
 
-      const topGas = [...gastos]
-        .sort((a,b)=>Number(b.total)-Number(a.total))
-        .slice(0,3);
+    const topGas = [...gastos]
+      .sort((a, b) => Number(b.total) - Number(a.total))
+      .slice(0, 3);
 
-      const html = `
-        <h4 class="ranking-title">Top ingresos</h4>
-        <div class="small-table">
-          <table>
-            <tbody>
-            ${topIng.map(r=>`
-              <tr>
+    const html = `
+      <h4 class="ranking-title">Top ingresos</h4>
+      <div class="small-table">
+        <table>
+          <tbody>
+            ${topIng.map(r => `
+              <tr class="row-ranking"
+                  data-kind="ingreso-tipo"
+                  data-tipo="${encodeURIComponent(r.tipo)}"
+                  style="cursor:pointer;">
                 <td>${r.tipo}</td>
-                <td style="text-align:right;">${moneyARS.format(Number(r.total||0))}</td>
-                <td style="text-align:right;">${((Number(r.total||0)*100)/totalIng).toFixed(1)}%</td>
+                <td style="text-align:right;">${moneyARS.format(Number(r.total || 0))}</td>
+                <td style="text-align:right;">${((Number(r.total || 0) * 100) / totalIng).toFixed(1)}%</td>
               </tr>
             `).join('')}
-            </tbody>
-          </table>
-        </div>
+          </tbody>
+        </table>
+      </div>
 
-        <h4 class="ranking-title" style="margin-top:10px;">Top gastos</h4>
-        <div class="small-table">
-          <table>
-            <tbody>
-            ${topGas.map(r=>`
-              <tr>
+      <h4 class="ranking-title" style="margin-top:10px;">Top gastos</h4>
+      <div class="small-table">
+        <table>
+          <tbody>
+            ${topGas.map(r => `
+              <tr class="row-ranking"
+                  data-kind="gasto-tipo"
+                  data-tipo_gasto="${encodeURIComponent(r.tipo_gasto || r.tipo)}"
+                  style="cursor:pointer;">
                 <td>${r.tipo_gasto || r.tipo}</td>
-                <td style="text-align:right;">${moneyARS.format(Number(r.total||0))}</td>
-                <td style="text-align:right;">${((Number(r.total||0)*100)/totalGas).toFixed(1)}%</td>
+                <td style="text-align:right;">${moneyARS.format(Number(r.total || 0))}</td>
+                <td style="text-align:right;">${((Number(r.total || 0) * 100) / totalGas).toFixed(1)}%</td>
               </tr>
             `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-      body.innerHTML = html;
-    } catch (e) {
-      console.error(e);
-      showError($('rankingBody'), e.message || 'Error inesperado cargando ranking');
-    }
+          </tbody>
+        </table>
+      </div>
+    `;
+    body.innerHTML = html;
+  } catch (e) {
+    console.error(e);
+    showError(body, e.message || 'Error inesperado cargando ranking');
   }
+}
 
-  // =============================
-  // CUENTAS (INGRESOS / GASTOS) – ABAJO DERECHA
-  // =============================
-  async function loadCuentas() {
-    const body = $('cuentasBody');
-    if (!body) return;
-    showLoading(body, 'Cargando datos...');
 
-    try {
-      const clubId = getActiveClubId();
-      const { anio, mes } = cuentasState;
-      $('cuentasMesLabel').textContent = MESES[mes-1];
+ 
+// =============================
+// CUENTAS (INGRESOS / GASTOS) – ABAJO DERECHA
+// =============================
+async function loadCuentas() {
+  const body = $('cuentasBody');
+  if (!body) return;
+  showLoading(body, 'Cargando datos...');
 
-      const urlGas = `/club/${clubId}/reportes/gastos-responsable-mes/responsables?anio=${anio}&mes=${mes}`;
-      const urlIng = `/club/${clubId}/reportes/ingresos-por-responsable?anio=${anio}&mes=${mes}`;
+  try {
+    const clubId = getActiveClubId();
+    const { anio, mes } = cuentasState;
+    $('cuentasMesLabel').textContent = MESES[mes - 1];
 
-      const [{ data: dGas }, { data: dIng }] = await Promise.all([
-        fetchAuth(urlGas),
-        fetchAuth(urlIng)
-      ]);
+    const urlGas = `/club/${clubId}/reportes/gastos-responsable-mes/responsables?anio=${anio}&mes=${mes}`;
+    const urlIng = `/club/${clubId}/reportes/ingresos-por-responsable?anio=${anio}&mes=${mes}`;
 
-      if (!dGas.ok || !dIng.ok) {
-        showError(body, (dGas.error || dIng.error) || 'Error cargando cuentas');
-        return;
-      }
+    const [{ data: dGas }, { data: dIng }] = await Promise.all([
+      fetchAuth(urlGas),
+      fetchAuth(urlIng)
+    ]);
 
-      const gastos   = dGas.rows || [];
-      const ingresos = dIng.rows || [];
+    if (!dGas.ok || !dIng.ok) {
+      showError(body, (dGas.error || dIng.error) || 'Error cargando cuentas');
+      return;
+    }
 
-      const html = `
-        <h4 class="ranking-title">Ingresos por responsable</h4>
-        <div class="small-table">
-          <table>
-            <tbody>
-            ${ingresos.map(r=>`
-              <tr>
+    const gastos = dGas.rows || [];
+    const ingresos = dIng.rows || [];
+
+    const html = `
+      <h4 class="ranking-title">Ingresos por responsable</h4>
+      <div class="small-table">
+        <table>
+          <tbody>
+            ${ingresos.map(r => `
+              <tr class="row-cuentas"
+                  data-kind="ingreso-cuenta"
+                  data-cuenta="${encodeURIComponent(r.responsable)}"
+                  style="cursor:pointer;">
                 <td>${r.cuenta || r.responsable || r.tipo}</td>
-                <td style="text-align:right;">${moneyARS.format(Number(r.total||0))}</td>
+                <td style="text-align:right;">${moneyARS.format(Number(r.total || 0))}</td>
               </tr>
             `).join('')}
-            </tbody>
-          </table>
-        </div>
+          </tbody>
+        </table>
+      </div>
 
-        <h4 class="ranking-title" style="margin-top:10px;">Gastos por responsable</h4>
-        <div class="small-table">
-          <table>
-            <tbody>
-            ${gastos.map(r=>`
-              <tr>
+      <h4 class="ranking-title" style="margin-top:10px;">Gastos por responsable</h4>
+      <div class="small-table">
+        <table>
+          <tbody>
+            ${gastos.map(r => `
+              <tr class="row-cuentas"
+                  data-kind="gasto-responsable"
+                  data-responsable="${encodeURIComponent(r.responsable)}"
+                  style="cursor:pointer;">
                 <td>${r.responsable}</td>
-                <td style="text-align:right;">${moneyARS.format(Number(r.total||0))}</td>
+                <td style="text-align:right;">${moneyARS.format(Number(r.total || 0))}</td>
               </tr>
             `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-      body.innerHTML = html;
-    } catch (e) {
-      console.error(e);
-      showError($('cuentasBody'), e.message || 'Error inesperado cargando cuentas');
-    }
+          </tbody>
+        </table>
+      </div>
+    `;
+    body.innerHTML = html;
+  } catch (e) {
+    console.error(e);
+    showError(body, e.message || 'Error inesperado cargando cuentas');
   }
+}
+
 
 // =============================
-// INGRESOS VS GASTOS POR RESPONSABLE (NUEVO)
+// INGRESOS VS GASTOS POR RESPONSABLE
 // =============================
 async function loadIGResp() {
   const body = $('igRespBody');
@@ -1288,50 +1399,63 @@ async function loadIGResp() {
       return;
     }
 
-    if (!data.rows.length) {
-      body.innerHTML =
-        `<div class="muted small">Sin datos para este mes.</div>`;
+    if (!data.rows || !data.rows.length) {
+      body.innerHTML = `<div class="muted small">Sin datos para este mes.</div>`;
       return;
     }
 
     body.innerHTML = `
-  <div class="small-table">
-    <table>
-      <thead>
-        <tr>
-          <th class="col-resp">Responsable</th>
-          <th class="col-ing col-num">Ingresos</th>
-          <th class="col-gas col-num">Gastos</th>
-          <th class="col-res col-num">Resultado</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.rows.map(r => {
-          const ing = Number(r.ingresos || 0);
-          const gas = Number(r.gastos || 0);
-          const res = ing - gas;
-          const color = res < 0 ? '#b91c1c' : '#111827';
-
-          return `
+      <div class="small-table">
+        <table>
+          <thead>
             <tr>
-              <td class="col-resp">${r.responsable}</td>
-              <td class="col-ing col-num">${moneyARS.format(ing)}</td>
-              <td class="col-gas col-num">${moneyARS.format(gas)}</td>
-              <td class="col-res col-num" style="font-weight:600; color:${color};">
-                ${moneyARS.format(res)}
-              </td>
+              <th class="col-resp">Responsable</th>
+              <th class="col-ing col-num">Ingresos</th>
+              <th class="col-gas col-num">Gastos</th>
+              <th class="col-res col-num">Resultado</th>
             </tr>
-          `;
-        }).join('')}
-      </tbody>
-    </table>
-  </div>
-`;
+          </thead>
+          <tbody>
+            ${data.rows.map(r => {
+              const ing = Number(r.ingresos || 0);
+              const gas = Number(r.gastos || 0);
+              const res = ing - gas;
+              const color = res < 0 ? '#b91c1c' : '#111827';
+
+              return `
+                <tr class="row-igresp"
+                    data-responsable="${encodeURIComponent(r.responsable)}">
+                  <td class="col-resp">${r.responsable}</td>
+
+                  <td class="col-ing col-num cell-igresp"
+                      data-click="ingresos"
+                      style="cursor:pointer; text-decoration:underline;">
+                    ${moneyARS.format(ing)}
+                  </td>
+
+                  <td class="col-gas col-num cell-igresp"
+                      data-click="gastos"
+                      style="cursor:pointer; text-decoration:underline;">
+                    ${moneyARS.format(gas)}
+                  </td>
+
+                  <td class="col-res col-num"
+                      style="font-weight:600; color:${color};">
+                    ${moneyARS.format(res)}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
   } catch (e) {
     console.error(e);
     showError(body, 'Error inesperado cargando reporte');
   }
 }
+
 
  // =============================
 // INIT DASHBOARD
