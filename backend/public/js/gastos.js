@@ -298,16 +298,17 @@ function renderGastosGrouped(gastos = []) {
 
     const tipo_gasto_id = $('gastoTipo')?.value;
     const responsable_id = $('gastoResponsable')?.value;
-const cuenta = ($('gastoCuenta')?.value || '').trim();
+
     const fecha_gasto = ($('gastoFecha')?.value || '').trim(); // YYYY-MM-DD
 const periodo = fecha_gasto ? fecha_gasto.slice(0, 7) : ''; // YYYY-MM
     const monto = ($('gastoMonto')?.value || '').trim();
     const descripcion = ($('gastoDescripcion')?.value || '').trim();
 
-    if (!tipo_gasto_id || !responsable_id || !cuenta || !fecha_gasto || !monto) {
-  alert('Completá Tipo de gasto, Fecha, Quién lo hizo, Cuenta y Monto.');
+    if (!tipo_gasto_id || !responsable_id || !fecha_gasto || !monto) {
+  alert('Completá Tipo de gasto, Fecha, Responsable de cuenta y Monto.');
   return;
 }
+
 
     const montoNum = Number(monto);
     if (Number.isNaN(montoNum) || montoNum < 0) {
@@ -320,7 +321,6 @@ const periodo = fecha_gasto ? fecha_gasto.slice(0, 7) : ''; // YYYY-MM
   fecha_gasto,              // ✅ fecha real seleccionada
   tipo_gasto_id,
   responsable_id,
-  cuenta,
   monto: montoNum,
   descripcion: descripcion || null
 };
