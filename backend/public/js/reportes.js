@@ -1534,11 +1534,13 @@ function bindCuentasDetalleClicks() {
         sub: mesLabel,
         url: `/club/${clubId}/reportes/ingresos-por-responsable/detalle?anio=${anio}&mes=${mes}&cuenta=${encodeURIComponent(cuenta)}`,
         columns: [
-          { key: 'fecha', label: 'Fecha' },
-          { key: 'descripcion', label: 'Descripción' },
-          { key: 'origen', label: 'Origen' },
-          { key: 'monto', label: 'Monto' }
-        ],
+  { key: 'fecha', label: 'Fecha' },
+  { key: 'origen', label: 'Origen' },
+  { key: 'descripcion', label: 'Descripción' },
+  { key: 'socio_nombre', label: 'Socio' },
+  { key: 'monto', label: 'Monto' }
+],
+
         moneyKey: 'monto',
         dateKey: 'fecha'
       });
@@ -1569,7 +1571,7 @@ function bindIGRespDetalleClicks() {
   if (!body || body.dataset.boundDetalle === '1') return;
   body.dataset.boundDetalle = '1';
 
-  body.addEventListener('click', (ev) => {
+  body.addEventListener('click', async (ev) => {
     const cell = ev.target.closest('.cell-igresp');
     if (!cell) return;
 
@@ -1579,21 +1581,82 @@ function bindIGRespDetalleClicks() {
     const clubId = getActiveClubId();
     const { anio, mes } = igRespState;
     const responsable = decodeURIComponent(tr.dataset.responsable || '');
-    const tipo = cell.dataset.click; // ingresos | gastos
+    const tipo = cell.dataset.click; // 'ingresos' | 'gastos'
     const mesLabel = `${MESES[mes - 1]} ${anio}`;
 
-    openDetalleModal({
+    const url = `/club/${clubId}/reportes/ingresos-vs-gastos-por-responsable/detalle?anio=${anio}&mes=${mes}&responsable=${encodeURIComponent(responsable)}&tipo=${tipo}`;
+
+    // Abrimos modal y cargamos nosotros, porque este endpoint devuelve { rows: { ingresos:[], gastos:[] } }
+    const modal = ensureDetalleModal();
+    const modalBody = $('detalleModalBody');
+    if (!modal || !modalBody) return;
+
+    setDetalleHeader({
       title: `${tipo === 'ingresos' ? 'Ingresos' : 'Gastos'} · ${responsable}`,
-      sub: mesLabel,
-      url: `/club/${clubId}/reportes/ingresos-vs-gastos-por-responsable/detalle?anio=${anio}&mes=${mes}&responsable=${encodeURIComponent(responsable)}&tipo=${tipo}`,
-      columns: [
-        { key: 'fecha', label: 'Fecha' },
-        { key: 'descripcion', label: 'Descripción' },
-        { key: 'monto', label: 'Monto' }
-      ],
-      moneyKey: 'monto',
-      dateKey: 'fecha'
+      sub: mesLabel
     });
+
+    setDetalleFooter({ info: '', total: '' });
+    modalBody.innerHTML = `<div class="muted">Cargando detalle...</div>`;
+    modal.classList.remove('hidden');
+
+    try {
+      const { data } = await fetchAuth(url);
+      if (!data.ok) {
+        modalBody.innerHTML = `<div class="muted" style="color:#b91c1c;">${data.error || 'Error cargando detalle'}</div>`;
+        return;
+      }
+
+      // 👇 ACÁ está la clave: tomar el array correcto
+      const rowsObj = data.rows || {};
+      const rows = Array.isArray(rowsObj[tipo]) ? rowsObj[tipo] : [];
+
+      // Columnas según tipo
+      if (tipo === 'ingresos') {
+        const rendered = renderTableGeneric({
+          columns: [
+            { key: 'origen', label: 'Origen' },
+            { key: 'fecha', label: 'Fecha' },
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'socio', label: 'Socio' },
+            { key: 'monto', label: 'Monto' }
+          ],
+          rows,
+          moneyKey: 'monto',
+          dateKey: 'fecha'
+        });
+
+        modalBody.innerHTML = rendered.html;
+        setDetalleFooter({
+          info: `${rows.length} movimientos`,
+          total: `Total: ${moneyARS.format(rendered.total)}`
+        });
+        return;
+      }
+
+      // tipo === 'gastos'
+      const rendered = renderTableGeneric({
+        columns: [
+          { key: 'tipo_gasto', label: 'Tipo' },
+          { key: 'fecha_gasto', label: 'Fecha' },
+          { key: 'descripcion', label: 'Descripción' },
+          { key: 'monto', label: 'Monto' }
+        ],
+        rows,
+        moneyKey: 'monto',
+        dateKey: 'fecha_gasto'
+      });
+
+      modalBody.innerHTML = rendered.html;
+      setDetalleFooter({
+        info: `${rows.length} movimientos`,
+        total: `Total: ${moneyARS.format(rendered.total)}`
+      });
+
+    } catch (e) {
+      console.error(e);
+      modalBody.innerHTML = `<div class="muted" style="color:#b91c1c;">${e.message || 'Error inesperado'}</div>`;
+    }
   });
 }
 

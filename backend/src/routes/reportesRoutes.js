@@ -2057,8 +2057,9 @@ router.get(
           pm.monto,
           ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
           COALESCE(pm.cuenta, 'Sin cuenta') AS cuenta,
-          ('Socio: ' || s.apellido || ' ' || s.nombre || ' (#' || s.numero_socio || ')')::text AS socio,
-          'Cuotas'::text AS origen
+          (s.apellido || ' ' || s.nombre)::text AS socio_nombre,
+('Cuotas - ' || s.apellido || ' ' || s.nombre)::text AS origen
+
         FROM pagos_mensuales pm
         JOIN socios s ON s.id = pm.socio_id
         WHERE pm.club_id = $1
