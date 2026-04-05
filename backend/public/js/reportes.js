@@ -149,14 +149,15 @@ const igRespState = {
   }
 
   	
-    if (!d) return '';
-    const dt = new Date(d);
-    if (Number.isNaN(dt.getTime())) return '';
-    const dd = String(dt.getDate()).padStart(2, '0');
-    const mm = String(dt.getMonth() + 1).padStart(2, '0');
-    const yyyy = dt.getFullYear();
-    return `${dd}-${mm}-${yyyy}`;
-  }
+    function formatFecha(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return '';
+  const dd = String(dt.getDate()).padStart(2, '0');
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const yyyy = dt.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
 
 // =============================
 // MODAL DETALLE (Ranking / Cuentas / IG Responsable)
@@ -1216,7 +1217,7 @@ async function openDetalleModal({ title, sub, url, columns, moneyKey, dateKey })
 
 
  
-/ =============================
+// =============================
 // RANKING INGRESO / GASTO (ABAJO CENTRO)
 // =============================
 async function loadRanking() {
