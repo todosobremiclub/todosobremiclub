@@ -271,7 +271,7 @@ function renderGastosGrouped(gastos = []) {
               <thead>
                 <tr>
                   <th>Tipo de gasto</th>
-<th>Quién lo hizo</th>
+<th>Responsable de cuenta</th>
 <th>Cuenta</th>
 <th>Monto</th>
 <th>Acción</th>
