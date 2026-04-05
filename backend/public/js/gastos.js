@@ -183,6 +183,18 @@ function todayISO() {
       opt.textContent = r.nombre;
       sel.appendChild(opt);
     });
+
+// También llenar selector de cuenta/medio
+  const selCuenta = $('gastoCuenta');
+  if (selCuenta) {
+    selCuenta.innerHTML = `<option value="">Seleccionar...</option>`;
+    items.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.nombre;      // guardamos el nombre como texto (igual que pagos/ingresos)
+      opt.textContent = r.nombre;
+      selCuenta.appendChild(opt);
+    });
+  }
   }
 
   async function loadGastos() {
@@ -233,13 +245,14 @@ function renderGastosGrouped(gastos = []) {
 
     const rowsHtml = items.map(g => `
       <tr>
-        <td>${escapeHtml(g.tipo_gasto ?? g.tipo ?? '')}</td>
-        <td>${escapeHtml(g.responsable ?? '')}</td>
-        <td><strong>${money.format(Number(g.monto || 0))}</strong></td>
-        <td style="text-align:right;">
-          <button class="btn-del" data-act="del" data-id="${g.id}" title="Eliminar">🗑️</button>
-        </td>
-      </tr>
+  <td>${escapeHtml(g.tipo_gasto ?? g.tipo ?? '')}</td>
+  <td>${escapeHtml(g.responsable ?? '')}</td>
+  <td>${escapeHtml(g.cuenta ?? '—')}</td>
+  <td><strong>${money.format(Number(g.monto || 0))}</strong></td>
+  <td style="text-align:right;">
+    <button class="btn-del" data-act="del" data-id="${g.id}" title="Eliminar">🗑️</button>
+  </td>
+</tr>
     `).join('');
 
     cont.insertAdjacentHTML('beforeend', `
@@ -258,9 +271,10 @@ function renderGastosGrouped(gastos = []) {
               <thead>
                 <tr>
                   <th>Tipo de gasto</th>
-                  <th>Quién lo hizo</th>
-                  <th>Monto</th>
-                  <th>Acción</th>
+<th>Quién lo hizo</th>
+<th>Cuenta</th>
+<th>Monto</th>
+<th>Acción</th>
                 </tr>
               </thead>
               <tbody>
@@ -284,13 +298,14 @@ function renderGastosGrouped(gastos = []) {
 
     const tipo_gasto_id = $('gastoTipo')?.value;
     const responsable_id = $('gastoResponsable')?.value;
+const cuenta = ($('gastoCuenta')?.value || '').trim();
     const fecha_gasto = ($('gastoFecha')?.value || '').trim(); // YYYY-MM-DD
 const periodo = fecha_gasto ? fecha_gasto.slice(0, 7) : ''; // YYYY-MM
     const monto = ($('gastoMonto')?.value || '').trim();
     const descripcion = ($('gastoDescripcion')?.value || '').trim();
 
-    if (!tipo_gasto_id || !responsable_id || !fecha_gasto || !monto) {
-  alert('Completá Tipo de gasto, Fecha, Responsable y Monto.');
+    if (!tipo_gasto_id || !responsable_id || !cuenta || !fecha_gasto || !monto) {
+  alert('Completá Tipo de gasto, Fecha, Quién lo hizo, Cuenta y Monto.');
   return;
 }
 
@@ -305,6 +320,7 @@ const periodo = fecha_gasto ? fecha_gasto.slice(0, 7) : ''; // YYYY-MM
   fecha_gasto,              // ✅ fecha real seleccionada
   tipo_gasto_id,
   responsable_id,
+  cuenta,
   monto: montoNum,
   descripcion: descripcion || null
 };

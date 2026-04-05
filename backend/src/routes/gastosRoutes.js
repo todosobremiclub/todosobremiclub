@@ -86,7 +86,8 @@ router.get('/:clubId/gastos', requireAuth, requireClubAccess, async (req, res) =
         tg.nombre AS tipo_gasto,
         g.responsable_id,
         rg.nombre AS responsable,
-        g.monto,
+g.cuenta,
+g.monto,
         g.descripcion,
         g.created_at
       FROM gastos g
@@ -136,7 +137,8 @@ router.post('/:clubId/gastos', requireAuth, requireClubAccess, async (req, res) 
     fecha_gasto,
     tipo_gasto_id,
     responsable_id,
-    monto,
+  cuenta,
+  monto,
     descripcion,
   } = req.body || {};
 
@@ -162,25 +164,26 @@ router.post('/:clubId/gastos', requireAuth, requireClubAccess, async (req, res) 
     if (!tg.rowCount) return res.status(400).json({ ok: false, error: 'Tipo de gasto inexistente o inactivo' });
     if (!rg.rowCount) return res.status(400).json({ ok: false, error: 'Responsable inexistente o inactivo' });
 
-    const r = await db.query(
-      `
-      INSERT INTO gastos (
-        id, club_id, periodo, fecha_gasto, tipo_gasto_id, responsable_id, monto, descripcion, activo, created_at, updated_at
-      ) VALUES (
-        gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW()
-      )
-      RETURNING id, club_id, periodo, fecha_gasto, tipo_gasto_id, responsable_id, monto, descripcion, created_at
-      `,
-      [
-        clubId,
-        pPeriodo.date,
-        fecha_gasto,
-        tipo_gasto_id,
-        responsable_id,
-        montoNum,
-        (descripcion ?? null),
-      ]
-    );
+   const r = await db.query(
+  `
+  INSERT INTO gastos (
+    id, club_id, periodo, fecha_gasto, tipo_gasto_id, responsable_id, cuenta, monto, descripcion, activo, created_at, updated_at
+  ) VALUES (
+    gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, true, NOW(), NOW()
+  )
+  RETURNING id, club_id, periodo, fecha_gasto, tipo_gasto_id, responsable_id, cuenta, monto, descripcion, created_at
+  `,
+  [
+    clubId,
+    pPeriodo.date,
+    fecha_gasto,
+    tipo_gasto_id,
+    responsable_id,
+    (cuenta ?? null),
+    montoNum,
+    (descripcion ?? null),
+  ]
+);
 
     const gasto = r.rows[0];
     res.status(201).json({
