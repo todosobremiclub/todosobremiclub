@@ -103,7 +103,7 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
     if (esAdmin) {
       const r = await db.query(
         `
-        SELECT mes, monto, fecha_pago
+        SELECT id, mes, monto, fecha_pago, cuenta
         FROM pagos_mensuales
         WHERE club_id = $1 AND socio_id = $2 AND anio = $3
         ORDER BY mes ASC
@@ -145,7 +145,7 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
 
     const r = await db.query(
       `
-      SELECT mes, monto, fecha_pago
+      SELECT id, mes, monto, fecha_pago, cuenta
       FROM pagos_mensuales
       WHERE club_id = $1 AND socio_id = $2 AND anio = $3
       ORDER BY mes ASC
@@ -577,6 +577,38 @@ router.delete(
     } catch (e) {
       console.error('❌ delete ingreso:', e);
       res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ============================================================
+// DELETE /club/:clubId/pagos/:pagoId
+// ADMIN: elimina un pago mensual (cuota) por ID
+// ============================================================
+router.delete(
+  '/:clubId/pagos/:pagoId',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId, pagoId } = req.params;
+
+    try {
+      const r = await db.query(
+        `
+        DELETE FROM pagos_mensuales
+        WHERE id = $1 AND club_id = $2
+        `,
+        [pagoId, clubId]
+      );
+
+      if (!r.rowCount) {
+        return res.status(404).json({ ok: false, error: 'Pago no encontrado' });
+      }
+
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error('❌ delete pago mensual:', e);
+      return res.status(500).json({ ok: false, error: e.message });
     }
   }
 );

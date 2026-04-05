@@ -497,11 +497,22 @@ if (esParcial) {
       const fecha = String(p.fecha_pago || '').slice(0, 10);
 
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><strong>${mesLabel(p.mes)}</strong></td>
-        <td>$ ${Number(p.monto || 0).toFixed(2)}</td>
-        <td>${fecha || '—'}</td>
-      `;
+      const cuenta = (p.cuenta || '—');
+
+tr.innerHTML = `
+  <td><strong>${mesLabel(p.mes)}</strong></td>
+  <td>$ ${Number(p.monto || 0).toFixed(2)}</td>
+  <td>${fecha || '—'}</td>
+  <td>${cuenta}</td>
+  <td style="text-align:right;">
+    <button class="btn btn-secondary btn-sm"
+            data-act="del-pago"
+            data-pago-id="${p.id}"
+            data-socio-id="${socioId}">
+      🗑️
+    </button>
+  </td>
+`;
       $('detTableBody').appendChild(tr);
     });
 
@@ -652,14 +663,15 @@ function getCuentaNombreById(id) {
       tr.className = 'ingreso-detalle hidden';
       tr.dataset.group = key;
       tr.innerHTML = `
-        <td>${fecha}</td>
-        <td><strong>${r.tipo_ingreso || ''}</strong></td>
-        <td>${r.observacion || ''}</td>
-        <td><strong>${moneyARS(r.monto)}</strong></td>
-        <td style="text-align:right;">
-          <button class="btn btn-secondary" data-act="del-ingreso" data-id="${r.id}">🗑️</button>
-        </td>
-      `;
+  <td>${fecha}</td>
+  <td><strong>${r.tipo_ingreso || ''}</strong></td>
+  <td>${r.observacion || ''}</td>
+  <td>${r.cuenta || '—'}</td>
+  <td><strong>${moneyARS(r.monto)}</strong></td>
+  <td style="text-align:right;">
+    <button class="btn btn-secondary" data-act="del-ingreso" data-id="${r.id}">🗑️</button>
+  </td>
+`;
       tbody.appendChild(tr);
     });
   });
@@ -682,6 +694,26 @@ async function deleteIngreso(id) {
   }
 
   await loadIngresos();
+}
+
+async function deletePagoMensual(pagoId, socioId) {
+  const clubId = getActiveClubId();
+  if (!pagoId) return;
+
+  if (!confirm('¿Eliminar esta cuota/pago del mes?')) return;
+
+  const { res, data } = await fetchAuth(`/club/${clubId}/pagos/${pagoId}`, {
+    method: 'DELETE'
+  });
+
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'Error eliminando el pago');
+    return;
+  }
+
+  // refresca modal + tabla resumen
+  await openDetallesModal(socioId);
+  await loadResumen();
 }
 
   async function saveIngreso() {
@@ -960,6 +992,14 @@ $('buscarSocioMini')?.addEventListener('input', (e) => {
 
     $('btnDetClose')?.addEventListener('click', closeDetallesUI);
     $('btnDetOk')?.addEventListener('click', closeDetallesUI);
+// Borrar cuota/pago mensual desde el modal de detalles
+$('detTableBody')?.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button[data-act="del-pago"]');
+  if (!btn) return;
+  const pagoId = btn.dataset.pagoId;
+  const socioId = btn.dataset.socioId;
+  await deletePagoMensual(pagoId, socioId);
+});
     $('modalPagoDetalles')?.addEventListener('click', (ev) => {
       if (ev.target?.id === 'modalPagoDetalles') closeDetallesUI();
     });
