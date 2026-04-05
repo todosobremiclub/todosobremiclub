@@ -1457,6 +1457,145 @@ async function loadIGResp() {
   }
 }
 
+// =============================
+// DETALLE – LISTENERS DE CLICK (POPUP)
+// =============================
+
+// 1) Ranking por Gastos / Ingresos
+function bindRankingDetalleClicks() {
+  const body = $('rankingBody');
+  if (!body || body.dataset.boundDetalle === '1') return;
+  body.dataset.boundDetalle = '1';
+
+  body.addEventListener('click', (ev) => {
+    const tr = ev.target.closest('.row-ranking');
+    if (!tr) return;
+
+    const clubId = getActiveClubId();
+    const { anio, mes } = rankingState;
+    const mesLabel = `${MESES[mes - 1]} ${anio}`;
+
+    // Ingresos por tipo
+    if (tr.dataset.kind === 'ingreso-tipo') {
+      const tipo = decodeURIComponent(tr.dataset.tipo || '');
+      openDetalleModal({
+        title: `Ingresos · ${tipo}`,
+        sub: mesLabel,
+        url: `/club/${clubId}/reportes/ingresos-por-tipo/detalle-mes?anio=${anio}&mes=${mes}&tipo=${encodeURIComponent(tipo)}`,
+        columns: [
+          { key: 'fecha', label: 'Fecha' },
+          { key: 'descripcion', label: 'Descripción' },
+          { key: 'cuenta', label: 'Cuenta' },
+          { key: 'monto', label: 'Monto' }
+        ],
+        moneyKey: 'monto',
+        dateKey: 'fecha'
+      });
+    }
+
+    // Gastos por tipo
+    if (tr.dataset.kind === 'gasto-tipo') {
+      const tipoGasto = decodeURIComponent(tr.dataset.tipo_gasto || '');
+      openDetalleModal({
+        title: `Gastos · ${tipoGasto}`,
+        sub: mesLabel,
+        url: `/club/${clubId}/reportes/gastos-por-tipo/detalle-mes?anio=${anio}&mes=${mes}&tipo_gasto=${encodeURIComponent(tipoGasto)}`,
+        columns: [
+          { key: 'fecha_gasto', label: 'Fecha' },
+          { key: 'descripcion', label: 'Descripción' },
+          { key: 'responsable', label: 'Responsable' },
+          { key: 'monto', label: 'Monto' }
+        ],
+        moneyKey: 'monto',
+        dateKey: 'fecha_gasto'
+      });
+    }
+  });
+}
+
+// 2) Ingresos / Gastos por Responsable
+function bindCuentasDetalleClicks() {
+  const body = $('cuentasBody');
+  if (!body || body.dataset.boundDetalle === '1') return;
+  body.dataset.boundDetalle = '1';
+
+  body.addEventListener('click', (ev) => {
+    const tr = ev.target.closest('.row-cuentas');
+    if (!tr) return;
+
+    const clubId = getActiveClubId();
+    const { anio, mes } = cuentasState;
+    const mesLabel = `${MESES[mes - 1]} ${anio}`;
+
+    if (tr.dataset.kind === 'ingreso-cuenta') {
+      const cuenta = decodeURIComponent(tr.dataset.cuenta || '');
+      openDetalleModal({
+        title: `Ingresos · ${cuenta}`,
+        sub: mesLabel,
+        url: `/club/${clubId}/reportes/ingresos-por-responsable/detalle?anio=${anio}&mes=${mes}&cuenta=${encodeURIComponent(cuenta)}`,
+        columns: [
+          { key: 'fecha', label: 'Fecha' },
+          { key: 'descripcion', label: 'Descripción' },
+          { key: 'origen', label: 'Origen' },
+          { key: 'monto', label: 'Monto' }
+        ],
+        moneyKey: 'monto',
+        dateKey: 'fecha'
+      });
+    }
+
+    if (tr.dataset.kind === 'gasto-responsable') {
+      const responsable = decodeURIComponent(tr.dataset.responsable || '');
+      openDetalleModal({
+        title: `Gastos · ${responsable}`,
+        sub: mesLabel,
+        url: `/club/${clubId}/reportes/gastos-responsable-mes/detalle?anio=${anio}&mes=${mes}&responsable=${encodeURIComponent(responsable)}`,
+        columns: [
+          { key: 'fecha_gasto', label: 'Fecha' },
+          { key: 'descripcion', label: 'Descripción' },
+          { key: 'tipo_gasto', label: 'Tipo' },
+          { key: 'monto', label: 'Monto' }
+        ],
+        moneyKey: 'monto',
+        dateKey: 'fecha_gasto'
+      });
+    }
+  });
+}
+
+// 3) Ingresos vs Gastos por Responsable
+function bindIGRespDetalleClicks() {
+  const body = $('igRespBody');
+  if (!body || body.dataset.boundDetalle === '1') return;
+  body.dataset.boundDetalle = '1';
+
+  body.addEventListener('click', (ev) => {
+    const cell = ev.target.closest('.cell-igresp');
+    if (!cell) return;
+
+    const tr = ev.target.closest('.row-igresp');
+    if (!tr) return;
+
+    const clubId = getActiveClubId();
+    const { anio, mes } = igRespState;
+    const responsable = decodeURIComponent(tr.dataset.responsable || '');
+    const tipo = cell.dataset.click; // ingresos | gastos
+    const mesLabel = `${MESES[mes - 1]} ${anio}`;
+
+    openDetalleModal({
+      title: `${tipo === 'ingresos' ? 'Ingresos' : 'Gastos'} · ${responsable}`,
+      sub: mesLabel,
+      url: `/club/${clubId}/reportes/ingresos-vs-gastos-por-responsable/detalle?anio=${anio}&mes=${mes}&responsable=${encodeURIComponent(responsable)}&tipo=${tipo}`,
+      columns: [
+        { key: 'fecha', label: 'Fecha' },
+        { key: 'descripcion', label: 'Descripción' },
+        { key: 'monto', label: 'Monto' }
+      ],
+      moneyKey: 'monto',
+      dateKey: 'fecha'
+    });
+  });
+}
 
  // =============================
 // INIT DASHBOARD
@@ -1553,30 +1692,35 @@ async function initReportesSection() {
     });
   }
 
+  // carga inicial ranking
   loadRanking();
+  bindRankingDetalleClicks();
 
-// =============================
-// FILA 2 CENTRO – INGRESOS VS GASTOS POR RESPONSABLE
-// =============================
-const btnIGRespPrev = $('btnIGRespMesPrev');
-const btnIGRespNext = $('btnIGRespMesNext');
 
-if (btnIGRespPrev) {
-  btnIGRespPrev.addEventListener('click', () => {
-    igRespState.mes = igRespState.mes === 1 ? 12 : igRespState.mes - 1;
-    loadIGResp();
-  });
-}
+  // =============================
+  // FILA 2 CENTRO – INGRESOS VS GASTOS POR RESPONSABLE
+  // =============================
+  const btnIGRespPrev = $('btnIGRespMesPrev');
+  const btnIGRespNext = $('btnIGRespMesNext');
 
-if (btnIGRespNext) {
-  btnIGRespNext.addEventListener('click', () => {
-    igRespState.mes = igRespState.mes === 12 ? 1 : igRespState.mes + 1;
-    loadIGResp();
-  });
-}
+  if (btnIGRespPrev) {
+    btnIGRespPrev.addEventListener('click', () => {
+      igRespState.mes = igRespState.mes === 1 ? 12 : igRespState.mes - 1;
+      loadIGResp();
+    });
+  }
 
-// carga inicial
-loadIGResp();
+  if (btnIGRespNext) {
+    btnIGRespNext.addEventListener('click', () => {
+      igRespState.mes = igRespState.mes === 12 ? 1 : igRespState.mes + 1;
+      loadIGResp();
+    });
+  }
+
+  // carga inicial IG por responsable
+  loadIGResp();
+  bindIGRespDetalleClicks();
+
 
   // =============================
   // ABAJO DERECHA – CUENTAS
@@ -1598,7 +1742,9 @@ loadIGResp();
     });
   }
 
+  // carga inicial cuentas
   loadCuentas();
+  bindCuentasDetalleClicks();
 }
 
 window.initReportesSection = initReportesSection;
