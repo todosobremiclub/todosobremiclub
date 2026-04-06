@@ -1779,7 +1779,20 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
     function showBulkLog(data) {
       const modal = document.getElementById('modalBulkLog');
       const body = document.getElementById('bulkLogBody');
-      if (!modal || !body) return;
+      if (!modal || !body) {
+  const ok = Number(data.insertedCount || 0);
+  const err = Number(data.errorCount || 0);
+  if (err === 0) {
+    alert(`✅ Carga masiva OK. Insertados: ${ok}.`);
+  } else {
+    const first = (data.errors || []).slice(0, 5)
+      .map(e => `• DNI ${e.dni || '-'} (fila ${e.row || '-'}) - ${e.error || ''}`)
+      .join('\n');
+    alert(`⚠️ Carga masiva con errores.\nInsertados: ${ok}\nErrores: ${err}\n\nPrimeros errores:\n${first}`);
+  }
+  return;
+}
+
 
       const ok = Number(data.insertedCount || 0);
       const err = Number(data.errorCount || 0);
@@ -1791,37 +1804,44 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
       `;
       const rows = data.errors || [];
       if (!rows.length) {
-        html += `<div class="muted" style="margin-top:10px;">Sin errores.</div>`;
-      } else {
-        html += `
-          <div style="margin-top:10px;">
-            <table class="socios-table" style="background:#fff;">
-              <thead>
-                <tr>
-                  <th>Fila</th>
-                  <th>DNI</th>
-                  <th>N° socio</th>
-                  <th>Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows
-                  .map(
-                    (r) => `
-                  <tr>
-                    <td>${r.row ?? '-'}</td>
-                    <td>${r.dni ?? '-'}</td>
-                    <td>${r.numero_socio ?? '-'}</td>
-                    <td>${r.error ?? '-'}</td>
-                  </tr>
-                `
-                  )
-                  .join('')}
-              </tbody>
-            </table>
-          </div>
-        `;
-      }
+  html += `
+    <div style="margin-top:10px; padding:10px; border-radius:10px;
+                background:#ecfdf5; border:1px solid #10b981; color:#065f46;">
+      ✅ <b>Todo subió OK.</b> No se detectaron errores.
+    </div>
+  `;
+} else {
+  html += `
+    <div style="margin-top:10px; padding:10px; border-radius:10px;
+                background:#fffbeb; border:1px solid #f59e0b; color:#92400e;">
+      ⚠️ <b>Algunos socios no se pudieron subir.</b> Revisá el detalle:
+    </div>
+  `;
+  html += `
+    <div style="margin-top:10px;">
+      <table class="socios-table" style="background:#fff;">
+        <thead>
+          <tr>
+            <th>Fila</th>
+            <th>DNI</th>
+            <th>N° socio</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r) => `
+            <tr>
+              <td>${r.row ?? '-'}</td>
+              <td>${r.dni ?? '-'}</td>
+              <td>${r.numero_socio ?? '-'}</td>
+              <td>${r.error ?? '-'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
 
       body.innerHTML = html;
       modal.classList.remove('hidden');
