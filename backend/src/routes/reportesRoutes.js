@@ -4,6 +4,60 @@ const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const router = express.Router();
 
+// ===== EXPORT HELPERS =====
+const PDFDocument = require('pdfkit');
+const ExcelJS = require('exceljs');
+
+function sendPDF(res, title, columns, rows) {
+  const doc = new PDFDocument({ margin: 40, size: 'A4' });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${title}.pdf"`
+  );
+
+  doc.pipe(res);
+
+  doc.fontSize(16).text(title, { align: 'center' });
+  doc.moveDown();
+
+  doc.fontSize(10);
+  rows.forEach(row => {
+    columns.forEach(col => {
+      doc.text(`${col.label}: ${row[col.key] ?? ''}`);
+    });
+    doc.moveDown(0.5);
+  });
+
+  doc.end();
+}
+
+async function sendExcel(res, title, columns, rows) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Reporte');
+
+  ws.columns = columns.map(c => ({
+    header: c.label,
+    key: c.key,
+    width: 25
+  }));
+
+  rows.forEach(r => ws.addRow(r));
+
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${title}.xlsx"`
+  );
+
+  await wb.xlsx.write(res);
+  res.end();
+}
+
 // ===============================
 // Helper: validar acceso al club
 // ===============================
@@ -755,6 +809,105 @@ router.get(
     }
   }
 );
+
+async function getIngresosPorTipo(clubId, { desde, hasta }) {
+  const where = ['pm.club_id = $1'];
+  const params = [clubId];
+  let p = 2;
+
+  if (desde) {
+    where.push(`pm.fecha_pago >= $${p++}`);
+    params.push(desde);
+  }
+  if (hasta) {
+    where.push(`pm.fecha_pago <= $${p++}`);
+    params.push(hasta);
+  }
+
+  const q = `
+    WITH cuotas AS (
+      SELECT
+        'Cuotas'::text AS tipo,
+        SUM(pm.monto) AS total
+      FROM pagos_mensuales pm
+      WHERE ${where.join(' AND ')}
+      GROUP BY tipo
+    ),
+    otros AS (
+      SELECT
+        COALESCE(ti.nombre, 'Otros') AS tipo,
+        SUM(ig.monto) AS total
+      FROM ingresos_generales ig
+      LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+      WHERE ig.club_id = $1
+        AND ig.activo = true
+        ${desde ? `AND ig.fecha >= $${p++}` : ''}
+        ${hasta ? `AND ig.fecha <= $${p++}` : ''}
+      GROUP BY tipo
+    ),
+    unidos AS (
+      SELECT * FROM cuotas
+      UNION ALL
+      SELECT * FROM otros
+    )
+    SELECT tipo, SUM(total) AS total
+    FROM unidos
+    GROUP BY tipo
+    ORDER BY tipo;
+  `;
+
+  const r = await db.query(q, params);
+  return r.rows;
+}
+
+// ============================================================
+// EXPORT: Ingresos por Tipo (RANGO DE FECHAS)
+// ============================================================
+
+// PDF
+router.get(
+  '/:clubId/reportes/ingresos-por-tipo/export/pdf',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+
+    const rows = await getIngresosPorTipo(clubId, req.query);
+
+    sendPDF(
+      res,
+      'Ingresos_por_Tipo',
+      [
+        { key: 'tipo', label: 'Tipo' },
+        { key: 'total', label: 'Total (ARS)' }
+      ],
+      rows
+    );
+  }
+);
+
+// EXCEL
+router.get(
+  '/:clubId/reportes/ingresos-por-tipo/export/excel',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+
+    const rows = await getIngresosPorTipo(clubId, req.query);
+
+    await sendExcel(
+      res,
+      'Ingresos_por_Tipo',
+      [
+        { key: 'tipo', label: 'Tipo' },
+        { key: 'total', label: 'Total (ARS)' }
+      ],
+      rows
+    );
+  }
+);
+
 
 // ===============================
 // Ingresos por Tipo de ingreso (vista por AÑO)
