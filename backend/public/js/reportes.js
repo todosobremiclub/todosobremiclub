@@ -1786,7 +1786,7 @@ async function initReportesSection() {
 // ===============================
 // EXPORTACIÓN – INGRESOS POR TIPO
 // ===============================
-function exportIngresosTipo(formato) {
+window.exportIngresosTipo = function (formato) {
   const desde = document.getElementById('exportDesde')?.value;
   const hasta = document.getElementById('exportHasta')?.value;
 
@@ -1799,7 +1799,8 @@ function exportIngresosTipo(formato) {
     params.toString();
 
   window.open(url, '_blank');
-}
+};
+
 
   // =============================
   // ABAJO DERECHA – CUENTAS
