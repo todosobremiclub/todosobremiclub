@@ -1783,7 +1783,23 @@ async function initReportesSection() {
   // carga inicial IG por responsable
   loadIGResp();
   bindIGRespDetalleClicks();
+// ===============================
+// EXPORTACIÓN – INGRESOS POR TIPO
+// ===============================
+function exportIngresosTipo(formato) {
+  const desde = document.getElementById('exportDesde')?.value;
+  const hasta = document.getElementById('exportHasta')?.value;
 
+  const params = new URLSearchParams();
+  if (desde) params.set('desde', desde);
+  if (hasta) params.set('hasta', hasta);
+
+  const url =
+    `/club/${clubId}/reportes/ingresos-por-tipo/export/${formato}?` +
+    params.toString();
+
+  window.open(url, '_blank');
+}
 
   // =============================
   // ABAJO DERECHA – CUENTAS
