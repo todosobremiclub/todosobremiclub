@@ -5,36 +5,6 @@
     Resumen visual de socios, morosidad e ingresos vs gastos. Todo en una sola vista.
   </div>
 
-<!-- =============================
-     EXPORTACIÓN – INGRESOS POR TIPO
-     ============================= -->
-<div class="report-export-bar">
-
-  <div class="export-filters">
-    <label>
-      Desde
-      <input type="date" id="exportDesde">
-    </label>
-
-    <label>
-      Hasta
-      <input type="date" id="exportHasta">
-    </label>
-  </div>
-
-  <div class="export-actions">
-    <button class="btn btn-secondary"
-            onclick="exportIngresosTipo('pdf')">
-      📄 Descargar PDF
-    </button>
-
-    <button class="btn btn-secondary"
-            onclick="exportIngresosTipo('excel')">
-      📊 Descargar Excel
-    </button>
-  </div>
-
-</div>
 
   <!-- ===============================
        GRID PRINCIPAL (3 COLUMNAS)
@@ -50,6 +20,16 @@
             Distribución de socios activos por actividad.
           </div>
         </div>
+
+<button class="btn btn-secondary btn-xs"
+        onclick="openExportModal({
+          title: 'Socios por Actividad / Categoría',
+          endpoint: 'socios-actividad-categoria',
+          extraKey: 'sociosActCat'
+        })">
+  📄 Exportar
+</button>
+
         <button id="btnActividadesReset" class="btn btn-secondary btn-xs hidden">
           ← Ver actividades
         </button>
@@ -188,13 +168,6 @@
     <div class="detail-card" id="card-ranking">
       <h3 class="detail-title">Ranking por Gastos / Ingresos</h3>
 
-<button class="btn btn-secondary btn-xs"
-        onclick="openExportModal({
-          title: 'Ingresos por Tipo',
-          endpoint: 'ingresos-por-tipo'
-        })">
-  📄 Exportar
-</button>
 
       <div class="ranking-toolbar">
         <button id="btnRankMesPrev" class="btn-nav-sm">◀</button>
@@ -316,32 +289,47 @@
     </div>
 
     <div class="muted small" id="exportModalSub" style="margin-top:4px;">
-      Seleccioná rango de fechas y formato
-    </div>
+  Seleccioná período (Mes o Año) y formato
+</div>
 
-    <div style="margin-top:14px; display:flex; gap:10px;">
-      <label style="flex:1;">
-        Desde
-        <input type="date" id="exportModalDesde" style="width:100%;">
-      </label>
+<div style="margin-top:14px; display:flex; gap:10px; align-items:flex-end;">
+  <label style="flex:1;">
+    Período
+    <select id="exportModalPeriodo" style="width:100%;">
+      <option value="mes">Mes</option>
+      <option value="anio">Año</option>
+    </select>
+  </label>
 
-      <label style="flex:1;">
-        Hasta
-        <input type="date" id="exportModalHasta" style="width:100%;">
-      </label>
-    </div>
+  <label style="flex:1;">
+    Año
+    <select id="exportModalAnio" style="width:100%;"></select>
+  </label>
 
-    <div style="margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
-      <button class="btn btn-secondary"
-              onclick="confirmExport('pdf')">
-        📄 PDF
-      </button>
+  <label style="flex:1;">
+    Mes
+    <select id="exportModalMes" style="width:100%;">
+      <option value="1">Enero</option>
+      <option value="2">Febrero</option>
+      <option value="3">Marzo</option>
+      <option value="4">Abril</option>
+      <option value="5">Mayo</option>
+      <option value="6">Junio</option>
+      <option value="7">Julio</option>
+      <option value="8">Agosto</option>
+      <option value="9">Septiembre</option>
+      <option value="10">Octubre</option>
+      <option value="11">Noviembre</option>
+      <option value="12">Diciembre</option>
+    </select>
+  </label>
+</div>
 
-      <button class="btn btn-secondary"
-              onclick="confirmExport('excel')">
-        📊 Excel
-      </button>
-    </div>
+<div style="margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
+  <button class="btn btn-secondary" onclick="confirmExport('pdf')">📄 PDF</button>
+  <button class="btn btn-secondary" onclick="confirmExport('excel')">📊 Excel</button>
+</div>
+
 
   </div>
 </div>
@@ -650,43 +638,6 @@
 #card-ig-responsable .col-gas  { width: 20%; }
 #card-ig-responsable .col-res  { width: 25%; }
 
-/* =============================
-   BARRA EXPORTACIÓN REPORTES
-   ============================= */
-
-.report-export-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 18px;
-  padding: 10px 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-}
-
-.export-filters {
-  display: flex;
-  gap: 10px;
-}
-
-.export-filters label {
-  display: flex;
-  flex-direction: column;
-  font-size: 12px;
-  color: #374151;
-}
-
-.export-filters input[type="date"] {
-  font-size: 12px;
-  padding: 4px 6px;
-}
-
-.export-actions {
-  display: flex;
-  gap: 8px;
-}
 
 
 </style>

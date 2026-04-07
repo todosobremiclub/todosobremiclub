@@ -138,16 +138,6 @@ const igRespState = {
 // ===============================
 // DESCARGA CON TOKEN (PDF / EXCEL)
 // ===============================
-function getToken() {
-  const t = localStorage.getItem('token');
-  if (!t) {
-    alert('Tu sesión expiró. Iniciá sesión nuevamente.');
-    window.location.href = '/admin.html';
-    throw new Error('No token');
-  }
-  return t;
-}
-
 function getActiveClubIdSafe() {
   const c = localStorage.getItem('activeClubId');
   if (!c) {
@@ -1720,14 +1710,54 @@ function bindIGRespDetalleClicks() {
 }
 
 // ===============================
-// MODAL EXPORTACIÓN REPORTES (GLOBAL)
+// MODAL EXPORTACIÓN REPORTES (AÑO / MES)
 // ===============================
 let exportConfig = null;
 
-window.openExportModal = function ({ title, endpoint }) {
-  exportConfig = { title, endpoint };
+// Para exportar el estado ACTUAL del reporte de actividades/categorías
+function exportExtraSociosActCat() {
+  return {
+    modo: actividadesState.modo || 'actividades', // 'actividades' | 'categorias'
+    actividad: actividadesState.actividadSeleccionada || ''
+  };
+}
+
+window.openExportModal = function ({ title, endpoint, extraKey = null }) {
+  exportConfig = { title, endpoint, extraKey };
+
+  // título
   const t = document.getElementById('exportModalTitle');
   if (t) t.textContent = `Exportar – ${title}`;
+
+  // llenar año (actual y últimos 6)
+  const anioSel = document.getElementById('exportModalAnio');
+  if (anioSel) {
+    anioSel.innerHTML = '';
+    const y0 = new Date().getFullYear();
+    for (let y = y0; y >= y0 - 6; y--) {
+      const opt = document.createElement('option');
+      opt.value = String(y);
+      opt.textContent = String(y);
+      anioSel.appendChild(opt);
+    }
+    anioSel.value = String(y0);
+  }
+
+  // set mes actual
+  const mesSel = document.getElementById('exportModalMes');
+  if (mesSel) mesSel.value = String(new Date().getMonth() + 1);
+
+  // Periodo: mes|anio y habilitar/deshabilitar selector mes
+  const periodoSel = document.getElementById('exportModalPeriodo');
+  const applyPeriodoUI = () => {
+    const isAnio = (periodoSel?.value === 'anio');
+    if (mesSel) mesSel.disabled = isAnio;
+  };
+  if (periodoSel) {
+    periodoSel.onchange = applyPeriodoUI;
+    applyPeriodoUI();
+  }
+
   document.getElementById('exportModal')?.classList.remove('hidden');
 };
 
@@ -1739,28 +1769,50 @@ window.closeExportModal = function () {
 window.confirmExport = async function (format) {
   if (!exportConfig) return;
 
-  const clubId = localStorage.getItem('activeClubId');
-  if (!clubId) return alert('No hay club activo.');
+  // club activo
+  const clubId = getActiveClubId();
 
-  const desde = document.getElementById('exportModalDesde')?.value;
-  const hasta = document.getElementById('exportModalHasta')?.value;
+  // periodo elegido
+  const periodo = document.getElementById('exportModalPeriodo')?.value || 'mes';
+  const anio = Number(document.getElementById('exportModalAnio')?.value);
+  const mes = Number(document.getElementById('exportModalMes')?.value);
 
+  if (!anio) return alert('Seleccioná un año válido.');
+  if (periodo === 'mes' && (!mes || mes < 1 || mes > 12)) {
+    return alert('Seleccioná un mes válido.');
+  }
+
+  // armar querystring (solo anio o anio+mes)
   const params = new URLSearchParams();
-  if (desde) params.set('desde', desde);
-  if (hasta) params.set('hasta', hasta);
+  params.set('anio', String(anio));
+  if (periodo === 'mes') params.set('mes', String(mes));
 
+  // extras por reporte (solo implementamos Socios/Actividad-Categoría ahora)
+  if (exportConfig.extraKey === 'sociosActCat') {
+    const extra = exportExtraSociosActCat();
+    if (extra.modo) params.set('modo', extra.modo);
+    if (extra.modo === 'categorias' && extra.actividad) {
+      params.set('actividad', extra.actividad);
+    }
+  }
+
+  // url final
   const url =
-    `/club/${clubId}/reportes/${exportConfig.endpoint}/export/${format}` +
-    (params.toString() ? `?${params.toString()}` : '');
+    `/club/${clubId}/reportes/${exportConfig.endpoint}/export/${format}?` +
+    params.toString();
+
+  // nombre archivo
+  const periodoLabel = (periodo === 'mes')
+    ? `${anio}-${String(mes).padStart(2, '0')}`
+    : String(anio);
 
   await downloadWithToken({
     url,
-    filename: `${exportConfig.title.replace(/\s+/g, '_')}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
+    filename: `${exportConfig.title.replace(/\s+/g, '_')}_${periodoLabel}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
   });
 
   window.closeExportModal();
 };
-
 
  // =============================
 // INIT DASHBOARD

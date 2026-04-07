@@ -162,6 +162,131 @@ router.get('/:clubId/reportes/socios-actividad-categoria/detalle', requireAuth, 
   }
 });
 
+// ============================================================
+// EXPORT: Socios por Actividad / Categoría (MES o AÑO)
+// Endpoints:
+//  - /club/:clubId/reportes/socios-actividad-categoria/export/pdf?anio=2026&mes=4&modo=actividades
+//  - /club/:clubId/reportes/socios-actividad-categoria/export/excel?anio=2026&modo=categorias&actividad=Futbol
+// Parámetros:
+//  - anio (obligatorio)
+//  - mes  (opcional: si viene => exporta por mes; si no => por año)
+//  - modo = "actividades" | "categorias"  (opcional; default "actividades")
+//  - actividad (solo si modo="categorias")
+// ============================================================
+
+function endOfPeriodISO(anio, mes) {
+  const y = Number(anio);
+  if (!y || y < 2000 || y > 2100) return null;
+
+  if (mes) {
+    const m = Number(mes);
+    if (!m || m < 1 || m > 12) return null;
+    const lastDay = new Date(y, m, 0); // último día del mes
+    return lastDay.toISOString().slice(0, 10);
+  }
+
+  return `${y}-12-31`; // fin de año
+}
+
+async function getSociosActCatExportData(clubId, q) {
+  const { anio, mes, modo = 'actividades', actividad = '' } = q;
+  const cutoff = endOfPeriodISO(anio, mes);
+  if (!cutoff) throw new Error('Parámetros inválidos: anio obligatorio y mes opcional (1-12)');
+
+  const periodoLabel = mes
+    ? `${anio}-${String(mes).padStart(2, '0')}`
+    : String(anio);
+
+  // 📌 Si modo = categorias, devolvemos categorías dentro de UNA actividad
+  if (String(modo).toLowerCase() === 'categorias') {
+    const act = String(actividad || '').trim();
+    const actFinal = act || 'Sin actividad';
+
+    const r = await db.query(
+      `
+      SELECT
+        COALESCE(categoria, 'Sin categoría') AS categoria,
+        COUNT(*)::int AS cantidad
+      FROM socios
+      WHERE club_id = $1
+        AND activo = true
+        AND (fecha_ingreso IS NULL OR fecha_ingreso::date <= $2::date)
+        AND COALESCE(actividad, 'Sin actividad') = $3
+      GROUP BY categoria
+      ORDER BY categoria
+      `,
+      [clubId, cutoff, actFinal]
+    );
+
+    return {
+      title: `Socios por Categoría (${actFinal}) ${periodoLabel}`,
+      columns: [
+        { key: 'categoria', label: 'Categoría' },
+        { key: 'cantidad', label: 'Cantidad' }
+      ],
+      rows: r.rows
+    };
+  }
+
+  // 📌 Default: modo = actividades
+  const r = await db.query(
+    `
+    SELECT
+      COALESCE(actividad, 'Sin actividad') AS actividad,
+      COUNT(*)::int AS cantidad
+    FROM socios
+    WHERE club_id = $1
+      AND activo = true
+      AND (fecha_ingreso IS NULL OR fecha_ingreso::date <= $2::date)
+    GROUP BY actividad
+    ORDER BY actividad
+    `,
+    [clubId, cutoff]
+  );
+
+  return {
+    title: `Socios por Actividad ${periodoLabel}`,
+    columns: [
+      { key: 'actividad', label: 'Actividad' },
+      { key: 'cantidad', label: 'Cantidad' }
+    ],
+    rows: r.rows
+  };
+}
+
+// PDF
+router.get(
+  '/:clubId/reportes/socios-actividad-categoria/export/pdf',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    try {
+      const { clubId } = req.params;
+      const data = await getSociosActCatExportData(clubId, req.query);
+      sendPDF(res, data.title, data.columns, data.rows);
+    } catch (e) {
+      console.error('❌ export pdf socios-actividad-categoria', e);
+      res.status(400).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// EXCEL
+router.get(
+  '/:clubId/reportes/socios-actividad-categoria/export/excel',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    try {
+      const { clubId } = req.params;
+      const data = await getSociosActCatExportData(clubId, req.query);
+      await sendExcel(res, data.title, data.columns, data.rows);
+    } catch (e) {
+      console.error('❌ export excel socios-actividad-categoria', e);
+      res.status(400).json({ ok: false, error: e.message });
+    }
+  }
+);
 
 // ===============================
 // 2) Socios nuevos x fecha de ingreso x AÑO
