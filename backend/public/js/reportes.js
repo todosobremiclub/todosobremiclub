@@ -1719,6 +1719,49 @@ function bindIGRespDetalleClicks() {
   });
 }
 
+// ===============================
+// MODAL EXPORTACIÓN REPORTES (GLOBAL)
+// ===============================
+let exportConfig = null;
+
+window.openExportModal = function ({ title, endpoint }) {
+  exportConfig = { title, endpoint };
+  const t = document.getElementById('exportModalTitle');
+  if (t) t.textContent = `Exportar – ${title}`;
+  document.getElementById('exportModal')?.classList.remove('hidden');
+};
+
+window.closeExportModal = function () {
+  document.getElementById('exportModal')?.classList.add('hidden');
+  exportConfig = null;
+};
+
+window.confirmExport = async function (format) {
+  if (!exportConfig) return;
+
+  const clubId = localStorage.getItem('activeClubId');
+  if (!clubId) return alert('No hay club activo.');
+
+  const desde = document.getElementById('exportModalDesde')?.value;
+  const hasta = document.getElementById('exportModalHasta')?.value;
+
+  const params = new URLSearchParams();
+  if (desde) params.set('desde', desde);
+  if (hasta) params.set('hasta', hasta);
+
+  const url =
+    `/club/${clubId}/reportes/${exportConfig.endpoint}/export/${format}` +
+    (params.toString() ? `?${params.toString()}` : '');
+
+  await downloadWithToken({
+    url,
+    filename: `${exportConfig.title.replace(/\s+/g, '_')}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
+  });
+
+  window.closeExportModal();
+};
+
+
  // =============================
 // INIT DASHBOARD
 // =============================
@@ -1842,76 +1885,7 @@ async function initReportesSection() {
   // carga inicial IG por responsable
   loadIGResp();
   bindIGRespDetalleClicks();
-// ===============================
-// EXPORTACIÓN – INGRESOS POR TIPO
-// ===============================
-window.exportIngresosTipo = async function (formato) {
-  const clubId = getActiveClubIdSafe();
 
-  const desde = document.getElementById('exportDesde')?.value;
-  const hasta = document.getElementById('exportHasta')?.value;
-
-  const params = new URLSearchParams();
-  if (desde) params.set('desde', desde);
-  if (hasta) params.set('hasta', hasta);
-
-  const url =
-    `/club/${clubId}/reportes/ingresos-por-tipo/export/${formato}` +
-    (params.toString() ? `?${params.toString()}` : '');
-
-  const ext = (formato === 'pdf') ? 'pdf' : 'xlsx';
-  const filename = `Ingresos_por_Tipo_${clubId}.${ext}`;
-
-  await downloadWithToken({ url, filename });
-};
-
-// ===============================
-// MODAL EXPORTACIÓN REPORTES
-// ===============================
-
-let exportConfig = null;
-
-window.openExportModal = function ({ title, endpoint }) {
-  exportConfig = { title, endpoint };
-
-  document.getElementById('exportModalTitle').textContent =
-    `Exportar – ${title}`;
-
-  document.getElementById('exportModal').classList.remove('hidden');
-};
-
-window.closeExportModal = function () {
-  document.getElementById('exportModal').classList.add('hidden');
-  exportConfig = null;
-};
-
-window.confirmExport = async function (format) {
-  if (!exportConfig) return;
-
-  const clubId = localStorage.getItem('activeClubId');
-  if (!clubId) {
-    alert('No hay club activo.');
-    return;
-  }
-
-  const desde = document.getElementById('exportModalDesde').value;
-  const hasta = document.getElementById('exportModalHasta').value;
-
-  const params = new URLSearchParams();
-  if (desde) params.set('desde', desde);
-  if (hasta) params.set('hasta', hasta);
-
-  const url =
-    `/club/${clubId}/reportes/${exportConfig.endpoint}/export/${format}` +
-    (params.toString() ? `?${params.toString()}` : '');
-
-  await downloadWithToken({
-    url,
-    filename: `${exportConfig.title.replace(/\s+/g, '_')}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
-  });
-
-  closeExportModal();
-};
 
 
 
