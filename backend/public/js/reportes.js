@@ -1741,7 +1741,7 @@ window.openExportModal = function ({ title, endpoint, extraKey = null }) {
   // ✅ fuerza selección visible
   anioSel.selectedIndex = 0;
   anioSel.value = String(y0);
-  }
+
 
   // set mes actual
   const mesSel = document.getElementById('exportModalMes');
@@ -1771,6 +1771,8 @@ window.confirmExport = async function (format) {
 
   // club activo
   const clubId = getActiveClubId();
+
+const periodo = document.getElementById('exportModalPeriodo')?.value || 'mes';
 
   // periodo elegido
   const anioEl = document.getElementById('exportModalAnio');
