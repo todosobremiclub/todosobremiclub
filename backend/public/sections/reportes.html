@@ -53,12 +53,21 @@
           </div>
         </div>
 
-        <div class="card-toolbar">
-          <button id="btnImpagosPrev" class="btn-nav">◀</button>
-          <span id="impagosMesLabel" class="nav-label">Mes actual</span>
-          <button id="btnImpagosNext" class="btn-nav">▶</button>
-        </div>
-      </div>
+        <div class="card-toolbar" style="gap:6px;">
+  <button id="btnImpagosPrev" class="btn-nav">◀</button>
+  <span id="impagosMesLabel" class="nav-label">Mes actual</span>
+  <button id="btnImpagosNext" class="btn-nav">▶</button>
+
+  <!-- Exportar impagos (icono chico) -->
+  <button class="btn-export-icon"
+          title="Exportar cuotas impagas"
+          onclick="openExportModal({
+            title: 'Cuotas impagas',
+            endpoint: 'impagos-mes'
+          })">
+    ⬇
+  </button>
+</div>
 
       <div class="card-body">
         <div class="impagos-top">
@@ -637,6 +646,22 @@
 #card-ig-responsable .col-ing  { width: 20%; }
 #card-ig-responsable .col-gas  { width: 20%; }
 #card-ig-responsable .col-res  { width: 25%; }
+
+/* Botón exportar mini (icono) */
+.btn-export-icon {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.btn-export-icon:hover {
+  background: #f3f4f6;
+}
+
 
 
 

@@ -1721,6 +1721,19 @@ window.openExportModal = function ({ title, endpoint, extraKey = null }) {
   const t = document.getElementById('exportModalTitle');
   if (t) t.textContent = `Exportar – ${title}`;
 
+// ✅ Caso especial: Cuotas impagas → usar mes actualmente seleccionado
+  if (endpoint === 'impagos-mes' && impagosState.rows.length) {
+    const sel = impagosState.rows[impagosState.currentIndex];
+
+    const periodoSel = document.getElementById('exportModalPeriodo');
+    const anioSel = document.getElementById('exportModalAnio');
+    const mesSel  = document.getElementById('exportModalMes');
+
+    if (periodoSel) periodoSel.value = 'mes';
+    if (anioSel) anioSel.value = String(sel.anio);
+    if (mesSel)  mesSel.value  = String(sel.mes_num);
+  }
+
   // llenar año (actual y últimos 6) ✅ y dejar SIEMPRE un valor seleccionado
   const anioSel = document.getElementById('exportModalAnio');
   if (!anioSel) {
