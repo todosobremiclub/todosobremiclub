@@ -920,7 +920,7 @@ router.get(
     const mes  = Number(req.query.mes);
 
     
-f (!anio) {
+if (!anio) {
       return res.status(400).json({
         ok: false,
         error: 'anio es obligatorio'
