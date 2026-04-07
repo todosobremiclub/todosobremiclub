@@ -138,14 +138,6 @@ const igRespState = {
 // ===============================
 // DESCARGA CON TOKEN (PDF / EXCEL)
 // ===============================
-function getActiveClubIdSafe() {
-  const c = localStorage.getItem('activeClubId');
-  if (!c) {
-    alert('No hay club activo seleccionado.');
-    throw new Error('No activeClubId');
-  }
-  return c;
-}
 
 async function downloadWithToken({ url, filename }) {
   const res = await fetch(url, {
@@ -1729,18 +1721,26 @@ window.openExportModal = function ({ title, endpoint, extraKey = null }) {
   const t = document.getElementById('exportModalTitle');
   if (t) t.textContent = `Exportar – ${title}`;
 
-  // llenar año (actual y últimos 6)
+  // llenar año (actual y últimos 6) ✅ y dejar SIEMPRE un valor seleccionado
   const anioSel = document.getElementById('exportModalAnio');
-  if (anioSel) {
-    anioSel.innerHTML = '';
-    const y0 = new Date().getFullYear();
-    for (let y = y0; y >= y0 - 6; y--) {
-      const opt = document.createElement('option');
-      opt.value = String(y);
-      opt.textContent = String(y);
-      anioSel.appendChild(opt);
-    }
-    anioSel.value = String(y0);
+  if (!anioSel) {
+    alert('Falta el selector de Año (exportModalAnio) en el HTML.');
+    return;
+  }
+
+  anioSel.innerHTML = '';
+  const y0 = new Date().getFullYear();
+
+  for (let y = y0; y >= y0 - 6; y--) {
+    const opt = document.createElement('option');
+    opt.value = String(y);
+    opt.textContent = String(y);
+    anioSel.appendChild(opt);
+  }
+
+  // ✅ fuerza selección visible
+  anioSel.selectedIndex = 0;
+  anioSel.value = String(y0);
   }
 
   // set mes actual
@@ -1773,14 +1773,27 @@ window.confirmExport = async function (format) {
   const clubId = getActiveClubId();
 
   // periodo elegido
-  const periodo = document.getElementById('exportModalPeriodo')?.value || 'mes';
-  const anio = Number(document.getElementById('exportModalAnio')?.value);
-  const mes = Number(document.getElementById('exportModalMes')?.value);
+  const anioEl = document.getElementById('exportModalAnio');
+  const mesEl  = document.getElementById('exportModalMes');
 
-  if (!anio) return alert('Seleccioná un año válido.');
-  if (periodo === 'mes' && (!mes || mes < 1 || mes > 12)) {
-    return alert('Seleccioná un mes válido.');
+  const anioStr = anioEl ? String(anioEl.value || '') : '';
+  const mesStr  = mesEl  ? String(mesEl.value  || '') : '';
+
+  const anio = Number(anioStr);
+  const mes  = Number(mesStr);
+
+  if (!anioStr || Number.isNaN(anio) || anio < 2000 || anio > 2100) {
+    alert('Seleccioná un año válido.');
+    return;
   }
+
+  if (periodo === 'mes') {
+    if (!mesStr || Number.isNaN(mes) || mes < 1 || mes > 12) {
+      alert('Seleccioná un mes válido.');
+      return;
+    }
+  }
+
 
   // armar querystring (solo anio o anio+mes)
   const params = new URLSearchParams();
@@ -1805,6 +1818,8 @@ window.confirmExport = async function (format) {
   const periodoLabel = (periodo === 'mes')
     ? `${anio}-${String(mes).padStart(2, '0')}`
     : String(anio);
+
+console.log('[EXPORT]', url);
 
   await downloadWithToken({
     url,
