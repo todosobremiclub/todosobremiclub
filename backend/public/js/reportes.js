@@ -159,9 +159,12 @@ function getActiveClubIdSafe() {
 
 async function downloadWithToken({ url, filename }) {
   const res = await fetch(url, {
-    method: 'GET',
-    headers: { Authorization: 'Bearer ' + getToken() }
-  });
+  method: 'GET',
+  headers: {
+    Authorization: 'Bearer ' + getToken(),
+    Accept: 'application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  }
+});
 
   // Si vuelve JSON de error (ej Token requerido), lo mostramos claro
   const ct = res.headers.get('content-type') || '';
@@ -1861,6 +1864,55 @@ window.exportIngresosTipo = async function (formato) {
 
   await downloadWithToken({ url, filename });
 };
+
+// ===============================
+// MODAL EXPORTACIÓN REPORTES
+// ===============================
+
+let exportConfig = null;
+
+window.openExportModal = function ({ title, endpoint }) {
+  exportConfig = { title, endpoint };
+
+  document.getElementById('exportModalTitle').textContent =
+    `Exportar – ${title}`;
+
+  document.getElementById('exportModal').classList.remove('hidden');
+};
+
+window.closeExportModal = function () {
+  document.getElementById('exportModal').classList.add('hidden');
+  exportConfig = null;
+};
+
+window.confirmExport = async function (format) {
+  if (!exportConfig) return;
+
+  const clubId = localStorage.getItem('activeClubId');
+  if (!clubId) {
+    alert('No hay club activo.');
+    return;
+  }
+
+  const desde = document.getElementById('exportModalDesde').value;
+  const hasta = document.getElementById('exportModalHasta').value;
+
+  const params = new URLSearchParams();
+  if (desde) params.set('desde', desde);
+  if (hasta) params.set('hasta', hasta);
+
+  const url =
+    `/club/${clubId}/reportes/${exportConfig.endpoint}/export/${format}` +
+    (params.toString() ? `?${params.toString()}` : '');
+
+  await downloadWithToken({
+    url,
+    filename: `${exportConfig.title.replace(/\s+/g, '_')}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
+  });
+
+  closeExportModal();
+};
+
 
 
   // =============================

@@ -188,6 +188,14 @@
     <div class="detail-card" id="card-ranking">
       <h3 class="detail-title">Ranking por Gastos / Ingresos</h3>
 
+<button class="btn btn-secondary btn-xs"
+        onclick="openExportModal({
+          title: 'Ingresos por Tipo',
+          endpoint: 'ingresos-por-tipo'
+        })">
+  📄 Exportar
+</button>
+
       <div class="ranking-toolbar">
         <button id="btnRankMesPrev" class="btn-nav-sm">◀</button>
         <span id="rankMesLabel" class="nav-label small">Mes actual</span>
@@ -291,6 +299,50 @@
       <div class="muted small" id="detalleModalInfo"></div>
       <div style="font-weight:700;" id="detalleModalTotal"></div>
     </div>
+  </div>
+</div>
+
+<!-- =============================
+     MODAL EXPORTAR REPORTE
+     ============================= -->
+<div id="exportModal" class="modal hidden">
+  <div class="modal-content" style="max-width:420px;">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 id="exportModalTitle" style="margin:0;">
+        Exportar reporte
+      </h3>
+      <button class="btn btn-secondary" onclick="closeExportModal()">✕</button>
+    </div>
+
+    <div class="muted small" id="exportModalSub" style="margin-top:4px;">
+      Seleccioná rango de fechas y formato
+    </div>
+
+    <div style="margin-top:14px; display:flex; gap:10px;">
+      <label style="flex:1;">
+        Desde
+        <input type="date" id="exportModalDesde" style="width:100%;">
+      </label>
+
+      <label style="flex:1;">
+        Hasta
+        <input type="date" id="exportModalHasta" style="width:100%;">
+      </label>
+    </div>
+
+    <div style="margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
+      <button class="btn btn-secondary"
+              onclick="confirmExport('pdf')">
+        📄 PDF
+      </button>
+
+      <button class="btn btn-secondary"
+              onclick="confirmExport('excel')">
+        📊 Excel
+      </button>
+    </div>
+
   </div>
 </div>
 
