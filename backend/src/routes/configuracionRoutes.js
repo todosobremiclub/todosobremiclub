@@ -280,45 +280,79 @@ if (precio_mensual !== undefined && precio_mensual !== null && String(precio_men
 router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
   const { nombre, precio_mensual } = req.body ?? {};
+
   try {
-    if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
-
-let precioNum = null;
-if (precio_mensual !== undefined && precio_mensual !== null && String(precio_mensual).trim() !== '') {
-  const parsed = Number(precio_mensual);
-  if (Number.isNaN(parsed) || parsed < 0) {
-    return res.status(400).json({ ok: false, error: 'precio_mensual inválido (debe ser número >= 0)' });
-  }
-  precioNum = parsed;
-}
-
-    const r = await db.query(
-  `
-  UPDATE actividades
-  SET
-    nombre = $1,
-    precio_mensual = $2,
-    updated_at = NOW()
-  WHERE id = $3 AND club_id = $4
-  RETURNING
-    id,
-    nombre,
-    precio_mensual
-  `,
-  [nombre.trim(), precioNum, id, clubId]
-);
-    if (!r.rowCount) return res.status(404).json({ ok: false, error: 'No encontrada' });
-
-    res.json({ ok: true, actividad: r.rows[0] });
-  } catch (e) {
-    if (isMissingRelation(e)) {
-      return res.status(500).json({ ok: false, error: 'Falta tabla actividades en la DB' });
+    const nuevoNombre = (nombre ?? '').trim();
+    if (!nuevoNombre) {
+      return res.status(400).json({ ok: false, error: 'Falta nombre' });
     }
+
+    let precioNum = null;
+    if (precio_mensual !== undefined && precio_mensual !== null && String(precio_mensual).trim() !== '') {
+      const parsed = Number(precio_mensual);
+      if (Number.isNaN(parsed) || parsed < 0) {
+        return res.status(400).json({
+          ok: false,
+          error: 'precio_mensual inválido (debe ser número >= 0)'
+        });
+      }
+      precioNum = parsed;
+    }
+
+    // 1) Obtener nombre anterior de la actividad
+    const rPrev = await db.query(
+      `SELECT nombre FROM actividades WHERE id = $1 AND club_id = $2 LIMIT 1`,
+      [id, clubId]
+    );
+    if (!rPrev.rowCount) {
+      return res.status(404).json({ ok: false, error: 'No encontrada' });
+    }
+
+    const nombreAnterior = (rPrev.rows[0].nombre ?? '').trim();
+
+    // 2) Transacción: actualizar actividad + propagar a socios
+    await db.query('BEGIN');
+
+    const rAct = await db.query(
+      `
+      UPDATE actividades
+      SET nombre = $1,
+          precio_mensual = $2,
+          updated_at = NOW()
+      WHERE id = $3 AND club_id = $4
+      RETURNING id, nombre, precio_mensual
+      `,
+      [nuevoNombre, precioNum, id, clubId]
+    );
+
+    // 3) Propagar cambio a socios
+    const rSocios = await db.query(
+      `
+      UPDATE socios
+      SET actividad = $1
+      WHERE club_id = $2
+        AND btrim(actividad) = $3
+      `,
+      [nuevoNombre, clubId, nombreAnterior]
+    );
+
+    await db.query('COMMIT');
+
+    return res.json({
+      ok: true,
+      actividad: rAct.rows[0],
+      sociosActualizados: rSocios.rowCount
+    });
+
+  } catch (e) {
+    try { await db.query('ROLLBACK'); } catch {}
     console.error('❌ update actividad', e);
+
     if (e.code === '23505') {
       return res.status(409).json({ ok: false, error: 'La actividad ya existe' });
     }
-    res.status(500).json({ ok: false, error: e.message });
+
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
 
