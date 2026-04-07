@@ -135,6 +135,62 @@ const igRespState = {
     return { res, data };
   }
 
+// ===============================
+// DESCARGA CON TOKEN (PDF / EXCEL)
+// ===============================
+function getToken() {
+  const t = localStorage.getItem('token');
+  if (!t) {
+    alert('Tu sesión expiró. Iniciá sesión nuevamente.');
+    window.location.href = '/admin.html';
+    throw new Error('No token');
+  }
+  return t;
+}
+
+function getActiveClubIdSafe() {
+  const c = localStorage.getItem('activeClubId');
+  if (!c) {
+    alert('No hay club activo seleccionado.');
+    throw new Error('No activeClubId');
+  }
+  return c;
+}
+
+async function downloadWithToken({ url, filename }) {
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { Authorization: 'Bearer ' + getToken() }
+  });
+
+  // Si vuelve JSON de error (ej Token requerido), lo mostramos claro
+  const ct = res.headers.get('content-type') || '';
+  if (!res.ok) {
+    let msg = `Error descargando (${res.status})`;
+    if (ct.includes('application/json')) {
+      const data = await res.json().catch(() => null);
+      if (data?.error) msg = data.error;
+    } else {
+      const txt = await res.text().catch(() => '');
+      if (txt) msg = txt;
+    }
+    alert(msg);
+    return;
+  }
+
+  const blob = await res.blob();
+
+  // Descargar
+  const a = document.createElement('a');
+  const blobUrl = URL.createObjectURL(blob);
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(blobUrl);
+}
+
   // =============================
   // HELPERS GENERALES
   // =============================
@@ -1786,16 +1842,8 @@ async function initReportesSection() {
 // ===============================
 // EXPORTACIÓN – INGRESOS POR TIPO
 // ===============================
-window.exportIngresosTipo = function (formato) {
-  // ✅ obtener clubId de la misma forma que usa el resto de reportes.js
-  const clubId = (typeof getActiveClubId === 'function')
-    ? getActiveClubId()
-    : localStorage.getItem('activeClubId');
-
-  if (!clubId) {
-    alert('No hay club activo seleccionado.');
-    return;
-  }
+window.exportIngresosTipo = async function (formato) {
+  const clubId = getActiveClubIdSafe();
 
   const desde = document.getElementById('exportDesde')?.value;
   const hasta = document.getElementById('exportHasta')?.value;
@@ -1808,8 +1856,12 @@ window.exportIngresosTipo = function (formato) {
     `/club/${clubId}/reportes/ingresos-por-tipo/export/${formato}` +
     (params.toString() ? `?${params.toString()}` : '');
 
-  window.open(url, '_blank');
+  const ext = (formato === 'pdf') ? 'pdf' : 'xlsx';
+  const filename = `Ingresos_por_Tipo_${clubId}.${ext}`;
+
+  await downloadWithToken({ url, filename });
 };
+
 
   // =============================
   // ABAJO DERECHA – CUENTAS
