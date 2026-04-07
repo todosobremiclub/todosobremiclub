@@ -1787,6 +1787,16 @@ async function initReportesSection() {
 // EXPORTACIÓN – INGRESOS POR TIPO
 // ===============================
 window.exportIngresosTipo = function (formato) {
+  // ✅ obtener clubId de la misma forma que usa el resto de reportes.js
+  const clubId = (typeof getActiveClubId === 'function')
+    ? getActiveClubId()
+    : localStorage.getItem('activeClubId');
+
+  if (!clubId) {
+    alert('No hay club activo seleccionado.');
+    return;
+  }
+
   const desde = document.getElementById('exportDesde')?.value;
   const hasta = document.getElementById('exportHasta')?.value;
 
@@ -1795,12 +1805,11 @@ window.exportIngresosTipo = function (formato) {
   if (hasta) params.set('hasta', hasta);
 
   const url =
-    `/club/${clubId}/reportes/ingresos-por-tipo/export/${formato}?` +
-    params.toString();
+    `/club/${clubId}/reportes/ingresos-por-tipo/export/${formato}` +
+    (params.toString() ? `?${params.toString()}` : '');
 
   window.open(url, '_blank');
 };
-
 
   // =============================
   // ABAJO DERECHA – CUENTAS
