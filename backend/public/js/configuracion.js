@@ -225,12 +225,13 @@ async function updateCategoria(id, nombre) {
   });
   const data = await safeJson(res);
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error guardando categoría');
-}
 
-async function deleteCategoria(id) {
-  const res = await fetchAuth(`${categoriasUrl()}/${id}`, { method: 'DELETE' });
-  const data = await safeJson(res);
-  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando categoría');
+  // ✅ feedback útil
+  if (typeof data.sociosActualizados === 'number') {
+    console.log(`Categoría actualizada. Socios actualizados: ${data.sociosActualizados}`);
+    // si querés alert:
+    // alert(`✅ Categoría actualizada. Socios actualizados: ${data.sociosActualizados}`);
+  }
 }
 
 /* ============================================================

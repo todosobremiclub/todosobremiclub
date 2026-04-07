@@ -121,28 +121,63 @@ router.post('/:clubId/config/categorias', requireAuth, requireClubAccess, async 
 
 router.put('/:clubId/config/categorias/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
-  const { nombre } = req.body || {};
+  const { nombre } = req.body ?? {};
+
   try {
-    if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
+    const nuevoNombre = (nombre ?? '').trim();
+    if (!nuevoNombre) return res.status(400).json({ ok: false, error: 'Falta nombre' });
+
+    // 1) Traer nombre anterior (para poder actualizar socios que lo usaban)
+    const rPrev = await db.query(
+      `SELECT nombre FROM categorias_deportivas WHERE id=$1 AND club_id=$2 LIMIT 1`,
+      [id, clubId]
+    );
+    if (!rPrev.rowCount) return res.status(404).json({ ok: false, error: 'No encontrada' });
+
+    const nombreAnterior = (rPrev.rows[0].nombre ?? '').trim();
+
+    // 2) Transacción: update categoría + update socios
+    await db.query('BEGIN');
 
     const r = await db.query(
-      `UPDATE categorias_deportivas
-       SET nombre=$1, updated_at=NOW()
-       WHERE id=$2 AND club_id=$3
-       RETURNING id, nombre`,
-      [nombre.trim(), id, clubId]
+      `
+      UPDATE categorias_deportivas
+      SET nombre=$1, updated_at=NOW()
+      WHERE id=$2 AND club_id=$3
+      RETURNING id, nombre
+      `,
+      [nuevoNombre, id, clubId]
     );
 
-    if (!r.rowCount) return res.status(404).json({ ok: false, error: 'No encontrada' });
-    res.json({ ok: true, categoria: r.rows[0] });
+    // 3) Propagar a socios (solo los del club y que tenían el nombre anterior)
+    // Nota: usamos trim para evitar fallas por espacios cargados
+    const rSoc = await db.query(
+      `
+      UPDATE socios
+      SET categoria = $1
+      WHERE club_id = $2
+        AND btrim(categoria) = $3
+      `,
+      [nuevoNombre, clubId, nombreAnterior]
+    );
+
+    await db.query('COMMIT');
+
+    return res.json({
+      ok: true,
+      categoria: r.rows[0],
+      sociosActualizados: rSoc.rowCount
+    });
   } catch (e) {
-    if (isMissingRelation(e)) return res.status(500).json({ ok: false, error: 'Falta tabla categorias_deportivas en la DB' });
+    try { await db.query('ROLLBACK'); } catch {}
     console.error('❌ update categoria', e);
+    if (isMissingRelation(e)) {
+      return res.status(500).json({ ok: false, error: 'Falta tabla categorias_deportivas en la DB' });
+    }
     if (e.code === '23505') return res.status(409).json({ ok: false, error: 'La categoría ya existe' });
-    res.status(500).json({ ok: false, error: e.message });
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
-
 router.delete('/:clubId/config/categorias/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
   try {
