@@ -88,47 +88,51 @@ router.post('/:clubId/pendientes/:id/aceptar', requireAuth, requireClubAccess, a
     }
 
     // 3) Asegurar counter
-    await db.query(
-      `INSERT INTO club_counters (club_id, next_socio_num)
-       VALUES ($1, 1)
-       ON CONFLICT (club_id) DO NOTHING`,
-      [clubId]
-    );
+await db.query(
+  `
+  INSERT INTO club_counters (club_id, next_socio_num)
+  VALUES ($1, 1)
+  ON CONFLICT (club_id) DO NOTHING
+  `,
+  [clubId]
+);
 
-    // 4) Tomar siguiente número (y reintentar si por algún motivo no devolvió fila)
-    let numero = null;
+// 4) Tomar siguiente número LIBRE real (saltando ocupados) con lock
+//    Nota: esto soluciona contadores desfasados en clubes con historia/migraciones
+const rLock = await db.query(
+  `SELECT next_socio_num FROM club_counters WHERE club_id = $1 LIMIT 1 FOR UPDATE`,
+  [clubId]
+);
 
-    const rCounter = await db.query(
-      `UPDATE club_counters
-       SET next_socio_num = next_socio_num + 1
-       WHERE club_id = $1
-       RETURNING (next_socio_num - 1) AS numero`,
-      [clubId]
-    );
+let candidate = Number(rLock.rows?.[0]?.next_socio_num ?? 1);
+if (!candidate || Number.isNaN(candidate) || candidate < 1) candidate = 1;
 
-    if (rCounter.rowCount) {
-      numero = Number(rCounter.rows[0].numero);
-    }
+// Loop para saltear números ya usados
+// (limitamos iteraciones para evitar loops infinitos por datos corruptos)
+let guard = 0;
+while (guard < 5000) {
+  const rExists = await db.query(
+    `SELECT 1 FROM socios WHERE club_id = $1 AND numero_socio = $2 LIMIT 1`,
+    [clubId, candidate]
+  );
+  if (!rExists.rowCount) break;
+  candidate += 1;
+  guard += 1;
+}
 
-    if (!numero || Number.isNaN(numero)) {
-      // fallback: leer y usar next_socio_num manualmente
-      const rSel = await db.query(
-        `SELECT next_socio_num FROM club_counters WHERE club_id=$1 LIMIT 1`,
-        [clubId]
-      );
-      const n = Number(rSel.rows?.[0]?.next_socio_num ?? 1);
-      numero = n;
+if (guard >= 5000) {
+  await db.query('ROLLBACK');
+  return res.status(500).json({ ok: false, error: 'No se pudo generar número de socio (loop protección)' });
+}
 
-      await db.query(
-        `UPDATE club_counters SET next_socio_num = $2 WHERE club_id=$1`,
-        [clubId, n + 1]
-      );
-    }
+// Actualizar contador al siguiente disponible
+await db.query(
+  `UPDATE club_counters SET next_socio_num = $2 WHERE club_id = $1`,
+  [clubId, candidate + 1]
+);
 
-    if (!numero || Number.isNaN(numero)) {
-      await db.query('ROLLBACK');
-      return res.status(500).json({ ok: false, error: 'No se pudo generar número de socio' });
-    }
+const numero = candidate;
+
 
     // 5) Insertar socio definitivo (mínimo y compatible)
     // Nota: fecha_ingreso queda null, foto_url se puede agregar luego si querés.
@@ -160,7 +164,12 @@ router.post('/:clubId/pendientes/:id/aceptar', requireAuth, requireClubAccess, a
       // Duplicados (por si carrera de datos)
       if (e && e.code === '23505') {
         await db.query('ROLLBACK');
-        return res.status(409).json({ ok: false, error: 'DNI o N° de socio duplicado (DB)' });
+        return res.status(409).json({
+  ok: false,
+  error: 'Duplicado en DB',
+  constraint: e.constraint || null,
+  detail: e.detail || null
+});
       }
       throw e;
     }
