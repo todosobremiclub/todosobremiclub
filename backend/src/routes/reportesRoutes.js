@@ -1903,7 +1903,7 @@ router.get(
 // A) DETALLE: ingresos por tipo dentro del MES
 // GET /club/:clubId/reportes/ingresos-por-tipo/detalle-mes?anio=2026&mes=4&tipo=Cuotas
 router.get(
-  '/:	',
+  '/:clubId/reportes/ingresos-por-tipo/detalle-mes',
   requireAuth,
   requireClubAccess,
   async (req, res) => {
