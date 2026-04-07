@@ -763,6 +763,157 @@ router.get(
   }
 );
 
+// ============================================================
+// EXPORT: Cuotas impagas por MES
+// GET /club/:clubId/reportes/impagos-mes/export/pdf?anio=2026&mes=4
+// GET /club/:clubId/reportes/impagos-mes/export/excel?anio=2026&mes=4
+// ============================================================
+
+router.get(
+  '/:clubId/reportes/impagos-mes/export/pdf',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes  = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({
+        ok: false,
+        error: 'anio y mes son obligatorios'
+      });
+    }
+
+    try {
+      const q = `
+        SELECT
+          s.numero_socio,
+          s.dni,
+          s.apellido,
+          s.nombre,
+          s.actividad,
+          s.categoria,
+          s.telefono,
+          s.fecha_ingreso
+        FROM socios s
+        LEFT JOIN pagos_mensuales pm
+          ON pm.socio_id = s.id
+         AND pm.club_id = $1
+         AND pm.anio = $2
+         AND pm.mes = $3
+        WHERE s.club_id = $1
+          AND s.activo = true
+          AND (
+            s.fecha_ingreso IS NULL
+            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+            OR (
+              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+            )
+          )
+          AND pm.id IS NULL
+        ORDER BY s.numero_socio ASC
+      `;
+
+      const r = await db.query(q, [clubId, anio, mes]);
+
+      sendPDF(
+        res,
+        `Cuotas_impagas_${anio}-${String(mes).padStart(2, '0')}`,
+        [
+          { key: 'numero_socio', label: 'N° Socio' },
+          { key: 'dni',          label: 'DNI' },
+          { key: 'apellido',     label: 'Apellido' },
+          { key: 'nombre',       label: 'Nombre' },
+          { key: 'actividad',    label: 'Actividad' },
+          { key: 'categoria',    label: 'Categoría' },
+          { key: 'telefono',     label: 'Teléfono' },
+          { key: 'fecha_ingreso',label: 'Fecha ingreso' }
+        ],
+        r.rows
+      );
+
+    } catch (e) {
+      console.error('❌ export pdf impagos-mes', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+router.get(
+  '/:clubId/reportes/impagos-mes/export/excel',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes  = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({
+        ok: false,
+        error: 'anio y mes son obligatorios'
+      });
+    }
+
+    try {
+      const q = `
+        SELECT
+          s.numero_socio,
+          s.dni,
+          s.apellido,
+          s.nombre,
+          s.actividad,
+          s.categoria,
+          s.telefono,
+          s.fecha_ingreso
+        FROM socios s
+        LEFT JOIN pagos_mensuales pm
+          ON pm.socio_id = s.id
+         AND pm.club_id = $1
+         AND pm.anio = $2
+         AND pm.mes = $3
+        WHERE s.club_id = $1
+          AND s.activo = true
+          AND (
+            s.fecha_ingreso IS NULL
+            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+            OR (
+              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+            )
+          )
+          AND pm.id IS NULL
+        ORDER BY s.numero_socio ASC
+      `;
+
+      const r = await db.query(q, [clubId, anio, mes]);
+
+      await sendExcel(
+        res,
+        `Cuotas_impagas_${anio}-${String(mes).padStart(2, '0')}`,
+        [
+          { key: 'numero_socio', label: 'N° Socio' },
+          { key: 'dni',          label: 'DNI' },
+          { key: 'apellido',     label: 'Apellido' },
+          { key: 'nombre',       label: 'Nombre' },
+          { key: 'actividad',    label: 'Actividad' },
+          { key: 'categoria',    label: 'Categoría' },
+          { key: 'telefono',     label: 'Teléfono' },
+          { key: 'fecha_ingreso',label: 'Fecha ingreso' }
+        ],
+        r.rows
+      );
+
+    } catch (e) {
+      console.error('❌ export excel impagos-mes', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+
 // ===============================
 // 5) Ingresos vs Gastos por año (cuotas + otros ingresos)
 // ===============================
