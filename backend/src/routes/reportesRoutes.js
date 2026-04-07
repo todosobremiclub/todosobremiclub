@@ -1515,24 +1515,25 @@ router.get('/:clubId/reportes/ingresos-vs-gastos/detalle', requireAuth, requireC
 
     if (tipo === 'ingresos' || tipo === 'todos') {
       const qIngCuotas = `
-        SELECT
-          'Cuota'::text AS origen,
-          pm.id,
-          pm.anio,
-          pm.mes,
-          pm.monto,
-          pm.fecha_pago,
-          s.numero_socio,
-          s.nombre,
-          s.apellido,
-          s.actividad,
-          s.categoria
-        FROM pagos_mensuales pm
-        JOIN socios s ON s.id = pm.socio_id
-        WHERE pm.club_id = $1
-          AND pm.anio = $2
-          AND pm.mes = $3
-      `;
+  SELECT
+    'Cuota'::text AS origen,
+    pm.id,
+    pm.anio,
+    pm.mes,
+    pm.monto,
+    pm.fecha_pago,
+    COALESCE(pm.socio_numero, s.numero_socio) AS numero_socio,
+    COALESCE(pm.socio_nombre, s.nombre)       AS nombre,
+    COALESCE(pm.socio_apellido, s.apellido)   AS apellido,
+    s.actividad,
+    s.categoria
+  FROM pagos_mensuales pm
+  LEFT JOIN socios s ON s.id = pm.socio_id
+  WHERE pm.club_id = $1
+  AND pm.anio = $2
+  AND pm.mes = $3
+`;
+
       const qIngOtros = `
         SELECT
           COALESCE(ti.nombre, 'Otro ingreso') AS origen,
@@ -2051,24 +2052,33 @@ router.get(
 
       // cuotas pagadas en el mes (por fecha_pago)
       const q2 = `
-        SELECT
-          pm.id,
-          pm.fecha_pago AS fecha,
-          pm.monto,
-          ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
-          COALESCE(pm.cuenta, 'Sin cuenta') AS cuenta,
-          (s.apellido || ' ' || s.nombre)::text AS socio_nombre,
-('Cuotas - ' || s.apellido || ' ' || s.nombre)::text AS origen
+  SELECT
+    pm.id,
+    pm.fecha_pago AS fecha,
+    pm.monto,
+    ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
+    COALESCE(pm.cuenta, 'Sin cuenta') AS cuenta,
 
-        FROM pagos_mensuales pm
-        JOIN socios s ON s.id = pm.socio_id
-        WHERE pm.club_id = $1
-          AND pm.fecha_pago IS NOT NULL
-          AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
-          AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
-          AND COALESCE(pm.cuenta, 'Sin cuenta') = $4
-        ORDER BY pm.fecha_pago DESC;
-      `;
+    -- ✅ socio_nombre “a prueba de borrado”
+    (
+      COALESCE(pm.socio_apellido, s.apellido, '') || ' ' ||
+      COALESCE(pm.socio_nombre,  s.nombre,  '') ||
+      CASE
+        WHEN COALESCE(pm.socio_numero, s.numero_socio) IS NULL THEN ''
+        ELSE ' (#' || COALESCE(pm.socio_numero, s.numero_socio) || ')'
+      END
+    )::text AS socio_nombre,
+
+    'Cuotas'::text AS origen
+  FROM pagos_mensuales pm
+  LEFT JOIN socios s ON s.id = pm.socio_id
+  WHERE pm.club_id = $1
+  AND pm.fecha_pago IS NOT NULL
+  AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+  AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
+  AND COALESCE(pm.cuenta, 'Sin cuenta') = $4
+  ORDER BY pm.fecha_pago DESC;
+`;
 
       const [r1, r2] = await Promise.all([
         db.query(q1, [clubId, anio, mes, cuenta]),
@@ -2127,23 +2137,34 @@ router.get(
         `;
 
         const qCuotas = `
-          SELECT
-            pm.id,
-            pm.fecha_pago AS fecha,
-            pm.monto,
-            ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
-            COALESCE(pm.cuenta, 'Sin cuenta') AS responsable,
-            ('Socio: ' || s.apellido || ' ' || s.nombre || ' (#' || s.numero_socio || ')')::text AS socio,
-            'Cuotas'::text AS origen
-          FROM pagos_mensuales pm
-          JOIN socios s ON s.id = pm.socio_id
-          WHERE pm.club_id = $1
-            AND pm.fecha_pago IS NOT NULL
-            AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
-            AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
-            AND COALESCE(pm.cuenta, 'Sin cuenta') = $4
-          ORDER BY pm.fecha_pago DESC;
-        `;
+  SELECT
+    pm.id,
+    pm.fecha_pago AS fecha,
+    pm.monto,
+    ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
+    COALESCE(pm.cuenta, 'Sin cuenta') AS responsable,
+
+    -- ✅ socio “a prueba de borrado”
+    (
+      'Socio: ' ||
+      COALESCE(pm.socio_apellido, s.apellido, '') || ' ' ||
+      COALESCE(pm.socio_nombre,  s.nombre,  '') ||
+      CASE
+        WHEN COALESCE(pm.socio_numero, s.numero_socio) IS NULL THEN ''
+        ELSE ' (#' || COALESCE(pm.socio_numero, s.numero_socio) || ')'
+      END
+    )::text AS socio,
+
+    'Cuotas'::text AS origen
+  FROM pagos_mensuales pm
+  LEFT JOIN socios s ON s.id = pm.socio_id
+  WHERE pm.club_id = $1
+  AND pm.fecha_pago IS NOT NULL
+  AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+  AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
+  AND COALESCE(pm.cuenta, 'Sin cuenta') = $4
+  ORDER BY pm.fecha_pago DESC;
+`;
 
         const [rA, rB] = await Promise.all([
           db.query(qIngGen, [clubId, anio, mes, responsable]),

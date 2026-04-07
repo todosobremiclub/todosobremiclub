@@ -278,14 +278,14 @@ router.post(
       // ------------------------------
       // Traer socio para conocer su actividad
       const socioRes = await db.query(
-        `
-        SELECT actividad
-        FROM socios
-        WHERE id = $1 AND club_id = $2
-        LIMIT 1
-        `,
-        [socio_id, clubId]
-      );
+  `
+  SELECT actividad, nombre, apellido, numero_socio
+  FROM socios
+  WHERE id = $1 AND club_id = $2
+  LIMIT 1
+  `,
+  [socio_id, clubId]
+);
 
       if (!socioRes.rowCount) {
         return res
@@ -294,6 +294,10 @@ router.post(
       }
 
       const actividadSocio = socioRes.rows[0].actividad;
+
+const socioNombre = socioRes.rows[0].nombre;
+const socioApellido = socioRes.rows[0].apellido;
+const socioNumero = socioRes.rows[0].numero_socio;
 
       // Si NO es pago parcial, la actividad es obligatoria
       if (!actividadSocio && !esParcialBool) {
@@ -342,13 +346,36 @@ router.post(
         const rIns = await db.query(
           `
           INSERT INTO pagos_mensuales
-            (club_id, socio_id, anio, mes, monto, fecha_pago, cuenta)
-          VALUES
-            ($1,$2,$3,$4,$5,$6,$7)
-          ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING
-          RETURNING id, anio, mes, monto, fecha_pago, cuenta
+(
+  club_id,
+  socio_id,
+  socio_nombre,
+  socio_apellido,
+  socio_numero,
+  anio,
+  mes,
+  monto,
+  fecha_pago,
+  cuenta
+)
+VALUES
+($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING
+RETURNING id, anio, mes, monto, fecha_pago, cuenta
+
           `,
-          [clubId, socio_id, anioNum, mes, montoPorMes, fecha_pago, cuentaFinal || null]
+          [
+  clubId,
+  socio_id,
+  socioNombre ?? null,
+  socioApellido ?? null,
+  socioNumero ?? null,
+  anioNum,
+  mes,
+  montoPorMes,
+  fecha_pago,
+  cuentaFinal ?? null
+]
         );
         if (rIns.rowCount) inserted.push(rIns.rows[0]);
       }
