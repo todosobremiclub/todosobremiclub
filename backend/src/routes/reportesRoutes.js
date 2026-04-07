@@ -1903,7 +1903,7 @@ router.get(
 // A) DETALLE: ingresos por tipo dentro del MES
 // GET /club/:clubId/reportes/ingresos-por-tipo/detalle-mes?anio=2026&mes=4&tipo=Cuotas
 router.get(
-  '/:clubId/reportes/ingresos-por-tipo/detalle-mes',
+  '/:	',
   requireAuth,
   requireClubAccess,
   async (req, res) => {
@@ -1919,29 +1919,23 @@ router.get(
     try {
       // Si es Cuotas -> pagos_mensuales por fecha_pago (igual que tu ranking)
       if (tipo === 'Cuotas') {
-        const q = `
-          SELECT
-            pm.id,
-            pm.fecha_pago,
-            pm.monto,
-            pm.anio,
-            pm.mes,
-            pm.cuenta,
-            s.numero_socio,
-            s.apellido,
-            s.nombre,
-            'Cuotas'::text AS tipo
-          FROM pagos_mensuales pm
-          JOIN socios s ON s.id = pm.socio_id
-          WHERE pm.club_id = $1
-            AND pm.fecha_pago IS NOT NULL
-            AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
-            AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
-          ORDER BY pm.fecha_pago, s.apellido, s.nombre;
-        `;
-        const r = await db.query(q, [clubId, anio, mes]);
-        return res.json({ ok: true, rows: r.rows });
-      }
+  const q = `
+    SELECT
+      pm.id,
+      pm.fecha_pago AS fecha,
+      ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
+      pm.cuenta,
+      pm.monto
+    FROM pagos_mensuales pm
+    WHERE pm.club_id = $1
+      AND pm.fecha_pago IS NOT NULL
+      AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+      AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
+    ORDER BY pm.fecha_pago ASC
+  `;
+  const r = await db.query(q, [clubId, anio, mes]);
+  return res.json({ ok: true, rows: r.rows });
+}
 
       // Otros tipos -> ingresos_generales por fecha del mes
       const qOtros = `
