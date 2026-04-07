@@ -151,17 +151,26 @@ async function downloadWithToken({ url, filename }) {
   // Si vuelve JSON de error (ej Token requerido), lo mostramos claro
   const ct = res.headers.get('content-type') || '';
   if (!res.ok) {
-    let msg = `Error descargando (${res.status})`;
-    if (ct.includes('application/json')) {
-      const data = await res.json().catch(() => null);
-      if (data?.error) msg = data.error;
-    } else {
-      const txt = await res.text().catch(() => '');
-      if (txt) msg = txt;
-    }
-    alert(msg);
-    return;
+  let msg = `Error descargando (${res.status})`;
+
+  if (ct.includes('application/json')) {
+    const data = await res.json().catch(() => null);
+    if (data?.error) msg = data.error;
+
+  } else if (ct.includes('text/html')) {
+    // ✅ Evita mostrar el HTML de Express ("Cannot GET ...")
+    msg = 'No se pudo exportar. El reporte no está disponible o falta configurar el endpoint.';
+
+  } else {
+    // Para texto plano: limitamos tamaño para que no rompa la UI
+    const txt = await res.text().catch(() => '');
+    if (txt) msg = txt.slice(0, 200);
   }
+ 
+  document.getElementById('exportModal')?.classList.add('hidden');
+  alert(msg);
+  return;
+}
 
   const blob = await res.blob();
 
@@ -1771,11 +1780,13 @@ window.openExportModal = function ({ title, endpoint, extraKey = null }) {
     applyPeriodoUI();
   }
 
+  document.body.style.overflow = 'hidden';
   document.getElementById('exportModal')?.classList.remove('hidden');
 };
 
 window.closeExportModal = function () {
   document.getElementById('exportModal')?.classList.add('hidden');
+  document.body.style.overflow = '';
   exportConfig = null;
 };
 

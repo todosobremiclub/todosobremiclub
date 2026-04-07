@@ -778,11 +778,80 @@ router.get(
     const anio = Number(req.query.anio);
     const mes  = Number(req.query.mes);
 
-    if (!anio || !mes) {
+    if (!anio) {
       return res.status(400).json({
         ok: false,
-        error: 'anio y mes son obligatorios'
+        error: 'anio es obligatorio'
       });
+    }
+
+// =========================
+    // CASO AÑO: resumen por mes
+    // =========================
+    if (!mes) {
+      const MESES = [
+        'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+      ];
+
+      const q = `
+        WITH meses AS (
+          SELECT generate_series(1,12)::int AS mes_num
+        ),
+        socios_activos AS (
+          SELECT id, fecha_ingreso
+          FROM socios
+          WHERE club_id = $1
+            AND activo = true
+        ),
+        base AS (
+          SELECT
+            m.mes_num,
+            s.id AS socio_id
+          FROM meses m
+          CROSS JOIN socios_activos s
+          WHERE
+            s.fecha_ingreso IS NULL
+            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+            OR (
+              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
+            )
+        ),
+        pagos AS (
+          SELECT socio_id, mes AS mes_num
+          FROM pagos_mensuales
+          WHERE club_id = $1
+            AND anio = $2
+        )
+        SELECT
+          b.mes_num,
+          COUNT(*)::int AS cantidad
+        FROM base b
+        LEFT JOIN pagos p
+          ON p.socio_id = b.socio_id
+         AND p.mes_num = b.mes_num
+        WHERE p.socio_id IS NULL
+        GROUP BY b.mes_num
+        ORDER BY b.mes_num;
+      `;
+
+      const r = await db.query(q, [clubId, anio]);
+
+      const rows = r.rows.map(r => ({
+        mes: MESES[r.mes_num - 1],
+        cantidad: r.cantidad
+      }));
+
+      return sendPDF(
+        res,
+        `Cuotas_impagas_${anio}`,
+        [
+          { key: 'mes', label: 'Mes' },
+          { key: 'cantidad', label: 'Socios sin pago' }
+        ],
+        rows
+      );
     }
 
     try {
@@ -850,11 +919,81 @@ router.get(
     const anio = Number(req.query.anio);
     const mes  = Number(req.query.mes);
 
-    if (!anio || !mes) {
+    
+f (!anio) {
       return res.status(400).json({
         ok: false,
-        error: 'anio y mes son obligatorios'
+        error: 'anio es obligatorio'
       });
+    }
+
+// =========================
+    // CASO AÑO: resumen por mes
+    // =========================
+    if (!mes) {
+      const MESES = [
+        'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+      ];
+
+      const q = `
+        WITH meses AS (
+          SELECT generate_series(1,12)::int AS mes_num
+        ),
+        socios_activos AS (
+          SELECT id, fecha_ingreso
+          FROM socios
+          WHERE club_id = $1
+            AND activo = true
+        ),
+        base AS (
+          SELECT
+            m.mes_num,
+            s.id AS socio_id
+          FROM meses m
+          CROSS JOIN socios_activos s
+          WHERE
+            s.fecha_ingreso IS NULL
+            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+            OR (
+              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
+            )
+        ),
+        pagos AS (
+          SELECT socio_id, mes AS mes_num
+          FROM pagos_mensuales
+          WHERE club_id = $1
+            AND anio = $2
+        )
+        SELECT
+          b.mes_num,
+          COUNT(*)::int AS cantidad
+        FROM base b
+        LEFT JOIN pagos p
+          ON p.socio_id = b.socio_id
+         AND p.mes_num = b.mes_num
+        WHERE p.socio_id IS NULL
+        GROUP BY b.mes_num
+        ORDER BY b.mes_num;
+      `;
+
+      const r = await db.query(q, [clubId, anio]);
+
+      const rows = r.rows.map(r => ({
+        mes: MESES[r.mes_num - 1],
+        cantidad: r.cantidad
+      }));
+
+      return sendPDF(
+        res,
+        `Cuotas_impagas_${anio}`,
+        [
+          { key: 'mes', label: 'Mes' },
+          { key: 'cantidad', label: 'Socios sin pago' }
+        ],
+        rows
+      );
     }
 
     try {
