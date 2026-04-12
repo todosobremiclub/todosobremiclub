@@ -1726,6 +1726,9 @@ function exportExtraSociosActCat() {
 window.openExportModal = function ({ title, endpoint, extraKey = null }) {
   exportConfig = { title, endpoint, extraKey };
 
+  // Debug opcional (te ayuda a confirmar que abre el reporte correcto)
+  console.log('[OPEN EXPORT MODAL]', exportConfig);
+
   const isSociosActCatActual = (extraKey === 'sociosActCatActual');
 
   // título
@@ -1753,26 +1756,18 @@ window.openExportModal = function ({ title, endpoint, extraKey = null }) {
     return;
   }
 
-  // ✅ Caso especial: Cuotas impagas → usar mes actualmente seleccionado
-  if (endpoint === 'impagos-mes' && impagosState.rows.length) {
-    const sel = impagosState.rows[impagosState.currentIndex];
+  // ====== A partir de acá: modal con período (mes/año) ======
 
-    const periodoSel = document.getElementById('exportModalPeriodo');
-    const anioSel = document.getElementById('exportModalAnio');
-    const mesSel  = document.getElementById('exportModalMes');
-
-    if (periodoSel) periodoSel.value = 'mes';
-    if (anioSel) anioSel.value = String(sel.anio);
-    if (mesSel)  mesSel.value  = String(sel.mes_num);
-  }
-
-  // llenar año (actual y últimos 6) ✅ y dejar SIEMPRE un valor seleccionado
+  const periodoSel = document.getElementById('exportModalPeriodo');
   const anioSel = document.getElementById('exportModalAnio');
+  const mesSel  = document.getElementById('exportModalMes');
+
   if (!anioSel) {
     alert('Falta el selector de Año (exportModalAnio) en el HTML.');
     return;
   }
 
+  // 1) Llenar años (actual y últimos 6)
   anioSel.innerHTML = '';
   const y0 = new Date().getFullYear();
   for (let y = y0; y >= y0 - 6; y--) {
@@ -1781,27 +1776,38 @@ window.openExportModal = function ({ title, endpoint, extraKey = null }) {
     opt.textContent = String(y);
     anioSel.appendChild(opt);
   }
-  anioSel.selectedIndex = 0;
+  // default visible
   anioSel.value = String(y0);
 
-  // set mes actual
-  const mesSel = document.getElementById('exportModalMes');
+  // 2) Defaults: período MES y mes actual
+  if (periodoSel) periodoSel.value = 'mes';
   if (mesSel) mesSel.value = String(new Date().getMonth() + 1);
 
-  // Periodo: mes/año y habilitar/deshabilitar selector mes
-  const periodoSel = document.getElementById('exportModalPeriodo');
+  // 3) Habilitar/deshabilitar mes según período
   const applyPeriodoUI = () => {
     const isAnio = (periodoSel?.value === 'anio');
     if (mesSel) mesSel.disabled = isAnio;
   };
   if (periodoSel) {
     periodoSel.onchange = applyPeriodoUI;
-    applyPeriodoUI();
   }
+
+  // ✅ AHORA sí: Caso especial Cuotas impagas → usar mes/año actualmente seleccionado en el panel
+  // (IMPORTANTE: va DESPUÉS de llenar los selectores, para que no lo pise)
+  if (endpoint === 'impagos-mes' && impagosState.rows.length) {
+    const sel = impagosState.rows[impagosState.currentIndex];
+    if (periodoSel) periodoSel.value = 'mes';
+    if (anioSel) anioSel.value = String(sel.anio);
+    if (mesSel)  mesSel.value  = String(sel.mes_num);
+  }
+
+  // Aplicar UI una vez que fijamos valores
+  applyPeriodoUI();
 
   document.body.style.overflow = 'hidden';
   document.getElementById('exportModal')?.classList.remove('hidden');
 };
+
 
 window.closeExportModal = function () {
   document.getElementById('exportModal')?.classList.add('hidden');
