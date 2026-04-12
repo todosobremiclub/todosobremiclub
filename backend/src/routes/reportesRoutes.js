@@ -262,8 +262,12 @@ router.get(
   async (req, res) => {
     try {
       const { clubId } = req.params;
-      const data = await getSociosActCatExportData(clubId, req.query);
-      sendPDF(res, data.title, data.columns, data.rows);
+
+const data = req.query.extra === 'actual'
+  ? await getSociosActCatActualDetalle(clubId, req.query)
+  : await getSociosActCatExportData(clubId, req.query);
+
+await sendExcel(res, data.title, data.columns, data.rows);
     } catch (e) {
       console.error('❌ export pdf socios-actividad-categoria', e);
       res.status(400).json({ ok: false, error: e.message });
@@ -288,6 +292,45 @@ router.get(
   }
 );
 
+
+async function getSociosActCatActualDetalle(clubId, q) {
+  const { modo = 'actividades', actividad = '' } = q;
+
+  let where = ['club_id = $1', 'activo = true'];
+  let params = [clubId];
+  let p = 2;
+
+  if (modo === 'categorias' && actividad) {
+    where.push(`actividad = $${p++}`);
+    params.push(actividad);
+  }
+
+  const qSocios = `
+    SELECT
+      apellido,
+      nombre,
+      dni,
+      actividad,
+      categoria
+    FROM socios
+    WHERE ${where.join(' AND ')}
+    ORDER BY actividad, categoria, apellido, nombre
+  `;
+
+  const r = await db.query(qSocios, params);
+
+  return {
+    title: 'Socios por Actividad y Categoría (Actual)',
+    columns: [
+      { key: 'apellido', label: 'Apellido' },
+      { key: 'nombre', label: 'Nombre' },
+      { key: 'dni', label: 'DNI' },
+      { key: 'actividad', label: 'Actividad' },
+      { key: 'categoria', label: 'Categoría' },
+    ],
+    rows: r.rows,
+  };
+}
 // ===============================
 // 2) Socios nuevos x fecha de ingreso x AÑO
 // GET /club/:clubId/reportes/socios-nuevos-mes

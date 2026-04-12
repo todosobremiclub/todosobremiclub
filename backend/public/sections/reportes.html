@@ -21,13 +21,14 @@
           </div>
         </div>
 
-<button class="btn btn-secondary btn-xs"
-        onclick="openExportModal({
-          title: 'Socios por Actividad / Categoría',
-          endpoint: 'socios-actividad-categoria',
-          extraKey: 'sociosActCat'
-        })">
-  📄 Exportar
+<button class="btn-export-icon"
+ title="Descargar socios por actividad / categoría"
+ onclick="openExportModal({
+   title: 'Socios por Actividad / Categoría',
+   endpoint: 'socios-actividad-categoria',
+   extraKey: 'sociosActCatActual'
+ })">
+ ⬇
 </button>
 
         <button id="btnActividadesReset" class="btn btn-secondary btn-xs hidden">

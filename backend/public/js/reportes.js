@@ -1726,6 +1726,15 @@ function exportExtraSociosActCat() {
 window.openExportModal = function ({ title, endpoint, extraKey = null }) {
   exportConfig = { title, endpoint, extraKey };
 
+// ✅ Caso especial: Socios por Actividad / Categoría (estado actual)
+const isSociosActCatActual = (extraKey === 'sociosActCatActual');
+
+const periodoBox = document.getElementById('exportModalPeriodo')?.closest('label')?.parentElement;
+if (periodoBox) {
+  periodoBox.style.display = isSociosActCatActual ? 'none' : '';
+}
+
+
   // título
   const t = document.getElementById('exportModalTitle');
   if (t) t.textContent = `Exportar – ${title}`;
@@ -1823,17 +1832,25 @@ const periodo = document.getElementById('exportModalPeriodo')?.value || 'mes';
 
   // armar querystring (solo anio o anio+mes)
   const params = new URLSearchParams();
+
+// ✅ Socios por Actividad/Categoría: SIN anio/mes (estado actual)
+if (exportConfig.extraKey !== 'sociosActCatActual') {
   params.set('anio', String(anio));
   if (periodo === 'mes') params.set('mes', String(mes));
+}
+
 
   // extras por reporte (solo implementamos Socios/Actividad-Categoría ahora)
-  if (exportConfig.extraKey === 'sociosActCat') {
-    const extra = exportExtraSociosActCat();
-    if (extra.modo) params.set('modo', extra.modo);
-    if (extra.modo === 'categorias' && extra.actividad) {
-      params.set('actividad', extra.actividad);
-    }
+ if (
+  exportConfig.extraKey === 'sociosActCat' ||
+  exportConfig.extraKey === 'sociosActCatActual'
+) {
+  const extra = exportExtraSociosActCat();
+  if (extra.modo) params.set('modo', extra.modo);
+  if (extra.modo === 'categorias' && extra.actividad) {
+    params.set('actividad', extra.actividad);
   }
+}
 
   // url final
   const url =
@@ -1841,9 +1858,12 @@ const periodo = document.getElementById('exportModalPeriodo')?.value || 'mes';
     params.toString();
 
   // nombre archivo
-  const periodoLabel = (periodo === 'mes')
-    ? `${anio}-${String(mes).padStart(2, '0')}`
-    : String(anio);
+  const periodoLabel =
+  exportConfig.extraKey === 'sociosActCatActual'
+    ? 'actual'
+    : (periodo === 'mes'
+        ? `${anio}-${String(mes).padStart(2, '0')}`
+        : String(anio));
 
 console.log('[EXPORT]', url);
 
