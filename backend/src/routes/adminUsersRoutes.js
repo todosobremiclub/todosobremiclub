@@ -35,10 +35,7 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
 // ================== CREAR ==================
 router.post('/', requireAuth, requireRole('superadmin'), async (req, res) => {
   const { email, full_name, password, assignments } = req.body || {};
-const is_active = (req.body?.is_active ?? true); // ✅ null/undefined => true
-
-const is_active_norm =
-  (is_active === 'false' || is_active === 0 || is_active === '0') ? false : !!is_active;
+  const is_active = (req.body?.is_active ?? true); // null/undefined => true
 
   try {
     if (!email || !password) {
@@ -53,36 +50,36 @@ const is_active_norm =
 
     await db.query('BEGIN');
 
-    const rUser = await db.query(
-
-// ✅ Si el usuario ya existe, lo asignamos al club en vez de crear uno nuevo
-const rExisting = await db.query(
-  'SELECT id FROM users WHERE email = $1',
-  [emailNorm]
-);
-
-if (rExisting.rowCount > 0) {
-  const existingUserId = rExisting.rows[0].id;
-
-  for (const a of assignments) {
-    if (!a?.club_id || !a?.role) continue;
-
-    await db.query(
-      `INSERT INTO user_clubs (user_id, club_id, role)
-       VALUES ($1,$2,$3)
-       ON CONFLICT (user_id, club_id) DO UPDATE SET role = EXCLUDED.role`,
-      [existingUserId, a.club_id, a.role]
+    // ✅ Si el usuario ya existe, lo asignamos al club en vez de crear uno nuevo
+    const rExisting = await db.query(
+      'SELECT id, email, full_name, is_active FROM users WHERE email = $1',
+      [emailNorm]
     );
-  }
 
-  await db.query('COMMIT');
-  return res.json({ ok: true, user: { id: existingUserId, email: emailNorm } });
-}
+    if (rExisting.rowCount > 0) {
+      const existingUserId = rExisting.rows[0].id;
 
+      for (const a of assignments) {
+        if (!a?.club_id || !a?.role) continue;
+
+        await db.query(
+          `INSERT INTO user_clubs (user_id, club_id, role)
+           VALUES ($1,$2,$3)
+           ON CONFLICT (user_id, club_id) DO UPDATE SET role = EXCLUDED.role`,
+          [existingUserId, a.club_id, a.role]
+        );
+      }
+
+      await db.query('COMMIT');
+      return res.json({ ok: true, user: rExisting.rows[0] });
+    }
+
+    // ✅ Crear usuario nuevo
+    const rUser = await db.query(
       `INSERT INTO users (email, full_name, password_hash, is_active)
        VALUES ($1,$2,$3,$4)
        RETURNING id, email, full_name, is_active`,
-      [emailNorm, full_name || null, passHash, is_active_norm]
+      [emailNorm, full_name || null, passHash, is_active]
     );
 
     const userId = rUser.rows[0].id;
@@ -99,13 +96,14 @@ if (rExisting.rowCount > 0) {
 
     await db.query('COMMIT');
     return res.json({ ok: true, user: rUser.rows[0] });
+
   } catch (e) {
     try { await db.query('ROLLBACK'); } catch (_) {}
 
+    // Si alguien pegó justo entre BEGIN y INSERT y explota, devolvemos algo claro
     if (e.code === '23505') {
       return res.status(409).json({ ok: false, error: 'Ya existe un usuario con ese email' });
     }
-
     console.error('❌ create user', e);
     return res.status(500).json({ ok: false, error: e.message });
   }
