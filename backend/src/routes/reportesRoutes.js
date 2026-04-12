@@ -9,61 +9,83 @@ const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 
 function sendPDF(res, title, columns, rows) {
-  const doc = new PDFDocument({
-    size: 'A4',
-    margin: 40
-  });
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
 
+  // Headers
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
     'Content-Disposition',
-    `attachment; filename="${title.replace(/\s+/g, '_')}.pdf"`
+    `attachment; filename="${String(title).replace(/\s+/g, '_')}.pdf"`
   );
+
+  // Evitar crash si el cliente corta la descarga
+  res.on('close', () => {
+    try { doc.end(); } catch {}
+  });
+
+  // Evitar crash por errores internos de PDFKit
+  doc.on('error', (err) => {
+    console.error('❌ PDFKit error', err);
+    try {
+      if (!res.headersSent) res.status(500);
+      res.end();
+    } catch {}
+  });
 
   doc.pipe(res);
 
-  const startX = doc.page.margins.left;
-  let y = doc.y;
-
   // ===== TÍTULO =====
-  doc
-    .font('Helvetica-Bold')
-    .fontSize(16)
-    .text(title, { align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(16).text(title, { align: 'center' });
+  doc.moveDown(1);
 
-  y = doc.y + 20;
+  const startX = doc.page.margins.left;
+  const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
-  // ===== CONFIG COLUMNA =====
-  const colWidths = [120, 120, 90, 120, 120]; // ajustado a tus datos
-  const rowHeight = 18;
+  // ===== ANCHOS DINÁMICOS (evita NaN) =====
+  // Si alguna columna trae width, lo respeta. Si no, reparte equitativo.
+  const baseW = Math.floor(pageWidth / Math.max(1, columns.length));
+  const colWidths = columns.map(c => {
+    const w = Number(c?.width);
+    return Number.isFinite(w) && w > 10 ? w : baseW;
+  });
+
+  // Ajuste final: que la suma no exceda el ancho del page
+  let sumW = colWidths.reduce((a, b) => a + b, 0);
+  if (sumW > pageWidth) {
+    // Escala proporcionalmente hacia abajo
+    const factor = pageWidth / sumW;
+    for (let i = 0; i < colWidths.length; i++) {
+      colWidths[i] = Math.max(40, Math.floor(colWidths[i] * factor));
+    }
+  }
+  // Rellenar diferencia por redondeo en la última columna
+  sumW = colWidths.reduce((a, b) => a + b, 0);
+  if (colWidths.length) colWidths[colWidths.length - 1] += (pageWidth - sumW);
+
+  const rowHeight = 16;
+  let y = doc.y + 6;
 
   // ===== HEADER =====
   doc.fontSize(10).font('Helvetica-Bold');
-
   let x = startX;
   columns.forEach((col, i) => {
-    doc.text(col.label, x, y, {
-      width: colWidths[i],
-      align: 'left'
-    });
+    doc.text(String(col.label ?? ''), x, y, { width: colWidths[i], align: 'left' });
     x += colWidths[i];
   });
 
   y += rowHeight;
-  doc.moveTo(startX, y - 4).lineTo(startX + colWidths.reduce((a, b) => a + b, 0), y - 4).stroke();
+  doc.moveTo(startX, y - 4).lineTo(startX + pageWidth, y - 4).stroke();
 
   // ===== FILAS =====
-  doc.font('Helvetica');
+  doc.font('Helvetica').fontSize(9);
 
   rows.forEach((row) => {
     x = startX;
-
     columns.forEach((col, i) => {
-      const value = row[col.key] ?? '';
-      doc.text(String(value), x, y, {
-        width: colWidths[i],
-        align: 'left'
-      });
+      const value = row?.[col.key] ?? '';
+      // Texto acotado para no romper layout
+      const txt = String(value);
+      doc.text(txt, x, y, { width: colWidths[i], align: 'left' });
       x += colWidths[i];
     });
 
@@ -73,6 +95,18 @@ function sendPDF(res, title, columns, rows) {
     if (y > doc.page.height - 60) {
       doc.addPage();
       y = doc.page.margins.top;
+
+      // Repetir header en nueva página
+      doc.fontSize(10).font('Helvetica-Bold');
+      x = startX;
+      columns.forEach((col, i) => {
+        doc.text(String(col.label ?? ''), x, y, { width: colWidths[i], align: 'left' });
+        x += colWidths[i];
+      });
+      y += rowHeight;
+      doc.moveTo(startX, y - 4).lineTo(startX + pageWidth, y - 4).stroke();
+
+      doc.font('Helvetica').fontSize(9);
     }
   });
 
