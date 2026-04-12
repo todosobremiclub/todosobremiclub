@@ -1865,6 +1865,11 @@ if (exportConfig.extraKey !== 'sociosActCatActual') {
   }
 }
 
+// ✅ Para export ACTUAL (sin período), avisamos al backend
+if (exportConfig.extraKey === 'sociosActCatActual') {
+  params.set('extra', 'actual');
+}
+
   // url final
   const url =
     `/club/${clubId}/reportes/${exportConfig.endpoint}/export/${format}?` +

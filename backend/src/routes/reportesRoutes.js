@@ -284,11 +284,13 @@ router.get(
     try {
       const { clubId } = req.params;
 
-const data = req.query.extra === 'actual'
-  ? await getSociosActCatActualDetalle(clubId, req.query)
-  : await getSociosActCatExportData(clubId, req.query);
+      const data =
+        (req.query.extra === 'actual' || !req.query.anio)
+          ? await getSociosActCatActualDetalle(clubId, req.query)
+          : await getSociosActCatExportData(clubId, req.query);
 
-await sendExcel(res, data.title, data.columns, data.rows);
+      // ✅ PDF usa sendPDF
+      sendPDF(res, data.title, data.columns, data.rows);
     } catch (e) {
       console.error('❌ export pdf socios-actividad-categoria', e);
       res.status(400).json({ ok: false, error: e.message });
@@ -304,7 +306,12 @@ router.get(
   async (req, res) => {
     try {
       const { clubId } = req.params;
-      const data = await getSociosActCatExportData(clubId, req.query);
+
+      const data =
+        (req.query.extra === 'actual' || !req.query.anio)
+          ? await getSociosActCatActualDetalle(clubId, req.query)
+          : await getSociosActCatExportData(clubId, req.query);
+
       await sendExcel(res, data.title, data.columns, data.rows);
     } catch (e) {
       console.error('❌ export excel socios-actividad-categoria', e);
@@ -312,7 +319,6 @@ router.get(
     }
   }
 );
-
 
 async function getSociosActCatActualDetalle(clubId, q) {
   const { modo = 'actividades', actividad = '' } = q;
