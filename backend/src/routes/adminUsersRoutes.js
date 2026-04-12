@@ -54,6 +54,31 @@ const is_active_norm =
     await db.query('BEGIN');
 
     const rUser = await db.query(
+
+// ✅ Si el usuario ya existe, lo asignamos al club en vez de crear uno nuevo
+const rExisting = await db.query(
+  'SELECT id FROM users WHERE email = $1',
+  [emailNorm]
+);
+
+if (rExisting.rowCount > 0) {
+  const existingUserId = rExisting.rows[0].id;
+
+  for (const a of assignments) {
+    if (!a?.club_id || !a?.role) continue;
+
+    await db.query(
+      `INSERT INTO user_clubs (user_id, club_id, role)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (user_id, club_id) DO UPDATE SET role = EXCLUDED.role`,
+      [existingUserId, a.club_id, a.role]
+    );
+  }
+
+  await db.query('COMMIT');
+  return res.json({ ok: true, user: { id: existingUserId, email: emailNorm } });
+}
+
       `INSERT INTO users (email, full_name, password_hash, is_active)
        VALUES ($1,$2,$3,$4)
        RETURNING id, email, full_name, is_active`,
