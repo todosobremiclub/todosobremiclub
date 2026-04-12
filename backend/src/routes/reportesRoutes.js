@@ -10,9 +10,8 @@ const ExcelJS = require('exceljs');
 
 function sendPDF(res, title, columns, rows) {
   const doc = new PDFDocument({
-    margin: 40,
     size: 'A4',
-    bufferPages: true
+    margin: 40
   });
 
   res.setHeader('Content-Type', 'application/pdf');
@@ -23,31 +22,57 @@ function sendPDF(res, title, columns, rows) {
 
   doc.pipe(res);
 
-  // Título
-  doc.fontSize(16).text(title, { align: 'center' });
-  doc.moveDown(1);
+  const startX = doc.page.margins.left;
+  let y = doc.y;
 
-  // Header columnas
+  // ===== TÍTULO =====
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(16)
+    .text(title, { align: 'center' });
+
+  y = doc.y + 20;
+
+  // ===== CONFIG COLUMNA =====
+  const colWidths = [120, 120, 90, 120, 120]; // ajustado a tus datos
+  const rowHeight = 18;
+
+  // ===== HEADER =====
   doc.fontSize(10).font('Helvetica-Bold');
-  columns.forEach(col => {
-    doc.text(col.label, { continued: true, width: 110 });
-  });
-  doc.text('');
-  doc.moveDown(0.5);
 
+  let x = startX;
+  columns.forEach((col, i) => {
+    doc.text(col.label, x, y, {
+      width: colWidths[i],
+      align: 'left'
+    });
+    x += colWidths[i];
+  });
+
+  y += rowHeight;
+  doc.moveTo(startX, y - 4).lineTo(startX + colWidths.reduce((a, b) => a + b, 0), y - 4).stroke();
+
+  // ===== FILAS =====
   doc.font('Helvetica');
 
-  // Filas
-  rows.forEach((row, idx) => {
-    columns.forEach(col => {
+  rows.forEach((row) => {
+    x = startX;
+
+    columns.forEach((col, i) => {
       const value = row[col.key] ?? '';
-      doc.text(String(value), { continued: true, width: 110 });
+      doc.text(String(value), x, y, {
+        width: colWidths[i],
+        align: 'left'
+      });
+      x += colWidths[i];
     });
-    doc.text('');
+
+    y += rowHeight;
 
     // Salto de página seguro
-    if (doc.y > 750) {
+    if (y > doc.page.height - 60) {
       doc.addPage();
+      y = doc.page.margins.top;
     }
   });
 
