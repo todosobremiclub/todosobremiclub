@@ -1801,6 +1801,17 @@ window.openExportModal = function ({ title, endpoint, extraKey = null }) {
     if (mesSel)  mesSel.value  = String(sel.mes_num);
   }
 
+// ✅ Caso especial: Ingresos vs Gastos por responsable → usar mes/año del reporte que estás viendo
+if (endpoint === 'ingresos-vs-gastos-por-responsable') {
+  const periodoSel = document.getElementById('exportModalPeriodo');
+  const anioSel = document.getElementById('exportModalAnio');
+  const mesSel  = document.getElementById('exportModalMes');
+
+  if (periodoSel) periodoSel.value = 'mes';
+  if (anioSel) anioSel.value = String(igRespState.anio);
+  if (mesSel)  mesSel.value  = String(igRespState.mes);
+}
+
   // Aplicar UI una vez que fijamos valores
   applyPeriodoUI();
 

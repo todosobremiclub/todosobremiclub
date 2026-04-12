@@ -2453,7 +2453,6 @@ router.get('/:clubId/reportes/gastos-responsable-mes/detalle', requireAuth, requ
     res.status(500).json({ ok: false, error: e.message });
   }
 });
-
 // ===============================
 // Ingresos totales por responsable (cuenta)
 // Suma ingresos_generales + pagos_mensuales
@@ -2493,6 +2492,7 @@ router.get(
           SUM(pm.monto) AS total
         FROM pagos_mensuales pm
         WHERE pm.club_id = $1
+          AND pm.fecha_pago IS NOT NULL
           AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
           AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
         GROUP BY COALESCE(pm.cuenta, 'Sin cuenta')
@@ -2514,24 +2514,25 @@ router.get(
         });
       };
 
-      acumular(r1.rows);
-      acumular(r2.rows);
+      acumular(r1.rows || []);
+      acumular(r2.rows || []);
 
       const rows = Array.from(map.entries())
         .map(([responsable, total]) => ({ responsable, total }))
-        .sort((a,b) => a.responsable.localeCompare(b.responsable));
+        .sort((a, b) => a.responsable.localeCompare(b.responsable));
 
-      res.json({ ok: true, rows });
+      return res.json({ ok: true, rows });
 
     } catch (e) {
       console.error('❌ ingresos-por-responsable', e);
-      res.status(500).json({ ok: false, error: e.message });
+      return res.status(500).json({ ok: false, error: e.message });
     }
   }
 );
 
 // ===============================
-// INGRESOS VS GASTOS POR RESPONSABLE (MES)
+// INGRESOS VS GASTOS POR RESPONSABLE (MES)  (resumen)
+// GET /club/:clubId/reportes/ingresos-vs-gastos-por-responsable?anio=2026&mes=3
 // ===============================
 router.get(
   '/:clubId/reportes/ingresos-vs-gastos-por-responsable',
@@ -2566,6 +2567,7 @@ router.get(
                SUM(pm.monto) AS total
         FROM pagos_mensuales pm
         WHERE pm.club_id = $1
+          AND pm.fecha_pago IS NOT NULL
           AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
           AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
         GROUP BY COALESCE(pm.cuenta,'Sin cuenta')
@@ -2598,19 +2600,251 @@ router.get(
         map.get(resp)[field] += Number(val || 0);
       };
 
-      rIng1.rows.forEach(r => acum(r.responsable, 'ingresos', r.total));
-      rIng2.rows.forEach(r => acum(r.responsable, 'ingresos', r.total));
-      rGas.rows.forEach(r => acum(r.responsable, 'gastos', r.total));
+      (rIng1.rows || []).forEach(r => acum(r.responsable, 'ingresos', r.total));
+      (rIng2.rows || []).forEach(r => acum(r.responsable, 'ingresos', r.total));
+      (rGas.rows  || []).forEach(r => acum(r.responsable, 'gastos',   r.total));
 
       const rows = Array.from(map.values()).map(r => ({
         ...r,
         resultado: r.ingresos - r.gastos
       }));
 
-      res.json({ ok: true, rows });
+      return res.json({ ok: true, rows });
+
     } catch (e) {
-      console.error(e);
-      res.status(500).json({ ok: false, error: e.message });
+      console.error('❌ ingresos-vs-gastos-por-responsable', e);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
+// D) DETALLE: ingresos vs gastos por responsable (para clicks)
+// GET /club/:clubId/reportes/ingresos-vs-gastos-por-responsable/detalle?anio=2026&mes=4&responsable=Efectivo&tipo=ingresos|gastos|todos
+// ===============================
+router.get(
+  '/:clubId/reportes/ingresos-vs-gastos-por-responsable/detalle',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes = Number(req.query.mes);
+    const responsable = String(req.query.responsable || '');
+    const tipo = String(req.query.tipo || 'todos').toLowerCase();
+
+    if (!anio || !mes || !responsable) {
+      return res.status(400).json({ ok: false, error: 'anio, mes y responsable son obligatorios' });
+    }
+
+    try {
+      const result = {};
+
+      // INGRESOS (responsable = cuenta)
+      if (tipo === 'ingresos' || tipo === 'todos') {
+        const qIngGen = `
+          SELECT
+            COALESCE(ti.nombre,'Otro ingreso') AS tipo_item,
+            'ingreso'::text AS tipo,
+            to_char(ig.fecha,'YYYY-MM') AS periodo,
+            ig.monto::numeric AS monto,
+            COALESCE(ig.observacion,'') AS descripcion
+          FROM ingresos_generales ig
+          LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+          WHERE ig.club_id = $1
+            AND ig.activo = true
+            AND EXTRACT(YEAR FROM ig.fecha) = $2
+            AND EXTRACT(MONTH FROM ig.fecha) = $3
+            AND COALESCE(ig.cuenta,'Sin cuenta') = $4
+        `;
+
+        const qCuotas = `
+          SELECT
+            'Cuotas'::text AS tipo_item,
+            'ingreso'::text AS tipo,
+            to_char(pm.fecha_pago,'YYYY-MM') AS periodo,
+            pm.monto::numeric AS monto,
+            ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion
+          FROM pagos_mensuales pm
+          WHERE pm.club_id = $1
+            AND pm.fecha_pago IS NOT NULL
+            AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+            AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
+            AND COALESCE(pm.cuenta,'Sin cuenta') = $4
+        `;
+
+        const [rA, rB] = await Promise.all([
+          db.query(qIngGen, [clubId, anio, mes, responsable]),
+          db.query(qCuotas, [clubId, anio, mes, responsable]),
+        ]);
+
+        result.ingresos = (rA.rows || []).concat(rB.rows || []);
+      }
+
+      // GASTOS (responsable = responsables_gasto.nombre)
+      if (tipo === 'gastos' || tipo === 'todos') {
+        const qGas = `
+          SELECT
+            COALESCE(tg.nombre,'Sin tipo') AS tipo_item,
+            'gasto'::text AS tipo,
+            to_char(g.periodo,'YYYY-MM') AS periodo,
+            g.monto::numeric AS monto,
+            COALESCE(g.descripcion,'') AS descripcion
+          FROM gastos g
+          LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
+          LEFT JOIN responsables_gasto rg ON rg.id = g.responsable_id
+          WHERE g.club_id = $1
+            AND g.activo = true
+            AND EXTRACT(YEAR FROM g.periodo) = $2
+            AND EXTRACT(MONTH FROM g.periodo) = $3
+            AND COALESCE(rg.nombre,'Sin responsable') = $4
+        `;
+
+        const rG = await db.query(qGas, [clubId, anio, mes, responsable]);
+        result.gastos = rG.rows || [];
+      }
+
+      return res.json({ ok: true, rows: result });
+
+    } catch (e) {
+      console.error('❌ ingresos-vs-gastos-por-responsable/detalle', e);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ============================================================
+// EXPORT: Ingresos vs Gastos por responsable (MES o AÑO)
+// PDF:   /club/:clubId/reportes/ingresos-vs-gastos-por-responsable/export/pdf?anio=2026&mes=4
+// EXCEL: /club/:clubId/reportes/ingresos-vs-gastos-por-responsable/export/excel?anio=2026&mes=4
+// Si NO viene mes => exporta TODO el año
+// Columnas: Tipo ingreso/gasto | Tipo | Periodo | Monto | Descripción
+// ============================================================
+
+async function getMovsIngGastoPorRespExport(clubId, anio, mesOrNull) {
+  const mes = mesOrNull ? Number(mesOrNull) : null;
+
+  const q = `
+    SELECT * FROM (
+      SELECT
+        COALESCE(ti.nombre, 'Otro ingreso') AS tipo_item,
+        'ingreso'::text AS tipo,
+        to_char(ig.fecha, 'YYYY-MM') AS periodo,
+        ig.monto::numeric AS monto,
+        COALESCE(ig.observacion, '') AS descripcion
+      FROM ingresos_generales ig
+      LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+      WHERE ig.club_id = $1
+        AND ig.activo = true
+        AND EXTRACT(YEAR FROM ig.fecha) = $2
+        AND ($3::int IS NULL OR EXTRACT(MONTH FROM ig.fecha) = $3::int)
+
+      UNION ALL
+
+      SELECT
+        'Cuotas'::text AS tipo_item,
+        'ingreso'::text AS tipo,
+        to_char(pm.fecha_pago, 'YYYY-MM') AS periodo,
+        pm.monto::numeric AS monto,
+        ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion
+      FROM pagos_mensuales pm
+      WHERE pm.club_id = $1
+        AND pm.fecha_pago IS NOT NULL
+        AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+        AND ($3::int IS NULL OR EXTRACT(MONTH FROM pm.fecha_pago) = $3::int)
+
+      UNION ALL
+
+      SELECT
+        COALESCE(tg.nombre, 'Sin tipo') AS tipo_item,
+        'gasto'::text AS tipo,
+        to_char(g.periodo, 'YYYY-MM') AS periodo,
+        g.monto::numeric AS monto,
+        COALESCE(g.descripcion, '') AS descripcion
+      FROM gastos g
+      LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
+      WHERE g.club_id = $1
+        AND g.activo = true
+        AND EXTRACT(YEAR FROM g.periodo) = $2
+        AND ($3::int IS NULL OR EXTRACT(MONTH FROM g.periodo) = $3::int)
+    ) t
+    ORDER BY periodo, tipo, tipo_item, descripcion;
+  `;
+
+  const r = await db.query(q, [clubId, anio, mes]);
+  return r.rows || [];
+}
+
+// PDF export
+router.get(
+  '/:clubId/reportes/ingresos-vs-gastos-por-responsable/export/pdf',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    try {
+      const { clubId } = req.params;
+      const anio = Number(req.query.anio);
+      const mes  = req.query.mes ? Number(req.query.mes) : null;
+
+      if (!anio) return res.status(400).json({ ok:false, error:'anio es obligatorio' });
+      if (mes !== null && (mes < 1 || mes > 12)) return res.status(400).json({ ok:false, error:'mes inválido (1-12)' });
+
+      const rowsRaw = await getMovsIngGastoPorRespExport(clubId, anio, mes);
+      const rows = rowsRaw.map(r => ({
+        ...r,
+        monto: Number(r.monto || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      }));
+
+      return sendPDF(
+        res,
+        `Ingresos_vs_Gastos_por_responsable_${anio}${mes ? '-' + String(mes).padStart(2,'0') : ''}`,
+        [
+          { key:'tipo_item',   label:'Tipo ingreso/gasto', width: 170 },
+          { key:'tipo',        label:'Tipo',              width: 55  },
+          { key:'periodo',     label:'Periodo',           width: 70  },
+          { key:'monto',       label:'Monto',             width: 70  },
+          { key:'descripcion', label:'Descripción',       width: 180 }
+        ],
+        rows
+      );
+    } catch (e) {
+      console.error('❌ export pdf ingresos-vs-gastos-por-responsable', e);
+      return res.status(500).json({ ok:false, error: e.message });
+    }
+  }
+);
+
+// EXCEL export
+router.get(
+  '/:clubId/reportes/ingresos-vs-gastos-por-responsable/export/excel',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    try {
+      const { clubId } = req.params;
+      const anio = Number(req.query.anio);
+      const mes  = req.query.mes ? Number(req.query.mes) : null;
+
+      if (!anio) return res.status(400).json({ ok:false, error:'anio es obligatorio' });
+      if (mes !== null && (mes < 1 || mes > 12)) return res.status(400).json({ ok:false, error:'mes inválido (1-12)' });
+
+      const rows = await getMovsIngGastoPorRespExport(clubId, anio, mes);
+
+      return sendExcel(
+        res,
+        `Ingresos_vs_Gastos_por_responsable_${anio}${mes ? '-' + String(mes).padStart(2,'0') : ''}`,
+        [
+          { key:'tipo_item',   label:'Tipo ingreso/gasto' },
+          { key:'tipo',        label:'Tipo' },
+          { key:'periodo',     label:'Periodo' },
+          { key:'monto',       label:'Monto' },
+          { key:'descripcion', label:'Descripción' }
+        ],
+        rows
+      );
+    } catch (e) {
+      console.error('❌ export excel ingresos-vs-gastos-por-responsable', e);
+      return res.status(500).json({ ok:false, error: e.message });
     }
   }
 );
@@ -2811,7 +3045,7 @@ router.get(
 );
 
 // D) DETALLE: ingresos vs gastos por responsable (para clicks en el reporte #7)
-// GET /club/:clubId/reportes/ingresos-vs-gastos-por-responsable/detalle?anio=2026&mes=4&responsable=Efectivo&tipo=ingresos
+// GET /club/:clubId/reportes/ingresos-vs-gastos-por-responsable/detalle?anio=2026&mes=4&responsable=Efectivo&tipo=ingresos|gastos|todos
 router.get(
   '/:clubId/reportes/ingresos-vs-gastos-por-responsable/detalle',
   requireAuth,
@@ -2819,9 +3053,9 @@ router.get(
   async (req, res) => {
     const { clubId } = req.params;
     const anio = Number(req.query.anio);
-    const mes = Number(req.query.mes);
-    const responsable = (req.query.responsable || '').toString();
-    const tipo = (req.query.tipo || 'todos').toString().toLowerCase();
+    const mes  = Number(req.query.mes);
+    const responsable = String(req.query.responsable || '');
+    const tipo = String(req.query.tipo || 'todos').toLowerCase();
 
     if (!anio || !mes || !responsable) {
       return res.status(400).json({ ok: false, error: 'anio, mes y responsable son obligatorios' });
@@ -2830,74 +3064,58 @@ router.get(
     try {
       const result = {};
 
-      // ingresos (responsable = cuenta)
+      // INGRESOS (responsable = cuenta)
       if (tipo === 'ingresos' || tipo === 'todos') {
         const qIngGen = `
           SELECT
-            ig.id,
-            ig.fecha,
-            ig.monto,
-            ig.observacion AS descripcion,
-            COALESCE(ig.cuenta, 'Sin cuenta') AS responsable,
-            'Ingreso general'::text AS origen
+            COALESCE(ti.nombre,'Otro ingreso') AS tipo_item,
+            'ingreso'::text AS tipo,
+            to_char(ig.fecha,'YYYY-MM') AS periodo,
+            ig.monto::numeric AS monto,
+            COALESCE(ig.observacion,'') AS descripcion
           FROM ingresos_generales ig
+          LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
           WHERE ig.club_id = $1
             AND ig.activo = true
             AND EXTRACT(YEAR FROM ig.fecha) = $2
             AND EXTRACT(MONTH FROM ig.fecha) = $3
-            AND COALESCE(ig.cuenta, 'Sin cuenta') = $4
-          ORDER BY ig.fecha DESC;
+            AND COALESCE(ig.cuenta,'Sin cuenta') = $4
+          ORDER BY ig.fecha DESC
         `;
 
         const qCuotas = `
-  SELECT
-    pm.id,
-    pm.fecha_pago AS fecha,
-    pm.monto,
-    ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
-    COALESCE(pm.cuenta, 'Sin cuenta') AS responsable,
-
-    -- ✅ socio “a prueba de borrado”
-    (
-      'Socio: ' ||
-      COALESCE(pm.socio_apellido, s.apellido, '') || ' ' ||
-      COALESCE(pm.socio_nombre,  s.nombre,  '') ||
-      CASE
-        WHEN COALESCE(pm.socio_numero, s.numero_socio) IS NULL THEN ''
-        ELSE ' (#' || COALESCE(pm.socio_numero, s.numero_socio) || ')'
-      END
-    )::text AS socio,
-
-    'Cuotas'::text AS origen
-  FROM pagos_mensuales pm
-  LEFT JOIN socios s ON s.id = pm.socio_id
-  WHERE pm.club_id = $1
-  AND pm.fecha_pago IS NOT NULL
-  AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
-  AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
-  AND COALESCE(pm.cuenta, 'Sin cuenta') = $4
-  ORDER BY pm.fecha_pago DESC;
-`;
+          SELECT
+            'Cuotas'::text AS tipo_item,
+            'ingreso'::text AS tipo,
+            to_char(pm.fecha_pago,'YYYY-MM') AS periodo,
+            pm.monto::numeric AS monto,
+            ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion
+          FROM pagos_mensuales pm
+          WHERE pm.club_id = $1
+            AND pm.fecha_pago IS NOT NULL
+            AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+            AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
+            AND COALESCE(pm.cuenta,'Sin cuenta') = $4
+          ORDER BY pm.fecha_pago DESC
+        `;
 
         const [rA, rB] = await Promise.all([
           db.query(qIngGen, [clubId, anio, mes, responsable]),
-          db.query(qCuotas, [clubId, anio, mes, responsable]),
+          db.query(qCuotas, [clubId, anio, mes, responsable])
         ]);
 
-        result.ingresos = rA.rows.concat(rB.rows);
+        result.ingresos = (rA.rows || []).concat(rB.rows || []);
       }
 
-      // gastos (responsable = responsables_gasto.nombre)
+      // GASTOS (responsable = responsables_gasto.nombre)
       if (tipo === 'gastos' || tipo === 'todos') {
         const qGas = `
           SELECT
-            g.id,
-            g.periodo,
-            g.fecha_gasto,
-            g.monto,
-            g.descripcion,
-            COALESCE(tg.nombre, 'Sin tipo') AS tipo_gasto,
-            COALESCE(rg.nombre, 'Sin responsable') AS responsable
+            COALESCE(tg.nombre,'Sin tipo') AS tipo_item,
+            'gasto'::text AS tipo,
+            to_char(g.periodo,'YYYY-MM') AS periodo,
+            g.monto::numeric AS monto,
+            COALESCE(g.descripcion,'') AS descripcion
           FROM gastos g
           LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
           LEFT JOIN responsables_gasto rg ON rg.id = g.responsable_id
@@ -2905,17 +3123,164 @@ router.get(
             AND g.activo = true
             AND EXTRACT(YEAR FROM g.periodo) = $2
             AND EXTRACT(MONTH FROM g.periodo) = $3
-            AND COALESCE(rg.nombre, 'Sin responsable') = $4
-          ORDER BY g.fecha_gasto;
+            AND COALESCE(rg.nombre,'Sin responsable') = $4
+          ORDER BY g.fecha_gasto DESC
         `;
+
         const rG = await db.query(qGas, [clubId, anio, mes, responsable]);
-        result.gastos = rG.rows;
+        result.gastos = rG.rows || [];
       }
 
       return res.json({ ok: true, rows: result });
+
     } catch (e) {
       console.error('❌ ingresos-vs-gastos-por-responsable/detalle', e);
       return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ============================================================
+// EXPORT: Ingresos vs Gastos por responsable (MES o AÑO)
+// PDF:   /club/:clubId/reportes/ingresos-vs-gastos-por-responsable/export/pdf?anio=2026&mes=4
+// EXCEL: /club/:clubId/reportes/ingresos-vs-gastos-por-responsable/export/excel?anio=2026&mes=4
+// Si NO viene mes => exporta TODO el año
+// Columnas: Tipo ingreso/gasto | Tipo | Periodo | Monto | Descripción
+// ============================================================
+
+async function getMovsIngGastoPorRespExport(clubId, anio, mesOrNull) {
+  const mes = mesOrNull ? Number(mesOrNull) : null;
+
+  const q = `
+    SELECT * FROM (
+      SELECT
+        COALESCE(ti.nombre, 'Otro ingreso') AS tipo_item,
+        'ingreso'::text AS tipo,
+        to_char(ig.fecha, 'YYYY-MM') AS periodo,
+        ig.monto::numeric AS monto,
+        COALESCE(ig.observacion, '') AS descripcion
+      FROM ingresos_generales ig
+      LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+      WHERE ig.club_id = $1
+        AND ig.activo = true
+        AND EXTRACT(YEAR FROM ig.fecha) = $2
+        AND ($3::int IS NULL OR EXTRACT(MONTH FROM ig.fecha) = $3::int)
+
+      UNION ALL
+
+      SELECT
+        'Cuotas'::text AS tipo_item,
+        'ingreso'::text AS tipo,
+        to_char(pm.fecha_pago, 'YYYY-MM') AS periodo,
+        pm.monto::numeric AS monto,
+        ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion
+      FROM pagos_mensuales pm
+      WHERE pm.club_id = $1
+        AND pm.fecha_pago IS NOT NULL
+        AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+        AND ($3::int IS NULL OR EXTRACT(MONTH FROM pm.fecha_pago) = $3::int)
+
+      UNION ALL
+
+      SELECT
+        COALESCE(tg.nombre, 'Sin tipo') AS tipo_item,
+        'gasto'::text AS tipo,
+        to_char(g.periodo, 'YYYY-MM') AS periodo,
+        g.monto::numeric AS monto,
+        COALESCE(g.descripcion, '') AS descripcion
+      FROM gastos g
+      LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
+      WHERE g.club_id = $1
+        AND g.activo = true
+        AND EXTRACT(YEAR FROM g.periodo) = $2
+        AND ($3::int IS NULL OR EXTRACT(MONTH FROM g.periodo) = $3::int)
+    ) t
+    ORDER BY periodo, tipo, tipo_item, descripcion;
+  `;
+
+  const r = await db.query(q, [clubId, anio, mes]);
+  return r.rows || [];
+}
+
+// PDF export
+router.get(
+  '/:clubId/reportes/ingresos-vs-gastos-por-responsable/export/pdf',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    try {
+      const { clubId } = req.params;
+      const anio = Number(req.query.anio);
+      const mes  = req.query.mes ? Number(req.query.mes) : null;
+
+      if (!anio) return res.status(400).json({ ok:false, error:'anio es obligatorio' });
+      if (mes !== null && (mes < 1 || mes > 12)) {
+        return res.status(400).json({ ok:false, error:'mes inválido (1-12)' });
+      }
+
+      const rowsRaw = await getMovsIngGastoPorRespExport(clubId, anio, mes);
+      const rows = rowsRaw.map(r => ({
+        ...r,
+        monto: Number(r.monto || 0).toLocaleString('es-AR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        })
+      }));
+
+      return sendPDF(
+        res,
+        `Ingresos_vs_Gastos_por_responsable_${anio}${mes ? '-' + String(mes).padStart(2,'0') : ''}`,
+        [
+          { key:'tipo_item',   label:'Tipo ingreso/gasto', width: 170 },
+          { key:'tipo',        label:'Tipo',              width: 55  },
+          { key:'periodo',     label:'Periodo',           width: 70  },
+          { key:'monto',       label:'Monto',             width: 70  },
+          { key:'descripcion', label:'Descripción',       width: 180 }
+        ],
+        rows
+      );
+
+    } catch (e) {
+      console.error('❌ export pdf ingresos-vs-gastos-por-responsable', e);
+      return res.status(500).json({ ok:false, error: e.message });
+    }
+  }
+);
+
+// EXCEL export
+router.get(
+  '/:clubId/reportes/ingresos-vs-gastos-por-responsable/export/excel',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    try {
+      const { clubId } = req.params;
+      const anio = Number(req.query.anio);
+      const mes  = req.query.mes ? Number(req.query.mes) : null;
+
+      if (!anio) return res.status(400).json({ ok:false, error:'anio es obligatorio' });
+      if (mes !== null && (mes < 1 || mes > 12)) {
+        return res.status(400).json({ ok:false, error:'mes inválido (1-12)' });
+      }
+
+      const rows = await getMovsIngGastoPorRespExport(clubId, anio, mes);
+
+      return sendExcel(
+        res,
+        `Ingresos_vs_Gastos_por_responsable_${anio}${mes ? '-' + String(mes).padStart(2,'0') : ''}`,
+        [
+          { key:'tipo_item',   label:'Tipo ingreso/gasto' },
+          { key:'tipo',        label:'Tipo' },
+          { key:'periodo',     label:'Periodo' },
+          { key:'monto',       label:'Monto' },
+          { key:'descripcion', label:'Descripción' }
+        ],
+        rows
+      );
+
+    } catch (e) {
+      console.error('❌ export excel ingresos-vs-gastos-por-responsable', e);
+      return res.status(500).json({ ok:false, error: e.message });
     }
   }
 );

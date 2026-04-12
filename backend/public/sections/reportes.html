@@ -217,6 +217,14 @@
     <button id="btnIGRespMesPrev" class="btn-nav-sm">◀</button>
     <span id="igRespMesLabel" class="nav-label small">Mes actual</span>
     <button id="btnIGRespMesNext" class="btn-nav-sm">▶</button>
+<button class="btn-export-icon"
+  title="Exportar Ingresos vs Gastos por responsable"
+  onclick="openExportModal({
+    title: 'Ingresos_vs_Gastos_por_responsable',
+    endpoint: 'ingresos-vs-gastos-por-responsable'
+  })">
+  ⬇
+</button>
   </div>
 
   <div id="igRespBody" class="detail-body">
