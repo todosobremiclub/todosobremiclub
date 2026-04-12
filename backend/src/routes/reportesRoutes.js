@@ -97,7 +97,7 @@ async function sendExcel(res, title, columns, rows) {
   );
   res.setHeader(
     'Content-Disposition',
-    `attachment; filename="${title}.xlsx"`
+    `attachment; filename="${title.replace(/\s+/g, '_')}.xlsx"`
   );
 
   await wb.xlsx.write(res);
@@ -868,7 +868,7 @@ router.get(
   '/:clubId/reportes/impagos-mes/export/pdf',
   requireAuth,
   requireClubAccess,
-  async (req, res) => {
+  async (req, res) => {clubId/reportes/impagos-mes/export
     const { clubId } = req.params;
     const anio = Number(req.query.anio);
     const mes  = Number(req.query.mes);
@@ -938,15 +938,15 @@ router.get(
         cantidad: r.cantidad
       }));
 
-      return sendPDF(
-        res,
-        `Cuotas_impagas_${anio}`,
-        [
-          { key: 'mes', label: 'Mes' },
-          { key: 'cantidad', label: 'Socios sin pago' }
-        ],
-        rows
-      );
+      return sendExcel(
+  res,
+  `Cuotas_impagas_${anio}`,
+  [
+    { key: 'mes', label: 'Mes' },
+    { key: 'cantidad', label: 'Socios sin pago' }
+  ],
+  rows
+);
     }
 
     try {
