@@ -77,7 +77,8 @@ function sendPDF(res, title, columns, rows) {
   doc.moveTo(startX, y - 4).lineTo(startX + pageWidth, y - 4).stroke();
 
   // ===== FILAS =====
-  doc.font('Helvetica').fontSize(9);
+  const tableFont = columns.length >= 7 ? 8 : 9;
+doc.font('Helvetica').fontSize(tableFont);
 
   rows.forEach((row) => {
     x = startX;
@@ -85,7 +86,12 @@ function sendPDF(res, title, columns, rows) {
       const value = row?.[col.key] ?? '';
       // Texto acotado para no romper layout
       const txt = String(value);
-      doc.text(txt, x, y, { width: colWidths[i], align: 'left' });
+      doc.text(txt, x, y, {
+  width: colWidths[i],
+  align: 'left',
+  lineBreak: false,
+  ellipsis: true
+});
       x += colWidths[i];
     });
 
@@ -106,7 +112,8 @@ function sendPDF(res, title, columns, rows) {
       y += rowHeight;
       doc.moveTo(startX, y - 4).lineTo(startX + pageWidth, y - 4).stroke();
 
-      doc.font('Helvetica').fontSize(9);
+      const tableFont = columns.length >= 7 ? 8 : 9;
+doc.font('Helvetica').fontSize(tableFont);
     }
   });
 
@@ -1021,21 +1028,28 @@ router.get(
 
       const r = await db.query(q, [clubId, anio, mes]);
 
-      return sendPDF(
-        res,
-        `Cuotas_impagas_${anio}-${String(mes).padStart(2, '0')}`,
-        [
-          { key: 'numero_socio', label: 'N° Socio' },
-          { key: 'dni',          label: 'DNI' },
-          { key: 'apellido',     label: 'Apellido' },
-          { key: 'nombre',       label: 'Nombre' },
-          { key: 'actividad',    label: 'Actividad' },
-          { key: 'categoria',    label: 'Categoría' },
-          { key: 'telefono',     label: 'Teléfono' },
-          { key: 'fecha_ingreso',label: 'Fecha ingreso' }
-        ],
-        r.rows
-      );
+const rows = r.rows.map(s => ({
+  ...s,
+  fecha_ingreso: s.fecha_ingreso
+    ? new Date(s.fecha_ingreso).toISOString().slice(0, 10) // yyyy-mm-dd
+    : ''
+}));
+
+return sendPDF(
+  res,
+  `Cuotas_impagas_${anio}-${String(mes).padStart(2, '0')}`,
+  [
+    { key:'numero_socio', label:'N° Socio', width: 55 },
+    { key:'dni',          label:'DNI',     width: 70 },
+    { key:'apellido',     label:'Apellido',width: 85 },
+    { key:'nombre',       label:'Nombre',  width: 85 },
+    { key:'actividad',    label:'Actividad',width: 70 },
+    { key:'categoria',    label:'Categoría',width: 70 },
+    { key:'telefono',     label:'Teléfono', width: 75 },
+    { key:'fecha_ingreso',label:'Fecha ing.',width: 60 }
+  ],
+  rows
+);
 
     } catch (e) {
       console.error('❌ export pdf impagos-mes', e);
