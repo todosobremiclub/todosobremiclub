@@ -859,97 +859,102 @@ router.get(
 );
 
 // ============================================================
-// EXPORT: Cuotas impagas por MES
-// GET /club/:clubId/reportes/impagos-mes/export/pdf?anio=2026&mes=4
-// GET /club/:clubId/reportes/impagos-mes/export/excel?anio=2026&mes=4
+// EXPORT: Cuotas impagas (MES o AÑO)
+// PDF:   /club/:clubId/reportes/impagos-mes/export/pdf?anio=2026&mes=4
+// EXCEL: /club/:clubId/reportes/impagos-mes/export/excel?anio=2026&mes=4
+// Si NO viene mes => resumen anual por mes
 // ============================================================
 
+// PDF
 router.get(
   '/:clubId/reportes/impagos-mes/export/pdf',
   requireAuth,
   requireClubAccess,
-  async (req, res) => {clubId/reportes/impagos-mes/export
+  async (req, res) => {
     const { clubId } = req.params;
     const anio = Number(req.query.anio);
     const mes  = Number(req.query.mes);
 
     if (!anio) {
-      return res.status(400).json({
-        ok: false,
-        error: 'anio es obligatorio'
-      });
-    }
-
-// =========================
-    // CASO AÑO: resumen por mes
-    // =========================
-    if (!mes) {
-      const MESES = [
-        'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
-      ];
-
-      const q = `
-        WITH meses AS (
-          SELECT generate_series(1,12)::int AS mes_num
-        ),
-        socios_activos AS (
-          SELECT id, fecha_ingreso
-          FROM socios
-          WHERE club_id = $1
-            AND activo = true
-        ),
-        base AS (
-          SELECT
-            m.mes_num,
-            s.id AS socio_id
-          FROM meses m
-          CROSS JOIN socios_activos s
-          WHERE
-            s.fecha_ingreso IS NULL
-            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
-            OR (
-              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
-              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
-            )
-        ),
-        pagos AS (
-          SELECT socio_id, mes AS mes_num
-          FROM pagos_mensuales
-          WHERE club_id = $1
-            AND anio = $2
-        )
-        SELECT
-          b.mes_num,
-          COUNT(*)::int AS cantidad
-        FROM base b
-        LEFT JOIN pagos p
-          ON p.socio_id = b.socio_id
-         AND p.mes_num = b.mes_num
-        WHERE p.socio_id IS NULL
-        GROUP BY b.mes_num
-        ORDER BY b.mes_num;
-      `;
-
-      const r = await db.query(q, [clubId, anio]);
-
-      const rows = r.rows.map(r => ({
-        mes: MESES[r.mes_num - 1],
-        cantidad: r.cantidad
-      }));
-
-      return sendExcel(
-  res,
-  `Cuotas_impagas_${anio}`,
-  [
-    { key: 'mes', label: 'Mes' },
-    { key: 'cantidad', label: 'Socios sin pago' }
-  ],
-  rows
-);
+      return res.status(400).json({ ok: false, error: 'anio es obligatorio' });
     }
 
     try {
+      // =========================
+      // CASO AÑO: resumen por mes
+      // =========================
+      if (!mes) {
+        const MESES = [
+          'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+          'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+        ];
+
+        const q = `
+          WITH meses AS (
+            SELECT generate_series(1,12)::int AS mes_num
+          ),
+          socios_activos AS (
+            SELECT id, fecha_ingreso
+            FROM socios
+            WHERE club_id = $1
+              AND activo = true
+          ),
+          base AS (
+            SELECT
+              m.mes_num,
+              s.id AS socio_id
+            FROM meses m
+            CROSS JOIN socios_activos s
+            WHERE
+              s.fecha_ingreso IS NULL
+              OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+              OR (
+                EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+                AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
+              )
+          ),
+          pagos AS (
+            SELECT socio_id, mes AS mes_num
+            FROM pagos_mensuales
+            WHERE club_id = $1
+              AND anio = $2
+          )
+          SELECT
+            b.mes_num,
+            COUNT(*)::int AS cantidad
+          FROM base b
+          LEFT JOIN pagos p
+            ON p.socio_id = b.socio_id
+           AND p.mes_num = b.mes_num
+          WHERE p.socio_id IS NULL
+          GROUP BY b.mes_num
+          ORDER BY b.mes_num;
+        `;
+
+        const r = await db.query(q, [clubId, anio]);
+        const rows = r.rows.map(x => ({
+          mes: MESES[x.mes_num - 1],
+          cantidad: x.cantidad
+        }));
+
+        return sendPDF(
+          res,
+          `Cuotas_impagas_${anio}`,
+          [
+            { key: 'mes', label: 'Mes' },
+            { key: 'cantidad', label: 'Socios sin pago' }
+          ],
+          rows
+        );
+      }
+
+      // =========================
+      // CASO MES: detalle de socios impagos
+      // =========================
+      if (mes < 1 || mes > 12) {
+        return res.status(400).json({ ok: false, error: 'mes inválido (1-12)' });
+      }
+
       const q = `
         SELECT
           s.numero_socio,
@@ -982,7 +987,7 @@ router.get(
 
       const r = await db.query(q, [clubId, anio, mes]);
 
-      sendPDF(
+      return sendPDF(
         res,
         `Cuotas_impagas_${anio}-${String(mes).padStart(2, '0')}`,
         [
@@ -1000,11 +1005,12 @@ router.get(
 
     } catch (e) {
       console.error('❌ export pdf impagos-mes', e);
-      res.status(500).json({ ok: false, error: e.message });
+      return res.status(500).json({ ok: false, error: e.message });
     }
   }
 );
 
+// EXCEL
 router.get(
   '/:clubId/reportes/impagos-mes/export/excel',
   requireAuth,
@@ -1014,84 +1020,87 @@ router.get(
     const anio = Number(req.query.anio);
     const mes  = Number(req.query.mes);
 
-    
-if (!anio) {
-      return res.status(400).json({
-        ok: false,
-        error: 'anio es obligatorio'
-      });
-    }
-
-// =========================
-    // CASO AÑO: resumen por mes
-    // =========================
-    if (!mes) {
-      const MESES = [
-        'Enero','Febrero','Marzo','Abril','Mayo','Junio',
-        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
-      ];
-
-      const q = `
-        WITH meses AS (
-          SELECT generate_series(1,12)::int AS mes_num
-        ),
-        socios_activos AS (
-          SELECT id, fecha_ingreso
-          FROM socios
-          WHERE club_id = $1
-            AND activo = true
-        ),
-        base AS (
-          SELECT
-            m.mes_num,
-            s.id AS socio_id
-          FROM meses m
-          CROSS JOIN socios_activos s
-          WHERE
-            s.fecha_ingreso IS NULL
-            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
-            OR (
-              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
-              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
-            )
-        ),
-        pagos AS (
-          SELECT socio_id, mes AS mes_num
-          FROM pagos_mensuales
-          WHERE club_id = $1
-            AND anio = $2
-        )
-        SELECT
-          b.mes_num,
-          COUNT(*)::int AS cantidad
-        FROM base b
-        LEFT JOIN pagos p
-          ON p.socio_id = b.socio_id
-         AND p.mes_num = b.mes_num
-        WHERE p.socio_id IS NULL
-        GROUP BY b.mes_num
-        ORDER BY b.mes_num;
-      `;
-
-      const r = await db.query(q, [clubId, anio]);
-
-      const rows = r.rows.map(r => ({
-        mes: MESES[r.mes_num - 1],
-        cantidad: r.cantidad
-      }));
-
-      return sendPDF(
-        res,
-        `Cuotas_impagas_${anio}`,
-        [
-          { key: 'mes', label: 'Mes' },
-          { key: 'cantidad', label: 'Socios sin pago' }
-        ],
-        rows
-      );
+    if (!anio) {
+      return res.status(400).json({ ok: false, error: 'anio es obligatorio' });
     }
 
     try {
+      // =========================
+      // CASO AÑO: resumen por mes
+      // =========================
+      if (!mes) {
+        const MESES = [
+          'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+          'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+        ];
+
+        const q = `
+          WITH meses AS (
+            SELECT generate_series(1,12)::int AS mes_num
+          ),
+          socios_activos AS (
+            SELECT id, fecha_ingreso
+            FROM socios
+            WHERE club_id = $1
+              AND activo = true
+          ),
+          base AS (
+            SELECT
+              m.mes_num,
+              s.id AS socio_id
+            FROM meses m
+            CROSS JOIN socios_activos s
+            WHERE
+              s.fecha_ingreso IS NULL
+              OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+              OR (
+                EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+                AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
+              )
+          ),
+          pagos AS (
+            SELECT socio_id, mes AS mes_num
+            FROM pagos_mensuales
+            WHERE club_id = $1
+              AND anio = $2
+          )
+          SELECT
+            b.mes_num,
+            COUNT(*)::int AS cantidad
+          FROM base b
+          LEFT JOIN pagos p
+            ON p.socio_id = b.socio_id
+           AND p.mes_num = b.mes_num
+          WHERE p.socio_id IS NULL
+          GROUP BY b.mes_num
+          ORDER BY b.mes_num;
+        `;
+
+        const r = await db.query(q, [clubId, anio]);
+        const rows = r.rows.map(x => ({
+          mes: MESES[x.mes_num - 1],
+          cantidad: x.cantidad
+        }));
+
+        // ✅ FIX CLAVE: en EXCEL debe ser sendExcel (no sendPDF)
+        return sendExcel(
+          res,
+          `Cuotas_impagas_${anio}`,
+          [
+            { key: 'mes', label: 'Mes' },
+            { key: 'cantidad', label: 'Socios sin pago' }
+          ],
+          rows
+        );
+      }
+
+      // =========================
+      // CASO MES: detalle de socios impagos
+      // =========================
+      if (mes < 1 || mes > 12) {
+        return res.status(400).json({ ok: false, error: 'mes inválido (1-12)' });
+      }
+
       const q = `
         SELECT
           s.numero_socio,
@@ -1124,7 +1133,7 @@ if (!anio) {
 
       const r = await db.query(q, [clubId, anio, mes]);
 
-      await sendExcel(
+      return sendExcel(
         res,
         `Cuotas_impagas_${anio}-${String(mes).padStart(2, '0')}`,
         [
@@ -1142,11 +1151,10 @@ if (!anio) {
 
     } catch (e) {
       console.error('❌ export excel impagos-mes', e);
-      res.status(500).json({ ok: false, error: e.message });
+      return res.status(500).json({ ok: false, error: e.message });
     }
   }
 );
-
 
 // ===============================
 // 5) Ingresos vs Gastos por año (cuotas + otros ingresos)
