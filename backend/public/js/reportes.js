@@ -1726,20 +1726,34 @@ function exportExtraSociosActCat() {
 window.openExportModal = function ({ title, endpoint, extraKey = null }) {
   exportConfig = { title, endpoint, extraKey };
 
-// ✅ Caso especial: Socios por Actividad / Categoría (estado actual)
-const isSociosActCatActual = (extraKey === 'sociosActCatActual');
-
-const periodoBox = document.getElementById('exportModalPeriodo')?.closest('label')?.parentElement;
-if (periodoBox) {
-  periodoBox.style.display = isSociosActCatActual ? 'none' : '';
-}
-
+  const isSociosActCatActual = (extraKey === 'sociosActCatActual');
 
   // título
   const t = document.getElementById('exportModalTitle');
   if (t) t.textContent = `Exportar – ${title}`;
 
-// ✅ Caso especial: Cuotas impagas → usar mes actualmente seleccionado
+  // subtítulo
+  const sub = document.getElementById('exportModalSub');
+  if (sub) {
+    sub.textContent = isSociosActCatActual
+      ? 'Seleccioná el formato del archivo'
+      : 'Seleccioná período (Mes o Año) y formato';
+  }
+
+  // ✅ Ocultar/mostrar la fila completa de período (Período + Año + Mes)
+  const periodoRow = document.getElementById('exportModalPeriodo')?.closest('div');
+  if (periodoRow) {
+    periodoRow.style.display = isSociosActCatActual ? 'none' : '';
+  }
+
+  // ✅ Caso especial: Socios Act/Cat ACTUAL → NO tocar selectores ni validaciones de período
+  if (isSociosActCatActual) {
+    document.body.style.overflow = 'hidden';
+    document.getElementById('exportModal')?.classList.remove('hidden');
+    return;
+  }
+
+  // ✅ Caso especial: Cuotas impagas → usar mes actualmente seleccionado
   if (endpoint === 'impagos-mes' && impagosState.rows.length) {
     const sel = impagosState.rows[impagosState.currentIndex];
 
@@ -1761,24 +1775,20 @@ if (periodoBox) {
 
   anioSel.innerHTML = '';
   const y0 = new Date().getFullYear();
-
   for (let y = y0; y >= y0 - 6; y--) {
     const opt = document.createElement('option');
     opt.value = String(y);
     opt.textContent = String(y);
     anioSel.appendChild(opt);
   }
-
-  // ✅ fuerza selección visible
   anioSel.selectedIndex = 0;
   anioSel.value = String(y0);
-
 
   // set mes actual
   const mesSel = document.getElementById('exportModalMes');
   if (mesSel) mesSel.value = String(new Date().getMonth() + 1);
 
-  // Periodo: mes|anio y habilitar/deshabilitar selector mes
+  // Periodo: mes/año y habilitar/deshabilitar selector mes
   const periodoSel = document.getElementById('exportModalPeriodo');
   const applyPeriodoUI = () => {
     const isAnio = (periodoSel?.value === 'anio');
@@ -1817,12 +1827,15 @@ const periodo = document.getElementById('exportModalPeriodo')?.value || 'mes';
   const anio = Number(anioStr);
   const mes  = Number(mesStr);
 
+  // ✅ Para Socios por Actividad/Categoría ACTUAL, no validamos período
+if (exportConfig.extraKey !== 'sociosActCatActual') {
   if (!anioStr || Number.isNaN(anio) || anio < 2000 || anio > 2100) {
     alert('Seleccioná un año válido.');
     return;
   }
+}
 
-  if (periodo === 'mes') {
+  if (periodo === 'mes' && exportConfig.extraKey !== 'sociosActCatActual') {
     if (!mesStr || Number.isNaN(mes) || mes < 1 || mes > 12) {
       alert('Seleccioná un mes válido.');
       return;

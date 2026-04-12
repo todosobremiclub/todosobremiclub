@@ -9,25 +9,46 @@ const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 
 function sendPDF(res, title, columns, rows) {
-  const doc = new PDFDocument({ margin: 40, size: 'A4' });
+  const doc = new PDFDocument({
+    margin: 40,
+    size: 'A4',
+    bufferPages: true
+  });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
     'Content-Disposition',
-    `attachment; filename="${title}.pdf"`
+    `attachment; filename="${title.replace(/\s+/g, '_')}.pdf"`
   );
 
   doc.pipe(res);
 
+  // Título
   doc.fontSize(16).text(title, { align: 'center' });
-  doc.moveDown();
+  doc.moveDown(1);
 
-  doc.fontSize(10);
-  rows.forEach(row => {
+  // Header columnas
+  doc.fontSize(10).font('Helvetica-Bold');
+  columns.forEach(col => {
+    doc.text(col.label, { continued: true, width: 110 });
+  });
+  doc.text('');
+  doc.moveDown(0.5);
+
+  doc.font('Helvetica');
+
+  // Filas
+  rows.forEach((row, idx) => {
     columns.forEach(col => {
-      doc.text(`${col.label}: ${row[col.key] ?? ''}`);
+      const value = row[col.key] ?? '';
+      doc.text(String(value), { continued: true, width: 110 });
     });
-    doc.moveDown(0.5);
+    doc.text('');
+
+    // Salto de página seguro
+    if (doc.y > 750) {
+      doc.addPage();
+    }
   });
 
   doc.end();
