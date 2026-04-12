@@ -8,7 +8,7 @@ const { initFirebase } = require('../config/firebaseAdmin');
 const router = express.Router();
 
 // CORS simple para Flutter Web (similar a /appRoutes)
-router.use((req, res, next) => {
+	
   res.header('Access-Control-Allow-Origin', '*');
   res.header(
     'Access-Control-Allow-Headers',
@@ -115,12 +115,12 @@ router.get('/:clubId/noticias', requireAuth, async (req, res) => {
   const { clubId } = req.params;
   const socioId = req.user?.socioId;  // viene desde /app/login
   try {
-   // Si NO hay socioId -> SOLO permitir sin filtro si es admin o staff
-const isAdmin = (req.user?.roles || []).some(r =>
-  r.role === 'admin' || r.role === 'superadmin' || r.role === 'staff'
+   // ✅ Si NO hay socioId -> permitir a CUALQUIER usuario del club
+const hasClubAccess = (req.user?.roles || []).some(
+  r => String(r.club_id) === String(clubId) || r.role === 'superadmin'
 );
 
-if (!socioId && isAdmin) {
+if (!socioId && hasClubAccess) {
   const r = await db.query(`
     SELECT
       id, club_id, titulo, texto, imagen_url,
@@ -136,12 +136,11 @@ if (!socioId && isAdmin) {
 }
 
 if (!socioId) {
-  return res.status(401).json({
+  return res.status(403).json({
     ok: false,
-    error: 'Token de socio inválido (falta socioId)'
+    error: 'No autorizado para ver noticias del club'
   });
 }
-
 
 
     // Si HAY socioId -> filtramos según actividad / categoría / año y falta de pago
