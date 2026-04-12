@@ -197,6 +197,12 @@
     const roleBadge = document.getElementById('roleBadge');
     if (roleBadge) roleBadge.textContent = `Rol: ${match.role}`;
 
+// Permisos del rol para este club
+const __p = buildPermissions(match.role);
+window.__clubPerms = __p;
+window.__clubRole = __p.role;
+applyNavVisibility(__p);
+
     let club;
 try {
   club = await fetchClubInfo(match.club_id);
@@ -258,9 +264,88 @@ bindQROnce(); // (puede quedar, no molesta)
     // Recargar sección actual
     // ===============================
     if (window.currentSection) {
-      loadSection(window.currentSection);
-    }
+  const perms = window.__clubPerms;
+  if (perms && perms.canAccess(window.currentSection)) loadSection(window.currentSection);
+  else loadSection(pickDefaultSection(perms || buildPermissions(match.role)));
+}
   }
+
+// ===============================
+// PERMISOS POR ROL (cliente)
+// ===============================
+const ALL_SECTIONS = [
+  'socios','pendientes','pagos','gastos',
+  'noticias','notificaciones','cumples',
+  'configuracion','reportes','acceso'
+];
+
+function normalizeRole(role){
+  const r = String(role || '').toLowerCase();
+  if (r === 'read' || r === 'readonly' || r === 'solo lectura' || r === 'solo_lectura') return 'solo_lectura';
+  if (r === 'comunicacion' || r === 'comunicación' || r === 'comms') return 'comunicacion';
+  if (r === 'finanzas' || r === 'finance') return 'finanzas';
+  if (r === 'staff') return 'admin'; // compat: staff se trata como admin
+  return r;
+}
+
+function buildPermissions(role){
+  const r = normalizeRole(role);
+  return {
+    role: r,
+    // Acceso a secciones (qué puede ver)
+    canAccess(section){
+      if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
+      return ALL_SECTIONS.includes(section);
+    },
+    // Escritura / ejecutar acciones (mutaciones)
+    canWrite(section){
+      if (r === 'admin') return true;
+      if (r === 'finanzas') return ['pagos','gastos','reportes'].includes(section);
+      if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
+      return false; // solo_lectura u otros
+    }
+  };
+}
+
+// Oculta/mostrar botones del menú según canAccess
+function applyNavVisibility(perms){
+  document.querySelectorAll('[data-section]').forEach(btn => {
+    const sec = btn.dataset.section;
+    if (!sec) return;
+    btn.style.display = perms.canAccess(sec) ? '' : 'none';
+  });
+}
+
+// Sección inicial según rol
+function pickDefaultSection(perms){
+  return (perms.role === 'comunicacion') ? 'noticias' : 'socios';
+}
+
+// Guard de mutaciones: bloquea fetch no-GET cuando la sección actual no permite escribir.
+// ⚠️ No reemplaza validación en backend, pero evita “ejecutar” desde la UI.
+(function wrapFetchOnce(){
+  if (window.__tsmcFetchWrapped) return;
+  window.__tsmcFetchWrapped = true;
+
+  const _fetch = window.fetch.bind(window);
+  window.fetch = async function(input, init){
+    try{
+      const url = (typeof input === 'string') ? input : (input && input.url) || '';
+      const method = String((init && init.method) || 'GET').toUpperCase();
+      const isSameOrigin = !/^https?:\/\//i.test(url) || url.startsWith(window.location.origin);
+
+      if (isSameOrigin && method !== 'GET' && method !== 'HEAD'){
+        const sec = window.currentSection || 'socios';
+        const p = window.__clubPerms;
+        if (p && !p.canWrite(sec)){
+          const body = JSON.stringify({ ok:false, error:'No autorizado para modificar en esta sección.'});
+          return new Response(body, { status: 403, headers: { 'Content-Type':'application/json' } });
+        }
+      }
+    }catch(e){}
+    return _fetch(input, init);
+  };
+})();
 
   // ===============================
   // CONTROL DE SECCIONES
@@ -277,6 +362,12 @@ if (window.currentSection === 'acceso' && window.cleanupAccesoSection) {
 }
 
     try {
+// Permiso de acceso a la sección
+const perms = window.__clubPerms;
+if (perms && !perms.canAccess(sectionName)) {
+  container.innerHTML = `<div class="muted">⛔ No tenés permiso para acceder a esta sección.</div>`;
+  return;
+}
       window.currentSection = sectionName;
 
       const res = await fetch(`/sections/${sectionName}.html?v=20260331-1`);
@@ -370,7 +461,7 @@ if (sectionName === 'notificaciones' && window.initNotificacionesSection) {
       );
     });
 
-    loadSection('socios');
+    loadSection(pickDefaultSection(window.__clubPerms || buildPermissions('admin')));
   } catch (e) {
     console.error(e);
     localStorage.removeItem('token');

@@ -1,6 +1,9 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
+// Roles soportados (club)
+const CLUB_ROLE_OPTIONS = ['admin','solo_lectura','comunicacion','finanzas'];
+
   // =============================
   // Estado
   // =============================
@@ -218,7 +221,10 @@
     const email = $('clubUser_email')?.value?.trim().toLowerCase() || '';
     const full_name = $('clubUser_full_name')?.value?.trim() || '';
     const password = $('clubUser_password')?.value || '';
-    const role = $('clubUser_role')?.value || 'staff';
+    const role = ($('clubUser_role')?.value?.trim() || 'staff');
+if (!CLUB_ROLE_OPTIONS.includes(role)) {
+  return showMsg('clubUserMsg', 'Rol inválido.', false);
+}
 
     if (!email) return showMsg('clubUserMsg', 'Completá el email.', false);
     if (!id && !password) return showMsg('clubUserMsg', 'Completá la contraseña.', false);
