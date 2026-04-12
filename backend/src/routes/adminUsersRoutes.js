@@ -34,7 +34,11 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
 
 // ================== CREAR ==================
 router.post('/', requireAuth, requireRole('superadmin'), async (req, res) => {
-  const { email, full_name, password, is_active = true, assignments } = req.body || {};
+  const { email, full_name, password, assignments } = req.body || {};
+const is_active = (req.body?.is_active ?? true); // ✅ null/undefined => true
+
+const is_active_norm =
+  (is_active === 'false' || is_active === 0 || is_active === '0') ? false : !!is_active;
 
   try {
     if (!email || !password) {
@@ -53,7 +57,7 @@ router.post('/', requireAuth, requireRole('superadmin'), async (req, res) => {
       `INSERT INTO users (email, full_name, password_hash, is_active)
        VALUES ($1,$2,$3,$4)
        RETURNING id, email, full_name, is_active`,
-      [emailNorm, full_name || null, passHash, is_active]
+      [emailNorm, full_name || null, passHash, is_active_norm]
     );
 
     const userId = rUser.rows[0].id;
@@ -89,7 +93,7 @@ router.put('/:id', requireAuth, requireRole('superadmin'), async (req, res) => {
 
   try {
     await db.query(
-      `UPDATE users SET email=$1, full_name=$2, is_active=$3 WHERE id=$4`,
+      `UPDATE users SET email=$1, full_name=$2, is_active=COALESCE($3, is_active) WHERE id=$4`,
       [email, full_name || null, is_active, id]
     );
 

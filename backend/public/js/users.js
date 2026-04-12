@@ -2,7 +2,8 @@
   const $ = (id) => document.getElementById(id);
 
 // Roles soportados (club)
-const CLUB_ROLE_OPTIONS = ['admin','solo_lectura','comunicacion','finanzas'];
+const CLUB_ROLE_OPTIONS = ['admin','solo_lectura','comunicacion','finanzas','staff'];
+
 
   // =============================
   // Estado
@@ -230,9 +231,11 @@ if (!CLUB_ROLE_OPTIONS.includes(role)) {
     if (!id && !password) return showMsg('clubUserMsg', 'Completá la contraseña.', false);
 
     const payload = {
-      email,
-      assignments: [{ club_id: activeClubUsersId, role }],
-    };
+  email,
+  is_active: true, // ✅ por defecto activo
+  assignments: [{ club_id: activeClubUsersId, role }],
+};
+
     if (full_name) payload.full_name = full_name;
     if (password) payload.password = password;
 
