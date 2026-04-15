@@ -1630,13 +1630,16 @@ function bindIGRespDetalleClicks() {
 
     const clubId = getActiveClubId();
     const { anio, mes } = igRespState;
+
     const responsable = decodeURIComponent(tr.dataset.responsable || '');
     const tipo = cell.dataset.click; // 'ingresos' | 'gastos'
     const mesLabel = `${MESES[mes - 1]} ${anio}`;
 
-    const url = `/club/${clubId}/reportes/ingresos-vs-gastos-por-responsable/detalle?anio=${anio}&mes=${mes}&responsable=${encodeURIComponent(responsable)}&tipo=${tipo}`;
+    const url =
+      `/club/${clubId}/reportes/ingresos-vs-gastos-por-responsable/detalle` +
+      `?anio=${anio}&mes=${mes}&responsable=${encodeURIComponent(responsable)}&tipo=${tipo}`;
 
-    // Abrimos modal y cargamos nosotros, porque este endpoint devuelve { rows: { ingresos:[], gastos:[] } }
+    // Abrimos modal y cargamos nosotros (este endpoint devuelve { rows: { ingresos:[], gastos:[] } })
     const modal = ensureDetalleModal();
     const modalBody = $('detalleModalBody');
     if (!modal || !modalBody) return;
@@ -1653,60 +1656,41 @@ function bindIGRespDetalleClicks() {
     try {
       const { data } = await fetchAuth(url);
       if (!data.ok) {
-        modalBody.innerHTML = `<div class="muted" style="color:#b91c1c;">${data.error || 'Error cargando detalle'}</div>`;
+        modalBody.innerHTML =
+          `<div class="muted" style="color:#b91c1c;">${data.error || 'Error cargando detalle'}</div>`;
         return;
       }
 
-      // 👇 ACÁ está la clave: tomar el array correcto
       const rowsObj = data.rows || {};
       const rows = Array.isArray(rowsObj[tipo]) ? rowsObj[tipo] : [];
 
-      // Columnas según tipo
-      if (tipo === 'ingresos') {
-        const rendered = renderTableGeneric({
-          if (tipo === 'ingresos') {
-  const rendered = renderTableGeneric({
-    columns: [
-      { key: 'tipo_item', label: 'Origen' },     // <-- mapea a "Origen"
-      { key: 'periodo', label: 'Fecha' },        // <-- o "Periodo" si preferís
-      { key: 'descripcion', label: 'Descripción' },
-      { key: 'monto', label: 'Monto' }
-    ],
-    rows,
-    moneyKey: 'monto',
-    dateKey: null // porque 'periodo' no es fecha ISO, es YYYY-MM
-  });
-  modalBody.innerHTML = rendered.html;
-  setDetalleFooter({
-    info: `${rows.length} movimientos`,
-    total: `Total: ${moneyARS.format(rendered.total)}`
-  });
-  return;
-}
-          rows,
-          moneyKey: 'monto',
-          dateKey: 'fecha'
-        });
-
-        modalBody.innerHTML = rendered.html;
-        setDetalleFooter({
-          info: `${rows.length} movimientos`,
-          total: `Total: ${moneyARS.format(rendered.total)}`
-        });
+      if (!rows.length) {
+        modalBody.innerHTML = `<div class="muted small">Sin movimientos para este filtro.</div>`;
+        setDetalleFooter({ info: `0 movimientos`, total: `Total: ${moneyARS.format(0)}` });
         return;
       }
 
-      // tipo === 'gastos'
+      // Columnas según lo que devuelve el backend de este endpoint: tipo_item, periodo, descripcion, monto
+      const columns = (tipo === 'ingresos')
+        ? [
+            { key: 'tipo_item', label: 'Origen' },
+            { key: 'periodo', label: 'Fecha' }, // YYYY-MM
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'monto', label: 'Monto' }
+          ]
+        : [
+            { key: 'tipo_item', label: 'Tipo' },
+            { key: 'periodo', label: 'Fecha' }, // YYYY-MM
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'monto', label: 'Monto' }
+          ];
+
+      // dateKey con valor imposible para que NO intente formatFecha()
       const rendered = renderTableGeneric({
-        columns: [
-          { key: 'tipo_gasto', label: 'Tipo' },
-          { key: 'fecha_gasto', label: 'Fecha' },
-          { key: 'descripcion', label: 'Descripción' },
-          { key: 'monto', label: 'Monto' }
-        ],
+        columns,
         rows,
         moneyKey: 'monto',
-        dateKey: 'fecha_gasto'
+        dateKey: '__none__'
       });
 
       modalBody.innerHTML = rendered.html;
@@ -1717,10 +1701,12 @@ function bindIGRespDetalleClicks() {
 
     } catch (e) {
       console.error(e);
-      modalBody.innerHTML = `<div class="muted" style="color:#b91c1c;">${e.message || 'Error inesperado'}</div>`;
+      modalBody.innerHTML =
+        `<div class="muted" style="color:#b91c1c;">${e.message || 'Error inesperado'}</div>`;
     }
   });
 }
+
 
 // ===============================
 // MODAL EXPORTACIÓN REPORTES (AÑO / MES)
