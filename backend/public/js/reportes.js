@@ -1664,13 +1664,25 @@ function bindIGRespDetalleClicks() {
       // Columnas según tipo
       if (tipo === 'ingresos') {
         const rendered = renderTableGeneric({
-          columns: [
-            { key: 'origen', label: 'Origen' },
-            { key: 'fecha', label: 'Fecha' },
-            { key: 'descripcion', label: 'Descripción' },
-            { key: 'socio', label: 'Socio' },
-            { key: 'monto', label: 'Monto' }
-          ],
+          if (tipo === 'ingresos') {
+  const rendered = renderTableGeneric({
+    columns: [
+      { key: 'tipo_item', label: 'Origen' },     // <-- mapea a "Origen"
+      { key: 'periodo', label: 'Fecha' },        // <-- o "Periodo" si preferís
+      { key: 'descripcion', label: 'Descripción' },
+      { key: 'monto', label: 'Monto' }
+    ],
+    rows,
+    moneyKey: 'monto',
+    dateKey: null // porque 'periodo' no es fecha ISO, es YYYY-MM
+  });
+  modalBody.innerHTML = rendered.html;
+  setDetalleFooter({
+    info: `${rows.length} movimientos`,
+    total: `Total: ${moneyARS.format(rendered.total)}`
+  });
+  return;
+}
           rows,
           moneyKey: 'monto',
           dateKey: 'fecha'

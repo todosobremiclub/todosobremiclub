@@ -672,6 +672,28 @@
   background: #f3f4f6;
 }
 
+/* Modal detalle: mejorar tablas y alineación de montos */
+#detalleModal .socios-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+#detalleModal .socios-table th,
+#detalleModal .socios-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#detalleModal .socios-table td:last-child,
+#detalleModal .socios-table th:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 
 
 
