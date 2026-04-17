@@ -335,26 +335,47 @@ router.patch('/:id/active', requireAuth, requireRole('superadmin'), async (req, 
 });
 
 // ================== ELIMINAR ==================
-// ================== ELIMINAR ==================
 router.delete('/:id', requireAuth, requireRole('superadmin'), async (req, res) => {
   const { id } = req.params;
 
   try {
     await db.query('BEGIN');
 
-    // 1) Hijos directos conocidos por este repo
+    // ⚠️ BORRAR HIJOS PRIMERO (según tus FK por club_id)
+    // Orden conservador (por si alguna tabla depende de otra)
+    await db.query('DELETE FROM socios_adjuntos WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM socios_comentarios WHERE club_id=$1', [id]);
+
+    await db.query('DELETE FROM cuotas_mensuales WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM responsables_gasto WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM actividades WHERE club_id=$1', [id]);
+
+    // ✅ ESTE ES EL QUE TE BLOQUEA HOY
+    await db.query('DELETE FROM noticias WHERE club_id=$1', [id]);
+
+    await db.query('DELETE FROM notificaciones WHERE club_id=$1', [id]);
+
+    // comentarios del club (tabla usada por tus endpoints /admin/clubs/:id/comments)
     await db.query('DELETE FROM club_comments WHERE club_id=$1', [id]);
+
+    // socios
+    await db.query('DELETE FROM socios WHERE club_id=$1', [id]);
+
+    // contadores / auxiliares
+    await db.query('DELETE FROM club_counters WHERE club_id=$1', [id]);
+
+    // relación usuarios↔club
     await db.query('DELETE FROM user_clubs WHERE club_id=$1', [id]);
 
-    // 2) Padre
+    // por último, el club
     await db.query('DELETE FROM clubs WHERE id=$1', [id]);
 
     await db.query('COMMIT');
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ admin clubs delete:', err);
-    res.status(500).json({ ok: false, error: err.message });
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
