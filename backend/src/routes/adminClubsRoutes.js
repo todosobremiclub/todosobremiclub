@@ -335,15 +335,24 @@ router.patch('/:id/active', requireAuth, requireRole('superadmin'), async (req, 
 });
 
 // ================== ELIMINAR ==================
+// ================== ELIMINAR ==================
 router.delete('/:id', requireAuth, requireRole('superadmin'), async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
+  try {
+    await db.query('BEGIN');
+
+    // 1) Hijos directos conocidos por este repo
+    await db.query('DELETE FROM club_comments WHERE club_id=$1', [id]);
     await db.query('DELETE FROM user_clubs WHERE club_id=$1', [id]);
+
+    // 2) Padre
     await db.query('DELETE FROM clubs WHERE id=$1', [id]);
 
+    await db.query('COMMIT');
     res.json({ ok: true });
   } catch (err) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ admin clubs delete:', err);
     res.status(500).json({ ok: false, error: err.message });
   }
