@@ -433,6 +433,46 @@
   font-size: 17px !important;
   color:#111 !important;
 }
+
+/* ===============================
+   FIX MODAL PAGOS - RESPONSIVE
+   =============================== */
+
+@media (max-width: 640px) {
+
+  /* El contenido del modal puede scrollear */
+  #modalPago .modal-content {
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* El cuerpo scrollea */
+  #modalPago .modal-content > *:not(.modal-actions) {
+    overflow-y: auto;
+  }
+
+  /* Footer fijo abajo */
+  #modalPago .modal-actions {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding: 12px 0 8px;
+    margin-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  #pagoParcialContainer {
+    margin-bottom: 80px; /* espacio para no quedar debajo del footer */
+  }
+}
+
   </style>
 
 </section>
