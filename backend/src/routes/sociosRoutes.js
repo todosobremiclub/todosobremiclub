@@ -138,6 +138,8 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
         s.dni,
         s.nombre,
         s.apellido,
+        s.es_menor,
+        s.tutor_nombre,
         s.categoria,
         s.actividad,
         s.telefono,
@@ -682,7 +684,10 @@ router.post('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) 
     activo = true,
     becado = false,
     categoria,
-    actividad
+    actividad,
+    es_menor = false,
+    tutor_nombre = null
+
   } = req.body ?? {};
 
   try {
@@ -692,6 +697,14 @@ router.post('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) 
         error: 'Completá DNI, Nombre, Apellido, Categoría, Actividad y Fecha de nacimiento.'
       });
     }
+
+if (es_menor && !String(tutor_nombre || '').trim()) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Si el socio es menor, completá el nombre del padre/madre/tutor.'
+      });
+    }
+
 
     await db.query('BEGIN');
 
@@ -733,9 +746,11 @@ router.post('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) 
         activo,
         becado,
         categoria,
-        actividad
+        actividad,
+        es_menor,
+        tutor_nombre
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       RETURNING *
       `,
       [
@@ -751,7 +766,9 @@ router.post('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) 
         !!activo,
         !!becado,
         String(categoria),
-        String(actividad)
+        String(actividad),
+        !!es_menor,
+        (tutor_nombre ?? null)
       ]
     );
 
@@ -788,10 +805,18 @@ router.put('/:clubId/socios/:id', requireAuth, requireClubAccess, async (req, re
     activo,
     becado,
     categoria,
-    actividad
+    actividad,
+    es_menor,
+    tutor_nombre
   } = req.body ?? {};
 
   try {
+if (es_menor && !String(tutor_nombre || '').trim()) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Si el socio es menor, completá el nombre del padre/madre/tutor.'
+      });
+    }
     const r = await db.query(
       `
       UPDATE socios SET
@@ -806,8 +831,10 @@ router.put('/:clubId/socios/:id', requireAuth, requireClubAccess, async (req, re
         activo           = $9,
         becado           = $10,
         categoria        = $11,
-        actividad        = $12
-      WHERE id = $13 AND club_id = $14
+        actividad        = $12,
+        es_menor          = $13,
+        tutor_nombre      = $14
+      WHERE id = $15 AND club_id = $16
       RETURNING *
       `,
       [
@@ -823,6 +850,8 @@ router.put('/:clubId/socios/:id', requireAuth, requireClubAccess, async (req, re
         !!becado,
         categoria,
         actividad,
+        !!es_menor,
+        (tutor_nombre ?? null),
         id,
         clubId
       ]
@@ -831,6 +860,8 @@ router.put('/:clubId/socios/:id', requireAuth, requireClubAccess, async (req, re
     if (!r.rowCount) {
       return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
     }
+
+
 
     res.json({ ok: true, socio: r.rows[0] });
   } catch (e) {

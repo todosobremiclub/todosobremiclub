@@ -85,7 +85,23 @@
         <div><label>N° Socio</label><input id="socioNumero" type="number"></div>
         <div><label>DNI *</label><input id="socioDni" type="text"></div>
         <div><label>Nombre *</label><input id="socioNombre" type="text"></div>
-        <div><label>Apellido *</label><input id="socioApellido" type="text"></div>
+        <!-- Apellido + check Menor -->
+<div class="apellido-menor">
+  <div class="apellido-field">
+    <label>Apellido *</label>
+    <input id="socioApellido" type="text">
+  </div>
+
+  <label class="checkbox-inline menor-check" title="Marcar si el socio es menor de edad">
+    <input id="socioMenor" type="checkbox"> Menor
+  </label>
+</div>
+
+<!-- Tutor (solo si es menor) -->
+<div id="socioTutorWrap" class="hidden">
+  <label>Nombre del padre/madre/tutor *</label>
+  <input id="socioTutorNombre" type="text" placeholder="Ej: Juan Pérez">
+</div>
 
         <div>
           <label>Actividad *</label>
@@ -502,5 +518,30 @@
   padding-top: 10px;
   border-top: 1px solid #eee;
 }
+
+/* ===== Menor + Tutor (modal socio) ===== */
+.apellido-menor{
+  display:flex;
+  gap:10px;
+  align-items:flex-end;
+}
+.apellido-menor .apellido-field{
+  flex:1;
+}
+.menor-check{
+  white-space:nowrap;
+  margin-bottom:4px;
+}
+
+@media (max-width: 640px){
+  .apellido-menor{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .menor-check{
+    margin-bottom:0;
+  }
+}
+
 
 </style>

@@ -869,10 +869,33 @@ titleEl.textContent = partesTitulo.join(' y ') || 'Documentación';
     $('socioIngreso').value = '';
     $('socioActivo').checked = true;
     $('socioBecado').checked = false;
+    $('socioMenor').checked = false;
+$('socioTutorNombre').value = '';
+toggleTutorField(false);
+
 
     
     $('modalSocio').classList.remove('hidden');
   }
+
+// ===== Menor + Tutor =====
+function toggleTutorField(forceValue) {
+  const chk = $('socioMenor');
+  const wrap = $('socioTutorWrap');
+  const inp = $('socioTutorNombre');
+  if (!chk || !wrap || !inp) return;
+
+  const on = (typeof forceValue === 'boolean') ? forceValue : chk.checked;
+  chk.checked = on;
+
+  if (on) {
+    wrap.classList.remove('hidden');
+  } else {
+    wrap.classList.add('hidden');
+    inp.value = '';
+  }
+}
+
 
   function openModalEdit(socio) {
     editingId = socio.id;
@@ -899,6 +922,11 @@ titleEl.textContent = partesTitulo.join(' y ') || 'Documentación';
     $('socioIngreso').value = (socio.fecha_ingreso || '').slice(0, 10);
     $('socioActivo').checked = !!socio.activo;
     $('socioBecado').checked = !!socio.becado;
+
+$('socioMenor').checked = !!socio.es_menor;
+$('socioTutorNombre').value = socio.tutor_nombre ?? '';
+toggleTutorField(!!socio.es_menor);
+
 
     $('modalSocio').classList.remove('hidden');
 
@@ -1384,6 +1412,8 @@ function openCarnet(socio) {
       dni: $('socioDni').value.trim(),
       nombre: $('socioNombre').value.trim(),
       apellido: $('socioApellido').value.trim(),
+es_menor: $('socioMenor').checked,
+tutor_nombre: $('socioTutorNombre').value.trim() || null,
       categoria: $('socioCategoria').value.trim(),
       actividad: $('socioActividad').value.trim(),
       telefono: $('socioTelefono').value.trim() || null,
@@ -1405,6 +1435,11 @@ function openCarnet(socio) {
       alert('Completá DNI, Nombre, Apellido, Categoría, Actividad y Fecha de nacimiento.');
       return;
     }
+
+if (payload.es_menor && !payload.tutor_nombre) {
+  alert('Si el socio es menor, completá el nombre del padre/madre/tutor.');
+  return;
+}
 
     const creating = !editingId;
     const url = creating ? `/club/${clubId}/socios` : `/club/${clubId}/socios/${editingId}`;
@@ -1508,6 +1543,8 @@ function openCarnet(socio) {
     $('btnNuevoSocio')?.addEventListener('click', openModalNew);
     $('btnCancelarSocio')?.addEventListener('click', closeModalSocio);
     $('btnGuardarSocio')?.addEventListener('click', saveSocio);
+    $('socioMenor')?.addEventListener('change', () => toggleTutorField());
+
 
     $('btnBuscarSocios')?.addEventListener('click', loadSocios);
 
