@@ -448,28 +448,37 @@
     overflow: hidden;
   }
 
-  /* El cuerpo scrollea */
-  #modalPago .modal-content > *:not(.modal-actions) {
-    overflow-y: auto;
-  }
 
-  /* Footer fijo abajo */
-  #modalPago .modal-actions {
-    position: sticky;
-    bottom: 0;
-    background: #fff;
-    padding: 12px 0 8px;
-    margin-top: 12px;
-    border-top: 1px solid #e5e7eb;
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-  }
+
+/* =========================================
+   MODAL PAGO – UN SOLO SCROLL (MOBILE FIRST)
+   ========================================= */
+
+#modalPago .modal-content {
+  max-height: 90vh;
+  overflow-y: auto;   /* ✅ ÚNICO SCROLL */
+  display: block;     /* ❌ no flex */
+  padding-bottom: 24px;
 }
 
+/* aseguramos que nada interno scrollee */
+#modalPago .modal-content * {
+  overflow: visible !important;
+}
+
+/* acciones normales, sin sticky */
+#modalPago .modal-actions {
+  position: static;
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* mobile: botones bien visibles y tactiles */
 @media (max-width: 640px) {
-  #pagoParcialContainer {
-    margin-bottom: 80px; /* espacio para no quedar debajo del footer */
+  #modalPago .modal-actions button {
+    min-height: 44px;
   }
 }
 
