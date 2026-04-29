@@ -12,13 +12,14 @@
   }
 
   function escapeHtml(str) {
-    return String(str ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
+  return String(str ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 
   function fmtMoney(v) {
     if (v === null || v === undefined || v === '') return '';
@@ -247,37 +248,36 @@ function renderEstadoBadge(v) {
   // Render tabla clubes
   // =============================
   function renderRow(c) {
-    const logoHtml = c.logo_url
-  ? `<img src="${escapeHtml(c.logo_url)}" class="club-logo-thumb" alt="logo club">`
-  : '—';
+  const logoHtml = c.logo_url
+    ? `<img src="${escapeHtml(c.logo_url)}" class="club-logo-thumb" alt="logo club">`
+    : '—';
 
+  const extra = [
+    c.socios_cantidad != null
+      ? `Socios: ${escapeHtml(String(c.socios_cantidad))}`
+      : null,
+    c.valor_mensual != null
+      ? `Mensual: ${escapeHtml(fmtMoney(c.valor_mensual))}`
+      : null,
+  ].filter(Boolean).join(' · ');
 
-    const extra = [
-      c.socios_cantidad != null ? `Socios: ${escapeHtml(String(c.socios_cantidad))}` : null,
-      c.valor_mensual != null ? `Mensual: ${escapeHtml(fmtMoney(c.valor_mensual))}` : null,
-    ].filter(Boolean).join(' · ');
-
-    return `
-      <td>${logoHtml}</td>
-      <td>
-        <div style="font-weight:700;">${escapeHtml(c.name ?? '')}</div>
-        ${extra ? `<div style="color:#6b7280; font-size:12px; margin-top:4px;">${extra}</div>` : ''}
-      </td>
-      <td>${escapeHtml(c.city ?? '')}</td>
-      <td>${escapeHtml(c.province ?? '')}</td>
-<td>${renderEstadoBadge(c.estado)}</td>
-<td style="text-align:right;">${escapeHtml(String(c.socios_act
-      <td style="white-space:nowrap;">
-        <button data-action="users"
-                data-id="${escapeHtml(String(c.id))}"
-                data-name="${escapeHtml(String(c.name ?? ''))}">
-          Usuarios
-        </button>
-        <button data-action="edit" data-id="${escapeHtml(String(c.id))}">Editar</button>
-        <button data-action="delete" data-id="${escapeHtml(String(c.id))}">Eliminar</button>
-      </td>
-    `;
-  }
+  return `
+    <td>${logoHtml}</td>
+    <td>
+      <div style="font-weight:700;">${escapeHtml(c.name ?? '')}</div>
+      ${extra ? `<div style="color:#6b7280; font-size:12px; margin-top:4px;">${extra}</div>` : ''}
+    </td>
+    <td>${escapeHtml(c.city ?? '')}</td>
+    <td>${escapeHtml(c.province ?? '')}</td>
+    <td>${renderEstadoBadge(c.estado)}</td>
+    <td style="text-align:right;">${escapeHtml(String(c.socios_activos ?? '—'))}</td>
+    <td style="white-space:nowrap;">
+      <button data-action="users" data-id="${escapeHtml(String(c.id))}" data-name="${escapeHtml(String(c.name ?? ''))}">Usuarios</button>
+      <button data-action="edit" data-id="${escapeHtml(String(c.id))}">Editar</button>
+      <button data-action="delete" data-id="${escapeHtml(String(c.id))}">Eliminar</button>
+    </td>
+  `;
+}
 
   async function loadClubs() {
     const tbody = $('clubs-table');
