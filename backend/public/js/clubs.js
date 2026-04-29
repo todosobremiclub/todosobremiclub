@@ -272,18 +272,19 @@ function renderEstadoBadge(v) {
     <td>${renderEstadoBadge(c.estado)}</td>
     <td style="text-align:right;">${escapeHtml(String(c.socios_activos ?? '—'))}</td>
     <td style="white-space:nowrap;">
-
-<button data-action="impersonate_ro"
+      <button
+        data-action="impersonate_ro"
         data-id="${escapeHtml(String(c.id))}"
-        data-name="${escapeHtml(String(c.name ?? ''))}">
-  👁️ Ver (solo lectura)
-</button>
+        data-name="${escapeHtml(String(c.name ?? ''))}"
+      >👁️ Ver</button>
+
       <button data-action="users" data-id="${escapeHtml(String(c.id))}" data-name="${escapeHtml(String(c.name ?? ''))}">Usuarios</button>
       <button data-action="edit" data-id="${escapeHtml(String(c.id))}">Editar</button>
       <button data-action="delete" data-id="${escapeHtml(String(c.id))}">Eliminar</button>
     </td>
   `;
 }
+
 
   async function loadClubs() {
     const tbody = $('clubs-table');
