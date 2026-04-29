@@ -49,8 +49,8 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
   SELECT COUNT(*)
   FROM socios s
   WHERE s.club_id = clubs.id
-    AND COALESCE(s.is_active, true) = true
 ) AS socios_activos,
+
         logo_url, 
         background_url, 
         color_primary, 
