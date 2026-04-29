@@ -9,6 +9,19 @@ const crypto = require('crypto');
 const router = express.Router();
 
 // =============================
+// Estado del club (Super Admin)
+// =============================
+const CLUB_ESTADOS = ['productivo', 'avanzado', 'pendiente', 'sin_respuesta'];
+
+function normalizeClubEstado(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  if (!s) return 'pendiente';
+  if (s === 'sin respuesta') return 'sin_respuesta';
+  if (CLUB_ESTADOS.includes(s)) return s;
+  return 'pendiente';
+}
+
+// =============================
 // Multer en memoria (multipart)
 // =============================
 const upload = multer({
@@ -31,6 +44,13 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
         instagram_url, 
         socios_cantidad,
         valor_mensual,
+        estado,
+(
+  SELECT COUNT(*)
+  FROM socios s
+  WHERE s.club_id = clubs.id
+    AND COALESCE(s.is_active, true) = true
+) AS socios_activos,
         logo_url, 
         background_url, 
         color_primary, 
@@ -67,6 +87,7 @@ router.post(
         instagram_url,
         socios_cantidad,
         valor_mensual,
+        estado,
         color_primary,
         color_secondary,
         color_accent
@@ -114,6 +135,7 @@ router.post(
           instagram_url,
           socios_cantidad,
           valor_mensual,
+          estado,
           logo_url,
           background_url,
           color_primary,
@@ -121,7 +143,7 @@ router.post(
           color_accent,
           apply_token
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
         RETURNING *
         `,
         [
@@ -134,6 +156,7 @@ router.post(
           instagram_url ?? null,
           socios_cantidad ? Number(socios_cantidad) : null,
           valor_mensual ? Number(valor_mensual) : null,
+          normalizeClubEstado(estado),
           logo_url,
           background_url,
           color_primary ?? '#2563eb',
@@ -170,6 +193,7 @@ router.put(
         instagram_url,
         socios_cantidad,
         valor_mensual,
+        estado,
         color_primary,
         color_secondary,
         color_accent
@@ -223,12 +247,13 @@ router.put(
           instagram_url = $7,
           socios_cantidad = $8,
           valor_mensual = $9,
-          logo_url = COALESCE($10, logo_url),
-          background_url = COALESCE($11, background_url),
-          color_primary = COALESCE($12, color_primary),
-          color_secondary = COALESCE($13, color_secondary),
-          color_accent = COALESCE($14, color_accent)
-        WHERE id = $15
+          estado = COALESCE($10, estado),
+          logo_url = COALESCE($11, logo_url),
+          background_url = COALESCE($12, background_url),
+          color_primary = COALESCE($13, color_primary),
+          color_secondary = COALESCE($14, color_secondary),
+          color_accent = COALESCE($15, color_accent)
+        WHERE id = $16
         RETURNING *
         `,
         [
@@ -241,6 +266,7 @@ router.put(
           instagram_url ?? null,
           socios_cantidad ? Number(socios_cantidad) : null,
           valor_mensual ? Number(valor_mensual) : null,
+          normalizeClubEstado(estado),
           logo_url,
           background_url,
           color_primary,

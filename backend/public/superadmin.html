@@ -167,6 +167,44 @@
   border: 1px solid var(--border);
   background: #fff;
 }
+
+/* =========================
+   ESTADO DEL CLUB (BADGES)
+========================= */
+.status-badge{
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:12px;
+  border:1px solid rgba(0,0,0,0.08);
+  white-space:nowrap;
+}
+
+/* Verde */
+.status-productivo{
+  background:#dcfce7;
+  color:#166534;
+}
+
+/* Azul */
+.status-avanzado{
+  background:#dbeafe;
+  color:#1e40af;
+}
+
+/* Amarillo */
+.status-pendiente{
+  background:#fef9c3;
+  color:#854d0e;
+}
+
+/* Rojo */
+.status-sin_respuesta{
+  background:#fee2e2;
+  color:#991b1b;
+}
+
   </style>
 </head>
 
@@ -235,6 +273,21 @@
             <div>
               <label>Valor mensual</label>
               <input id="club_valor_mensual" type="number" step="0.01" min="0" placeholder="Ej: 15000">
+
+<div>
+  <label>Estado</label>
+  <select id="club_estado">
+    <option value="productivo">Productivo</option>
+    <option value="avanzado">Avanzado</option>
+    <option value="pendiente" selected>Pendiente</option>
+    <option value="sin_respuesta">Sin respuesta</option>
+  </select>
+</div>
+
+<div>
+  <label>Socios activos</label>
+  <input id="club_socios_activos" type="number" readonly placeholder="—">
+</div>
             </div>
           </div>
 
@@ -341,6 +394,8 @@
             <th>Nombre</th>
             <th>Ciudad</th>
             <th>Provincia</th>
+<th>Estado</th>
+<th>Socios activos</th>
             <th>Acciones</th>
           </tr>
         </thead>

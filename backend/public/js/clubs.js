@@ -37,6 +37,30 @@
     }
   }
 
+// =============================
+// Estado del club (UI)
+// =============================
+function normalizeEstado(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  if (!s) return 'pendiente';
+  if (s === 'sin respuesta') return 'sin_respuesta';
+  if (['productivo','avanzado','pendiente','sin_respuesta'].includes(s)) return s;
+  return 'pendiente';
+}
+function estadoLabel(key) {
+  switch (key) {
+    case 'productivo': return 'Productivo';
+    case 'avanzado': return 'Avanzado';
+    case 'sin_respuesta': return 'Sin respuesta';
+    default: return 'Pendiente';
+  }
+}
+function renderEstadoBadge(v) {
+  const k = normalizeEstado(v);
+  const label = estadoLabel(k);
+  return `<span class="status-badge status-${k}">${escapeHtml(label)}</span>`;
+}
+
   // =============================
   // Auth (JWT token)
   // =============================
@@ -241,6 +265,8 @@
       </td>
       <td>${escapeHtml(c.city ?? '')}</td>
       <td>${escapeHtml(c.province ?? '')}</td>
+<td>${renderEstadoBadge(c.estado)}</td>
+<td style="text-align:right;">${escapeHtml(String(c.socios_act
       <td style="white-space:nowrap;">
         <button data-action="users"
                 data-id="${escapeHtml(String(c.id))}"
@@ -257,7 +283,7 @@
     const tbody = $('clubs-table');
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="5">Cargando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">Cargando...</td></tr>`;
 
     const res = await fetchAuthClubs('/admin/clubs');
     const data = await safeJson(res);
@@ -272,7 +298,7 @@
     tbody.innerHTML = '';
 
     if (!clubsCache.length) {
-      tbody.innerHTML = `<tr><td colspan="5">No hay clubes</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7">No hay clubes</td></tr>`;
       return;
     }
 
@@ -321,6 +347,7 @@
     // ✅ nuevos campos (opcionales)
     fd.append('socios_cantidad', $('club_socios_cantidad')?.value?.trim() || '');
     fd.append('valor_mensual', $('club_valor_mensual')?.value?.trim() || '');
+fd.append('estado', $('club_estado')?.value?.trim() || 'pendiente');
 
     // colores
     fd.append('color_primary', color_primary || '#2563eb');
@@ -377,6 +404,8 @@
     // ✅ nuevos campos
     if ($('club_socios_cantidad')) $('club_socios_cantidad').value = c.socios_cantidad ?? '';
     if ($('club_valor_mensual')) $('club_valor_mensual').value = c.valor_mensual ?? '';
+if ($('club_estado')) $('club_estado').value = (c.estado ?? 'pendiente');
+if ($('club_socios_activos')) $('club_socios_activos').value = (c.socios_activos ?? '');
 
     const p = c.color_primary ?? '#2563eb';
     const s = c.color_secondary ?? '#1e40af';
