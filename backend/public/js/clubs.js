@@ -272,6 +272,12 @@ function renderEstadoBadge(v) {
     <td>${renderEstadoBadge(c.estado)}</td>
     <td style="text-align:right;">${escapeHtml(String(c.socios_activos ?? '—'))}</td>
     <td style="white-space:nowrap;">
+
+<button data-action="impersonate_ro"
+        data-id="${escapeHtml(String(c.id))}"
+        data-name="${escapeHtml(String(c.name ?? ''))}">
+  👁️ Ver (solo lectura)
+</button>
       <button data-action="users" data-id="${escapeHtml(String(c.id))}" data-name="${escapeHtml(String(c.name ?? ''))}">Usuarios</button>
       <button data-action="edit" data-id="${escapeHtml(String(c.id))}">Editar</button>
       <button data-action="delete" data-id="${escapeHtml(String(c.id))}">Eliminar</button>
@@ -422,6 +428,39 @@ if ($('club_socios_activos')) $('club_socios_activos').value = (c.socios_activos
     await loadClubComments(String(c.id));
   }
 
+async function impersonateReadonly(clubId, clubName) {
+  if (!clubId) return;
+
+  // Guardar token original para poder volver
+  const currentToken = localStorage.getItem('token');
+  if (currentToken && !localStorage.getItem('token_original')) {
+    localStorage.setItem('token_original', currentToken);
+  }
+
+  // Llamar backend para obtener token impersonado
+  const res = await fetchAuthClubs(`/admin/clubs/${clubId}/impersonate`, {
+    method: 'POST',
+    json: true,
+    body: JSON.stringify({ role: 'solo_lectura' })
+  });
+
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    showClubMsg(data.error || 'No se pudo impersonar', false);
+    return;
+  }
+
+  // Setear token nuevo + club activo + flags
+  localStorage.setItem('token', data.token);
+  localStorage.setItem('activeClubId', String(clubId));
+  localStorage.setItem('impersonated', '1');
+  localStorage.setItem('impersonatedClubName', String(clubName || data?.club?.name || ''));
+
+  // Ir al panel del club
+  window.location.href = '/club.html';
+}
+
+
   async function delClub(id) {
     const c = clubsCache.find((x) => String(x.id) === String(id));
     if (!confirm(`¿Eliminar el club "${c?.name || id}"?`)) return;
@@ -463,6 +502,11 @@ if ($('club_socios_activos')) $('club_socios_activos').value = (c.socios_activos
       const action = btn.dataset.action;
       const id = btn.dataset.id;
       const name = btn.dataset.name;
+
+if (action === 'impersonate_ro') {
+  impersonateReadonly(id, name);
+  return;
+}
 
       if (action === 'users') {
         window.openUsersForClub?.(id, name);

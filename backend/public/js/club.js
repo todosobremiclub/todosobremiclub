@@ -54,6 +54,39 @@
     return data.club;
   }
 
+function setupImpersonationBanner() {
+  const isImp = localStorage.getItem('impersonated') === '1';
+  const banner = document.getElementById('impersonationBanner');
+  const nameEl = document.getElementById('impersonationClubName');
+  const btnExit = document.getElementById('btnExitImpersonation');
+
+  if (!banner) return;
+
+  if (!isImp) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  const clubName = localStorage.getItem('impersonatedClubName') || '';
+  if (nameEl && clubName) nameEl.textContent = `— ${clubName}`;
+
+  banner.style.display = 'flex';
+
+  btnExit?.addEventListener('click', () => {
+    const original = localStorage.getItem('token_original');
+    if (original) {
+      localStorage.setItem('token', original);
+    }
+    localStorage.removeItem('token_original');
+    localStorage.removeItem('impersonated');
+    localStorage.removeItem('impersonatedClubName');
+    localStorage.removeItem('activeClubId');
+
+    // Volver a Super Admin
+    window.location.href = '/superadmin.html';
+  });
+}
+
   // ===============================
   // QR (Postulación) - botón global
   // ===============================
@@ -426,6 +459,9 @@ if (sectionName === 'notificaciones' && window.initNotificacionesSection) {
   let user;
   try {
     user = await fetchMe();
+
+setupImpersonationBanner();
+
 
     if (!user.roles || user.roles.length === 0) {
       const msgBox = document.getElementById('msgBox');

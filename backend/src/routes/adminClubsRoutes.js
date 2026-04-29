@@ -3,10 +3,25 @@ const multer = require('multer');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
+const jwt = require('jsonwebtoken');
 const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 const crypto = require('crypto');
 
 const router = express.Router();
+
+// =============================
+// Impersonación (Super Admin)
+// =============================
+function signImpersonationToken(payload) {
+  const secret = process.env.JWT_SECRET || process.env.SECRET || process.env.JWT_KEY;
+  if (!secret) {
+    throw new Error('Falta JWT_SECRET (o SECRET/JWT_KEY) en variables de entorno');
+  }
+
+  // Token corto: evita riesgos si se filtra.
+  // Ajustalo si querés (ej: 30m).
+  return jwt.sign(payload, secret, { expiresIn: '15m' });
+}
 
 // =============================
 // Estado del club (Super Admin)
@@ -331,6 +346,50 @@ router.post('/:id/comments', requireAuth, requireRole('superadmin'), async (req,
   } catch (err) {
     console.error('❌ add club comment:', err);
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ================== IMPERSONAR (SOLO LECTURA) ==================
+// POST /admin/clubs/:id/impersonate
+// body: { role: 'solo_lectura' } (por ahora solo permitimos ese)
+// Devuelve: { ok:true, token, expires_in:'15m' }
+router.post('/:id/impersonate', requireAuth, requireRole('superadmin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const roleReq = String(req.body?.role ?? 'solo_lectura').toLowerCase();
+
+    // Por seguridad: solo permitimos este rol en impersonación
+    if (roleReq !== 'solo_lectura') {
+      return res.status(400).json({ ok: false, error: 'Rol no permitido para impersonación' });
+    }
+
+    // Verificar club existe (y obtener name para mostrar en UI)
+    const rClub = await db.query(`SELECT id, name FROM clubs WHERE id = $1 LIMIT 1`, [id]);
+    if (!rClub.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Club no encontrado' });
+    }
+    const club = rClub.rows[0];
+
+    // Payload del token impersonado:
+    // - Importante: roles SOLO con el club y role solicitado
+    // - Marcamos flags para banner y auditoría
+    const payload = {
+      id: req.user?.id,                 // mantenemos el id real
+      email: req.user?.email,           // opcional (si existe en req.user)
+      impersonated: true,
+      impersonated_by: req.user?.id,
+      roles: [{
+        club_id: club.id,
+        club_name: club.name,
+        role: 'solo_lectura'
+      }]
+    };
+
+    const token = signImpersonationToken(payload);
+    return res.json({ ok: true, token, expires_in: '15m', club: { id: club.id, name: club.name } });
+  } catch (err) {
+    console.error('❌ impersonate club:', err);
+    return res.status(500).json({ ok: false, error: 'Error interno' });
   }
 });
 
