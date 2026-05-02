@@ -103,6 +103,39 @@
   // =========================
   // ENVIAR
   // =========================
+
+function renderDestinoExtra() {
+  const tipo = $id('notiDestinoTipo')?.value || 'todos';
+  const cont = $id('notiDestinoExtra');
+  if (!cont) return;
+  cont.innerHTML = '';
+
+  if (tipo === 'todos' || tipo === 'falta_pago') return;
+
+  if (tipo === 'actividad') {
+    cont.innerHTML = `<input id="notiDestinoValor1" placeholder="Actividad" />`;
+  }
+  if (tipo === 'categoria') {
+    cont.innerHTML = `<input id="notiDestinoValor1" placeholder="Categoría" />`;
+  }
+  if (tipo === 'anio_nac') {
+    cont.innerHTML = `<input id="notiDestinoValor1" type="number" placeholder="Año nacimiento" />`;
+  }
+  if (tipo === 'act_cat' || tipo === 'cat_anio') {
+    cont.innerHTML = `
+      <input id="notiDestinoValor1" placeholder="Valor 1" />
+      <input id="notiDestinoValor2" placeholder="Valor 2" />
+    `;
+  }
+}
+
+function getDestinoPayload() {
+  const tipo = $id('notiDestinoTipo')?.value || 'todos';
+  const v1 = $id('notiDestinoValor1')?.value?.trim() || null;
+  const v2 = $id('notiDestinoValor2')?.value?.trim() || null;
+  return { destino_tipo: tipo, destino_valor1: v1, destino_valor2: v2 };
+}
+
   async function sendNotificacion() {
     console.log('[notificaciones] enviando…');
 
@@ -123,7 +156,13 @@
       const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones`, {
         method: 'POST',
         json: true,
-        body: JSON.stringify({ titulo, cuerpo })
+        const destino = getDestinoPayload();
+
+body: JSON.stringify({
+  titulo,
+  cuerpo,
+  data: destino
+})
       });
 
       if (!res.ok || !data.ok) {
@@ -191,4 +230,11 @@
     console.log('[notificaciones] init sección ✅');
     await loadNotificaciones();
   };
+
+document.addEventListener('change', (e) => {
+  if (e.target?.id === 'notiDestinoTipo') {
+    renderDestinoExtra();
+  }
+});
+
 })();

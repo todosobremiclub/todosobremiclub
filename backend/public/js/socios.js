@@ -1238,7 +1238,7 @@ function openCarnet(socio) {
   // Render tabla
   // =============================
 
-  function renderSocios(socios) {
+  function renderSocios(socios, totalActivos = 0) {
     sociosCache = socios || [];
     const tbody = $('sociosTableBody');
     if (!tbody) return;
@@ -1252,7 +1252,7 @@ function openCarnet(socio) {
     const startIdx = (currentPage - 1) * pageSize;
     const pageRows = ordered.slice(startIdx, startIdx + pageSize);
 
-    const activos = ordered.filter((s) => s.activo).length;
+    
 
     tbody.innerHTML = '';
 
@@ -1314,7 +1314,9 @@ function openCarnet(socio) {
     });
 
     const countEl = $('sociosActivosCount');
-    if (countEl) countEl.textContent = `Socios activos: ${activos}`;
+if (countEl) {
+  countEl.textContent = `Socios activos: ${totalActivos}`;
+}
 
     renderPagination(totalItems);
     updateSortIndicators();
@@ -1400,7 +1402,7 @@ function openCarnet(socio) {
     }
 
     refreshAnioOptions(data.socios || []);
-    renderSocios(data.socios || []);
+    renderSocios(data.socios ?? [], data.total ?? 0);
   }
 
   async function saveSocio() {

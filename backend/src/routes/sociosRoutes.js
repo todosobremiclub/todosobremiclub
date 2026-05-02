@@ -176,8 +176,28 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
 
     params.push(Number(limit), Number(offset));
 
+// ===============================
+// COUNT total socios (sin limit)
+// ===============================
+const qCount = `
+  SELECT COUNT(*)::int AS total
+  FROM socios s
+  WHERE ${where.join(' AND ')}
+`;
+
+const rCount = await db.query(
+  qCount,
+  params.slice(0, pCurY - 2) // mismos params SIN year/limit/offset
+);
+
+const total = rCount.rows[0]?.total ?? 0;
+
     const r = await db.query(q, params);
-    res.json({ ok: true, socios: r.rows });
+    res.json({
+  ok: true,
+  socios: r.rows,
+  total
+});
   } catch (e) {
     console.error('❌ list socios', e);
     res.status(500).json({ ok: false, error: e.message });

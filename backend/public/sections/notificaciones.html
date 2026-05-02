@@ -25,9 +25,23 @@
         📤 Guardar y enviar
       </button>
 
-      <div class="muted" style="margin-top:8px;">
-        Se enviará automáticamente a todos los socios del club activo.
-      </div>
+      <label>Destino</label>
+<select id="notiDestinoTipo">
+  <option value="todos">Todos los socios</option>
+  <option value="actividad">Por Actividad</option>
+  <option value="categoria">Por Categoría</option>
+  <option value="anio_nac">Por Año de nacimiento</option>
+  <option value="cat_anio">Categoría + Año nacimiento</option>
+  <option value="act_cat">Actividad + Categoría</option>
+  <option value="falta_pago">En falta de pago</option>
+</select>
+
+<div id="notiDestinoExtra" class="destino-extra"></div>
+
+<div class="muted" style="margin-top:6px;font-size:12px;">
+  La notificación se enviará solo a los socios que cumplan el criterio seleccionado.
+</div>
+
 
       <div class="muted" style="margin-top:4px; font-size:12px;">
         ℹ️ Las notificaciones son solo texto. Para imágenes utilizá la sección

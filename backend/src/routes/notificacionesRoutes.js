@@ -47,15 +47,11 @@ function isAdminToken(req) {
 // (solo dispositivos suscriptos a ese club)
 // ✅ Incluye clubName en el título y en data
 // ===============================
-async function sendPushToClubTopic({
-  clubId,
-  clubName,
-  titulo,
-  cuerpo,
-  notificacionId,
-}) {
+async function sendPushToClubTopic({ clubId, clubName, titulo, cuerpo, notificacionId, data }) {
   const admin = initFirebase();
   if (!admin) throw new Error('Firebase no inicializado (faltan FIREBASE_*)');
+
+
 
   const topic = `club_${clubId}`;
 
@@ -185,12 +181,13 @@ router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (re
 
     // 2) Enviar push (FCM)
     const messageId = await sendPushToClubTopic({
-      clubId,
-      clubName,
-      titulo: noti.titulo,
-      cuerpo: noti.cuerpo,
-      notificacionId: noti.id,
-    });
+  clubId,
+  clubName,
+  titulo: noti.titulo,
+  cuerpo: noti.cuerpo,
+  notificacionId: noti.id,
+  data
+});
 
     // 3) Guardar metadata de envío
     await db.query(
