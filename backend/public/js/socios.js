@@ -353,8 +353,10 @@ function fmtDMYShort(iso) {
   // Estado
   // =============================
   let editingId = null;
-  let sociosCache = [];
-  let draftPhoto = null; // { dataUrl, base64, mimetype, filename }
+let sociosCache = [];
+let totalActivosCache = 0; // ✅ guarda el total real que viene del backend
+let draftPhoto = null;
+
 
   // Estados de adjuntos/comentarios por socio
   // { [socioId]: { tieneAdjuntos: boolean, tieneComentario: boolean } }
@@ -1171,7 +1173,7 @@ function openCarnet(socio) {
       if (disabled) b.disabled = true;
       b.addEventListener('click', () => {
         currentPage = page;
-        renderSocios(sociosCache);
+        renderSocios(sociosCache, totalActivosCache);
       });
       return b;
     };
@@ -1229,7 +1231,7 @@ function openCarnet(socio) {
         }
 
         currentPage = 1;
-        renderSocios(sociosCache);
+renderSocios(sociosCache, totalActivosCache);
       });
     });
   }
@@ -1401,8 +1403,9 @@ if (countEl) {
       socioEstados = {};
     }
 
-    refreshAnioOptions(data.socios || []);
-    renderSocios(data.socios ?? [], data.total ?? 0);
+   refreshAnioOptions(data.socios ?? []);
+totalActivosCache = data.total ?? 0;
+renderSocios(data.socios ?? [], totalActivosCache);
   }
 
   async function saveSocio() {

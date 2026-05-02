@@ -187,7 +187,8 @@ const qCount = `
 
 const rCount = await db.query(
   qCount,
-  params.slice(0, pCurY - 2) // mismos params SIN year/limit/offset
+  params.slice(0, pCurY - 1) // params usados en WHERE (clubId + filtros). pCurY apunta al primer param de pago.
+
 );
 
 const total = rCount.rows[0]?.total ?? 0;
