@@ -158,11 +158,16 @@ function getDestinoPayload() {
         json: true,
         const destino = getDestinoPayload();
 
-body: JSON.stringify({
-  titulo,
-  cuerpo,
-  data: destino
-})
+const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones`, {
+  method: 'POST',
+  json: true,
+  body: JSON.stringify({
+    titulo,
+    cuerpo,
+    data: destino
+  })
+});
+
       });
 
       if (!res.ok || !data.ok) {
