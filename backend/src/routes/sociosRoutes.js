@@ -197,8 +197,11 @@ const total = rCount.rows[0]?.total ?? 0;
     res.json({
   ok: true,
   socios: r.rows,
-  total
+  total,
+  limit: Number(limit),
+  offset: Number(offset)
 });
+
   } catch (e) {
     console.error('❌ list socios', e);
     res.status(500).json({ ok: false, error: e.message });

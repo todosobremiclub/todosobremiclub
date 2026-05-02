@@ -354,7 +354,6 @@ function fmtDMYShort(iso) {
   // =============================
   let editingId = null;
 let sociosCache = [];
-let totalActivosCache = 0; // ✅ guarda el total real que viene del backend
 let draftPhoto = null;
 
 
@@ -408,6 +407,7 @@ let draftPhoto = null;
   let sortDir = 'asc'; // 'asc' | 'desc'
   let currentPage = 1;
   const pageSize = 50;
+let totalSociosCache = 0; // total real (del backend) para paginar
 
   // =============================
   // ADJUNTOS – helpers
@@ -1162,7 +1162,7 @@ function openCarnet(socio) {
     const el = document.getElementById('sociosPagination');
     if (!el) return;
 
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const totalPages = Math.max(1, Math.ceil(totalSociosCache / pageSize));
     currentPage = clampPage(currentPage, totalPages);
 
     const mkBtn = (label, page, active = false, disabled = false) => {
@@ -1172,9 +1172,10 @@ function openCarnet(socio) {
       if (active) b.classList.add('active');
       if (disabled) b.disabled = true;
       b.addEventListener('click', () => {
-        currentPage = page;
-        renderSocios(sociosCache, totalActivosCache);
-      });
+  currentPage = page;
+  loadSocios(); // ✅ pide esa página al backend
+});
+
       return b;
     };
 
@@ -1230,8 +1231,9 @@ function openCarnet(socio) {
           sortDir = 'asc';
         }
 
-        currentPage = 1;
-renderSocios(sociosCache, totalActivosCache);
+        
+renderSocios(sociosCache);
+
       });
     });
   }
@@ -1240,19 +1242,14 @@ renderSocios(sociosCache, totalActivosCache);
   // Render tabla
   // =============================
 
-  function renderSocios(socios, totalActivos = 0) {
+  function renderSocios(socios) {
     sociosCache = socios || [];
     const tbody = $('sociosTableBody');
     if (!tbody) return;
 
-    const ordered = sortRows(sociosCache);
+   const ordered = sortRows(sociosCache); // (opcional: esto ordena SOLO la página actual)
+const pageRows = ordered;             // ✅ ya viene paginado desde el backend
 
-    const totalItems = ordered.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-    currentPage = clampPage(currentPage, totalPages);
-
-    const startIdx = (currentPage - 1) * pageSize;
-    const pageRows = ordered.slice(startIdx, startIdx + pageSize);
 
     
 
@@ -1315,12 +1312,12 @@ renderSocios(sociosCache, totalActivosCache);
       tbody.appendChild(tr);
     });
 
-    const countEl = $('sociosActivosCount');
-if (countEl) {
-  countEl.textContent = `Socios activos: ${totalActivos}`;
+   const countEl = $('sociosActivosCount');
+if (countEl) { 
+  countEl.textContent = `Socios activos: ${totalSociosCache}`; 
 }
 
-    renderPagination(totalItems);
+
     updateSortIndicators();
   }
 
@@ -1357,28 +1354,32 @@ if (countEl) {
   // Build query
   // =============================
 
-  function buildQueryParams() {
-    const q = new URLSearchParams();
-    const search = $('sociosSearch')?.value?.trim();
-    const categoria = $('filtroCategoria')?.value;
-    const actividad = $('filtroActividad')?.value;
-    const anio = $('filtroAnio')?.value;
-    const verInactivos = $('verInactivos')?.checked;
+  function buildQueryParams(page = 1) {
+  const q = new URLSearchParams();
+  const search = $('sociosSearch')?.value?.trim();
+  const categoria = $('filtroCategoria')?.value;
+  const actividad = $('filtroActividad')?.value;
+  const anio = $('filtroAnio')?.value;
+  const verInactivos = $('verInactivos')?.checked;
 
-    if (search) q.set('search', search);
-    if (categoria) q.set('categoria', categoria);
-    if (actividad) q.set('actividad', actividad);
-    if (anio) q.set('anio', anio);
-    if (!verInactivos) q.set('activo', '1');
+  if (search) q.set('search', search);
+  if (categoria) q.set('categoria', categoria);
+  if (actividad) q.set('actividad', actividad);
+  if (anio) q.set('anio', anio);
+  if (!verInactivos) q.set('activo', '1');
 
-    return q.toString();
-  }
+  // ✅ PAGINACIÓN REAL (backend)
+  q.set('limit', String(pageSize));
+  q.set('offset', String((page - 1) * pageSize));
+
+  return q.toString();
+}
 
   async function loadSocios() {
     const clubId = getActiveClubId();
-    const qs = buildQueryParams();
+    const qs = buildQueryParams(currentPage);
 
-    currentPage = 1;
+    
 
     // socios + estados en paralelo
     const [resSocios, resEstados] = await Promise.all([
@@ -1403,9 +1404,16 @@ if (countEl) {
       socioEstados = {};
     }
 
-   refreshAnioOptions(data.socios ?? []);
-totalActivosCache = data.total ?? 0;
-renderSocios(data.socios ?? [], totalActivosCache);
+   // ⚠️ OJO: refreshAnioOptions con paginación real deja de ser confiable (ver nota más abajo)
+refreshAnioOptions(data.socios ?? []);
+
+totalSociosCache = data.total ?? 0;
+const totalPages = Math.max(1, Math.ceil(totalSociosCache / pageSize));
+if (currentPage > totalPages) currentPage = totalPages;
+if (currentPage < 1) currentPage = 1;
+
+renderSocios(data.socios ?? []);
+renderPagination(totalSociosCache);
   }
 
   async function saveSocio() {
@@ -1553,8 +1561,9 @@ if (payload.es_menor && !payload.tutor_nombre) {
 
     $('btnBuscarSocios')?.addEventListener('click', loadSocios);
 
-    const debouncedLoadSocios = debounce(loadSocios, 250);
-    $('sociosSearch')?.addEventListener('input', debouncedLoadSocios);
+    const debouncedLoadSocios = debounce(() => { currentPage = 1; loadSocios(); }, 250);
+$('sociosSearch')?.addEventListener('input', debouncedLoadSocios);
+
 
     $('btnExportSocios')?.addEventListener('click', exportSocios);
 
@@ -1565,7 +1574,7 @@ if (payload.es_menor && !payload.tutor_nombre) {
       if (e.key === 'Enter') loadSocios();
     });
 
-    $('filtroCategoria')?.addEventListener('change', loadSocios);
+    $('filtroCategoria')?.addEventListener('change', () => { currentPage = 1; loadSocios(); });
     $('filtroAnio')?.addEventListener('change', loadSocios);
     $('verInactivos')?.addEventListener('change', loadSocios);
 
