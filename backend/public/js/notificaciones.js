@@ -136,57 +136,55 @@ function getDestinoPayload() {
   return { destino_tipo: tipo, destino_valor1: v1, destino_valor2: v2 };
 }
 
-  async function sendNotificacion() {
-    console.log('[notificaciones] enviando…');
+ async function sendNotificacion() {
+  console.log('[notificaciones] enviando…');
 
-    const titulo = $id('pushTitulo')?.value?.trim();
-    const cuerpo = $id('pushCuerpo')?.value?.trim();
+  const titulo = $id('pushTitulo')?.value?.trim();
+  const cuerpo = $id('pushCuerpo')?.value?.trim();
 
-    if (!titulo || !cuerpo) {
-      alert('Completá título y mensaje');
+  if (!titulo || !cuerpo) {
+    alert('Completá título y mensaje');
+    return;
+  }
+
+  const clubId = getActiveClubId();
+  const btn = $id('btnPushEnviar');
+  if (btn) btn.disabled = true;
+
+  try {
+    const destino = getDestinoPayload();
+
+    const { res, data } = await fetchAuth(
+      `/club/${clubId}/notificaciones`,
+      {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({
+          titulo,
+          cuerpo,
+          data: destino
+        })
+      }
+    );
+
+    if (!res.ok || !data.ok) {
+      alert(data?.error || 'Error enviando notificación');
       return;
     }
 
-    const clubId = getActiveClubId();
+    alert('✅ Notificación enviada');
 
-    const btn = $id('btnPushEnviar');
-    if (btn) btn.disabled = true;
+    if ($id('pushTitulo')) $id('pushTitulo').value = '';
+    if ($id('pushCuerpo')) $id('pushCuerpo').value = '';
 
-    try {
-      const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones`, {
-        method: 'POST',
-        json: true,
-        const destino = getDestinoPayload();
-
-const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones`, {
-  method: 'POST',
-  json: true,
-  body: JSON.stringify({
-    titulo,
-    cuerpo,
-    data: destino
-  })
-});
-
-      });
-
-      if (!res.ok || !data.ok) {
-        alert(data.error || 'Error enviando');
-        return;
-      }
-
-      alert('✅ Notificación enviada');
-
-      // limpiar
-      if ($id('pushTitulo')) $id('pushTitulo').value = '';
-      if ($id('pushCuerpo')) $id('pushCuerpo').value = '';
-
-      // ✅ refrescar historial
-      await loadNotificaciones();
-    } finally {
-      if (btn) btn.disabled = false;
-    }
+    await loadNotificaciones();
+  } catch (err) {
+    console.error(err);
+    alert(err.message || 'Error enviando notificación');
+  } finally {
+    if (btn) btn.disabled = false;
   }
+}
 
   // =========================
   // ELIMINAR
