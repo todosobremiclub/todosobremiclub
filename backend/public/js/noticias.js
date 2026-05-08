@@ -562,8 +562,17 @@ console.log('bindOnce: btnNoticiaPublicar encontrado?', !!btnPub);
 
 
   if (destinoTipo) {
-    destinoTipo.addEventListener('change', renderDestinoExtra);
-  }
+  destinoTipo.addEventListener('change', async () => {
+    const tipo = destinoTipo.value || 'todos';
+
+    // 🔥 SOLO para "Por Actividad"
+    if (tipo === 'actividad') {
+      await loadActividades();    // recarga desde backend
+    }
+
+    renderDestinoExtra();         // pinta el select
+  });
+}
 
   if (btnPub) {
     btnPub.addEventListener('click', (e) => {
