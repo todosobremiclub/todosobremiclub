@@ -6,6 +6,16 @@ const $ = (selector) => document.querySelector(selector);
   // =============================
   // Auth / helpers comunes
   // =============================
+
+function getAniosNacimiento() {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let y = currentYear; y >= 1930; y--) {
+    years.push(y);
+  }
+  return years;
+}
+
   function getToken() {
     const t = localStorage.getItem('token');
     if (!t) {
@@ -166,15 +176,23 @@ function escapeHtml(str) {
       return;
     }
 
-    if (tipo === 'anio_nac') {
-      const label = document.createElement('label');
-      label.textContent = 'Año de nacimiento';
-      label.innerHTML += `
-        <input type="number" id="notiDestinoAnio" placeholder="Ej: 2010" min="1900" max="2100" />
-      `;
-      cont.appendChild(label);
-      return;
-    }
+   if (tipo === 'anio_nac') {
+  const label = document.createElement('label');
+  label.textContent = 'Año de nacimiento';
+
+  const sel = document.createElement('select');
+  sel.id = 'notiDestinoAnio';
+  sel.innerHTML =
+    `<option value="">Seleccionar año...</option>` +
+    getAniosNacimiento()
+      .map(y => `<option value="${y}">${y}</option>`)
+      .join('');
+
+  label.appendChild(sel);
+  cont.appendChild(label);
+  return;
+}
+
 
 if (tipo === 'act_cat') {
     // Actividad + Categoría
@@ -220,9 +238,22 @@ if (tipo === 'act_cat') {
 
       const labelAnio = document.createElement('label');
       labelAnio.textContent = 'Año de nacimiento';
-      labelAnio.innerHTML += `
-        <input type="number" id="notiDestinoAnio" placeholder="Ej: 2012" min="1900" max="2100" />
-      `;
+      const labelAnio = document.createElement('label');
+labelAnio.textContent = 'Año de nacimiento';
+
+const selAnio = document.createElement('select');
+selAnio.id = 'notiDestinoAnio';
+selAnio.innerHTML =
+  `<option value="">Seleccionar año...</option>` +
+  getAniosNacimiento()
+    .map(y => `<option value="${y}">${y}</option>`)
+    .join('');
+
+labelAnio.appendChild(selAnio);
+cont.appendChild(labelCat);
+cont.appendChild(labelAnio);
+return;
+
 
       cont.appendChild(labelCat);
       cont.appendChild(labelAnio);
