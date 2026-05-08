@@ -598,10 +598,23 @@ console.log('bindOnce: btnNoticiaPublicar encontrado?', !!btnPub);
   // Init sección
   // =============================
   async function initNoticiasSection() {
-  console.log('initNoticiasSection() llamado');
-  bindOnce();
-  await Promise.all([loadActividades(), loadCategorias(), loadAniosNacimiento()]);
+  console.log('✅ initNoticiasSection');
+
+  // 🔹 cargar datos primero
+  await loadActividades();
+  await loadCategorias();
+  await loadAniosNacimiento();
+
+  // 🔹 forzar render inicial
   renderDestinoExtra();
+
+  // 🔹 asegurar listener SIEMPRE
+  const destinoTipo = document.getElementById('notiDestinoTipo');
+  if (destinoTipo && !destinoTipo.dataset.bound) {
+    destinoTipo.addEventListener('change', renderDestinoExtra);
+    destinoTipo.dataset.bound = '1';
+  }
+
   await loadNoticias();
 }
 
