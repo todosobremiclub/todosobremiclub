@@ -1,21 +1,10 @@
 // public/js/noticias.js
 (() => {
- 
-const $ = (selector) => document.querySelector(selector);
+  const $ = (selector) => document.querySelector(selector);
 
   // =============================
   // Auth / helpers comunes
   // =============================
-
-function getAniosNacimiento() {
-  const currentYear = new Date().getFullYear();
-  const years = [];
-  for (let y = currentYear; y >= 1930; y--) {
-    years.push(y);
-  }
-  return years;
-}
-
   function getToken() {
     const t = localStorage.getItem('token');
     if (!t) {
@@ -60,16 +49,14 @@ function getAniosNacimiento() {
     return { res, data };
   }
 
-  
-function escapeHtml(str) {
-  return String(str ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
 
   function formatDateISOToDMY(iso) {
     if (!iso) return '';
@@ -86,9 +73,9 @@ function escapeHtml(str) {
   let categoriasCache = [];
   let aniosNacimientoCache = [];
   let noticiasCache = [];
+
   let editingId = null;
   let currentImagenUrl = null;
-  let pendingImageFile = null;
 
   // =============================
   // Helpers imagen (base64)
@@ -102,7 +89,7 @@ function escapeHtml(str) {
         if (comma < 0) return reject(new Error('No se pudo leer la imagen'));
         resolve({
           base64: dataUrl.slice(comma + 1),
-          mimetype: file.type || 'image/jpeg'
+          mimetype: file.type || 'image/jpeg',
         });
       };
       r.onerror = () => reject(new Error('Error leyendo archivo'));
@@ -111,7 +98,7 @@ function escapeHtml(str) {
   }
 
   // =============================
-  // Carga de actividades / categorías
+  // Carga de catálogos
   // =============================
   async function loadActividades() {
     const clubId = getActiveClubId();
@@ -120,7 +107,7 @@ function escapeHtml(str) {
       if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando actividades');
       actividadesCache = data.actividades || [];
     } catch (e) {
-      console.error(e);
+      console.error('loadActividades:', e);
       actividadesCache = [];
     }
   }
@@ -132,24 +119,22 @@ function escapeHtml(str) {
       if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando categorías');
       categoriasCache = data.categorias || [];
     } catch (e) {
-      console.error(e);
+      console.error('loadCategorias:', e);
       categoriasCache = [];
     }
   }
 
-async function loadAniosNacimiento() {
-  const clubId = getActiveClubId();
-  try {
-    const { res, data } = await fetchAuth(`/club/${clubId}/noticias/anios-nacimiento`);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando años de nacimiento');
-    // lo guardamos como strings para que matchee con destino_valor1/valor2
-    aniosNacimientoCache = (data.anios || []).map(a => String(a));
-  } catch (e) {
-    console.error(e);
-    aniosNacimientoCache = [];
+  async function loadAniosNacimiento() {
+    const clubId = getActiveClubId();
+    try {
+      const { res, data } = await fetchAuth(`/club/${clubId}/noticias/anios-nacimiento`);
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando años de nacimiento');
+      aniosNacimientoCache = (data.anios || []).map(a => String(a));
+    } catch (e) {
+      console.error('loadAniosNacimiento:', e);
+      aniosNacimientoCache = [];
+    }
   }
-}
-
 
   // =============================
   // Render destino extra (según tipo)
@@ -158,91 +143,76 @@ async function loadAniosNacimiento() {
     const tipo = $('#notiDestinoTipo')?.value || 'todos';
     const cont = $('#notiDestinoExtra');
     if (!cont) return;
+
     cont.innerHTML = '';
 
     if (tipo === 'todos') return;
     if (tipo === 'falta_pago') return;
 
     if (tipo === 'actividad') {
+      const label = document.createElement('label');
+      label.textContent = 'Actividad';
+
       const sel = document.createElement('select');
       sel.id = 'notiDestinoActividad';
-      sel.innerHTML = `<option value="">Seleccionar actividad...</option>` +
+      sel.innerHTML =
+        `<option value="">Seleccionar actividad...</option>` +
         actividadesCache
           .map(a => `<option value="${escapeHtml(a.nombre)}">${escapeHtml(a.nombre)}</option>`)
           .join('');
-      const label = document.createElement('label');
-      label.textContent = 'Actividad';
+
       label.appendChild(sel);
       cont.appendChild(label);
       return;
     }
 
     if (tipo === 'categoria') {
+      const label = document.createElement('label');
+      label.textContent = 'Categoría';
+
       const sel = document.createElement('select');
       sel.id = 'notiDestinoCategoria';
-      sel.innerHTML = `<option value="">Seleccionar categoría...</option>` +
+      sel.innerHTML =
+        `<option value="">Seleccionar categoría...</option>` +
         categoriasCache
           .map(c => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`)
           .join('');
-      const label = document.createElement('label');
-      label.textContent = 'Categoría';
+
       label.appendChild(sel);
       cont.appendChild(label);
       return;
     }
 
-   if (tipo === 'anio_nac') {
-  const label = document.createElement('label');
-  label.textContent = 'Año de nacimiento';
+    if (tipo === 'anio_nac') {
+      const label = document.createElement('label');
+      label.textContent = 'Año de nacimiento';
 
-  const sel = document.createElement('select');
-  sel.id = 'notiDestinoAnio';
-  sel.innerHTML =
-    `<option value="">Seleccionar año...</option>` +
-    aniosNacimientoCache
-  .map(y => `<option value="${y}">${y}</option>`)
-  .join('');
+      const sel = document.createElement('select');
+      sel.id = 'notiDestinoAnio';
+      sel.innerHTML =
+        `<option value="">Seleccionar año...</option>` +
+        aniosNacimientoCache
+          .map(y => `<option value="${y}">${y}</option>`)
+          .join('');
 
+      label.appendChild(sel);
+      cont.appendChild(label);
+      return;
+    }
 
-  label.appendChild(sel);
-  cont.appendChild(label);
-  return;
-}
+    if (tipo === 'act_cat') {
+      const labelAct = document.createElement('label');
+      labelAct.textContent = 'Actividad';
 
+      const selAct = document.createElement('select');
+      selAct.id = 'notiDestinoActividad';
+      selAct.innerHTML =
+        `<option value="">Seleccionar actividad...</option>` +
+        actividadesCache
+          .map(a => `<option value="${escapeHtml(a.nombre)}">${escapeHtml(a.nombre)}</option>`)
+          .join('');
+      labelAct.appendChild(selAct);
 
-if (tipo === 'act_cat') {
-    // Actividad + Categoría
-    const cont = document.getElementById('notiDestinoExtra');
-    if (!cont) return;
-    cont.innerHTML = '';
-
-    const labelAct = document.createElement('label');
-    labelAct.textContent = 'Actividad';
-    const selAct = document.createElement('select');
-    selAct.id = 'notiDestinoActividad';
-    selAct.innerHTML = `<option value="">Seleccionar actividad...</option>`
-      + actividadesCache
-        .map(a => `<option value="${escapeHtml(a.nombre)}">${escapeHtml(a.nombre)}</option>`)
-        .join('');
-    labelAct.appendChild(selAct);
-
-    const labelCat = document.createElement('label');
-    labelCat.textContent = 'Categoría';
-    const selCat = document.createElement('select');
-    selCat.id = 'notiDestinoCategoria';
-    selCat.innerHTML = `<option value="">Seleccionar categoría...</option>`
-      + categoriasCache
-        .map(c => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`)
-        .join('');
-    labelCat.appendChild(selCat);
-
-    cont.appendChild(labelAct);
-    cont.appendChild(labelCat);
-    return;
-  }
-
-    if (tipo === 'cat_anio') {
-      // Categoría
       const labelCat = document.createElement('label');
       labelCat.textContent = 'Categoría';
 
@@ -253,10 +223,26 @@ if (tipo === 'act_cat') {
         categoriasCache
           .map(c => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`)
           .join('');
-
       labelCat.appendChild(selCat);
 
-      // Año
+      cont.appendChild(labelAct);
+      cont.appendChild(labelCat);
+      return;
+    }
+
+    if (tipo === 'cat_anio') {
+      const labelCat = document.createElement('label');
+      labelCat.textContent = 'Categoría';
+
+      const selCat = document.createElement('select');
+      selCat.id = 'notiDestinoCategoria';
+      selCat.innerHTML =
+        `<option value="">Seleccionar categoría...</option>` +
+        categoriasCache
+          .map(c => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`)
+          .join('');
+      labelCat.appendChild(selCat);
+
       const labelAnio = document.createElement('label');
       labelAnio.textContent = 'Año de nacimiento';
 
@@ -267,7 +253,6 @@ if (tipo === 'act_cat') {
         aniosNacimientoCache
           .map(y => `<option value="${y}">${y}</option>`)
           .join('');
-
       labelAnio.appendChild(selAnio);
 
       cont.appendChild(labelCat);
@@ -277,45 +262,35 @@ if (tipo === 'act_cat') {
   }
 
   function getDestinoPayload() {
-  const tipo = $('#notiDestinoTipo')?.value || 'todos';
-  let v1 = null;
-  let v2 = null;
+    const tipo = $('#notiDestinoTipo')?.value || 'todos';
 
-  if (tipo === 'actividad') {
-    v1 = $('#notiDestinoActividad')?.value?.trim() || '';
-    if (!v1) throw new Error('Seleccioná una actividad');
-  } 
-  else if (tipo === 'categoria') {
-    v1 = $('#notiDestinoCategoria')?.value?.trim() || '';
-    if (!v1) throw new Error('Seleccioná una categoría');
-  } 
-  else if (tipo === 'anio_nac') {
-    v1 = $('#notiDestinoAnio')?.value?.trim() || '';
-    if (!v1) throw new Error('Ingresá un año de nacimiento');
-  } 
-  else if (tipo === 'cat_anio') {
-    v1 = $('#notiDestinoCategoria')?.value?.trim() || '';
-    v2 = $('#notiDestinoAnio')?.value?.trim() || '';
-    if (!v1 || !v2) throw new Error('Seleccioná categoría y año');
-  } 
-  else if (tipo === 'act_cat') {
-    v1 = $('#notiDestinoActividad')?.value?.trim() || '';
-    v2 = $('#notiDestinoCategoria')?.value?.trim() || '';
-    if (!v1 || !v2) throw new Error('Seleccioná actividad y categoría');
-  } 
-  else if (tipo === 'falta_pago') {
-    // No requiere valores extra
-    v1 = null;
-    v2 = null;
+    let v1 = null;
+    let v2 = null;
+
+    if (tipo === 'actividad') {
+      v1 = $('#notiDestinoActividad')?.value?.trim() || '';
+      if (!v1) throw new Error('Seleccioná una actividad');
+    } else if (tipo === 'categoria') {
+      v1 = $('#notiDestinoCategoria')?.value?.trim() || '';
+      if (!v1) throw new Error('Seleccioná una categoría');
+    } else if (tipo === 'anio_nac') {
+      v1 = $('#notiDestinoAnio')?.value?.trim() || '';
+      if (!v1) throw new Error('Seleccioná un año de nacimiento');
+    } else if (tipo === 'cat_anio') {
+      v1 = $('#notiDestinoCategoria')?.value?.trim() || '';
+      v2 = $('#notiDestinoAnio')?.value?.trim() || '';
+      if (!v1 || !v2) throw new Error('Seleccioná categoría y año');
+    } else if (tipo === 'act_cat') {
+      v1 = $('#notiDestinoActividad')?.value?.trim() || '';
+      v2 = $('#notiDestinoCategoria')?.value?.trim() || '';
+      if (!v1 || !v2) throw new Error('Seleccioná actividad y categoría');
+    } else if (tipo === 'falta_pago') {
+      v1 = null;
+      v2 = null;
+    }
+
+    return { destino_tipo: tipo, destino_valor1: v1, destino_valor2: v2 };
   }
-
-  return {
-    destino_tipo: tipo,
-    destino_valor1: v1,
-    destino_valor2: v2
-  };
-}
-
 
   function destinoHumanLabel(n) {
     const tipo = n.destino_tipo;
@@ -330,7 +305,7 @@ if (tipo === 'act_cat') {
       case 'cat_anio': return `Categoría: ${v1} · Año: ${v2}`;
       case 'act_cat': return `Actividad: ${v1} · Categoría: ${v2}`;
       case 'falta_pago': return 'En falta de pago';
-     default: return tipo || '—';
+      default: return tipo || '—';
     }
   }
 
@@ -353,7 +328,7 @@ if (tipo === 'act_cat') {
       noticiasCache = data.noticias || [];
       renderNoticiasTable();
     } catch (e) {
-      console.error(e);
+      console.error('loadNoticias:', e);
       tbody.innerHTML = `<tr><td colspan="6">Error cargando noticias</td></tr>`;
     }
   }
@@ -377,18 +352,17 @@ if (tipo === 'act_cat') {
         <td>
           ${img
             ? `<img src="${escapeHtml(img)}" class="noticia-img-mini" alt="imagen noticia"
-                  onerror="this.style.display='none';" />`
+                    onerror="this.style.display='none';" />`
             : '—'}
         </td>
         <td>
-  <div style="font-weight:600; text-decoration:underline; margin-bottom:4px;">
-    ${escapeHtml(n.titulo ?? '')}
-  </div>
-  <div style="font-size:13px; color:#374151;">
-    ${escapeHtml(n.texto ?? '').slice(0, 120)}${(n.texto || '').length > 120 ? '…' : ''}
-  </div>
-</td>
-
+          <div style="font-weight:600; text-decoration:underline; margin-bottom:4px;">
+            ${escapeHtml(n.titulo ?? '')}
+          </div>
+          <div style="font-size:13px; color:#374151;">
+            ${escapeHtml(n.texto ?? '').slice(0, 120)}${(n.texto || '').length > 120 ? '…' : ''}
+          </div>
+        </td>
         <td>${escapeHtml(destinoHumanLabel(n))}</td>
         <td>${escapeHtml(fecha)}</td>
         <td style="white-space:nowrap;">
@@ -406,12 +380,13 @@ if (tipo === 'act_cat') {
   // =============================
   function resetForm() {
     editingId = null;
-    pendingImageFile = null;
     currentImagenUrl = null;
-    $('#notiTitulo') && ($('#notiTitulo').value = '');
-    $('#notiTexto') && ($('#notiTexto').value = '');
-    $('#notiImagen') && ($('#notiImagen').value = '');
-    $('#notiDestinoTipo') && ($('#notiDestinoTipo').value = 'todos');
+
+    if ($('#notiTitulo')) $('#notiTitulo').value = '';
+    if ($('#notiTexto')) $('#notiTexto').value = '';
+    if ($('#notiImagen')) $('#notiImagen').value = '';
+    if ($('#notiDestinoTipo')) $('#notiDestinoTipo').value = 'todos';
+
     renderDestinoExtra();
 
     const btn = $('#btnNoticiaPublicar');
@@ -421,23 +396,33 @@ if (tipo === 'act_cat') {
   function fillFormForEdit(n) {
     editingId = n.id;
     currentImagenUrl = n.imagen_url || null;
-    pendingImageFile = null;
 
     $('#notiTitulo').value = n.titulo ?? '';
     $('#notiTexto').value = n.texto ?? '';
     $('#notiImagen').value = '';
-    $('#notiDestinoTipo').value = n.destino_tipo || 'todos';
 
+    $('#notiDestinoTipo').value = n.destino_tipo || 'todos';
     renderDestinoExtra();
 
     if (n.destino_tipo === 'actividad' && $('#notiDestinoActividad')) {
       $('#notiDestinoActividad').value = n.destino_valor1 ?? '';
     }
+
     if ((n.destino_tipo === 'categoria' || n.destino_tipo === 'cat_anio') && $('#notiDestinoCategoria')) {
       $('#notiDestinoCategoria').value = n.destino_valor1 ?? '';
     }
-    if ((n.destino_tipo === 'anio_nac' || n.destino_tipo === 'cat_anio') && $('#notiDestinoAnio')) {
-      $('#notiDestinoAnio').value = n.destino_valor2 ?? n.destino_valor1 ?? '';
+
+    if (n.destino_tipo === 'anio_nac' && $('#notiDestinoAnio')) {
+      $('#notiDestinoAnio').value = n.destino_valor1 ?? '';
+    }
+
+    if (n.destino_tipo === 'cat_anio' && $('#notiDestinoAnio')) {
+      $('#notiDestinoAnio').value = n.destino_valor2 ?? '';
+    }
+
+    if (n.destino_tipo === 'act_cat') {
+      if ($('#notiDestinoActividad')) $('#notiDestinoActividad').value = n.destino_valor1 ?? '';
+      if ($('#notiDestinoCategoria')) $('#notiDestinoCategoria').value = n.destino_valor2 ?? '';
     }
 
     const btn = $('#btnNoticiaPublicar');
@@ -467,10 +452,10 @@ if (tipo === 'act_cat') {
       texto,
       destino_tipo: destino.destino_tipo,
       destino_valor1: destino.destino_valor1,
-      destino_valor2: destino.destino_valor2
+      destino_valor2: destino.destino_valor2,
     };
 
-    // si hay imagen nueva, la convertimos a base64
+    // imagen opcional
     const fileInput = $('#notiImagen');
     const file = fileInput?.files?.[0] || null;
     if (file) {
@@ -498,7 +483,7 @@ if (tipo === 'act_cat') {
       const { res, data } = await fetchAuth(url, {
         method,
         json: true,
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok || !data.ok) {
@@ -509,9 +494,8 @@ if (tipo === 'act_cat') {
       alert(editingId ? '✅ Noticia actualizada' : '✅ Noticia publicada');
       resetForm();
       await loadNoticias();
-
     } catch (e) {
-      console.error(e);
+      console.error('saveNoticia:', e);
       alert(e.message || 'Error guardando noticia');
     } finally {
       if (btn) btn.disabled = false;
@@ -523,16 +507,14 @@ if (tipo === 'act_cat') {
     if (!confirm('¿Eliminar esta noticia definitivamente?')) return;
 
     try {
-      const { res, data } = await fetchAuth(`/club/${clubId}/noticias/${id}`, {
-        method: 'DELETE'
-      });
+      const { res, data } = await fetchAuth(`/club/${clubId}/noticias/${id}`, { method: 'DELETE' });
       if (!res.ok || !data.ok) {
         alert(data.error || 'No se pudo eliminar la noticia');
         return;
       }
       await loadNoticias();
     } catch (e) {
-      console.error(e);
+      console.error('deleteNoticia:', e);
       alert(e.message || 'Error eliminando noticia');
     }
   }
@@ -540,92 +522,76 @@ if (tipo === 'act_cat') {
   // =============================
   // Bind de eventos
   // =============================
-  
-function bindOnce() {
-  const root = document.getElementById('noticias-section');
-  if (!root) {
-    console.log('bindOnce: no hay #noticias-section');
-    return;
-  }
-  if (root.dataset.bound === '1') {
-    console.log('bindOnce: ya estaba ligado');
-    return;
-  }
-  root.dataset.bound = '1';
-  console.log('bindOnce: inicializando eventos');
+  function bindOnce() {
+    const root = document.getElementById('noticias-section');
+    if (!root) return;
 
-  const destinoTipo = root.querySelector('#notiDestinoTipo');
-console.log('bindOnce: notiDestinoTipo encontrado?', !!destinoTipo);
+    if (root.dataset.bound === '1') return;
+    root.dataset.bound = '1';
 
-const btnPub = root.querySelector('#btnNoticiaPublicar');
-console.log('bindOnce: btnNoticiaPublicar encontrado?', !!btnPub);
+    const destinoTipo = root.querySelector('#notiDestinoTipo');
+    const btnPub = root.querySelector('#btnNoticiaPublicar');
 
+    if (destinoTipo) {
+      destinoTipo.addEventListener('change', async () => {
+        const tipo = destinoTipo.value || 'todos';
 
-  if (destinoTipo) {
-  destinoTipo.addEventListener('change', async () => {
-    const tipo = destinoTipo.value || 'todos';
+        // Cargar lo mínimo necesario según selección
+        if (tipo === 'actividad') await loadActividades();
+        if (tipo === 'categoria') await loadCategorias();
+        if (tipo === 'anio_nac') await loadAniosNacimiento();
+        if (tipo === 'act_cat') await Promise.all([loadActividades(), loadCategorias()]);
+        if (tipo === 'cat_anio') await Promise.all([loadCategorias(), loadAniosNacimiento()]);
 
-    // 🔥 SOLO para "Por Actividad"
-    if (tipo === 'actividad') {
-      await loadActividades();    // recarga desde backend
+        renderDestinoExtra();
+      });
     }
 
-    renderDestinoExtra();         // pinta el select
-  });
-}
+    if (btnPub) {
+      btnPub.addEventListener('click', (e) => {
+        e.preventDefault();
+        saveNoticia();
+      });
+    }
 
-  if (btnPub) {
-    btnPub.addEventListener('click', (e) => {
-      e.preventDefault();
-      console.log('bindOnce: click en Publicar noticia');
-      saveNoticia();
-    });
-  } else {
-    console.warn('bindOnce: NO se encontró el botón #btnNoticiaPublicar');
+    const tbody = $('#noticiasTableBody');
+    if (tbody) {
+      tbody.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('button[data-act]');
+        if (!btn) return;
+
+        const act = btn.dataset.act;
+        const id = btn.dataset.id;
+
+        if (act === 'edit') {
+          const n = noticiasCache.find(x => String(x.id) === String(id));
+          if (n) fillFormForEdit(n);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        if (act === 'del') {
+          deleteNoticia(id);
+        }
+      });
+    }
   }
 
-  const tbody = $('#noticiasTableBody');
-  if (tbody) {
-    tbody.addEventListener('click', (ev) => {
-      const btn = ev.target.closest('button[data-act]');
-      if (!btn) return;
-      const act = btn.dataset.act;
-      const id = btn.dataset.id;
-
-      if (act === 'edit') {
-        const n = noticiasCache.find(x => String(x.id) === String(id));
-        if (n) fillFormForEdit(n);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-      if (act === 'del') {
-        deleteNoticia(id);
-      }
-    });
-  }
-}
   // =============================
   // Init sección
   // =============================
   async function initNoticiasSection() {
-  console.log('✅ initNoticiasSection');
+    // eventos
+    bindOnce();
 
-  // 🔹 cargar datos primero
-  await loadActividades();
-  await loadCategorias();
-  await loadAniosNacimiento();
+    // catálogos (cargamos todo para que no haya vacíos al primer render)
+    await Promise.all([loadActividades(), loadCategorias(), loadAniosNacimiento()]);
 
-  // 🔹 forzar render inicial
-  renderDestinoExtra();
+    // render inicial
+    renderDestinoExtra();
 
-  // 🔹 asegurar listener SIEMPRE
-  const destinoTipo = document.getElementById('notiDestinoTipo');
-  if (destinoTipo && !destinoTipo.dataset.bound) {
-    destinoTipo.addEventListener('change', renderDestinoExtra);
-    destinoTipo.dataset.bound = '1';
+    // noticias
+    await loadNoticias();
   }
-
-  await loadNoticias();
-}
 
   // Exponer para club.js
   window.initNoticiasSection = initNoticiasSection;
@@ -636,5 +602,4 @@ console.log('bindOnce: btnNoticiaPublicar encontrado?', !!btnPub);
       initNoticiasSection();
     }
   });
-
 })();
