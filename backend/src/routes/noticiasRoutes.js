@@ -107,6 +107,29 @@ function validateDestino({ destino_tipo, destino_valor1, destino_valor2 }) {
 }
 
 // ============================================================
+// GET /club/:clubId/noticias/anios-nacimiento
+// Devuelve años de nacimiento existentes (DISTINCT) en socios
+// ============================================================
+router.get('/:clubId/noticias/anios-nacimiento', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const r = await db.query(`
+      SELECT DISTINCT EXTRACT(YEAR FROM fecha_nacimiento)::int AS anio
+      FROM socios
+      WHERE club_id = $1
+        AND fecha_nacimiento IS NOT NULL
+      ORDER BY anio DESC
+    `, [clubId]);
+
+    const anios = r.rows.map(x => x.anio).filter(Boolean);
+    return res.json({ ok: true, anios });
+  } catch (e) {
+    console.error('❌ GET anios-nacimiento', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
 // GET /club/:clubId/noticias
 // Lista noticias activas del club
 // ============================================================

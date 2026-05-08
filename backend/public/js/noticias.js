@@ -84,6 +84,7 @@ function escapeHtml(str) {
   // =============================
   let actividadesCache = [];
   let categoriasCache = [];
+  let aniosNacimientoCache = [];
   let noticiasCache = [];
   let editingId = null;
   let currentImagenUrl = null;
@@ -136,6 +137,20 @@ function escapeHtml(str) {
     }
   }
 
+async function loadAniosNacimiento() {
+  const clubId = getActiveClubId();
+  try {
+    const { res, data } = await fetchAuth(`/club/${clubId}/noticias/anios-nacimiento`);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando años de nacimiento');
+    // lo guardamos como strings para que matchee con destino_valor1/valor2
+    aniosNacimientoCache = (data.anios || []).map(a => String(a));
+  } catch (e) {
+    console.error(e);
+    aniosNacimientoCache = [];
+  }
+}
+
+
   // =============================
   // Render destino extra (según tipo)
   // =============================
@@ -184,9 +199,10 @@ function escapeHtml(str) {
   sel.id = 'notiDestinoAnio';
   sel.innerHTML =
     `<option value="">Seleccionar año...</option>` +
-    getAniosNacimiento()
-      .map(y => `<option value="${y}">${y}</option>`)
-      .join('');
+    aniosNacimientoCache
+  .map(y => `<option value="${y}">${y}</option>`)
+  .join('');
+
 
   label.appendChild(sel);
   cont.appendChild(label);
@@ -226,34 +242,33 @@ if (tipo === 'act_cat') {
   }
 
     if (tipo === 'cat_anio') {
+      // Categoría
       const labelCat = document.createElement('label');
-      const sel = document.createElement('select');
-      sel.id = 'notiDestinoCategoria';
-      sel.innerHTML = `<option value="">Seleccionar categoría...</option>` +
+      labelCat.textContent = 'Categoría';
+
+      const selCat = document.createElement('select');
+      selCat.id = 'notiDestinoCategoria';
+      selCat.innerHTML =
+        `<option value="">Seleccionar categoría...</option>` +
         categoriasCache
           .map(c => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`)
           .join('');
-      labelCat.textContent = 'Categoría';
-      labelCat.appendChild(sel);
 
+      labelCat.appendChild(selCat);
+
+      // Año
       const labelAnio = document.createElement('label');
       labelAnio.textContent = 'Año de nacimiento';
-      const labelAnio = document.createElement('label');
-labelAnio.textContent = 'Año de nacimiento';
 
-const selAnio = document.createElement('select');
-selAnio.id = 'notiDestinoAnio';
-selAnio.innerHTML =
-  `<option value="">Seleccionar año...</option>` +
-  getAniosNacimiento()
-    .map(y => `<option value="${y}">${y}</option>`)
-    .join('');
+      const selAnio = document.createElement('select');
+      selAnio.id = 'notiDestinoAnio';
+      selAnio.innerHTML =
+        `<option value="">Seleccionar año...</option>` +
+        aniosNacimientoCache
+          .map(y => `<option value="${y}">${y}</option>`)
+          .join('');
 
-labelAnio.appendChild(selAnio);
-cont.appendChild(labelCat);
-cont.appendChild(labelAnio);
-return;
-
+      labelAnio.appendChild(selAnio);
 
       cont.appendChild(labelCat);
       cont.appendChild(labelAnio);
@@ -585,7 +600,7 @@ console.log('bindOnce: btnNoticiaPublicar encontrado?', !!btnPub);
   async function initNoticiasSection() {
   console.log('initNoticiasSection() llamado');
   bindOnce();
-  await Promise.all([loadActividades(), loadCategorias()]);
+  await Promise.all([loadActividades(), loadCategorias(), loadAniosNacimiento()]);
   renderDestinoExtra();
   await loadNoticias();
 }
