@@ -523,15 +523,17 @@ tr.innerHTML = `
    * ✅ Ingresos generales (no socios)
    * ============================= */
   function ingresosRangeQS() {
-    const desde = `${selectedYear}-01-01`;
-    const hasta = `${selectedYear}-12-31`;
-    const qs = new URLSearchParams();
-    qs.set('desde', desde);
-    qs.set('hasta', hasta);
-    qs.set('limit', '200');
-    qs.set('offset', '0');
-    return qs.toString();
-  }
+  const desde = `${selectedYear}-01-01`;
+  const hasta = `${selectedYear}-12-31`;
+
+  const qs = new URLSearchParams();
+  qs.set('desde', desde);
+  qs.set('hasta', hasta);
+  qs.set('limit', '200');
+  qs.set('offset', '0');
+  return qs.toString();
+}
+
 
   async function loadTiposIngreso() {
     const clubId = getActiveClubId();
@@ -775,20 +777,26 @@ async function deletePagoMensual(pagoId, socioId) {
   /* =============================
    * Año selector + bind
    * ============================= */
-  function fillAnios() {
-    const sel = $('pagosAnioSelect');
-    if (!sel) return;
+ function fillAnios() {
+  const sel = $('pagosAnioSelect');
+  if (!sel) return;
 
-    const y = new Date().getFullYear();
-    sel.innerHTML = '';
-    for (let i = y - 3; i <= y + 1; i++) {
-      const opt = document.createElement('option');
-      opt.value = String(i);
-      opt.textContent = String(i);
-      sel.appendChild(opt);
-    }
-    sel.value = String(selectedYear);
+  const current = new Date().getFullYear();
+
+  // Limpia y vuelve a cargar opciones (ej: últimos 6 años)
+  sel.innerHTML = '';
+
+  for (let y = current; y >= current - 5; y--) {
+    const opt = document.createElement('option');
+    opt.value = String(y);
+    opt.textContent = String(y);
+    sel.appendChild(opt);
   }
+
+  // Deja seleccionado el año activo en el estado global
+  sel.value = String(selectedYear);
+}
+
 
   function setSelectedYear(y) {
     selectedYear = Number(y);
@@ -836,6 +844,14 @@ function bindAccordion() {
     $('modalSocioSearch')?.addEventListener('input', renderSociosList);
     $('btnRefreshPagos')?.addEventListener('click', async () => { await loadResumen(); await loadIngresos(); });
     $('pagosSearch')?.addEventListener('input', loadResumen);
+
+// ✅ Cambio de año desde el selector (afecta Pagos + Otros ingresos)
+$('pagosAnioSelect')?.addEventListener('change', async (e) => {
+  const y = Number(e.target.value);
+  setSelectedYear(y);
+  await loadResumen();
+  await loadIngresos();
+});
 
 // Paginación de la tabla de pagos
 $('pagosPagination')?.addEventListener('click', (ev) => {
