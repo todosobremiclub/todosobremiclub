@@ -30,29 +30,19 @@
   }
 
   async function fetchAuth(url, options = {}) {
-    const headers = options.headers || {};
-    headers['Authorization'] = 'Bearer ' + getToken();
-    if (options.json) headers['Content-Type'] = 'application/json';
+  const opts = options || {};
+  const headers = Object.assign({}, opts.headers || {});
+  headers['Authorization'] = 'Bearer ' + getToken();
+  if (opts.json) headers['Content-Type'] = 'application/json';
 
-    const { json, ...rest } = options;
-    const res = await fetch(url, { ...rest, headers });
+  const res = await fetch(url, Object.assign({}, opts, { headers }));
 
-    // Parse robusto (por si el backend devuelve texto ante error)
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); }
-    catch { data = { ok: false, error: text }; }
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
 
-    if (res.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('activeClubId');
-      alert('Sesión inválida o expirada.');
-      window.location.href = '/admin.html';
-      throw new Error('401');
-    }
+  return { res, data };
+}
 
-    return { res, data };
-  }
 
   function todayISO() {
     const d = new Date();
@@ -139,21 +129,27 @@ function ensureIngresosUI() {
     cuotasMap = new Map((data.cuotas || []).map(c => [Number(c.mes), Number(c.monto)]));
   }
 
-  async function loadResumen() {
-    const clubId = getActiveClubId();
-    const { res, data } = await fetchAuth(`/club/${clubId}/pagos/resumen?anio=${selectedYear}`);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando resumen pagos');
+ async function loadResumen() {
+  const clubId = getActiveClubId();
+  const q = $('pagosSearch')?.value || '';
 
-    const search = (($('pagosSearch')?.value) || '').trim().toLowerCase();
-    const rows = (data.socios || []).filter(s => {
-      if (!search) return true;
-      const ap = String(s.apellido || '').toLowerCase();
-      const dni = String(s.dni || '');
-      return ap.includes(search) || dni.includes(search);
-    });
-
-    renderTabla(rows);
+  const { res, data } = await fetchAuth(`/club/${clubId}/pagos/resumen?anio=${selectedYear}`);
+  if (!res.ok || !data || !data.ok) {
+    throw new Error((data && data.error) || 'Error cargando resumen pagos');
   }
+
+  let rows = data.socios || [];
+  const qq = q.trim().toLowerCase();
+  if (qq) {
+    rows = rows.filter(s =>
+      (`${s.apellido || ''} ${s.nombre || ''}`.toLowerCase().includes(qq) ||
+       String(s.dni || '').includes(qq))
+    );
+  }
+
+  renderTabla(rows);
+}
+
 
   // Recibe todas las filas filtradas y prepara la paginación
 function renderTabla(rows) {
@@ -535,6 +531,7 @@ tr.innerHTML = `
 }
 
 
+
   async function loadTiposIngreso() {
     const clubId = getActiveClubId();
     const { res, data } = await fetchAuth(`/club/${clubId}/config/tipos-ingreso`);
@@ -587,14 +584,18 @@ function getCuentaNombreById(id) {
 }
 
   async function loadIngresos() {
-    ensureIngresosUI();
-    const clubId = getActiveClubId();
-    const { res, data } = await fetchAuth(`/club/${clubId}/ingresos?${ingresosRangeQS()}`);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando ingresos');
+  ensureIngresosUI();
+  const clubId = getActiveClubId();
 
-    ingresosCache = data.ingresos || [];
-    renderIngresos(ingresosCache, data.total);
+  const { res, data } = await fetchAuth(`/club/${clubId}/ingresos?${ingresosRangeQS()}`);
+  if (!res.ok || !data || !data.ok) {
+    throw new Error((data && data.error) || 'Error cargando ingresos');
   }
+
+  ingresosCache = data.ingresos || [];
+  renderIngresos(ingresosCache, data.total || 0);
+}
+
 
   function renderIngresos(rows, total) {
   const tbody = $('ingresosTableBody');
