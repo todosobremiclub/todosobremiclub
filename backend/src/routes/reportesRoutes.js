@@ -2312,6 +2312,133 @@ router.get('/:clubId/reportes/ingresos-vs-gastos/detalle', requireAuth, requireC
   }
 });
 
+// ============================================================
+// EXPORT: Ingresos vs Gastos (DETALLE POR RANGO DE FECHAS) – EXCEL
+// GET /club/:clubId/reportes/ingresos-vs-gastos/export/excel?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
+// Columnas: Fecha | Tipo (Ingreso/Gasto) | Tipo de Ingreso/Gasto | Monto | Cuenta | Observación
+// Incluye: ingresos_generales + pagos_mensuales (cuotas) + gastos
+// ============================================================
+
+function isISODate(d) {
+  return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+}
+
+async function getMovsIngGastoRange(clubId, desde, hasta) {
+  const q = `
+    SELECT * FROM (
+      -- Ingresos generales
+      SELECT
+        ig.fecha::date AS fecha,
+        'Ingreso'::text AS tipo,
+        COALESCE(ti.nombre, 'Otro ingreso') AS tipo_item,
+        ig.monto::numeric AS monto,
+        COALESCE(ig.cuenta, '') AS cuenta,
+        COALESCE(ig.observacion, '') AS observacion
+      FROM ingresos_generales ig
+      LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+      WHERE ig.club_id = $1
+        AND ig.activo = true
+        AND ig.fecha::date >= $2::date
+        AND ig.fecha::date <= $3::date
+
+      UNION ALL
+
+      -- Cuotas sociales (pagos mensuales)
+      SELECT
+        pm.fecha_pago::date AS fecha,
+        'Ingreso'::text AS tipo,
+        'Cuota social'::text AS tipo_item,
+        pm.monto::numeric AS monto,
+        COALESCE(pm.cuenta, '') AS cuenta,
+        (
+          'Socio: ' ||
+          TRIM(
+            COALESCE(pm.socio_apellido, s.apellido, '') || ' ' ||
+            COALESCE(pm.socio_nombre, s.nombre, '')
+          ) ||
+          CASE
+            WHEN COALESCE(pm.socio_numero, s.numero_socio) IS NULL THEN ''
+            ELSE ' (#' || COALESCE(pm.socio_numero, s.numero_socio) || ')'
+          END ||
+          ' - Cuota ' || pm.mes || '/' || pm.anio
+        )::text AS observacion
+      FROM pagos_mensuales pm
+      LEFT JOIN socios s ON s.id = pm.socio_id
+      WHERE pm.club_id = $1
+        AND pm.fecha_pago IS NOT NULL
+        AND pm.fecha_pago::date >= $2::date
+        AND pm.fecha_pago::date <= $3::date
+
+      UNION ALL
+
+      -- Gastos
+      SELECT
+        g.fecha_gasto::date AS fecha,
+        'Gasto'::text AS tipo,
+        COALESCE(tg.nombre, 'Sin tipo') AS tipo_item,
+        g.monto::numeric AS monto,
+        COALESCE(g.cuenta, rg.nombre, 'Sin cuenta') AS cuenta,
+        COALESCE(g.descripcion, '') AS observacion
+      FROM gastos g
+      LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
+      LEFT JOIN responsables_gasto rg ON rg.id = g.responsable_id
+      WHERE g.club_id = $1
+        AND g.activo = true
+        AND g.fecha_gasto::date >= $2::date
+        AND g.fecha_gasto::date <= $3::date
+    ) t
+    ORDER BY fecha ASC, tipo ASC, tipo_item ASC;
+  `;
+
+  const r = await db.query(q, [clubId, desde, hasta]);
+  return r.rows || [];
+}
+
+router.get(
+  '/:clubId/reportes/ingresos-vs-gastos/export/excel',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    try {
+      const { clubId } = req.params;
+      const { desde = '', hasta = '' } = req.query;
+
+      if (!isISODate(desde) || !isISODate(hasta)) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Parámetros inválidos. Use desde y hasta con formato YYYY-MM-DD'
+        });
+      }
+
+      if (desde > hasta) {
+        return res.status(400).json({
+          ok: false,
+          error: 'La fecha "desde" no puede ser mayor que "hasta"'
+        });
+      }
+
+      const rows = await getMovsIngGastoRange(clubId, desde, hasta);
+
+      return sendExcel(
+        res,
+        `Ingresos_vs_Gastos_Detalle_${desde}_a_${hasta}`,
+        [
+          { key: 'fecha', label: 'Fecha' },
+          { key: 'tipo', label: 'Tipo (Ingreso/Gasto)' },
+          { key: 'tipo_item', label: 'Tipo de Ingreso/Gasto' },
+          { key: 'monto', label: 'Monto' },
+          { key: 'cuenta', label: 'Cuenta' },
+          { key: 'observacion', label: 'Observación' }
+        ],
+        rows
+      );
+    } catch (e) {
+      console.error('❌ export excel ingresos-vs-gastos rango', e);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
 
 // 7) DETALLE: ingresos por tipo (incluye cuotas)
 // GET /club/:clubId/reportes/ingresos-por-tipo/detalle?anio=2026&tipo=Cuotas|Cantina|Sponsor...

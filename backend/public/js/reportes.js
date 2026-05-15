@@ -1824,6 +1824,60 @@ window.closeExportModal = function () {
   exportConfig = null;
 };
 
+// ===============================
+// EXPORTAR INGRESOS VS GASTOS – RANGO DE FECHAS (EXCEL)
+// ===============================
+function isoToday() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function isoFirstDayOfMonth() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  return `${y}-${m}-01`;
+}
+function openExportIGRangeModal() {
+  const modal = document.getElementById('exportIGRangeModal');
+  if (!modal) {
+    alert('Falta el modal exportIGRangeModal en reportes.html');
+    return;
+  }
+  const desde = document.getElementById('igExportDesde');
+  const hasta = document.getElementById('igExportHasta');
+  if (desde && !desde.value) desde.value = isoFirstDayOfMonth();
+  if (hasta && !hasta.value) hasta.value = isoToday();
+  document.body.style.overflow = 'hidden';
+  modal.classList.remove('hidden');
+}
+function closeExportIGRangeModal() {
+  const modal = document.getElementById('exportIGRangeModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+async function confirmExportIGRangeExcel() {
+  const desde = document.getElementById('igExportDesde')?.value;
+  const hasta = document.getElementById('igExportHasta')?.value;
+  if (!desde || !hasta) {
+    alert('Seleccioná fecha inicio y fecha fin.');
+    return;
+  }
+  if (desde > hasta) {
+    alert('La fecha de inicio no puede ser mayor que la fecha fin.');
+    return;
+  }
+  const clubId = getActiveClubId();
+  const params = new URLSearchParams({ desde, hasta });
+  const url = `/club/${clubId}/reportes/ingresos-vs-gastos/export/excel?${params.toString()}`;
+  const filename = `Ingresos_vs_Gastos_Detalle_${desde}_a_${hasta}.xlsx`;
+  await downloadWithToken({ url, filename });
+  closeExportIGRangeModal();
+}
+
 window.confirmExport = async function (format) {
   if (!exportConfig) return;
 
@@ -1923,6 +1977,16 @@ async function initReportesSection() {
   // Panel 3 – ingresos vs gastos
   bindIGInteractions();
   await loadIGAnual();
+
+// Export rango IG
+document.getElementById('btnIGExportRange')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  openExportIGRangeModal();
+});
+document.getElementById('btnIGExportRangeClose')?.addEventListener('click', (e) => { e.preventDefault(); closeExportIGRangeModal(); });
+document.getElementById('btnIGExportRangeCancel')?.addEventListener('click', (e) => { e.preventDefault(); closeExportIGRangeModal(); });
+document.getElementById('btnIGExportRangeExcel')?.addEventListener('click', async (e) => { e.preventDefault(); await confirmExportIGRangeExcel(); });
+document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) => { if (ev.target?.id === 'exportIGRangeModal') closeExportIGRangeModal(); });
 
   // =============================
   // ABAJO IZQUIERDA – SOCIOS NUEVOS

@@ -103,6 +103,8 @@
             <button id="btnIGMesPrev" class="btn-nav">◀</button>
             <span id="igMesLabel" class="nav-label">Mes actual</span>
             <button id="btnIGMesNext" class="btn-nav">▶</button>
+<button id="btnIGExportRange" class="btn-export-icon" title="Exportar detalle (rango de fechas)">⬇</button>
+
           </div>
         </div>
       </div>
@@ -350,6 +352,33 @@
 </div>
 
 
+  </div>
+</div>
+
+<!-- =============================
+ MODAL EXPORTAR INGRESOS VS GASTOS (RANGO DE FECHAS)
+ ============================= -->
+<div id="exportIGRangeModal" class="modal hidden">
+  <div class="modal-content" style="max-width:460px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0;">Exportar detalle – Ingresos vs Gastos</h3>
+      <button id="btnIGExportRangeClose" class="btn btn-secondary">✕</button>
+    </div>
+    <div class="muted small" style="margin-top:4px;">Seleccioná fecha inicio y fecha fin (pueden ser de distintos años).</div>
+
+    <div style="margin-top:14px; display:flex; gap:10px;">
+      <label style="flex:1;">Inicio
+        <input type="date" id="igExportDesde" style="width:100%;">
+      </label>
+      <label style="flex:1;">Fin
+        <input type="date" id="igExportHasta" style="width:100%;">
+      </label>
+    </div>
+
+    <div style="margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
+      <button id="btnIGExportRangeCancel" class="btn btn-secondary">Cancelar</button>
+      <button id="btnIGExportRangeExcel" class="btn btn-secondary">📊 Excel</button>
+    </div>
   </div>
 </div>
 
