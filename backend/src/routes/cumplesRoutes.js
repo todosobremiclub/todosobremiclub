@@ -23,13 +23,19 @@ router.use((req, res, next) => {
 function isISODate(v) {
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
-
 function isTimeHHMM(v) {
   return typeof v === 'string' && /^\d{2}:\d{2}$/.test(v);
 }
-
 function isYYYYMM(v) {
   return typeof v === 'string' && /^\d{4}-\d{2}$/.test(v);
+}
+
+function argentinaNow() {
+  // Fecha actual ajustada a Argentina
+  const ahora = new Date();
+  return new Date(
+    ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
+  );
 }
 
 function monthRangeFromYYYYMM(yyyymm) {
@@ -51,16 +57,7 @@ function monthRangeFromYYYYMM(yyyymm) {
   return { start, endExclusive };
 }
 
-function argentinaNow() {
-  // Fecha actual ajustada a Argentina
-  const ahora = new Date();
-  return new Date(
-    ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
-  );
-}
-
 function canWriteAgenda(req, clubId) {
-  // Regla simple: si es admin/superadmin o cualquier rol del club salvo solo_lectura
   const roles = req.user?.roles || [];
   return roles.some(
     (r) =>
@@ -80,12 +77,16 @@ function canWriteAgenda(req, clubId) {
  *
  * Devuelve:
  *  - hoy: socios que cumplen hoy (Argentina)
- *  - eventos: cumpleaños (como antes) + actividades (nuevas)
+ *  - eventos: cumpleaños + actividades (nuevas)
  */
 router.get('/:clubId/cumples', requireAuth, async (req, res) => {
   try {
     const { clubId } = req.params;
-    const mesParam = (req.query?.mes || '').toString().trim(); // opcional
+    const mesParam = String(req.query?.mes || '').trim(); // opcional
+
+    if (mesParam && !isYYYYMM(mesParam)) {
+      return res.status(400).json({ ok: false, error: 'mes inválido (use YYYY-MM)' });
+    }
 
     // ¿Token de admin? (tiene roles)
     const roles = req.user?.roles || [];
@@ -132,9 +133,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
       );
 
       if (!rs.rowCount) {
-        return res
-          .status(404)
-          .json({ ok: false, error: 'Socio no encontrado' });
+        return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
       }
 
       const actividad = rs.rows[0].actividad;
@@ -167,7 +166,6 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
       `;
       queryParams = [clubId, actividad];
     } else {
-      // Ni admin ni socio del app → no debería usar este endpoint
       return res.status(400).json({
         ok: false,
         error: 'Token inválido para cumples (ni admin ni socio).',
@@ -182,17 +180,21 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
       (s) => Number(s.mes_nac) === hoyMes && Number(s.dia_nac) === hoyDia
     );
 
-    // Eventos de cumpleaños (mantiene tu formato: title + date)
-    // (FullCalendar acepta { title, date } para eventos allDay)
-    let eventosCumples = r.rows.map((s) => {
+    // Eventos de cumpleaños (FullCalendar acepta { title, date } para allDay)
+    const eventosCumples = r.rows.map((s) => {
       const mm = String(s.mes_nac).padStart(2, '0');
       const dd = String(s.dia_nac).padStart(2, '0');
+
       return {
-        id: `cumple-${s.id}`, // antes era s.id, pero esto evita choque con actividades
+        id: `cumple-${s.id}`, // evita colisiones con actividades
         title: `🎂 ${s.nombre} ${s.apellido}`.trim(),
         date: `${year}-${mm}-${dd}`,
         allDay: true,
-        classNames: ['evento-cumple'], // para color distinto
+        classNames: ['evento-cumple'],
+        // mantenemos campos "como antes" por compatibilidad
+        categoria: s.categoria,
+        actividad: s.actividad,
+        edad: s.edad,
         extendedProps: {
           kind: 'cumple',
           socio_id: s.id,
@@ -200,28 +202,20 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
           actividad: s.actividad,
           edad: s.edad,
         },
-        // También dejamos estos campos “como antes” por compatibilidad:
-        categoria: s.categoria,
-        actividad: s.actividad,
-        edad: s.edad,
       };
     });
 
-    // ------------------------------
-    // Actividades (nuevas)
-    // ------------------------------
+    // ===============================
+    // Actividades del mes/año
+    // ===============================
     let eventosActividades = [];
-    // Si viene mes=YYYY-MM, filtramos por ese mes. Si no viene, devolvemos del año.
-    if (mesParam && !isYYYYMM(mesParam)) {
-      return res.status(400).json({ ok: false, error: 'mes inválido (use YYYY-MM)' });
-    }
 
     if (mesParam) {
       const { start, endExclusive } = monthRangeFromYYYYMM(mesParam);
 
       const ra = await db.query(
         `
-        SELECT id, club_id, fecha, hora_desde, hora_hasta, titulo, descripcion
+        SELECT id, fecha, hora_desde, hora_hasta, titulo, descripcion
         FROM agenda_actividades
         WHERE club_id = $1
           AND activo = true
@@ -237,6 +231,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
         const hd = a.hora_desde ? String(a.hora_desde).slice(0, 5) : '00:00';
         const hh = a.hora_hasta ? String(a.hora_hasta).slice(0, 5) : '00:30';
 
+        // ✅ ACÁ estaba tu bug: faltaba el return del objeto
         return {
           id: `act-${a.id}`,
           title: `${a.titulo || 'Actividad'} (${hd}-${hh})`,
@@ -256,13 +251,13 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
         };
       });
     } else {
-      // sin mes: devolvemos todas las actividades del año en curso
+      // sin mes -> actividades del año actual
       const startYear = `${year}-01-01`;
       const endYearExclusive = `${year + 1}-01-01`;
 
       const ra = await db.query(
         `
-        SELECT id, club_id, fecha, hora_desde, hora_hasta, titulo, descripcion
+        SELECT id, fecha, hora_desde, hora_hasta, titulo, descripcion
         FROM agenda_actividades
         WHERE club_id = $1
           AND activo = true
@@ -298,9 +293,6 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
       });
     }
 
-    // Si querés NO cambiar el comportamiento de cumpleaños (tu versión anterior),
-    // dejamos TODOS los cumpleaños del año tal cual venía.
-    // (FullCalendar igual solo muestra los visibles en la vista mensual)
     const eventos = [...eventosCumples, ...eventosActividades];
 
     return res.json({
