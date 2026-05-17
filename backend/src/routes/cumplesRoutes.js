@@ -163,7 +163,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
       (s) => Number(s.mes_nac) === hoyMes && Number(s.dia_nac) === hoyDia
     );
 
-    // Cumpleaños como eventos allDay (FullCalendar acepta {title, date})
+    // Cumpleaños como eventos allDay (FullCalendar acepta { title, date })
     const eventosCumples = r.rows.map((s) => {
       const mm = String(s.mes_nac).padStart(2, '0');
       const dd = String(s.dia_nac).padStart(2, '0');
@@ -190,7 +190,6 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
     // Actividades
     let eventosActividades = [];
 
-    // Si no viene mes, devolvemos el año completo del calendario
     if (mesParam) {
       const { start, endExclusive } = monthRangeFromYYYYMM(mesParam);
 
@@ -221,7 +220,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
         return {
           id: `act-${a.id}`,
           title: `${a.titulo || 'Actividad'} (${hd}-${hh})`,
-          start: `${fecha}T${hd}`,
+          start: `${fecha}T${hd}`,   // ✅ ISO correcto: 2026-05-17T18:00
           end: `${fecha}T${hh}`,
           allDay: false,
           classNames: ['evento-actividad'],

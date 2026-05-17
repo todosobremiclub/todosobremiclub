@@ -1,9 +1,9 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  let calendar = null;        // instancia global de FullCalendar
-  let currentMes = null;      // YYYY-MM actualmente cargado
-  let canWrite = false;       // permisos del usuario
+  let calendar = null;
+  let currentMes = null;
+  let canWrite = false;
 
   // =============================
   // Auth helpers
@@ -29,7 +29,7 @@
 
   async function fetchAuthJson(url, options = {}) {
     const headers = options.headers || {};
-    headers['Authorization'] = 'Bearer ' + getToken();
+    headers.Authorization = 'Bearer ' + getToken();
     if (options.json) headers['Content-Type'] = 'application/json';
 
     const res = await fetch(url, { ...options, headers });
@@ -50,7 +50,7 @@
   }
 
   // =============================
-  // Carga Agenda (Cumples + Actividades)
+  // Carga Agenda
   // =============================
   async function loadAgenda(mesYYYYMM, opts = {}) {
     const { onlyUpdateEvents = false } = opts;
@@ -79,7 +79,7 @@
   }
 
   // =============================
-  // Cumpleaños HOY (no se pierde)
+  // Cumpleaños HOY
   // =============================
   function renderHoy(lista) {
     const cont = $('cumplesHoyContainer');
@@ -95,12 +95,11 @@
 
     banner?.classList.remove('hidden');
 
-    lista.forEach((s) => {
+    lista.forEach(s => {
       const foto = s.foto_url || '/img/user-placeholder.png';
-
       cont.innerHTML += `
         <div class="cumple-card">
-          <img src="${foto}" onerror="this.src='/img/user-placeholder.png'" />
+          <img src="${foto}" onerror="this.src='/img/user-placeholder.png'"/>
           <div>
             <div class="cumple-nombre">
               ${s.nombre || ''} ${s.apellido || ''}
@@ -124,10 +123,8 @@
     calendarEl.innerHTML = '';
 
     if (!window.FullCalendar || !window.FullCalendar.Calendar) {
-      calendarEl.innerHTML = `
-        <div style="color:#b91c1c;">
-          No se pudo cargar el calendario (FullCalendar no disponible)
-        </div>`;
+      calendarEl.innerHTML =
+        '<div style="color:#b91c1c;">FullCalendar no disponible</div>';
       return;
     }
 
@@ -137,19 +134,15 @@
       height: 'auto',
       events: eventosIniciales,
 
-// ✅ Para que las actividades con horario se vean como BLOQUE (no como puntito)
       eventDisplay: 'block',
       displayEventTime: true,
       eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
 
-
-      // Click en un día → cargar actividad
       dateClick: (info) => {
         if (!canWrite) return;
         openActividadModal({ fecha: info.dateStr });
       },
 
-      // Cambio de mes
       datesSet: async (info) => {
         const y = info.start.getFullYear();
         const m = String(info.start.getMonth() + 1).padStart(2, '0');
@@ -159,10 +152,8 @@
         await loadAgenda(nuevoMes, { onlyUpdateEvents: true });
       },
 
-      // Doble click en actividad
       eventDidMount: (info) => {
         if (info.event.extendedProps?.kind !== 'actividad') return;
-
         info.el.style.cursor = canWrite ? 'pointer' : 'default';
         info.el.addEventListener('dblclick', () => {
           if (!canWrite) return;
@@ -179,14 +170,12 @@
   // =============================
   function openActividadModal(data = {}) {
     $('modalActividad').classList.remove('hidden');
-
     $('actividadId').value = data.id || '';
     $('actividadFecha').value = data.fecha || '';
     $('actividadHoraDesde').value = data.hora_desde || '18:00';
     $('actividadHoraHasta').value = data.hora_hasta || '19:00';
     $('actividadTitulo').value = data.titulo || '';
     $('actividadDescripcion').value = data.descripcion || '';
-
     $('btnActividadDelete').style.display = data.id ? '' : 'none';
     $('actividadModalTitle').textContent =
       data.id ? 'Editar actividad' : 'Cargar actividad';
@@ -251,7 +240,7 @@
   }
 
   // =============================
-  // Init Section
+  // Init
   // =============================
   async function initCumplesSection() {
     canWrite =
@@ -278,5 +267,4 @@
   document.addEventListener('DOMContentLoaded', () => {
     if ($('calendar')) initCumplesSection();
   });
-
 })();
