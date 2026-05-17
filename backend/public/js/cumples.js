@@ -137,6 +137,12 @@
       height: 'auto',
       events: eventosIniciales,
 
+// ✅ Para que las actividades con horario se vean como BLOQUE (no como puntito)
+      eventDisplay: 'block',
+      displayEventTime: true,
+      eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+
+
       // Click en un día → cargar actividad
       dateClick: (info) => {
         if (!canWrite) return;
