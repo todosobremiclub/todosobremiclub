@@ -171,6 +171,18 @@
 });
 
     calendar.render();
+
+// ✅ Exponer instancia para debug (evita conflicto con <div id="calendar">)
+    window.agendaCalendar = calendar;
+
+    // ✅ Debug rápido: cuántos eventos están realmente en FullCalendar
+    try {
+      const evs = calendar.getEvents();
+      console.log('[agenda] eventos en calendar:', evs.length);
+      console.log('[agenda] actividades en calendar:', evs.filter(e => e.extendedProps?.kind === 'actividad').length);
+    } catch (e) {
+      console.warn('[agenda] no se pudo leer eventos del calendar', e);
+    }
   }
 
   // =============================
