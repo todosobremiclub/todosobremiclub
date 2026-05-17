@@ -129,38 +129,46 @@
     }
 
     calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: 'dayGridMonth',
-      initialDate: mesInicial + '-01',
-      height: 'auto',
-      events: eventosIniciales,
+  initialView: 'dayGridMonth',
+  initialDate: mesInicial + '-01',
+  height: 'auto',
+  events: eventosIniciales,
 
-      eventDisplay: 'block',
-      displayEventTime: true,
-      eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+  // ✅ Si hay varios eventos en el mismo día, muestra “+ más” (popover)
+  dayMaxEvents: true,
+  moreLinkClick: 'popover',
 
-      dateClick: (info) => {
-        if (!canWrite) return;
-        openActividadModal({ fecha: info.dateStr });
-      },
+  // ✅ Orden: primero cumpleaños allDay, luego actividades por horario
+  eventOrder: 'allDay,start,title',
 
-      datesSet: async (info) => {
-        const y = info.start.getFullYear();
-        const m = String(info.start.getMonth() + 1).padStart(2, '0');
-        const nuevoMes = `${y}-${m}`;
-        if (nuevoMes === currentMes) return;
-        currentMes = nuevoMes;
-        await loadAgenda(nuevoMes, { onlyUpdateEvents: true });
-      },
+  eventDisplay: 'block',
+  displayEventTime: true,
+  eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
 
-      eventDidMount: (info) => {
-        if (info.event.extendedProps?.kind !== 'actividad') return;
-        info.el.style.cursor = canWrite ? 'pointer' : 'default';
-        info.el.addEventListener('dblclick', () => {
-          if (!canWrite) return;
-          openActividadModal(info.event.extendedProps);
-        });
-      }
+  dateClick: (info) => {
+    if (!canWrite) return;
+    openActividadModal({ fecha: info.dateStr });
+  },
+
+  datesSet: async (info) => {
+    const y = info.start.getFullYear();
+    const m = String(info.start.getMonth() + 1).padStart(2, '0');
+    const nuevoMes = `${y}-${m}`;
+    if (nuevoMes === currentMes) return;
+    currentMes = nuevoMes;
+    await loadAgenda(nuevoMes, { onlyUpdateEvents: true });
+  },
+
+  eventDidMount: (info) => {
+    if (info.event.extendedProps?.kind !== 'actividad') return;
+
+    info.el.style.cursor = canWrite ? 'pointer' : 'default';
+    info.el.addEventListener('dblclick', () => {
+      if (!canWrite) return;
+      openActividadModal(info.event.extendedProps);
     });
+  }
+});
 
     calendar.render();
   }
