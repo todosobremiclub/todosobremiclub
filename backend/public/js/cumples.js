@@ -1,8 +1,9 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  let calendar = null;    // instancia global de FullCalendar
-  let currentMes = null;  // YYYY-MM actualmente cargado
+  let calendar = null;        // instancia global de FullCalendar
+  let currentMes = null;      // YYYY-MM actualmente cargado
+  let canWrite = false;       // permisos del usuario
 
   // =============================
   // Auth helpers
@@ -21,18 +22,17 @@
     const c = localStorage.getItem('activeClubId');
     if (!c) {
       alert('No hay club seleccionado');
-      // en el panel del club normalmente esto lo setea club.js
       return null;
     }
     return c;
   }
 
-  async function fetchAuthJson(url) {
-    const res = await fetch(url, {
-      headers: {
-        Authorization: 'Bearer ' + getToken()
-      }
-    });
+  async function fetchAuthJson(url, options = {}) {
+    const headers = options.headers || {};
+    headers['Authorization'] = 'Bearer ' + getToken();
+    if (options.json) headers['Content-Type'] = 'application/json';
+
+    const res = await fetch(url, { ...options, headers });
 
     if (res.status === 401) {
       localStorage.removeItem('token');
@@ -42,75 +42,72 @@
       throw new Error('401');
     }
 
-    return res.json().catch(() => ({
-      ok: false,
-      error: 'Respuesta inválida del servidor'
-    }));
+    try {
+      return await res.json();
+    } catch {
+      return { ok: false, error: 'Respuesta inválida del servidor' };
+    }
   }
 
   // =============================
-  // Carga Cumples
+  // Carga Agenda (Cumples + Actividades)
   // =============================
-  async function loadCumples(mesYYYYMM, opts = {}) {
+  async function loadAgenda(mesYYYYMM, opts = {}) {
     const { onlyUpdateEvents = false } = opts;
-
     const clubId = getActiveClubId();
     if (!clubId) return;
 
-    const data = await fetchAuthJson(`/club/${clubId}/cumples?mes=${mesYYYYMM}`);
+    const data = await fetchAuthJson(
+      `/club/${clubId}/cumples?mes=${mesYYYYMM}`
+    );
 
     if (!data.ok) {
-      console.error('Error cargando cumpleaños:', data.error);
+      console.error('Error cargando agenda:', data.error);
       return;
     }
 
-    renderHoy(data.hoy ?? []);
-
-    const eventos = data.eventos ?? [];
+    renderHoy(data.hoy || []);
+    const eventos = data.eventos || [];
 
     if (!calendar || !onlyUpdateEvents) {
-      // primera vez o queremos re-inicializar
       currentMes = mesYYYYMM;
       initCalendar(mesYYYYMM, eventos);
     } else {
-      // ya hay calendario -> sólo actualizamos eventos
       calendar.removeAllEvents();
       eventos.forEach(ev => calendar.addEvent(ev));
     }
   }
 
   // =============================
-  // Cumples HOY
+  // Cumpleaños HOY (no se pierde)
   // =============================
   function renderHoy(lista) {
     const cont = $('cumplesHoyContainer');
+    const banner = $('cumplesHoyBanner');
     if (!cont) return;
 
     cont.innerHTML = '';
 
     if (!lista.length) {
-      cont.innerHTML = `
-        <div class="cumple-item">
-          <div class="cumple-info">🟡 No hay cumpleaños hoy</div>
-        </div>
-      `;
+      banner?.classList.add('hidden');
       return;
     }
+
+    banner?.classList.remove('hidden');
 
     lista.forEach((s) => {
       const foto = s.foto_url || '/img/user-placeholder.png';
 
       cont.innerHTML += `
-        <div class="cumple-item">
-          <img
-            src="${foto}"
-            class="cumple-foto"
-            alt="${s.nombre || ''} ${s.apellido || ''}"
-            onerror="this.src='/img/user-placeholder.png'"
-          />
-          <div class="cumple-info">
-            <span class="cumple-nombre">${s.nombre || ''} ${s.apellido || ''}</span>
-            <span class="cumple-detalle">${s.categoria || ''} — ${s.edad ?? ''} años</span>
+        <div class="cumple-card">
+          <img src="${foto}" onerror="this.src='/img/user-placeholder.png'" />
+          <div>
+            <div class="cumple-nombre">
+              ${s.nombre || ''} ${s.apellido || ''}
+            </div>
+            <div class="cumple-categoria">
+              ${s.categoria || s.actividad || ''} — ${s.edad ?? ''} años
+            </div>
           </div>
         </div>
       `;
@@ -118,7 +115,7 @@
   }
 
   // =============================
-  // Inicializar Calendario (solo UNA vez)
+  // Calendario
   // =============================
   function initCalendar(mesInicial, eventosIniciales) {
     const calendarEl = $('calendar');
@@ -126,14 +123,11 @@
 
     calendarEl.innerHTML = '';
 
-    // Guard: FullCalendar cargado
     if (!window.FullCalendar || !window.FullCalendar.Calendar) {
-      console.error('❌ FullCalendar no está definido. Revisar CDN y orden de scripts.');
       calendarEl.innerHTML = `
-        <div style="padding:8px; color:#b91c1c;">
-          No se pudo cargar el calendario de cumpleaños (FullCalendar no disponible).
-        </div>
-      `;
+        <div style="color:#b91c1c;">
+          No se pudo cargar el calendario (FullCalendar no disponible)
+        </div>`;
       return;
     }
 
@@ -141,21 +135,33 @@
       initialView: 'dayGridMonth',
       initialDate: mesInicial + '-01',
       height: 'auto',
-
       events: eventosIniciales,
 
-      // Cuando el usuario cambia de mes
+      // Click en un día → cargar actividad
+      dateClick: (info) => {
+        if (!canWrite) return;
+        openActividadModal({ fecha: info.dateStr });
+      },
+
+      // Cambio de mes
       datesSet: async (info) => {
-        // info.start es el inicio del rango de fechas de la vista
         const y = info.start.getFullYear();
         const m = String(info.start.getMonth() + 1).padStart(2, '0');
         const nuevoMes = `${y}-${m}`;
-
-        // Evitar rellamadas innecesarias
         if (nuevoMes === currentMes) return;
-
         currentMes = nuevoMes;
-        await loadCumples(nuevoMes, { onlyUpdateEvents: true });
+        await loadAgenda(nuevoMes, { onlyUpdateEvents: true });
+      },
+
+      // Doble click en actividad
+      eventDidMount: (info) => {
+        if (info.event.extendedProps?.kind !== 'actividad') return;
+
+        info.el.style.cursor = canWrite ? 'pointer' : 'default';
+        info.el.addEventListener('dblclick', () => {
+          if (!canWrite) return;
+          openActividadModal(info.event.extendedProps);
+        });
       }
     });
 
@@ -163,25 +169,108 @@
   }
 
   // =============================
+  // Modal Actividades
+  // =============================
+  function openActividadModal(data = {}) {
+    $('modalActividad').classList.remove('hidden');
+
+    $('actividadId').value = data.id || '';
+    $('actividadFecha').value = data.fecha || '';
+    $('actividadHoraDesde').value = data.hora_desde || '18:00';
+    $('actividadHoraHasta').value = data.hora_hasta || '19:00';
+    $('actividadTitulo').value = data.titulo || '';
+    $('actividadDescripcion').value = data.descripcion || '';
+
+    $('btnActividadDelete').style.display = data.id ? '' : 'none';
+    $('actividadModalTitle').textContent =
+      data.id ? 'Editar actividad' : 'Cargar actividad';
+  }
+
+  function closeActividadModal() {
+    $('modalActividad').classList.add('hidden');
+  }
+
+  async function saveActividad(e) {
+    e.preventDefault();
+    const clubId = getActiveClubId();
+
+    const body = {
+      fecha: $('actividadFecha').value,
+      hora_desde: $('actividadHoraDesde').value,
+      hora_hasta: $('actividadHoraHasta').value,
+      titulo: $('actividadTitulo').value,
+      descripcion: $('actividadDescripcion').value || null
+    };
+
+    const id = $('actividadId').value;
+    const url = id
+      ? `/club/${clubId}/agenda/actividades/${id}`
+      : `/club/${clubId}/agenda/actividades`;
+
+    const method = id ? 'PUT' : 'POST';
+
+    const res = await fetchAuthJson(url, {
+      method,
+      json: true,
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      alert(res.error || 'Error guardando actividad');
+      return;
+    }
+
+    closeActividadModal();
+    await loadAgenda(currentMes, { onlyUpdateEvents: true });
+  }
+
+  async function deleteActividad() {
+    if (!confirm('¿Eliminar esta actividad?')) return;
+
+    const clubId = getActiveClubId();
+    const id = $('actividadId').value;
+
+    const res = await fetchAuthJson(
+      `/club/${clubId}/agenda/actividades/${id}`,
+      { method: 'DELETE' }
+    );
+
+    if (!res.ok) {
+      alert(res.error || 'Error eliminando actividad');
+      return;
+    }
+
+    closeActividadModal();
+    await loadAgenda(currentMes, { onlyUpdateEvents: true });
+  }
+
+  // =============================
   // Init Section
   // =============================
   async function initCumplesSection() {
-    // Tomamos la fecha local del navegador; el GMT-3 ya lo manejamos del lado del backend
+    canWrite =
+      window.__clubPerms &&
+      typeof window.__clubPerms.canWrite === 'function'
+        ? window.__clubPerms.canWrite('cumples')
+        : false;
+
+    $('btnActividadAdd')?.addEventListener('click', () =>
+      openActividadModal({ fecha: new Date().toISOString().slice(0, 10) })
+    );
+    $('btnActividadClose')?.addEventListener('click', closeActividadModal);
+    $('btnActividadCancel')?.addEventListener('click', closeActividadModal);
+    $('btnActividadDelete')?.addEventListener('click', deleteActividad);
+    $('formActividad')?.addEventListener('submit', saveActividad);
+
     const hoy = new Date();
     const mes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
-
-    await loadCumples(mes);
+    await loadAgenda(mes);
   }
 
-  // Expuesto para club.js
   window.initCumplesSection = initCumplesSection;
 
-  // Para el caso de abrir cumples.html directo
   document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('calendar') &&
-        document.getElementById('cumplesHoyContainer')) {
-      initCumplesSection();
-    }
+    if ($('calendar')) initCumplesSection();
   });
 
 })();

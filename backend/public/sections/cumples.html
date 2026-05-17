@@ -1,5 +1,12 @@
 <section class="section-cumples">
-  <h2 style="margin-bottom:12px;">🎂 Cumpleaños</h2>
+  <div class="agenda-header">
+    <h2 style="margin:0;">📅 Agenda</h2>
+    <button id="btnActividadAdd"
+            class="btn btn-primary btn-sm"
+            type="button">
+      ➕ Cargar actividad
+    </button>
+  </div>
 
   <!-- ===============================
        CUMPLEAÑOS DE HOY
@@ -16,6 +23,75 @@
        CALENDARIO
   =============================== -->
   <div id="calendar" class="calendar-container"></div>
+
+<!-- ===============================
+     MODAL: CARGAR / EDITAR ACTIVIDAD
+=============================== -->
+<div id="modalActividad" class="modal hidden">
+  <div class="modal-content" style="max-width:720px;">
+    <div class="modal-header-row">
+      <h3 id="actividadModalTitle">Cargar actividad</h3>
+      <button id="btnActividadClose" class="btn btn-secondary">✕</button>
+    </div>
+
+    <input type="hidden" id="actividadId" />
+
+    <form id="formActividad" class="modal-block">
+      <div class="row modal-row">
+        <div class="mini-block">
+          <label>Fecha</label>
+          <input id="actividadFecha" type="date" required />
+        </div>
+
+        <div class="mini-block">
+          <label>Horario desde</label>
+          <input id="actividadHoraDesde" type="time" required />
+        </div>
+
+        <div class="mini-block">
+          <label>Horario hasta</label>
+          <input id="actividadHoraHasta" type="time" required />
+        </div>
+      </div>
+
+      <div class="modal-block">
+        <label>Título</label>
+        <input id="actividadTitulo"
+               type="text"
+               placeholder="Ej: Entrenamiento / Reunión / Partido"
+               required />
+      </div>
+
+      <div class="modal-block">
+        <label>Descripción</label>
+        <textarea id="actividadDescripcion"
+                  rows="3"
+                  placeholder="Detalle de la actividad..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button"
+                id="btnActividadCancel"
+                class="btn btn-secondary">
+          Cancelar
+        </button>
+
+        <button type="submit"
+                id="btnActividadSave"
+                class="btn btn-primary">
+          Guardar
+        </button>
+
+        <button type="button"
+                id="btnActividadDelete"
+                class="btn btn-danger"
+                style="display:none; margin-left:auto;">
+          Eliminar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 
 </section>
 

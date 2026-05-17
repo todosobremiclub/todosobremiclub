@@ -17,33 +17,84 @@ router.use((req, res, next) => {
   next();
 });
 
+// ===============================
+// Helpers
+// ===============================
+function isISODate(v) {
+  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+function isTimeHHMM(v) {
+  return typeof v === 'string' && /^\d{2}:\d{2}$/.test(v);
+}
+
+function isYYYYMM(v) {
+  return typeof v === 'string' && /^\d{4}-\d{2}$/.test(v);
+}
+
+function monthRangeFromYYYYMM(yyyymm) {
+  // devuelve { start: 'YYYY-MM-01', endExclusive: 'YYYY-MM-01' del mes siguiente }
+  const [ys, ms] = String(yyyymm).split('-');
+  const y = Number(ys);
+  const m = Number(ms);
+
+  const start = `${ys}-${ms}-01`;
+
+  let ny = y;
+  let nm = m + 1;
+  if (nm === 13) {
+    nm = 1;
+    ny = y + 1;
+  }
+  const endExclusive = `${String(ny)}-${String(nm).padStart(2, '0')}-01`;
+
+  return { start, endExclusive };
+}
+
+function argentinaNow() {
+  // Fecha actual ajustada a Argentina
+  const ahora = new Date();
+  return new Date(
+    ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
+  );
+}
+
+function canWriteAgenda(req, clubId) {
+  // Regla simple: si es admin/superadmin o cualquier rol del club salvo solo_lectura
+  const roles = req.user?.roles || [];
+  return roles.some(
+    (r) =>
+      r.role === 'superadmin' ||
+      (String(r.club_id) === String(clubId) && String(r.role) !== 'solo_lectura')
+  );
+}
+
 /**
- * GET /club/:clubId/cumples
+ * GET /club/:clubId/cumples?mes=YYYY-MM
  *
  * - Panel ADMIN (token con roles):
  *   → ve TODOS los socios del club (como antes), sin filtrar por actividad.
  *
  * - App de SOCIO (token con socioId, clubId):
  *   → ve solo socios de su MISMA ACTIVIDAD.
+ *
+ * Devuelve:
+ *  - hoy: socios que cumplen hoy (Argentina)
+ *  - eventos: cumpleaños (como antes) + actividades (nuevas)
  */
 router.get('/:clubId/cumples', requireAuth, async (req, res) => {
   try {
     const { clubId } = req.params;
+    const mesParam = (req.query?.mes || '').toString().trim(); // opcional
 
     // ¿Token de admin? (tiene roles)
     const roles = req.user?.roles || [];
     const esAdmin = roles.some(
-      (r) =>
-        String(r.club_id) === String(clubId) || r.role === 'superadmin'
+      (r) => String(r.club_id) === String(clubId) || r.role === 'superadmin'
     );
 
     // Fecha actual ajustada a Argentina
-    const ahora = new Date();
-    const hoy = new Date(
-      ahora.toLocaleString('en-US', {
-        timeZone: 'America/Argentina/Buenos_Aires',
-      })
-    );
+    const hoy = argentinaNow();
     const year = hoy.getFullYear();
     const hoyMes = hoy.getMonth() + 1;
     const hoyDia = hoy.getDate();
@@ -52,8 +103,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
     let queryParams;
 
     if (esAdmin) {
-      // 🟢 PANEL ADMIN:
-      // comportamiento original: todos los socios del club, sin filtro por actividad
+      // 🟢 PANEL ADMIN: todos los socios del club, sin filtro por actividad
       queryText = `
         SELECT
           id,
@@ -73,8 +123,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
       `;
       queryParams = [clubId];
     } else if (req.user?.socioId) {
-      // 🟢 APP DE SOCIO:
-      // buscamos la actividad del socio en la base y filtramos por esa actividad
+      // 🟢 APP DE SOCIO: filtramos por actividad del socio
       const socioId = req.user.socioId;
 
       const rs = await db.query(
@@ -130,21 +179,129 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
 
     // Cumpleaños de HOY
     const cumpleHoy = r.rows.filter(
-      (s) =>
-        Number(s.mes_nac) === hoyMes && Number(s.dia_nac) === hoyDia
+      (s) => Number(s.mes_nac) === hoyMes && Number(s.dia_nac) === hoyDia
     );
 
-    // Eventos para TODO el año (agenda/admin + app)
-    const eventos = r.rows.map((s) => ({
-      id: s.id,
-      title: `${s.nombre} ${s.apellido}`,
-      date: `${year}-${String(s.mes_nac).padStart(2, '0')}-${String(
-        s.dia_nac
-      ).padStart(2, '0')}`,
-      categoria: s.categoria,
-      actividad: s.actividad,
-      edad: s.edad,
-    }));
+    // Eventos de cumpleaños (mantiene tu formato: title + date)
+    // (FullCalendar acepta { title, date } para eventos allDay)
+    let eventosCumples = r.rows.map((s) => {
+      const mm = String(s.mes_nac).padStart(2, '0');
+      const dd = String(s.dia_nac).padStart(2, '0');
+      return {
+        id: `cumple-${s.id}`, // antes era s.id, pero esto evita choque con actividades
+        title: `🎂 ${s.nombre} ${s.apellido}`.trim(),
+        date: `${year}-${mm}-${dd}`,
+        allDay: true,
+        classNames: ['evento-cumple'], // para color distinto
+        extendedProps: {
+          kind: 'cumple',
+          socio_id: s.id,
+          categoria: s.categoria,
+          actividad: s.actividad,
+          edad: s.edad,
+        },
+        // También dejamos estos campos “como antes” por compatibilidad:
+        categoria: s.categoria,
+        actividad: s.actividad,
+        edad: s.edad,
+      };
+    });
+
+    // ------------------------------
+    // Actividades (nuevas)
+    // ------------------------------
+    let eventosActividades = [];
+    // Si viene mes=YYYY-MM, filtramos por ese mes. Si no viene, devolvemos del año.
+    if (mesParam && !isYYYYMM(mesParam)) {
+      return res.status(400).json({ ok: false, error: 'mes inválido (use YYYY-MM)' });
+    }
+
+    if (mesParam) {
+      const { start, endExclusive } = monthRangeFromYYYYMM(mesParam);
+
+      const ra = await db.query(
+        `
+        SELECT id, club_id, fecha, hora_desde, hora_hasta, titulo, descripcion
+        FROM agenda_actividades
+        WHERE club_id = $1
+          AND activo = true
+          AND fecha >= $2
+          AND fecha < $3
+        ORDER BY fecha ASC, hora_desde ASC
+        `,
+        [clubId, start, endExclusive]
+      );
+
+      eventosActividades = (ra.rows || []).map((a) => {
+        const fecha = String(a.fecha).slice(0, 10);
+        const hd = a.hora_desde ? String(a.hora_desde).slice(0, 5) : '00:00';
+        const hh = a.hora_hasta ? String(a.hora_hasta).slice(0, 5) : '00:30';
+
+        return {
+          id: `act-${a.id}`,
+          title: `${a.titulo || 'Actividad'} (${hd}-${hh})`,
+          start: `${fecha}T${hd}`,
+          end: `${fecha}T${hh}`,
+          allDay: false,
+          classNames: ['evento-actividad'],
+          extendedProps: {
+            kind: 'actividad',
+            id: a.id,
+            fecha,
+            hora_desde: hd,
+            hora_hasta: hh,
+            titulo: a.titulo,
+            descripcion: a.descripcion,
+          },
+        };
+      });
+    } else {
+      // sin mes: devolvemos todas las actividades del año en curso
+      const startYear = `${year}-01-01`;
+      const endYearExclusive = `${year + 1}-01-01`;
+
+      const ra = await db.query(
+        `
+        SELECT id, club_id, fecha, hora_desde, hora_hasta, titulo, descripcion
+        FROM agenda_actividades
+        WHERE club_id = $1
+          AND activo = true
+          AND fecha >= $2
+          AND fecha < $3
+        ORDER BY fecha ASC, hora_desde ASC
+        `,
+        [clubId, startYear, endYearExclusive]
+      );
+
+      eventosActividades = (ra.rows || []).map((a) => {
+        const fecha = String(a.fecha).slice(0, 10);
+        const hd = a.hora_desde ? String(a.hora_desde).slice(0, 5) : '00:00';
+        const hh = a.hora_hasta ? String(a.hora_hasta).slice(0, 5) : '00:30';
+
+        return {
+          id: `act-${a.id}`,
+          title: `${a.titulo || 'Actividad'} (${hd}-${hh})`,
+          start: `${fecha}T${hd}`,
+          end: `${fecha}T${hh}`,
+          allDay: false,
+          classNames: ['evento-actividad'],
+          extendedProps: {
+            kind: 'actividad',
+            id: a.id,
+            fecha,
+            hora_desde: hd,
+            hora_hasta: hh,
+            titulo: a.titulo,
+            descripcion: a.descripcion,
+          },
+        };
+      });
+    }
+
+    // Si querés NO cambiar el comportamiento de cumpleaños (tu versión anterior),
+    // dejamos TODOS los cumpleaños del año tal cual venía.
+    // (FullCalendar igual solo muestra los visibles en la vista mensual)
+    const eventos = [...eventosCumples, ...eventosActividades];
 
     return res.json({
       ok: true,
@@ -153,9 +310,132 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
     });
   } catch (e) {
     console.error('❌ cumples error:', e);
-    return res
-      .status(500)
-      .json({ ok: false, error: e.message });
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ======================================
+// CRUD Actividades (Agenda)
+// ======================================
+
+// POST /club/:clubId/agenda/actividades
+router.post('/:clubId/agenda/actividades', requireAuth, async (req, res) => {
+  try {
+    const { clubId } = req.params;
+
+    if (!canWriteAgenda(req, clubId)) {
+      return res.status(403).json({ ok: false, error: 'No autorizado' });
+    }
+
+    const { fecha, hora_desde, hora_hasta, titulo, descripcion = null } = req.body || {};
+
+    if (!fecha || !hora_desde || !hora_hasta || !titulo) {
+      return res.status(400).json({ ok: false, error: 'Datos incompletos' });
+    }
+    if (!isISODate(String(fecha))) {
+      return res.status(400).json({ ok: false, error: 'fecha inválida (YYYY-MM-DD)' });
+    }
+    if (!isTimeHHMM(String(hora_desde)) || !isTimeHHMM(String(hora_hasta))) {
+      return res.status(400).json({ ok: false, error: 'Horario inválido (HH:MM)' });
+    }
+    if (String(hora_desde) >= String(hora_hasta)) {
+      return res.status(400).json({ ok: false, error: 'Rango horario inválido' });
+    }
+
+    const r = await db.query(
+      `
+      INSERT INTO agenda_actividades
+        (id, club_id, fecha, hora_desde, hora_hasta, titulo, descripcion, created_at, activo)
+      VALUES
+        (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW(), true)
+      RETURNING id, club_id, fecha, hora_desde, hora_hasta, titulo, descripcion, created_at
+      `,
+      [clubId, String(fecha), String(hora_desde), String(hora_hasta), String(titulo), descripcion]
+    );
+
+    return res.status(201).json({ ok: true, actividad: r.rows[0] });
+  } catch (e) {
+    console.error('❌ create actividad:', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// PUT /club/:clubId/agenda/actividades/:id
+router.put('/:clubId/agenda/actividades/:id', requireAuth, async (req, res) => {
+  try {
+    const { clubId, id } = req.params;
+
+    if (!canWriteAgenda(req, clubId)) {
+      return res.status(403).json({ ok: false, error: 'No autorizado' });
+    }
+
+    const { fecha, hora_desde, hora_hasta, titulo, descripcion = null } = req.body || {};
+
+    if (!fecha || !hora_desde || !hora_hasta || !titulo) {
+      return res.status(400).json({ ok: false, error: 'Datos incompletos' });
+    }
+    if (!isISODate(String(fecha))) {
+      return res.status(400).json({ ok: false, error: 'fecha inválida (YYYY-MM-DD)' });
+    }
+    if (!isTimeHHMM(String(hora_desde)) || !isTimeHHMM(String(hora_hasta))) {
+      return res.status(400).json({ ok: false, error: 'Horario inválido (HH:MM)' });
+    }
+    if (String(hora_desde) >= String(hora_hasta)) {
+      return res.status(400).json({ ok: false, error: 'Rango horario inválido' });
+    }
+
+    const r = await db.query(
+      `
+      UPDATE agenda_actividades
+      SET
+        fecha = $3,
+        hora_desde = $4,
+        hora_hasta = $5,
+        titulo = $6,
+        descripcion = $7
+      WHERE club_id = $1 AND id = $2 AND activo = true
+      RETURNING id, club_id, fecha, hora_desde, hora_hasta, titulo, descripcion
+      `,
+      [clubId, id, String(fecha), String(hora_desde), String(hora_hasta), String(titulo), descripcion]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Actividad no encontrada' });
+    }
+
+    return res.json({ ok: true, actividad: r.rows[0] });
+  } catch (e) {
+    console.error('❌ update actividad:', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// DELETE /club/:clubId/agenda/actividades/:id
+router.delete('/:clubId/agenda/actividades/:id', requireAuth, async (req, res) => {
+  try {
+    const { clubId, id } = req.params;
+
+    if (!canWriteAgenda(req, clubId)) {
+      return res.status(403).json({ ok: false, error: 'No autorizado' });
+    }
+
+    const r = await db.query(
+      `
+      UPDATE agenda_actividades
+      SET activo = false
+      WHERE club_id = $1 AND id = $2 AND activo = true
+      `,
+      [clubId, id]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Actividad no encontrada' });
+    }
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ delete actividad:', e);
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
 
