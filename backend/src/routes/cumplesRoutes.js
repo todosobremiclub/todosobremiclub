@@ -211,87 +211,98 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
     let eventosActividades = [];
 
     if (mesParam) {
-      const { start, endExclusive } = monthRangeFromYYYYMM(mesParam);
+  const { start, endExclusive } = monthRangeFromYYYYMM(mesParam);
 
-      const ra = await db.query(
-        `
-        SELECT id, fecha, hora_desde, hora_hasta, titulo, descripcion
-        FROM agenda_actividades
-        WHERE club_id = $1
-          AND activo = true
-          AND fecha >= $2
-          AND fecha < $3
-        ORDER BY fecha ASC, hora_desde ASC
-        `,
-        [clubId, start, endExclusive]
-      );
+  const ra = await db.query(
+    `
+    SELECT
+      id,
+      to_char(fecha, 'YYYY-MM-DD') AS fecha_iso,
+      to_char(hora_desde, 'HH24:MI') AS hd,
+      to_char(hora_hasta, 'HH24:MI') AS hh,
+      titulo,
+      descripcion
+    FROM agenda_actividades
+    WHERE club_id = $1
+      AND activo = true
+      AND fecha >= $2
+      AND fecha <  $3
+    ORDER BY fecha ASC, hora_desde ASC
+    `,
+    [clubId, start, endExclusive]
+  );
 
-      eventosActividades = (ra.rows || []).map((a) => {
-        const fecha = String(a.fecha).slice(0, 10);
-        const hd = a.hora_desde ? String(a.hora_desde).slice(0, 5) : '00:00';
-        const hh = a.hora_hasta ? String(a.hora_hasta).slice(0, 5) : '00:30';
+  eventosActividades = (ra.rows || []).map((a) => {
+    const fecha = a.fecha_iso;                 // ✅ YYYY-MM-DD
+    const hd = a.hd || '00:00';                // ✅ HH:MM
+    const hh = a.hh || '00:30';                // ✅ HH:MM
 
-        // ✅ ACÁ estaba tu bug: faltaba el return del objeto
-        return {
-          id: `act-${a.id}`,
-          title: `${a.titulo || 'Actividad'} (${hd}-${hh})`,
-          start: `${fecha}T${hd}`,
-          end: `${fecha}T${hh}`,
-          allDay: false,
-          classNames: ['evento-actividad'],
-          extendedProps: {
-            kind: 'actividad',
-            id: a.id,
-            fecha,
-            hora_desde: hd,
-            hora_hasta: hh,
-            titulo: a.titulo,
-            descripcion: a.descripcion,
-          },
-        };
-      });
-    } else {
-      // sin mes -> actividades del año actual
-      const startYear = `${year}-01-01`;
-      const endYearExclusive = `${year + 1}-01-01`;
+    return {
+      id: `act-${a.id}`,
+      title: `${a.titulo || 'Actividad'} (${hd}-${hh})`,
+      start: `${fecha}T${hd}`,                 // ✅ 2026-05-17T18:00
+      end: `${fecha}T${hh}`,
+      allDay: false,
+      classNames: ['evento-actividad'],
+      extendedProps: {
+        kind: 'actividad',
+        id: a.id,
+        fecha,
+        hora_desde: hd,
+        hora_hasta: hh,
+        titulo: a.titulo,
+        descripcion: a.descripcion,
+      },
+    };
+  });
+}
+    else {
+  const startYear = `${year}-01-01`;
+  const endYearExclusive = `${year + 1}-01-01`;
 
-      const ra = await db.query(
-        `
-        SELECT id, fecha, hora_desde, hora_hasta, titulo, descripcion
-        FROM agenda_actividades
-        WHERE club_id = $1
-          AND activo = true
-          AND fecha >= $2
-          AND fecha < $3
-        ORDER BY fecha ASC, hora_desde ASC
-        `,
-        [clubId, startYear, endYearExclusive]
-      );
+  const ra = await db.query(
+    `
+    SELECT
+      id,
+      to_char(fecha, 'YYYY-MM-DD') AS fecha_iso,
+      to_char(hora_desde, 'HH24:MI') AS hd,
+      to_char(hora_hasta, 'HH24:MI') AS hh,
+      titulo,
+      descripcion
+    FROM agenda_actividades
+    WHERE club_id = $1
+      AND activo = true
+      AND fecha >= $2
+      AND fecha <  $3
+    ORDER BY fecha ASC, hora_desde ASC
+    `,
+    [clubId, startYear, endYearExclusive]
+  );
 
-      eventosActividades = (ra.rows || []).map((a) => {
-        const fecha = String(a.fecha).slice(0, 10);
-        const hd = a.hora_desde ? String(a.hora_desde).slice(0, 5) : '00:00';
-        const hh = a.hora_hasta ? String(a.hora_hasta).slice(0, 5) : '00:30';
+  eventosActividades = (ra.rows || []).map((a) => {
+    const fecha = a.fecha_iso;
+    const hd = a.hd || '00:00';
+    const hh = a.hh || '00:30';
 
-        return {
-          id: `act-${a.id}`,
-          title: `${a.titulo || 'Actividad'} (${hd}-${hh})`,
-          start: `${fecha}T${hd}`,
-          end: `${fecha}T${hh}`,
-          allDay: false,
-          classNames: ['evento-actividad'],
-          extendedProps: {
-            kind: 'actividad',
-            id: a.id,
-            fecha,
-            hora_desde: hd,
-            hora_hasta: hh,
-            titulo: a.titulo,
-            descripcion: a.descripcion,
-          },
-        };
-      });
-    }
+    return {
+      id: `act-${a.id}`,
+      title: `${a.titulo || 'Actividad'} (${hd}-${hh})`,
+      start: `${fecha}T${hd}`,
+      end: `${fecha}T${hh}`,
+      allDay: false,
+      classNames: ['evento-actividad'],
+      extendedProps: {
+        kind: 'actividad',
+        id: a.id,
+        fecha,
+        hora_desde: hd,
+        hora_hasta: hh,
+        titulo: a.titulo,
+        descripcion: a.descripcion,
+      },
+    };
+  });
+}
 
     const eventos = [...eventosCumples, ...eventosActividades];
 
