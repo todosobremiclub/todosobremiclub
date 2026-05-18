@@ -1,10 +1,14 @@
 <section class="section-cumples">
 
+  <!-- ===============================
+       HEADER AGENDA
+  =============================== -->
   <div class="agenda-header">
     <h2 style="margin:0;">📅 Agenda</h2>
-    <button id="btnActividadAdd"
-            class="btn btn-primary btn-sm"
-            type="button">
+    <button
+      id="btnActividadAdd"
+      class="btn btn-primary btn-sm"
+      type="button">
       ➕ Cargar actividad
     </button>
   </div>
@@ -14,9 +18,8 @@
   =============================== -->
   <div id="cumplesHoyBanner" class="cumples-banner hidden">
     <h3 class="banner-title">📍 Hoy cumplen años:</h3>
-
     <div id="cumplesHoyContainer" class="cumples-hoy-container">
-      <!-- Tarjetitas dinámicas -->
+      <!-- Tarjetas dinámicas -->
     </div>
   </div>
 
@@ -57,36 +60,41 @@
 
         <div class="modal-block">
           <label>Título</label>
-          <input id="actividadTitulo"
-                 type="text"
-                 placeholder="Ej: Entrenamiento / Reunión / Partido"
-                 required />
+          <input
+            id="actividadTitulo"
+            type="text"
+            placeholder="Ej: Entrenamiento / Reunión / Partido"
+            required />
         </div>
 
         <div class="modal-block">
           <label>Descripción</label>
-          <textarea id="actividadDescripcion"
-                    rows="3"
-                    placeholder="Detalle de la actividad..."></textarea>
+          <textarea
+            id="actividadDescripcion"
+            rows="3"
+            placeholder="Detalle de la actividad..."></textarea>
         </div>
 
         <div class="modal-actions">
-          <button type="button"
-                  id="btnActividadCancel"
-                  class="btn btn-secondary">
+          <button
+            type="button"
+            id="btnActividadCancel"
+            class="btn btn-secondary">
             Cancelar
           </button>
 
-          <button type="submit"
-                  id="btnActividadSave"
-                  class="btn btn-primary">
+          <button
+            type="submit"
+            id="btnActividadSave"
+            class="btn btn-primary">
             Guardar
           </button>
 
-          <button type="button"
-                  id="btnActividadDelete"
-                  class="btn btn-danger"
-                  style="display:none; margin-left:auto;">
+          <button
+            type="button"
+            id="btnActividadDelete"
+            class="btn btn-danger"
+            style="display:none; margin-left:auto;">
             Eliminar
           </button>
         </div>
@@ -97,82 +105,187 @@
 </section>
 
 <style>
-  .agenda-header{
-    display:flex;
-    align-items:center;
-    gap:12px;
-    margin-bottom:12px;
-  }
-  .agenda-header button{ margin-left:auto; }
+/* ===============================
+   HEADER
+=============================== */
+.agenda-header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+}
+.agenda-header button{
+  margin-left:auto;
+}
 
-  .cumples-banner{
-    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-    padding:14px;
-    border-radius:12px;
-    color:#fff;
-    margin-bottom:18px;
-    border:1px solid rgba(255,255,255,0.25);
-  }
+/* ===============================
+   BANNER CUMPLEAÑOS
+=============================== */
+.cumples-banner{
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  padding:14px;
+  border-radius:12px;
+  color:#fff;
+  margin-bottom:18px;
+  border:1px solid rgba(255,255,255,0.25);
+}
 
-  .banner-title{ margin:0 0 10px 0; }
+.banner-title{
+  margin:0 0 10px 0;
+}
 
-  .cumples-hoy-container{
-    display:flex;
-    flex-direction:column;
-    gap:6px;
-  }
+.cumples-hoy-container{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
 
-  .cumple-card{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    background:#fff;
-    color:#111;
-    padding:6px 10px;
-    border-radius:8px;
-    width:100%;
-    box-shadow:0 1px 4px rgba(0,0,0,0.12);
-    border-left:3px solid var(--color-accent);
-  }
+.cumple-card{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:#fff;
+  color:#111;
+  padding:6px 10px;
+  border-radius:8px;
+  width:100%;
+  box-shadow:0 1px 4px rgba(0,0,0,0.12);
+  border-left:3px solid var(--color-accent);
+}
 
-  #cumplesHoyContainer img,
-  .cumples-hoy-container img,
-  .cumple-card img{
-    width:32px !important;
-    height:32px !important;
-    border-radius:50% !important;
-    object-fit:cover !important;
-    border:1px solid var(--color-primary) !important;
-  }
+#cumplesHoyContainer img,
+.cumples-hoy-container img,
+.cumple-card img{
+  width:32px !important;
+  height:32px !important;
+  border-radius:50% !important;
+  object-fit:cover !important;
+  border:1px solid var(--color-primary) !important;
+}
 
-  .calendar-container{
-    width:100%;
-    background:#fff;
-    padding:12px;
-    border-radius:12px;
-    border:1px solid #ddd;
-    box-shadow:0 2px 6px rgba(0,0,0,0.06);
-  }
+.cumple-nombre{
+  font-weight:700;
+  font-size:13px;
+  line-height:1.1;
+}
 
-  /* Colores de eventos */
-  .fc .evento-cumple{
-    background:#f59e0b !important;
-    border-color:#d97706 !important;
-    color:#111 !important;
-  }
-  .fc .evento-actividad{
-    background:#22c55e !important;
-    border-color:#16a34a !important;
-    color:#fff !important;
-  }
+.cumple-categoria{
+  font-size:12px;
+  color:#555;
+}
 
-/* ✅ Evita que CSS global recorte eventos del calendario */
-.fc .fc-daygrid-day-events {
+/* ===============================
+   CALENDARIO
+=============================== */
+.calendar-container{
+  width:100%;
+  background:#fff;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid #ddd;
+  box-shadow:0 2px 6px rgba(0,0,0,0.06);
+}
+
+/* Colores de eventos */
+.fc .evento-cumple{
+  background:#f59e0b !important;
+  border-color:#d97706 !important;
+  color:#111 !important;
+}
+.fc .evento-actividad{
+  background:#22c55e !important;
+  border-color:#16a34a !important;
+  color:#fff !important;
+}
+
+/* ===============================
+   FIX CRÍTICO: EVITAR RECORTE
+=============================== */
+.fc .fc-daygrid-day-frame,
+.fc .fc-daygrid-day-events,
+.fc .fc-scrollgrid-section-body td,
+.fc .fc-scrollgrid-section-body{
   overflow: visible !important;
 }
 
-/* ✅ Mejor espaciado entre eventos */
-.fc .fc-daygrid-event-harness {
-  margin-top: 2px;
+.fc .fc-daygrid-day-frame{
+  min-height:110px !important;
+}
+
+.fc .fc-daygrid-more-link{
+  display:inline-block !important;
+  font-weight:700;
+  color:#2563eb !important;
+}
+
+.fc .fc-more-popover{
+  z-index:999999 !important;
+}
+
+/* ===============================
+   MODAL
+=============================== */
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.45);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:99999;
+}
+.modal.hidden{ display:none; }
+
+.modal-content{
+  background:#fff;
+  border-radius:12px;
+  padding:16px 18px;
+  width:calc(100% - 24px);
+  max-height:90vh;
+  overflow:auto;
+}
+
+.modal-header-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:12px;
+}
+
+.modal-block{
+  margin-top:12px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.modal-row{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.mini-block{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.modal-actions{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-end;
+  margin-top:14px;
+}
+
+/* ===============================
+   RESPONSIVE
+=============================== */
+@media(max-width:768px){
+  .calendar-container{
+    padding:8px;
+  }
 }
 </style>
+``

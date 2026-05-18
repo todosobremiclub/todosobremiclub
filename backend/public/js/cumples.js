@@ -50,7 +50,7 @@
   }
 
   // =============================
-  // Carga Agenda
+  // Carga Agenda (cumples + actividades)
   // =============================
   async function loadAgenda(mesYYYYMM, opts = {}) {
     const { onlyUpdateEvents = false } = opts;
@@ -129,60 +129,57 @@
     }
 
     calendar = new FullCalendar.Calendar(calendarEl, {
-  initialView: 'dayGridMonth',
-  initialDate: mesInicial + '-01',
-  height: 'auto',
-  events: eventosIniciales,
+      initialView: 'dayGridMonth',
+      initialDate: mesInicial + '-01',
+      height: 'auto',
+      events: eventosIniciales,
 
-  // ✅ Si hay varios eventos en el mismo día, muestra “+ más” (popover)
-  dayMaxEvents: true,
-  moreLinkClick: 'popover',
+      /* ====== CLAVES PARA QUE SE VEAN LAS ACTIVIDADES ====== */
+      dayMaxEvents: 2,                 // fuerza “+X más”
+      moreLinkClick: 'popover',
+      expandRows: true,
+      eventOrder: 'allDay,start,title',
+      eventDisplay: 'block',
+      displayEventTime: true,
+      eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
 
-  // ✅ Orden: primero cumpleaños allDay, luego actividades por horario
-  eventOrder: 'allDay,start,title',
+      dateClick: (info) => {
+        if (!canWrite) return;
+        openActividadModal({ fecha: info.dateStr });
+      },
 
-  eventDisplay: 'block',
-  displayEventTime: true,
-  eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+      datesSet: async (info) => {
+        const y = info.start.getFullYear();
+        const m = String(info.start.getMonth() + 1).padStart(2, '0');
+        const nuevoMes = `${y}-${m}`;
+        if (nuevoMes === currentMes) return;
+        currentMes = nuevoMes;
+        await loadAgenda(nuevoMes, { onlyUpdateEvents: true });
+      },
 
-  dateClick: (info) => {
-    if (!canWrite) return;
-    openActividadModal({ fecha: info.dateStr });
-  },
+      eventDidMount: (info) => {
+        if (info.event.extendedProps?.kind !== 'actividad') return;
 
-  datesSet: async (info) => {
-    const y = info.start.getFullYear();
-    const m = String(info.start.getMonth() + 1).padStart(2, '0');
-    const nuevoMes = `${y}-${m}`;
-    if (nuevoMes === currentMes) return;
-    currentMes = nuevoMes;
-    await loadAgenda(nuevoMes, { onlyUpdateEvents: true });
-  },
-
-  eventDidMount: (info) => {
-    if (info.event.extendedProps?.kind !== 'actividad') return;
-
-    info.el.style.cursor = canWrite ? 'pointer' : 'default';
-    info.el.addEventListener('dblclick', () => {
-      if (!canWrite) return;
-      openActividadModal(info.event.extendedProps);
+        info.el.style.cursor = canWrite ? 'pointer' : 'default';
+        info.el.addEventListener('dblclick', () => {
+          if (!canWrite) return;
+          openActividadModal(info.event.extendedProps);
+        });
+      }
     });
-  }
-});
 
     calendar.render();
 
-// ✅ Exponer instancia para debug (evita conflicto con <div id="calendar">)
+    // Exponer instancia para debug
     window.agendaCalendar = calendar;
 
-    // ✅ Debug rápido: cuántos eventos están realmente en FullCalendar
-    try {
-      const evs = calendar.getEvents();
-      console.log('[agenda] eventos en calendar:', evs.length);
-      console.log('[agenda] actividades en calendar:', evs.filter(e => e.extendedProps?.kind === 'actividad').length);
-    } catch (e) {
-      console.warn('[agenda] no se pudo leer eventos del calendar', e);
-    }
+    // Debug visible en consola
+    const evs = calendar.getEvents();
+    console.log('[agenda] eventos totales:', evs.length);
+    console.log(
+      '[agenda] actividades:',
+      evs.filter(e => e.extendedProps?.kind === 'actividad').length
+    );
   }
 
   // =============================
