@@ -50,16 +50,50 @@
   }
 
   // =============================
-  // Carga Agenda (cumples + actividades)
+  // Normalizar eventos para vista mensual
+  // - Cumples: ya vienen como {date, allDay:true}
+  // - Actividades: convertir a allDay para que SIEMPRE se rendericen en dayGridMonth
+  //   y poner el horario en el título.
+  // =============================
+  function normalizeEventsForMonthView(rawEvents = []) {
+    return rawEvents.map((ev) => {
+      const kind = ev?.extendedProps?.kind;
+
+      // Actividad: la convertimos a allDay con "date" (sin start/end)
+      if (kind === 'actividad') {
+        const fecha = ev.extendedProps?.fecha || (ev.start ? String(ev.start).slice(0, 10) : null);
+        const hd = ev.extendedProps?.hora_desde || '';
+        const hh = ev.extendedProps?.hora_hasta || '';
+        const rango = (hd && hh) ? `${hd}-${hh}` : '';
+        const titulo = ev.extendedProps?.titulo || ev.title || 'Actividad';
+
+        return {
+          // mantenemos el id
+          id: ev.id,
+          // IMPORTANTE: usar "date" para que month view lo trate como allDay
+          date: fecha,
+          allDay: true,
+          // mostramos horario en el título
+          title: `🟩 ${titulo}${rango ? ` (${rango})` : ''}`,
+          classNames: ['evento-actividad'],
+          extendedProps: ev.extendedProps || { kind: 'actividad' }
+        };
+      }
+
+      // Cumple u otros: devolvemos tal cual
+      return ev;
+    }).filter(Boolean);
+  }
+
+  // =============================
+  // Carga Agenda
   // =============================
   async function loadAgenda(mesYYYYMM, opts = {}) {
     const { onlyUpdateEvents = false } = opts;
     const clubId = getActiveClubId();
     if (!clubId) return;
 
-    const data = await fetchAuthJson(
-      `/club/${clubId}/cumples?mes=${mesYYYYMM}`
-    );
+    const data = await fetchAuthJson(`/club/${clubId}/cumples?mes=${mesYYYYMM}`);
 
     if (!data.ok) {
       console.error('Error cargando agenda:', data.error);
@@ -67,14 +101,16 @@
     }
 
     renderHoy(data.hoy || []);
-    const eventos = data.eventos || [];
+
+    // ✅ NORMALIZAMOS PARA MES (clave del fix)
+    const eventos = normalizeEventsForMonthView(data.eventos || []);
 
     if (!calendar || !onlyUpdateEvents) {
       currentMes = mesYYYYMM;
       initCalendar(mesYYYYMM, eventos);
     } else {
       calendar.removeAllEvents();
-      eventos.forEach(ev => calendar.addEvent(ev));
+      eventos.forEach((ev) => calendar.addEvent(ev));
     }
   }
 
@@ -95,7 +131,7 @@
 
     banner?.classList.remove('hidden');
 
-    lista.forEach(s => {
+    lista.forEach((s) => {
       const foto = s.foto_url || '/img/user-placeholder.png';
       cont.innerHTML += `
         <div class="cumple-card">
@@ -134,38 +170,20 @@
       height: 'auto',
       events: eventosIniciales,
 
-      // 🔑 CONFIG CLAVE
-      dayMaxEvents: 2,
+      // Para que no “desaparezcan” cuando hay muchos
+      dayMaxEvents: 2,           // fuerza "+X más"
       moreLinkClick: 'popover',
       expandRows: true,
       eventOrder: 'allDay,start,title',
       eventDisplay: 'block',
-      displayEventTime: true,
-      eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
 
-      // 🔥 FIX DEFINITIVO: forzar render de actividades
-      eventContent: function(arg) {
-        const kind = arg.event.extendedProps?.kind;
-
-        if (kind === 'actividad') {
-          return {
-            html: `
-              <div class="evento-actividad">
-                <strong>${arg.event.title}</strong>
-              </div>
-            `
-          };
-        }
-
-        // Cumpleaños: render normal
-        return true;
-      },
-
+      // Click en un día: alta actividad
       dateClick: (info) => {
         if (!canWrite) return;
         openActividadModal({ fecha: info.dateStr });
       },
 
+      // Cambio de mes
       datesSet: async (info) => {
         const y = info.start.getFullYear();
         const m = String(info.start.getMonth() + 1).padStart(2, '0');
@@ -175,6 +193,7 @@
         await loadAgenda(nuevoMes, { onlyUpdateEvents: true });
       },
 
+      // Doble click para editar (solo actividades)
       eventDidMount: (info) => {
         if (info.event.extendedProps?.kind !== 'actividad') return;
 
@@ -188,16 +207,11 @@
 
     calendar.render();
 
-    // Exponer para debug
+    // Debug accesible desde consola
     window.agendaCalendar = calendar;
-
-    // Logs claros
     const evs = calendar.getEvents();
     console.log('[agenda] eventos totales:', evs.length);
-    console.log(
-      '[agenda] actividades:',
-      evs.filter(e => e.extendedProps?.kind === 'actividad').length
-    );
+    console.log('[agenda] actividades:', evs.filter(e => e.extendedProps?.kind === 'actividad').length);
   }
 
   // =============================
@@ -205,12 +219,14 @@
   // =============================
   function openActividadModal(data = {}) {
     $('modalActividad').classList.remove('hidden');
+
     $('actividadId').value = data.id || '';
     $('actividadFecha').value = data.fecha || '';
     $('actividadHoraDesde').value = data.hora_desde || '18:00';
     $('actividadHoraHasta').value = data.hora_hasta || '19:00';
     $('actividadTitulo').value = data.titulo || '';
     $('actividadDescripcion').value = data.descripcion || '';
+
     $('btnActividadDelete').style.display = data.id ? '' : 'none';
     $('actividadModalTitle').textContent =
       data.id ? 'Editar actividad' : 'Cargar actividad';
