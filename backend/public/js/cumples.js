@@ -105,13 +105,13 @@
     // ✅ NORMALIZAMOS PARA MES (clave del fix)
     const eventos = normalizeEventsForMonthView(data.eventos || []);
 
-    if (!calendar || !onlyUpdateEvents) {
-      currentMes = mesYYYYMM;
-      initCalendar(mesYYYYMM, eventos);
-    } else {
-      calendar.removeAllEvents();
-      eventos.forEach((ev) => calendar.addEvent(ev));
-    }
+    if (!calendar) {
+  currentMes = mesYYYYMM;
+  initCalendar(mesYYYYMM, eventos);
+} else {
+  currentMes = mesYYYYMM;
+  calendar.setOption('events', eventos);
+}
   }
 
   // =============================
@@ -183,16 +183,7 @@
         openActividadModal({ fecha: info.dateStr });
       },
 
-      // Cambio de mes
-      datesSet: async (info) => {
-        const y = info.start.getFullYear();
-        const m = String(info.start.getMonth() + 1).padStart(2, '0');
-        const nuevoMes = `${y}-${m}`;
-        if (nuevoMes === currentMes) return;
-        currentMes = nuevoMes;
-        await loadAgenda(nuevoMes, { onlyUpdateEvents: true });
-      },
-
+      
       // Doble click para editar (solo actividades)
       eventDidMount: (info) => {
         if (info.event.extendedProps?.kind !== 'actividad') return;
