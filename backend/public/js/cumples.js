@@ -134,14 +134,32 @@
       height: 'auto',
       events: eventosIniciales,
 
-      /* ====== CLAVES PARA QUE SE VEAN LAS ACTIVIDADES ====== */
-      dayMaxEvents: 2,                 // fuerza “+X más”
+      // 🔑 CONFIG CLAVE
+      dayMaxEvents: 2,
       moreLinkClick: 'popover',
       expandRows: true,
       eventOrder: 'allDay,start,title',
       eventDisplay: 'block',
       displayEventTime: true,
       eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+
+      // 🔥 FIX DEFINITIVO: forzar render de actividades
+      eventContent: function(arg) {
+        const kind = arg.event.extendedProps?.kind;
+
+        if (kind === 'actividad') {
+          return {
+            html: `
+              <div class="evento-actividad">
+                <strong>${arg.event.title}</strong>
+              </div>
+            `
+          };
+        }
+
+        // Cumpleaños: render normal
+        return true;
+      },
 
       dateClick: (info) => {
         if (!canWrite) return;
@@ -170,10 +188,10 @@
 
     calendar.render();
 
-    // Exponer instancia para debug
+    // Exponer para debug
     window.agendaCalendar = calendar;
 
-    // Debug visible en consola
+    // Logs claros
     const evs = calendar.getEvents();
     console.log('[agenda] eventos totales:', evs.length);
     console.log(
