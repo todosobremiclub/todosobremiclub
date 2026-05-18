@@ -727,11 +727,13 @@ router.get(
           SELECT generate_series(1,12)::int AS mes_num
         ),
         socios_activos AS (
-          SELECT id, fecha_ingreso
-          FROM socios
-          WHERE club_id = $1
-            AND activo = true
-        ),
+  SELECT id, fecha_ingreso
+  FROM socios
+  WHERE club_id = $1
+  AND activo = true
+  AND becado = false
+),
+
         base AS (
           -- Para cada socio activo y cada mes del año, determinamos si debería pagar
           SELECT
@@ -842,7 +844,8 @@ router.get(
          AND pm.anio = $2
          AND pm.mes = $3
         WHERE s.club_id = $1
-          AND s.activo = true
+AND s.activo = true
+AND s.becado = false
           -- No contar meses anteriores a la fecha de ingreso
           AND (
             s.fecha_ingreso IS NULL
@@ -867,6 +870,7 @@ router.get(
          AND pm.mes = $3
         WHERE s.club_id = $1
           AND s.activo = true
+AND s.becado = false
           AND (
             s.fecha_ingreso IS NULL
             OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
