@@ -226,12 +226,15 @@ async function updateCategoria(id, nombre) {
   const data = await safeJson(res);
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error guardando categoría');
 
-  // ✅ feedback útil
   if (typeof data.sociosActualizados === 'number') {
     console.log(`Categoría actualizada. Socios actualizados: ${data.sociosActualizados}`);
-    // si querés alert:
-    // alert(`✅ Categoría actualizada. Socios actualizados: ${data.sociosActualizados}`);
   }
+}
+
+async function deleteCategoria(id) {
+  const res = await fetchAuth(`${categoriasUrl()}/${id}`, { method: 'DELETE' });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando categoría');
 }
 
 /* ============================================================
@@ -322,7 +325,6 @@ function renderActividades(items) {
 
     tbody.appendChild(tr);
 
-    // ✅ Mantener el label formateado actualizado mientras escriben
     const inp = document.getElementById(`act_precio_${a.id}`);
     const lbl = document.getElementById(`act_precio_fmt_${a.id}`);
     if (inp && lbl) {
@@ -336,6 +338,7 @@ function renderActividades(items) {
     }
   });
 }
+
 async function createActividad(nombre, precio_mensual) {
   const payload = {
     nombre,
@@ -378,6 +381,152 @@ async function deleteActividad(id) {
   const res = await fetchAuth(`${actividadesUrl()}/${id}`, { method: 'DELETE' });
   const data = await safeJson(res);
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando actividad');
+}
+
+/* ============================================================
+   EXCEPCIONES DE CUOTA (monto fijo)
+   GET/POST/PUT/DELETE /club/:clubId/config/excepciones-cuota
+============================================================ */
+
+function excepcionesCuotaUrl() {
+  return `/club/${getActiveClubId()}/config/excepciones-cuota`;
+}
+
+async function loadExcepcionesCuota() {
+  const tbody = document.getElementById('excepcionesTableBody');
+  if (!tbody) return;
+
+  const res = await fetchAuth(excepcionesCuotaUrl());
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="muted">Error cargando excepciones.</td>
+      </tr>`;
+    if (data?.error) console.warn('Excepciones cuota:', data.error);
+    return;
+  }
+
+  renderExcepcionesCuota(data.excepciones ?? []);
+}
+
+function renderExcepcionesCuota(items) {
+  const tbody = document.getElementById('excepcionesTableBody');
+  if (!tbody) return;
+
+  const moneyARS = new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  tbody.innerHTML = '';
+
+  if (!items.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="muted">No hay excepciones cargadas.</td>
+      </tr>`;
+    return;
+  }
+
+  items.forEach((ex) => {
+    const montoNum = Number(ex.monto ?? 0);
+    const montoSafe = Number.isFinite(montoNum) ? montoNum : 0;
+    const montoFmt = moneyARS.format(montoSafe);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <input type="text" id="exc_nombre_${ex.id}" value="${escapeHtml(ex.nombre)}" />
+      </td>
+      <td>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input
+            type="number"
+            id="exc_monto_${ex.id}"
+            min="0"
+            step="0.01"
+            value="${montoSafe}"
+            style="max-width:140px;"
+          />
+          <span
+            id="exc_monto_fmt_${ex.id}"
+            class="muted"
+            style="font-size:12px; font-weight:700; white-space:nowrap;"
+            title="${montoFmt}"
+          >${montoFmt}</span>
+        </div>
+      </td>
+      <td style="text-align:center">
+        <button class="btn-save" data-act="save-exc" data-id="${ex.id}">💾</button>
+      </td>
+      <td style="text-align:center">
+        <button class="btn-del" data-act="del-exc" data-id="${ex.id}">🗑️</button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+
+    const inp = document.getElementById(`exc_monto_${ex.id}`);
+    const lbl = document.getElementById(`exc_monto_fmt_${ex.id}`);
+    if (inp && lbl) {
+      const updateLabel = () => {
+        const v = Number(inp.value);
+        const vv = Number.isFinite(v) ? v : 0;
+        lbl.textContent = moneyARS.format(vv);
+        lbl.title = lbl.textContent;
+      };
+      inp.addEventListener('input', updateLabel);
+      inp.addEventListener('change', updateLabel);
+    }
+  });
+}
+
+async function createExcepcionCuota(nombre, monto) {
+  const payload = {
+    nombre,
+    monto: (monto === '' || monto == null) ? null : Number(monto)
+  };
+
+  const res = await fetchAuth(excepcionesCuotaUrl(), {
+    method: 'POST',
+    json: true,
+    body: JSON.stringify(payload)
+  });
+
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error creando excepción');
+  }
+}
+
+async function updateExcepcionCuota(id, nombre, monto) {
+  const payload = {
+    nombre,
+    monto: (monto === '' || monto == null) ? null : Number(monto)
+  };
+
+  const res = await fetchAuth(`${excepcionesCuotaUrl()}/${id}`, {
+    method: 'PUT',
+    json: true,
+    body: JSON.stringify(payload)
+  });
+
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error guardando excepción');
+  }
+}
+
+async function deleteExcepcionCuota(id) {
+  const res = await fetchAuth(`${excepcionesCuotaUrl()}/${id}`, { method: 'DELETE' });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error eliminando excepción');
+  }
 }
 
 /* ============================================================
@@ -626,22 +775,22 @@ function bindEvents() {
   });
 
   $('btnCategoriaAdd')?.addEventListener('click', async () => {
-  const input = document.getElementById('newCategoriaNombre');
-  const nombre = (input?.value ?? '').trim();
+    const input = document.getElementById('newCategoriaNombre');
+    const nombre = (input?.value ?? '').trim();
 
-  if (!nombre) {
-    alert('Ingresá un nombre de categoría');
-    return;
-  }
+    if (!nombre) {
+      alert('Ingresá un nombre de categoría');
+      return;
+    }
 
-  try {
-    await createCategoria(nombre);
-    input.value = '';
-    await loadCategorias();
-  } catch (err) {
-    alert(err.message ?? 'Error');
-  }
-});
+    try {
+      await createCategoria(nombre);
+      input.value = '';
+      await loadCategorias();
+    } catch (err) {
+      alert(err.message ?? 'Error');
+    }
+  });
 
   // tipos de gasto
   $('tiposGastoTableBody')?.addEventListener('click', async (e) => {
@@ -679,23 +828,22 @@ function bindEvents() {
   });
 
   $('btnTipoGastoAdd')?.addEventListener('click', async () => {
-  const input = document.getElementById('newTipoGastoNombre');
-  const nombre = (input?.value ?? '').trim();
+    const input = document.getElementById('newTipoGastoNombre');
+    const nombre = (input?.value ?? '').trim();
 
-  if (!nombre) {
-    alert('Ingresá un nombre de tipo de gasto');
-    return;
-  }
+    if (!nombre) {
+      alert('Ingresá un nombre de tipo de gasto');
+      return;
+    }
 
-  try {
-    await createTipoGasto(nombre);
-    input.value = '';
-    await loadTiposGasto();
-  } catch (err) {
-    alert(err.message ?? 'Error');
-  }
-});
-
+    try {
+      await createTipoGasto(nombre);
+      input.value = '';
+      await loadTiposGasto();
+    } catch (err) {
+      alert(err.message ?? 'Error');
+    }
+  });
 
   // TIPOS DE INGRESO: botón Agregar
   $('btnTipoIngresoAdd')?.addEventListener('click', async () => {
@@ -768,22 +916,22 @@ function bindEvents() {
   });
 
   $('btnResponsableAdd')?.addEventListener('click', async () => {
-  const input = document.getElementById('newResponsableNombre');
-  const nombre = (input?.value ?? '').trim();
+    const input = document.getElementById('newResponsableNombre');
+    const nombre = (input?.value ?? '').trim();
 
-  if (!nombre) {
-    alert('Ingresá un nombre de responsable');
-    return;
-  }
+    if (!nombre) {
+      alert('Ingresá un nombre de responsable');
+      return;
+    }
 
-  try {
-    await createResponsable(nombre);
-    input.value = '';
-    await loadResponsables();
-  } catch (err) {
-    alert(err.message ?? 'Error');
-  }
-});
+    try {
+      await createResponsable(nombre);
+      input.value = '';
+      await loadResponsables();
+    } catch (err) {
+      alert(err.message ?? 'Error');
+    }
+  });
 
   // ACTIVIDADES: guardar / eliminar
   document
@@ -854,6 +1002,78 @@ function bindEvents() {
         alert(err.message ?? 'Error creando actividad');
       }
     });
+
+  // EXCEPCIONES: guardar / eliminar
+  document
+    .getElementById('excepcionesTableBody')
+    ?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+
+      const act = btn.dataset.act;
+      const id = btn.dataset.id;
+
+      if (act === 'save-exc') {
+        const nombre = (document.getElementById(`exc_nombre_${id}`)?.value ?? '').trim();
+        const montoStr = (document.getElementById(`exc_monto_${id}`)?.value ?? '').trim();
+        const montoNum = montoStr === '' ? NaN : Number(montoStr);
+
+        if (!nombre) return alert('Nombre vacío');
+        if (!Number.isFinite(montoNum) || montoNum < 0) {
+          return alert('Ingresá un monto válido (>= 0).');
+        }
+
+        btn.disabled = true;
+        try {
+          await updateExcepcionCuota(id, nombre, montoNum);
+          await loadExcepcionesCuota();
+        } catch (err) {
+          alert(err.message ?? 'Error');
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      if (act === 'del-exc') {
+        if (!confirm('¿Eliminar excepción de cuota?')) return;
+
+        btn.disabled = true;
+        try {
+          await deleteExcepcionCuota(id);
+          await loadExcepcionesCuota();
+        } catch (err) {
+          alert(err.message ?? 'Error');
+        } finally {
+          btn.disabled = false;
+        }
+      }
+    });
+
+  // EXCEPCIONES: Agregar
+  document
+    .getElementById('btnExcepcionAdd')
+    ?.addEventListener('click', async () => {
+      const inputNombre = document.getElementById('newExcepcionNombre');
+      const inputMonto = document.getElementById('newExcepcionMonto');
+
+      const nombre = (inputNombre?.value ?? '').trim();
+      const montoStr = (inputMonto?.value ?? '').trim();
+      const montoNum = montoStr === '' ? NaN : Number(montoStr);
+
+      if (!nombre) return alert('Ingresá un nombre para la excepción');
+      if (!Number.isFinite(montoNum) || montoNum < 0) {
+        return alert('Ingresá un monto válido (>= 0).');
+      }
+
+      try {
+        await createExcepcionCuota(nombre, montoNum);
+        if (inputNombre) inputNombre.value = '';
+        if (inputMonto) inputMonto.value = '';
+        await loadExcepcionesCuota();
+      } catch (err) {
+        alert(err.message ?? 'Error creando excepción');
+      }
+    });
 }
 
 /* ============================================================
@@ -864,9 +1084,13 @@ async function initConfiguracionSection() {
   await loadCuotas();
   await loadCategorias();
   await loadTiposGasto();
-  await loadTiposIngreso();   // importante para que se llene la tabla
+  await loadTiposIngreso(); // importante para que se llene la tabla
   await loadResponsables();
   await loadActividades();
+
+  // ✅ NUEVO: Excepciones de cuota
+  await loadExcepcionesCuota();
+
   bindEvents();
 }
 

@@ -3,39 +3,68 @@
   <h2 style="margin-bottom: 12px;">Configuración del Sistema</h2>
 
   <!-- =========================================================
-     ACTIVIDADES DEPORTIVAS (COLLAPSABLE)
-========================================================= -->
-<div class="config-card config-collapsible collapsed">
-
-  <div class="config-header">
-  <span class="arrow">▶</span>
-  <h3 class="config-title">🏋️ Actividades deportivas</h3>
-</div>
-
-
-  <div class="config-body collapsed">
-
-    <table class="config-table">
-      <thead>
-        <tr>
-          <th>Actividad</th>
-          <th>Precio mensual</th>
-          <th>Guardar</th>
-          <th>Eliminar</th>
-        </tr>
-      </thead>
-      <tbody id="actividadesTableBody"></tbody>
-    </table>
-
-    <div class="config-add" style="margin-top:12px; display:flex; gap:10px; align-items:center;">
-      <input id="newActividadNombre" type="text" placeholder="Nueva actividad..." style="flex:1;" />
-      <input id="newActividadPrecio" type="number" min="0" step="0.01" placeholder="Precio mensual" style="width:150px;" />
-      <button id="btnActividadAdd" class="btn btn-primary">Agregar</button>
+       ACTIVIDADES DEPORTIVAS
+  ========================================================== -->
+  <div class="config-card config-collapsible collapsed">
+    <div class="config-header">
+      <span class="arrow">▶</span>
+      <h3 class="config-title">🏋️ Actividades deportivas</h3>
     </div>
 
-  </div>
-</div>
+    <div class="config-body">
+      <table class="config-table">
+        <thead>
+          <tr>
+            <th>Actividad</th>
+            <th>Precio mensual</th>
+            <th>Guardar</th>
+            <th>Eliminar</th>
+          </tr>
+        </thead>
+        <tbody id="actividadesTableBody"></tbody>
+      </table>
 
+      <div class="config-add" style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+        <input id="newActividadNombre" type="text" placeholder="Nueva actividad..." style="flex:1;" />
+        <input id="newActividadPrecio" type="number" min="0" step="0.01" placeholder="Precio mensual" style="width:150px;" />
+        <button id="btnActividadAdd" class="btn btn-primary">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       EXCEPCIONES DE CUOTA
+  ========================================================== -->
+  <div class="config-card config-collapsible collapsed">
+    <div class="config-header">
+      <span class="arrow">▶</span>
+      <h3 class="config-title">⚠️ Excepciones de cuota</h3>
+    </div>
+
+    <div class="config-body">
+      <table class="config-table">
+        <thead>
+          <tr>
+            <th>Excepción</th>
+            <th>Monto fijo</th>
+            <th>Guardar</th>
+            <th>Eliminar</th>
+          </tr>
+        </thead>
+        <tbody id="excepcionesTableBody"></tbody>
+      </table>
+
+      <div class="config-add" style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+        <input id="newExcepcionNombre" type="text" placeholder="Nueva excepción..." style="flex:1;" />
+        <input id="newExcepcionMonto" type="number" min="0" step="0.01" placeholder="Monto" style="width:150px;" />
+        <button id="btnExcepcionAdd" class="btn btn-primary">Agregar</button>
+      </div>
+
+      <div class="muted" style="margin-top:8px; font-size:12px;">
+        Ejemplos: “Becado 50%”, “Convenio especial”, “Cuota fija reducida”.
+      </div>
+    </div>
+  </div>
 
   <!-- =========================================================
        CATEGORÍAS
@@ -47,7 +76,6 @@
     </div>
 
     <div class="config-content">
-
       <div class="config-input-row">
         <input id="newCategoriaNombre" placeholder="Nombre">
         <button id="btnCategoriaAdd" class="btn-add">➕ Agregar</button>
@@ -66,7 +94,6 @@
     </div>
   </div>
 
-  
   <!-- =========================================================
        TIPOS DE GASTO
   ========================================================== -->
@@ -77,7 +104,6 @@
     </div>
 
     <div class="config-content">
-
       <div class="config-input-row">
         <input id="newTipoGastoNombre" placeholder="Nombre">
         <button id="btnTipoGastoAdd" class="btn-add">➕ Agregar</button>
@@ -106,7 +132,6 @@
     </div>
 
     <div class="config-content">
-
       <div class="config-input-row">
         <input id="newTipoIngresoNombre" placeholder="Nombre">
         <button id="btnTipoIngresoAdd" class="btn-add">➕ Agregar</button>
@@ -121,7 +146,6 @@
         </thead>
         <tbody id="tiposIngresoTableBody"></tbody>
       </table>
-
     </div>
   </div>
 
@@ -135,7 +159,6 @@
     </div>
 
     <div class="config-content">
-
       <div class="config-input-row">
         <input id="newResponsableNombre" placeholder="Nombre">
         <button id="btnResponsableAdd" class="btn-add">➕ Agregar</button>
@@ -151,15 +174,12 @@
         </thead>
         <tbody id="responsablesTableBody"></tbody>
       </table>
-
     </div>
   </div>
-
 
 </section>
 
 <style>
-
   /* --------------------------------------
      TARJETAS / CONTENEDORES
   -------------------------------------- */
@@ -189,7 +209,6 @@
     font-size:18px;
   }
 
-  /* Flechita */
   .arrow {
     transition: transform .2s ease;
     font-size:14px;
@@ -207,9 +226,6 @@
     display: none;
   }
 
-  /* --------------------------------------
-     INPUTS Y BOTONES
-  -------------------------------------- */
   .config-input-row {
     display:flex;
     gap:8px;
@@ -240,9 +256,6 @@
     background: var(--color-secondary);
   }
 
-  /* --------------------------------------
-     TABLAS
-  -------------------------------------- */
   .config-table {
     width:100%;
     border-collapse:collapse;
@@ -262,7 +275,6 @@
     font-weight:600;
   }
 
-  /* Botones de tabla */
   .config-table button {
     padding:6px 10px;
     font-size:13px;
@@ -270,21 +282,16 @@
     cursor:pointer;
   }
 
-/* Hace que los acordeones usen config-body igual que config-content */
-.config-body {
-  display: none;
-  padding: 12px 0;
-}
+  .config-body {
+    display: none;
+    padding: 12px 0;
+  }
 
-.config-collapsible:not(.collapsed) .config-body {
-  display: block;
-}
+  .config-collapsible:not(.collapsed) .config-body {
+    display: block;
+  }
 
-  /* --------------------------------------
-     RESPONSIVE
-  -------------------------------------- */
   @media(max-width:768px){
-
     .config-input-row {
       flex-direction:column;
       align-items:stretch;
@@ -303,5 +310,4 @@
       font-size:16px;
     }
   }
-
 </style>

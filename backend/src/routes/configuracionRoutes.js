@@ -381,6 +381,103 @@ router.delete('/:clubId/config/actividades/:id', requireAuth, requireClubAccess,
 
 
 /* ============================================================
+ EXCEPCIONES DE CUOTA
+ GET/POST/PUT/DELETE /club/:clubId/config/excepciones-cuota
+============================================================ */
+router.get('/:clubId/config/excepciones-cuota', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const r = await db.query(`
+      SELECT id, nombre, monto
+      FROM excepciones_cuota
+      WHERE club_id = $1 AND activo = true
+      ORDER BY nombre ASC
+    `, [clubId]);
+    res.json({ ok: true, excepciones: r.rows });
+  } catch (e) {
+    if (isMissingRelation(e)) return res.json({ ok: true, excepciones: [] });
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/:clubId/config/excepciones-cuota', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { nombre, monto } = req.body ?? {};
+
+  if (!nombre?.trim()) {
+    return res.status(400).json({ ok: false, error: 'Falta nombre' });
+  }
+  if (monto == null || isNaN(monto) || Number(monto) < 0) {
+    return res.status(400).json({ ok: false, error: 'Monto inválido' });
+  }
+
+  try {
+    const r = await db.query(`
+      INSERT INTO excepciones_cuota (id, club_id, nombre, monto, activo)
+      VALUES (gen_random_uuid(), $1, $2, $3, true)
+      RETURNING id, nombre, monto
+    `, [clubId, nombre.trim(), monto]);
+
+    res.json({ ok: true, excepcion: r.rows[0] });
+  } catch (e) {
+    if (e.code === '23505') {
+      return res.status(409).json({ ok: false, error: 'La excepción ya existe' });
+    }
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.put('/:clubId/config/excepciones-cuota/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  const { nombre, monto } = req.body ?? {};
+
+  if (!nombre?.trim()) {
+    return res.status(400).json({ ok: false, error: 'Falta nombre' });
+  }
+  if (monto == null || isNaN(monto) || Number(monto) < 0) {
+    return res.status(400).json({ ok: false, error: 'Monto inválido' });
+  }
+
+  try {
+    const r = await db.query(`
+      UPDATE excepciones_cuota
+      SET nombre = $1, monto = $2, updated_at = NOW()
+      WHERE id = $3 AND club_id = $4
+      RETURNING id, nombre, monto
+    `, [nombre.trim(), monto, id, clubId]);
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'No encontrada' });
+    }
+
+    res.json({ ok: true, excepcion: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.delete('/:clubId/config/excepciones-cuota/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+
+  try {
+    const r = await db.query(`
+      UPDATE excepciones_cuota
+      SET activo = false, updated_at = NOW()
+      WHERE id = $1 AND club_id = $2
+    `, [id, clubId]);
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'No encontrada' });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ delete excepcion-cuota', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+/* ============================================================
    TIPOS DE GASTO
    GET/POST/PUT/DELETE /club/:clubId/config/tipos-gasto
 ============================================================ */
