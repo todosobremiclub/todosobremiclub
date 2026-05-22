@@ -832,9 +832,14 @@ titleEl.textContent = partesTitulo.join(' y ') || 'Documentación';
       </div>
     `;
 
-    const actions = modalContent.querySelector('.modal-actions');
-    if (actions) modalContent.insertBefore(box, actions);
-    else modalContent.appendChild(box);
+    const actions = modalContent.querySelector('.modal-actions.footer');
+
+if (actions && actions.parentNode === modalContent) {
+  modalContent.insertBefore(box, actions);
+} else {
+  modalContent.appendChild(box);
+}
+
 
     box.querySelector('#btnSocioPickFoto').addEventListener('click', () => draftPhotoInput.click());
     box.querySelector('#btnSocioClearFoto').addEventListener('click', () => setDraftPhoto(null));
