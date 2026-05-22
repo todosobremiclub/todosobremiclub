@@ -111,13 +111,19 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
         [clubId, socioId, anio]
       );
 
-      return res.json({
-        ok: true,
-        anio,
-        pagos: r.rows,
-        mesesPagados: r.rows.map((x) => Number(x.mes)),
-      });
-    }
+      
+return res.json({
+  ok: true,
+  anio,
+  pagos: r.rows,
+  mesesPagados: r.rows.map((x) => Number(x.mes)),
+});
+} catch (e) {
+  console.error('❌ pagos socio:', e);
+  res.status(500).json({ ok: false, error: e.message });
+}
+});
+
 
     // Caso APP del socio
     if (!req.user?.socioId) {
@@ -158,7 +164,7 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
       anio,
       pagos: r.rows,
       mesesPagados: r.rows.map((x) => Number(x.mes)),
-    });
+    
   } catch (e) {
     console.error('❌ pagos socio:', e);
     res.status(500).json({ ok: false, error: e.message });
