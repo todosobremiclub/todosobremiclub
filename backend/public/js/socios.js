@@ -185,6 +185,68 @@
     }
   }
 
+// =============================
+// Excepciones de cuota (config)
+// =============================
+let excepcionesCuotaCache = [];
+
+function excepcionesCuotaUrl() {
+  const clubId = getActiveClubId();
+  return `/club/${clubId}/config/excepciones-cuota`;
+}
+
+async function loadExcepcionesCuotaConfig() {
+  const res = await fetchAuth(excepcionesCuotaUrl());
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    console.warn('No se pudieron cargar excepciones de cuota:', data.error);
+    excepcionesCuotaCache = [];
+    fillExcepcionSelect([]);
+    return;
+  }
+
+  excepcionesCuotaCache = data.excepciones ?? [];
+  fillExcepcionSelect(excepcionesCuotaCache);
+}
+
+function fillExcepcionSelect(items) {
+  const sel = $('socioExcepcionCuota');
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">Seleccionar excepción…</option>`;
+
+  if (!items || items.length === 0) return;
+
+  items.forEach((ex) => {
+    const id = String(ex.id || '').trim();
+    const nombre = String(ex.nombre || '').trim();
+    if (!id || !nombre) return;
+
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = nombre;
+    sel.appendChild(opt);
+  });
+}
+
+// Si al editar viene una excepción que ya no está activa/listada
+function ensureExcepcionOption(value, labelHint) {
+  const sel = $('socioExcepcionCuota');
+  if (!sel) return;
+
+  const v = String(value ?? '').trim();
+  if (!v) return;
+
+  const exists = [...sel.options].some((o) => o.value === v);
+  if (!exists) {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = (labelHint ? `${labelHint} (no está en Configuración)` : 'Excepción (no está en Configuración)');
+    sel.appendChild(opt);
+  }
+}
+
   // =============================
   // Categorías deportivas (config)
   // =============================
@@ -851,6 +913,26 @@ titleEl.textContent = partesTitulo.join(' y ') || 'Documentación';
     return data;
   }
 
+// =============================
+// UI Excepción de cuota (modal socio)
+// =============================
+function setExcepcionUI(usa) {
+  const chk = $('socioUsaExcepcion');
+  const wrap = $('socioExcepcionWrap');
+  const sel = $('socioExcepcionCuota');
+
+  if (chk) chk.checked = !!usa;
+
+  if (!wrap) return;
+
+  if (usa) {
+    wrap.classList.remove('hidden');
+  } else {
+    wrap.classList.add('hidden');
+    if (sel) sel.value = '';
+  }
+}
+
   // =============================
   // Modal socio alta/edición
   // =============================
@@ -870,14 +952,22 @@ titleEl.textContent = partesTitulo.join(' y ') || 'Documentación';
     $('socioNacimiento').value = '';
     $('socioIngreso').value = '';
     $('socioActivo').checked = true;
-    $('socioBecado').checked = false;
-    $('socioMenor').checked = false;
-$('socioTutorNombre').value = '';
-toggleTutorField(false);
+    $('socioBecado').checked = !!socio.becado;
+$('socioMenor').checked = !!socio.es_menor;
+$('socioTutorNombre').value = socio.tutor_nombre ?? '';
+toggleTutorField(!!socio.es_menor);
 
+// ✅ precargar excepción si el socio la tiene
+const exId = socio.excepcion_cuota_id ?? socio.excepcionCuotaId ?? null;
+const exNombre = socio.excepcion_cuota_nombre ?? socio.excepcionCuotaNombre ?? '';
 
-    
-    $('modalSocio').classList.remove('hidden');
+setExcepcionUI(!!exId);
+if (exId) {
+  ensureExcepcionOption(exId, exNombre || 'Excepción asignada');
+  $('socioExcepcionCuota').value = String(exId);
+}
+
+$('modalSocio').classList.remove('hidden');
   }
 
 // ===== Menor + Tutor =====
@@ -1428,7 +1518,12 @@ renderPagination(totalSociosCache);
 es_menor: $('socioMenor').checked,
 tutor_nombre: $('socioTutorNombre').value.trim() || null,
       categoria: $('socioCategoria').value.trim(),
-      actividad: $('socioActividad').value.trim(),
+      
+actividad: $('socioActividad').value.trim(),
+excepcion_cuota_id: $('socioUsaExcepcion')?.checked
+  ? ($('socioExcepcionCuota')?.value || null)
+  : null,
+
       telefono: $('socioTelefono').value.trim() || null,
       direccion: $('socioDireccion').value.trim() || null,
       fecha_nacimiento: $('socioNacimiento').value,
@@ -1448,6 +1543,11 @@ tutor_nombre: $('socioTutorNombre').value.trim() || null,
       alert('Completá DNI, Nombre, Apellido, Categoría, Actividad y Fecha de nacimiento.');
       return;
     }
+
+if ($('socioUsaExcepcion')?.checked && !payload.excepcion_cuota_id) {
+  alert('Seleccioná una excepción de cuota.');
+  return;
+}
 
 if (payload.es_menor && !payload.tutor_nombre) {
   alert('Si el socio es menor, completá el nombre del padre/madre/tutor.');
@@ -1557,6 +1657,9 @@ if (payload.es_menor && !payload.tutor_nombre) {
     $('btnCancelarSocio')?.addEventListener('click', closeModalSocio);
     $('btnGuardarSocio')?.addEventListener('click', saveSocio);
     $('socioMenor')?.addEventListener('change', () => toggleTutorField());
+$('socioUsaExcepcion')?.addEventListener('change', () => {
+  setExcepcionUI($('socioUsaExcepcion').checked);
+});
 
 
     $('btnBuscarSocios')?.addEventListener('click', loadSocios);
@@ -1926,6 +2029,8 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
     bindOnce();
     await loadCategoriasConfig().catch(() => {});
     await loadActividadesConfig().catch(() => {});
+await loadExcepcionesCuotaConfig().catch(() => {});
+
     await loadSocios();
   }
 

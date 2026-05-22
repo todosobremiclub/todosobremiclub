@@ -103,11 +103,29 @@
   <input id="socioTutorNombre" type="text" placeholder="Ej: Juan Pérez">
 </div>
 
+<!-- ===== Excepción de cuota ===== -->
+<div class="col-span-3">
+  <label class="checkbox-inline">
+    <input type="checkbox" id="socioUsaExcepcion">
+    Usar excepción de cuota
+  </label>
+</div>
+
+<div id="socioExcepcionWrap" class="hidden">
+  <label>Excepción de cuota *</label>
+  <select id="socioExcepcionCuota">
+    <option value="">Seleccionar excepción…</option>
+  </select>
+  <div class="muted small">
+    *Las excepciones se administran en Configuración.
+  </div>
+</div>
+
         <div>
           <label>Actividad *</label>
           <select id="socioActividad"><option value="">Cargando…</option></select>
           <div class="muted small">*Las actividades se administran en Configuración.</div>
-        </div>
+        <div id="socioActividadWrap">
 
         <div>
           <label>Categoría *</label>
@@ -542,6 +560,14 @@
     margin-bottom:0;
   }
 }
+
+<style>
+/* ===== Excepción de cuota (socio) ===== */
+#socioActividadWrap.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+</style>
 
 
 </style>

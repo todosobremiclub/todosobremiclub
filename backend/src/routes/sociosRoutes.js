@@ -35,6 +35,31 @@ function requireClubAccess(req, res, next) {
 }
 
 // ===============================
+// Helper: validar Excepción de Cuota
+// ===============================
+async function assertValidExcepcionCuota({ clubId, excepcionCuotaId }) {
+  if (!excepcionCuotaId) return; // null/undefined => OK
+
+  const r = await db.query(
+    `
+    SELECT id
+    FROM excepciones_cuota
+    WHERE id = $1
+      AND club_id = $2
+      AND activo = true
+    LIMIT 1
+    `,
+    [excepcionCuotaId, clubId]
+  );
+
+  if (!r.rowCount) {
+    const err = new Error('Excepción de cuota inválida');
+    err.statusCode = 400;
+    throw err;
+  }
+}
+
+// ===============================
 // Helpers Firebase delete
 // ===============================
 function extractFirebaseObjectPath(url) {
@@ -148,6 +173,9 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
         s.fecha_ingreso,
         s.activo,
         s.becado,
+s.excepcion_cuota_id,
+ec.nombre AS excepcion_cuota_nombre,
+ec.monto AS excepcion_cuota_monto,
         s.foto_url,
         s.created_at,
         s.updated_at,
@@ -169,7 +197,10 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
           ELSE false
         END AS pago_al_dia
       FROM socios s
-      WHERE ${where.join(' AND ')}
+LEFT JOIN excepciones_cuota ec
+  ON ec.id = s.excepcion_cuota_id
+ AND ec.club_id = s.club_id
+WHERE ${where.join(' AND ')}
       ORDER BY s.numero_socio ASC
       LIMIT $${p++} OFFSET $${p++}
     `;
@@ -709,6 +740,7 @@ router.post('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) 
     becado = false,
     categoria,
     actividad,
+    excepcion_cuota_id = null,
     es_menor = false,
     tutor_nombre = null
 
@@ -728,6 +760,9 @@ if (es_menor && !String(tutor_nombre || '').trim()) {
         error: 'Si el socio es menor, completá el nombre del padre/madre/tutor.'
       });
     }
+
+// ✅ Validar excepción (si viene)
+await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id });
 
 
     await db.query('BEGIN');
@@ -771,10 +806,11 @@ if (es_menor && !String(tutor_nombre || '').trim()) {
         becado,
         categoria,
         actividad,
+excepcion_cuota_id,
         es_menor,
         tutor_nombre
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
       RETURNING *
       `,
       [
@@ -791,6 +827,7 @@ if (es_menor && !String(tutor_nombre || '').trim()) {
         !!becado,
         String(categoria),
         String(actividad),
+(excepcion_cuota_id ?? null),
         !!es_menor,
         (tutor_nombre ?? null)
       ]
@@ -830,6 +867,7 @@ router.put('/:clubId/socios/:id', requireAuth, requireClubAccess, async (req, re
     becado,
     categoria,
     actividad,
+excepcion_cuota_id = null,	
     es_menor,
     tutor_nombre
   } = req.body ?? {};
@@ -841,6 +879,9 @@ if (es_menor && !String(tutor_nombre || '').trim()) {
         error: 'Si el socio es menor, completá el nombre del padre/madre/tutor.'
       });
     }
+
+await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id });
+
     const r = await db.query(
       `
       UPDATE socios SET
@@ -854,11 +895,12 @@ if (es_menor && !String(tutor_nombre || '').trim()) {
         fecha_ingreso    = $8,
         activo           = $9,
         becado           = $10,
-        categoria        = $11,
-        actividad        = $12,
-        es_menor          = $13,
-        tutor_nombre      = $14
-      WHERE id = $15 AND club_id = $16
+        categoria = $11,
+actividad = $12,
+excepcion_cuota_id = $13,
+es_menor = $14,
+tutor_nombre = $15
+WHERE id = $16 AND club_id = $17
       RETURNING *
       `,
       [
@@ -874,7 +916,8 @@ if (es_menor && !String(tutor_nombre || '').trim()) {
         !!becado,
         categoria,
         actividad,
-        !!es_menor,
+(excepcion_cuota_id ?? null),
+!!es_menor,
         (tutor_nombre ?? null),
         id,
         clubId
