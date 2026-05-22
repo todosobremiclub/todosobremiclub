@@ -942,38 +942,46 @@ function setExcepcionUI(usa) {
   // Modal socio alta/edición
   // =============================
   function openModalNew() {
-    editingId = null;
-    setDraftPhoto(null);
+  editingId = null;
+  setDraftPhoto(null);
 
-    if (!categoriasConfigCache.length) loadCategoriasConfig().catch(() => {});
+  // asegurar combos cargados
+  if (!categoriasConfigCache.length) loadCategoriasConfig().catch(() => {});
+  if (!actividadesConfigCache.length) loadActividadesConfig().catch(() => {});
+  if (!excepcionesCuotaCache.length) loadExcepcionesCuotaConfig().catch(() => {});
 
-    $('modalSocioTitle').textContent = 'Nuevo socio';
-    $('socioNumero').value = '';
-    $('socioDni').value = '';
-    $('socioNombre').value = '';
-    $('socioApellido').value = '';
-    $('socioCategoria').value = '';
-    $('socioTelefono').value = '';
-    $('socioNacimiento').value = '';
-    $('socioIngreso').value = '';
-    $('socioActivo').checked = true;
-    $('socioBecado').checked = !!socio.becado;
-$('socioMenor').checked = !!socio.es_menor;
-$('socioTutorNombre').value = socio.tutor_nombre ?? '';
-toggleTutorField(!!socio.es_menor);
+  $('modalSocioTitle').textContent = 'Nuevo socio';
 
-// ✅ precargar excepción si el socio la tiene
-const exId = socio.excepcion_cuota_id ?? socio.excepcionCuotaId ?? null;
-const exNombre = socio.excepcion_cuota_nombre ?? socio.excepcionCuotaNombre ?? '';
+  $('socioNumero').value = '';
+  $('socioDni').value = '';
+  $('socioNombre').value = '';
+  $('socioApellido').value = '';
 
-setExcepcionUI(!!exId);
-if (exId) {
-  ensureExcepcionOption(exId, exNombre || 'Excepción asignada');
-  $('socioExcepcionCuota').value = String(exId);
+  $('socioActividad').value = '';
+  $('socioCategoria').value = '';
+
+  $('socioTelefono').value = '';
+  $('socioDireccion').value = '';
+
+  $('socioNacimiento').value = '';
+  $('socioIngreso').value = '';
+
+  $('socioActivo').checked = true;
+  $('socioBecado').checked = false;
+
+  // menor/tutor
+  $('socioMenor').checked = false;
+  $('socioTutorNombre').value = '';
+  toggleTutorField(false);
+
+  // ✅ reset excepción SIEMPRE (evita “contagio”)
+  $('socioUsaExcepcion').checked = false;
+  $('socioExcepcionCuota').value = '';
+  setExcepcionUI(false);
+
+  $('modalSocio').classList.remove('hidden');
 }
 
-$('modalSocio').classList.remove('hidden');
-  }
 
 // ===== Menor + Tutor =====
 function toggleTutorField(forceValue) {
@@ -997,6 +1005,12 @@ function toggleTutorField(forceValue) {
   function openModalEdit(socio) {
     editingId = socio.id;
     setDraftPhoto(null);
+
+// ✅ reset excepción ANTES de cargar datos (evita “contagio”)
+$('socioUsaExcepcion').checked = false;
+$('socioExcepcionCuota').value = '';
+setExcepcionUI(false);
+
     if (!categoriasConfigCache.length) loadCategoriasConfig().catch(() => {});
 
     $('modalSocioTitle').textContent = 'Editar socio';
@@ -1023,6 +1037,18 @@ function toggleTutorField(forceValue) {
 $('socioMenor').checked = !!socio.es_menor;
 $('socioTutorNombre').value = socio.tutor_nombre ?? '';
 toggleTutorField(!!socio.es_menor);
+
+// ✅ precargar excepción del socio (si existe)
+const exId = socio.excepcion_cuota_id ?? null;
+const exNombre = socio.excepcion_cuota_nombre ?? '';
+
+setExcepcionUI(!!exId);
+
+if (exId) {
+  $('socioUsaExcepcion').checked = true;
+  ensureExcepcionOption(exId, exNombre || 'Excepción asignada');
+  $('socioExcepcionCuota').value = String(exId);
+}
 
 
     $('modalSocio').classList.remove('hidden');
