@@ -279,7 +279,7 @@ router.post(
       // Traer socio para conocer su actividad
       const socioRes = await db.query(
   `
-  SELECT actividad, nombre, apellido, numero_socio
+  SELECT actividad, excepcion_cuota_id, nombre, apellido, numero_socio
   FROM socios
   WHERE id = $1 AND club_id = $2
   LIMIT 1
@@ -294,13 +294,14 @@ router.post(
       }
 
       const actividadSocio = socioRes.rows[0].actividad;
+      const excepcionCuotaId = socioRes.rows[0].excepcion_cuota_id;
 
 const socioNombre = socioRes.rows[0].nombre;
 const socioApellido = socioRes.rows[0].apellido;
 const socioNumero = socioRes.rows[0].numero_socio;
 
       // Si NO es pago parcial, la actividad es obligatoria
-      if (!actividadSocio && !esParcialBool) {
+      if (!actividadSocio && !excepcionCuotaId && !esParcialBool) {
         return res.status(400).json({
           ok: false,
           error:
@@ -314,27 +315,46 @@ const socioNumero = socioRes.rows[0].numero_socio;
         // Pago parcial: el monto viene del front, se aplica por cada mes
         montoPorMes = Number(monto_parcial);
       } else {
-        // Pago normal: monto por actividad
-        const rPrecio = await db.query(
-          `
-          SELECT precio_mensual
-          FROM actividades
-          WHERE club_id = $1
-            AND nombre = $2
-            AND activo = true
-          LIMIT 1
-          `,
-          [clubId, actividadSocio]
-        );
+        // Pago normal: monto por excepción (si aplica) o por actividad
+if (excepcionCuotaId) {
+  const rExc = await db.query(
+    `
+    SELECT monto
+    FROM excepciones_cuota
+    WHERE club_id = $1
+      AND id = $2
+      AND activo = true
+    LIMIT 1
+    `,
+    [clubId, excepcionCuotaId]
+  );
 
-        if (!rPrecio.rowCount) {
-          // No hay precio configurado: se toma como 0
-          montoPorMes = 0;
-        } else {
-          montoPorMes =
-            Number(rPrecio.rows[0].precio_mensual) || 0;
-        }
-      }
+  if (!rExc.rowCount) {
+    // excepción no encontrada/inactiva: se toma 0
+    montoPorMes = 0;
+  } else {
+    montoPorMes = Number(rExc.rows[0].monto) || 0;
+  }
+} else {
+  // Por actividad
+  const rPrecio = await db.query(
+    `
+    SELECT precio_mensual
+    FROM actividades
+    WHERE club_id = $1
+      AND nombre = $2
+      AND activo = true
+    LIMIT 1
+    `,
+    [clubId, actividadSocio]
+  );
+
+  if (!rPrecio.rowCount) {
+    montoPorMes = 0;
+  } else {
+    montoPorMes = Number(rPrecio.rows[0].precio_mensual) || 0;
+  }
+}
 
       // ------------------------------
       // Insertar pagos mensuales

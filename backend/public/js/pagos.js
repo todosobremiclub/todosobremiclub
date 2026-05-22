@@ -58,6 +58,10 @@
   let sociosCache = [];
   let cuotasMap = new Map(); // mes -> monto
   let selectedSocioId = null;
+  
+let selectedSocioTarifa = null; // { tipo, nombre, monto, fuente }
+let actividadesPrecioMap = new Map(); // nombreActividad -> precio_mensual
+
   let selectedYear = new Date().getFullYear();
   let mesesPagados = new Set();
   let mesesSeleccionados = new Set();
@@ -112,6 +116,51 @@ function ensureIngresosUI() {
     }
   }
 
+
+function getSocioTarifa(socio) {
+  if (!socio) return null;
+
+  const exId = socio.excepcion_cuota_id ? socio.excepcion_cuota_id : null;
+  if (exId) {
+    const nombre = socio.excepcion_cuota_nombre || 'Excepción';
+    const monto = Number(socio.excepcion_cuota_monto ?? 0) || 0;
+    return { tipo: 'excepcion', nombre, monto, fuente: 'excepcion' };
+  }
+
+  const act = String(socio.actividad || '').trim();
+  const monto = actividadesPrecioMap.get(act) ?? 0;
+  return { tipo: 'actividad', nombre: act || 'Sin actividad', monto: Number(monto) || 0, fuente: 'actividad' };
+}
+
+function renderTarifaInfo() {
+  const el = $('socioTarifaInfo');
+  if (!el) return;
+
+  if (!selectedSocioId || !selectedSocioTarifa) {
+    el.textContent = '';
+    return;
+  }
+
+  const t = selectedSocioTarifa;
+  const tag = t.tipo === 'excepcion' ? 'Excepción' : 'Actividad';
+  el.textContent = `${tag}: ${t.nombre} — ${moneyARS(t.monto)} por mes`;
+}
+
+async function selectSocio(s) {
+  selectedSocioId = s.id;
+  selectedSocioTarifa = getSocioTarifa(s);
+
+  const inp = $('socioSeleccionadoNombre');
+  if (inp) inp.value = `${s.apellido} ${s.nombre} - ${s.dni}`;
+
+  renderTarifaInfo();
+
+  $('modalElegirSocio')?.classList.add('hidden');
+  await refreshMesesPagados();
+  renderMesesGrid();
+}
+
+
   /* =============================
    * Cargas (socios/pagos)
    * ============================= */
@@ -128,6 +177,24 @@ function ensureIngresosUI() {
     if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando cuotas');
     cuotasMap = new Map((data.cuotas || []).map(c => [Number(c.mes), Number(c.monto)]));
   }
+
+
+async function loadActividadesConfig() {
+  const clubId = getActiveClubId();
+  const { res, data } = await fetchAuth(`/club/${clubId}/config/actividades`);
+  if (!res.ok || !data.ok) {
+    console.warn(data?.error || 'Error cargando actividades (para precios)');
+    actividadesPrecioMap = new Map();
+    return;
+  }
+  actividadesPrecioMap = new Map(
+    (data.actividades || []).map(a => [
+      String(a.nombre || '').trim(),
+      Number(a.precio_mensual ?? 0) || 0
+    ])
+  );
+}
+
 
  async function loadResumen() {
   const clubId = getActiveClubId();
@@ -227,6 +294,10 @@ function openModal() {
   selectedSocioId = null;
   mesesPagados.clear();
   mesesSeleccionados.clear();
+
+selectedSocioTarifa = null;
+renderTarifaInfo();
+
   if ($('modalSocioSearch')) $('modalSocioSearch').value = '';
   if ($('modalFechaPago')) $('modalFechaPago').value = todayISO();
   if ($('modalAnioLabel')) $('modalAnioLabel').textContent = String(selectedYear);
@@ -252,8 +323,8 @@ function openModal() {
   // ... (función tal como la tenés)
 }  // ← cierre de renderSociosList
 
-// 🔽 PEGAR ACÁ LA NUEVA FUNCIÓN 🔽
-function renderSociosMini(query){
+// 🔽 FUNCIÓN FINAL: renderSociosMini 🔽
+function renderSociosMini(query) {
   const cont = $('listaSociosMini');
   if (!cont) return;
 
@@ -261,8 +332,9 @@ function renderSociosMini(query){
 
   const list = sociosCache.filter(s => {
     return (
-      s.apellido.toLowerCase().includes(q) ||
-      String(s.dni).includes(q)
+      String(s.apellido || '').toLowerCase().includes(q) ||
+      String(s.nombre || '').toLowerCase().includes(q) ||
+      String(s.dni || '').includes(q)
     );
   });
 
@@ -274,21 +346,18 @@ function renderSociosMini(query){
     b.style.display = 'block';
     b.style.width = '100%';
     b.style.margin = '4px 0';
+    b.type = 'button';
+
     b.textContent = `${s.apellido} ${s.nombre} - ${s.dni}`;
 
     b.onclick = async () => {
-      selectedSocioId = s.id;
-      $('socioSeleccionadoNombre').value =
-        `${s.apellido} ${s.nombre} - ${s.dni}`;
-      $('modalElegirSocio')?.classList.add('hidden');
-
-      await refreshMesesPagados();
-      renderMesesGrid();
+      await selectSocio(s);
     };
 
     cont.appendChild(b);
   });
 }
+
 // 🔼 FIN DE LA FUNCIÓN NUEVA 🔼
 
 
@@ -339,7 +408,8 @@ function renderSociosMini(query){
     renderMontoHint();
   }
 
-  function renderMontoHint() {
+  
+function renderMontoHint() {
   const el = $('montoHint');
   if (!el) return;
 
@@ -360,26 +430,23 @@ function renderSociosMini(query){
       return;
     }
     const totalParcial = montoNum * mesesSeleccionados.size;
-    el.textContent = `Total estimado parcial: $ ${totalParcial.toFixed(2)} (${mesesSeleccionados.size} mes/es x $ ${montoNum.toFixed(2)})`;
+    el.textContent = `Total estimado parcial: ${moneyARS(totalParcial)} (${mesesSeleccionados.size} mes/es x ${moneyARS(montoNum)})`;
     return;
   }
 
-  // Modo normal (no parcial): lógica anterior basada en cuotas por mes
-  let total = 0;
-  const faltan = [];
-  mesesSeleccionados.forEach((m) => {
-    const monto = cuotasMap.get(m);
-    if (monto == null) faltan.push(m);
-    else total += Number(monto);
-  });
-
-  if (faltan.length) {
-    el.textContent = `Falta configurar monto para meses: ${faltan.join(', ')}`;
+  // Modo normal: usa tarifa por mes (actividad o excepción)
+  if (!selectedSocioTarifa) {
+    el.textContent = 'No se pudo determinar el monto del socio (actividad/excepción).';
     return;
   }
 
-  el.textContent = `Total estimado: $ ${total.toFixed(2)} (según Configuración)`;
+  const montoPorMes = Number(selectedSocioTarifa.monto ?? 0) || 0;
+  const total = montoPorMes * mesesSeleccionados.size;
+  const tag = selectedSocioTarifa.tipo === 'excepcion' ? 'Excepción' : 'Actividad';
+
+  el.textContent = `Total estimado: ${moneyARS(total)} (${mesesSeleccionados.size} mes/es x ${moneyARS(montoPorMes)}) — ${tag}: ${selectedSocioTarifa.nombre}`;
 }
+
 
   async function savePago() {
   if (!selectedSocioId) return alert('Seleccioná un socio');
@@ -1050,7 +1117,7 @@ $('detTableBody')?.addEventListener('click', async (ev) => {
 
   // Resto de la inicialización (igual que antes)
   fillAnios();
-  await Promise.all([loadSociosAll(), loadCuotas()]);
+  await Promise.all([loadSociosAll(), loadCuotas(), loadActividadesConfig()]);
   await loadResumen();
 
   // Ingresos (debajo)
