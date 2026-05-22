@@ -171,7 +171,7 @@
         <div class="muted" id="montoHint"></div>
       </div>
 
-      <div class="modal-block" id="pagoParcialContainer" style="margin-top:12px;">
+      <div class="modal-block" id="pagoParcialContainer" style="margin-top:8px;">
         <label class="checkbox" style="display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="pagoParcialChk" />
           Pago parcial (monto fijo por mes)
@@ -186,7 +186,8 @@
             min="0"
             placeholder="Ej: 1500"
             disabled
-            style="max-width:160px;"
+            style="max-width:160px; height:32px;"
+
           />
         </div>
       </div>
@@ -360,16 +361,16 @@
     }
 
     .modal-block{
-      margin-top:12px;
+      margin-top:8px;
       display:flex;
       flex-direction:column;
-      gap:6px;
+      gap:4px;
     }
 
     .modal-row{
-      margin-top:12px;
+      margin-top:8px;
       align-items:flex-start;
-      gap:12px;
+      gap:8px;
       flex-wrap:wrap;
     }
 
@@ -384,13 +385,19 @@
     .meses-grid{
       display:grid;
       grid-template-columns: repeat(4, 1fr);
-      gap:10px;
+      gap:6px;
     }
+
+.meses-grid button{
+  padding:6px 0;
+  min-height:32px;
+  font-size:13px;
+}
 
     /* MODAL PAGO COMPACTO */
     #modalPago .modal-content{
       max-width:540px !important;
-      padding:16px 18px !important;
+      padding:12px 14px !important;
     }
 
     #socioSeleccionadoNombre{
