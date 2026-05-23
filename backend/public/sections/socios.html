@@ -467,10 +467,12 @@
 
 #modalSocio .modal-content {
   max-height: 90vh;
+  width: 92vw;          /* ✅ usa casi todo el ancho */
+  max-width: 1200px;    /* ✅ límite elegante en monitores grandes */
   overflow-y: auto;
   padding-bottom: 10px;
 }
-#modalSocio .modal-body {
+  #modalSocio .modal-body {
   max-height: calc(90vh - 170px);
   overflow-y: auto;
   padding-right: 8px;
@@ -508,14 +510,16 @@
   background: #fff;
   border: 1px solid rgba(0,0,0,.08);
   box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  width: 100%;
 }
+
 .socio-modal-modern h3{
   font-size: 18px;
   margin: 0 0 10px;
 }
 .socios-form-modern{
   display:grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px 14px;
   padding: 4px 2px 8px;
 }
