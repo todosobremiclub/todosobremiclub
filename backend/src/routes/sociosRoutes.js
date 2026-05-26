@@ -796,49 +796,52 @@ await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id }
     }
 
     const r = await db.query(
-      `
-      INSERT INTO socios (
-        club_id,
-        numero_socio,
-        dni,
-        nombre,
-        apellido,
-        telefono,
-direccion,
-email,
-fecha_nacimiento,
-        fecha_ingreso,
-        activo,
-        becado,
-        categoria,
-        actividad,
-excepcion_cuota_id,
-        es_menor,
-        tutor_nombre
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-      RETURNING *
-      `,
-      [
-        clubId,
-        nro,
-        String(dni),
-        String(nombre),
-        String(apellido),
-        telefono ?? null,
-direccion ?? null,
-(email ?? null),
-fecha_nacimiento,
-        fecha_ingreso ?? null,
-        !!activo,
-        !!becado,
-        String(categoria),
-        String(actividad),
-(excepcion_cuota_id ?? null),
-        !!es_menor,
-        (tutor_nombre ?? null)
-      ]
-    );
+  `
+  INSERT INTO socios (
+    club_id,
+    numero_socio,
+    dni,
+    nombre,
+    apellido,
+    telefono,
+    direccion,
+    email,
+    fecha_nacimiento,
+    fecha_ingreso,
+    activo,
+    becado,
+    categoria,
+    actividad,
+    excepcion_cuota_id,
+    es_menor,
+    tutor_nombre
+  )
+  VALUES (
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17
+  )
+  RETURNING *
+  `,
+  [
+    clubId,
+    nro,
+    String(dni),
+    String(nombre),
+    String(apellido),
+    telefono ?? null,
+    direccion ?? null,
+    email ?? null,
+    fecha_nacimiento,
+    fecha_ingreso ?? null,
+    !!activo,
+    !!becado,
+    String(categoria),
+    String(actividad),
+    (excepcion_cuota_id ?? null),
+    !!es_menor,
+    (tutor_nombre ?? null)
+  ]
+);
+
 
     await db.query('COMMIT');
     res.json({ ok: true, socio: r.rows[0] });
