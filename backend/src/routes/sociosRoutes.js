@@ -891,49 +891,49 @@ if (es_menor && !String(tutor_nombre || '').trim()) {
 await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id });
 
     const r = await db.query(
-      `
-      UPDATE socios SET
-        numero_socio     = $1,
-        dni              = $2,
-        nombre           = $3,
-        apellido         = $4,
-        telefono = $5,
-direccion = $6,
-email = $7,
-fecha_nacimiento = $8,
-fecha_ingreso = $9,
-activo = $10,
-becado = $11,
-categoria = $12,
-actividad = $13,
-excepcion_cuota_id = $14,
-es_menor = $15,
-tutor_nombre = $16
-WHERE id = $17 AND club_id = $18
-``
-      RETURNING *
-      `,
-      [
-        numero_socio,
-        dni,
-        nombre,
-        apellido,
-        telefono ?? null,
-direccion ?? null,
-(email ?? null),
-fecha_nacimiento,
-        fecha_ingreso ?? null,
-        !!activo,
-        !!becado,
-        categoria,
-        actividad,
-(excepcion_cuota_id ?? null),
-!!es_menor,
-        (tutor_nombre ?? null),
-        id,
-        clubId
-      ]
-    );
+  `
+  UPDATE socios SET
+    numero_socio = $1,
+    dni = $2,
+    nombre = $3,
+    apellido = $4,
+    telefono = $5,
+    direccion = $6,
+    email = $7,
+    fecha_nacimiento = $8,
+    fecha_ingreso = $9,
+    activo = $10,
+    becado = $11,
+    categoria = $12,
+    actividad = $13,
+    excepcion_cuota_id = $14,
+    es_menor = $15,
+    tutor_nombre = $16
+  WHERE id = $17 AND club_id = $18
+  RETURNING *
+  `,
+  [
+    numero_socio,
+    dni,
+    nombre,
+    apellido,
+    telefono ?? null,
+    direccion ?? null,
+    email ?? null,
+    fecha_nacimiento,
+    fecha_ingreso ?? null,
+    !!activo,
+    !!becado,
+    categoria,
+    actividad,
+    (excepcion_cuota_id ?? null),
+    !!es_menor,
+    (tutor_nombre ?? null),
+    id,
+    clubId,
+  ]
+);
+
 
     if (!r.rowCount) {
       return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
