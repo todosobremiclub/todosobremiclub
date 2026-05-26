@@ -139,40 +139,45 @@ if (tipoFinal === 'foto') {
 
 
     let foto_url = null;
-    if (foto_base64 && foto_mimetype){
-      const buffer = Buffer.from(foto_base64, 'base64');
-      const up = await uploadImageBuffer({
-        buffer,
-        mimetype: foto_mimetype,
-        originalname: 'postulacion.jpg',
-        folder: `clubs/${clubId}/postulaciones`
-      });
-      foto_url = up.url;
-    }
 
-    const r = await db.query(
-      INSERT INTO socios_pendientes
- (club_id, nombre, apellido, dni, actividad, categoria, telefono, direccion, fecha_nacimiento, foto_url, tipo, estado, created_at, updated_at)
-VALUES
- ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pendiente', now(), now())
-       RETURNING id`,
-      [
-  clubId,
-  // si es foto, usamos nombre/apellido del socio existente para que el admin lo reconozca
-  tipoFinal === 'foto' ? (rSoc.rows[0].nombre ?? null) : norm(nombre),
-  tipoFinal === 'foto' ? (rSoc.rows[0].apellido ?? null) : norm(apellido),
-  dniNorm,
-  tipoFinal === 'foto' ? null : norm(actividad),
-  tipoFinal === 'foto' ? null : norm(categoria),
-  tipoFinal === 'foto' ? null : (telefono ? norm(telefono) : null),
-  tipoFinal === 'foto' ? null : (direccion ? norm(direccion) : null),
-  tipoFinal === 'foto' ? null : fnISO,
-  foto_url,
-  tipoFinal
-]
-    );
+if (foto_base64 && foto_mimetype) {
+  const buffer = Buffer.from(foto_base64, 'base64');
+  const up = await uploadImageBuffer({
+    buffer,
+    mimetype: foto_mimetype,
+    originalname: 'postulacion.jpg',
+    folder: `clubs/${clubId}/postulaciones`
+  });
+  foto_url = up.url;
+}
 
-    res.json({ ok:true, id: r.rows[0].id });
+// 👇 Insertar en pendientes (incluye tipo)
+const r = await db.query(
+  `
+  INSERT INTO socios_pendientes
+    (club_id, nombre, apellido, dni, actividad, categoria, telefono, direccion, fecha_nacimiento, foto_url, tipo, estado, created_at, updated_at)
+  VALUES
+    ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pendiente', now(), now())
+  RETURNING id
+  `,
+  [
+    clubId,
+    // si es foto, usamos nombre/apellido del socio existente (rSoc viene de arriba)
+    (tipoFinal === 'foto' ? (rSoc.rows[0].nombre ?? null) : norm(nombre)),
+    (tipoFinal === 'foto' ? (rSoc.rows[0].apellido ?? null) : norm(apellido)),
+    dniNorm,
+    (tipoFinal === 'foto' ? null : norm(actividad)),
+    (tipoFinal === 'foto' ? null : norm(categoria)),
+    (tipoFinal === 'foto' ? null : (telefono ? norm(telefono) : null)),
+    (tipoFinal === 'foto' ? null : (direccion ? norm(direccion) : null)),
+    (tipoFinal === 'foto' ? null : fnISO),
+    foto_url,
+    tipoFinal
+  ]
+);
+
+return res.json({ ok: true, id: r.rows[0].id });
+
   }catch(e){
     console.error('❌ apply post', e);
     res.status(500).json({ ok:false, error:e.message });
