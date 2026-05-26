@@ -100,10 +100,18 @@ const tipoFinal = String(tipo ?? 'alta').trim().toLowerCase() === 'foto'
 
 
 
-    const fnISO = parseInputDateToISO(fecha_nacimiento);
-if (!fnISO){
-  return res.status(400).json({ ok:false, error:'fecha_nacimiento inválida' });
+    let fnISO = null;
+
+if (tipoFinal === 'alta') {
+  fnISO = parseInputDateToISO(fecha_nacimiento);
+  if (!fnISO){
+    return res.status(400).json({
+      ok: false,
+      error: 'fecha_nacimiento inválida'
+    });
+  }
 }
+``
 
     // Validar DNI contra socios existentes
 const rSoc = await db.query(
