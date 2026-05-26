@@ -962,6 +962,8 @@ function setExcepcionUI(usa) {
 
   $('socioTelefono').value = '';
   $('socioDireccion').value = '';
+$('socioEmail').value = '';
+
 
   $('socioNacimiento').value = '';
   $('socioIngreso').value = '';
@@ -1022,6 +1024,7 @@ setExcepcionUI(false);
     $('socioActividad').value = socio.actividad ?? '';
     ensureActividadOption(socio.actividad);
     $('socioDireccion').value = socio.direccion ?? '';
+$('socioEmail').value = socio.email ?? '';
 
     const catSel = $('socioCategoria');
     if (catSel) catSel.dataset.pendingValue = (socio.categoria ?? '').toString();
@@ -1555,9 +1558,12 @@ excepcion_cuota_id: $('socioUsaExcepcion')?.checked
   ? ($('socioExcepcionCuota')?.value || null)
   : null,
 
-      telefono: $('socioTelefono').value.trim() || null,
-      direccion: $('socioDireccion').value.trim() || null,
-      fecha_nacimiento: $('socioNacimiento').value,
+      
+telefono: $('socioTelefono').value.trim() || null,
+direccion: $('socioDireccion').value.trim() || null,
+email: $('socioEmail').value.trim() || null,
+fecha_nacimiento: $('socioNacimiento').value,
+
       fecha_ingreso: $('socioIngreso').value || null,
       activo: $('socioActivo').checked,
       becado: $('socioBecado').checked

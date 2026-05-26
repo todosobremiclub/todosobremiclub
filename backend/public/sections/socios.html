@@ -142,16 +142,21 @@
 
           <!-- Wrap que se deshabilita cuando hay excepción -->
           <div id="socioActividadWrap" class="col-span-4">
-            <div class="grid-2">
-              <div>
-                <label>Teléfono</label>
-                <input id="socioTelefono" type="text">
-              </div>
-              <div>
-                <label>Dirección</label>
-                <input id="socioDireccion" type="text">
-              </div>
-            </div>
+            <div class="grid-3">
+  <div>
+    <label>Teléfono</label>
+    <input id="socioTelefono" type="text">
+  </div>
+  <div>
+    <label>Dirección</label>
+    <input id="socioDireccion" type="text">
+  </div>
+  <div>
+    <label>Correo electrónico</label>
+    <input id="socioEmail" type="email" placeholder="ej: socio@correo.com">
+  </div>
+</div>
+
 
             <div class="grid-2" style="margin-top:10px;">
               <div>
@@ -553,10 +558,18 @@
   grid-template-columns: 1fr 1fr;
   gap: 12px 14px;
 }
+
+.grid-3{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px 14px;
+}
+
 @media (max-width: 900px){
   .socios-form-modern{ grid-template-columns: repeat(2, 1fr); }
   .col-span-4,.col-span-3,.col-span-2{ grid-column: span 2; }
   .grid-2{ grid-template-columns: 1fr; }
+.grid-3{ grid-template-columns: 1fr; }
 }
 .apellido-menor{
   display:flex;
