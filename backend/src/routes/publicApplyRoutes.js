@@ -76,6 +76,10 @@ router.post('/club/:clubId/apply', async (req, res) => {
   tipo
 } = req.body ?? {};
 
+const tipoFinal = String(tipo ?? 'alta').trim().toLowerCase() === 'foto'
+  ? 'foto'
+  : 'alta';
+
 
     const dniNorm = onlyDigits(dni);
     if (tipoFinal === 'foto') {
@@ -93,9 +97,7 @@ router.post('/club/:clubId/apply', async (req, res) => {
 }
 
 
-const tipoFinal = String(tipo ?? 'alta').trim().toLowerCase() === 'foto'
-  ? 'foto'
-  : 'alta';
+
 
 
     const fnISO = parseInputDateToISO(fecha_nacimiento);

@@ -120,43 +120,49 @@
     </div>
 
     <!-- ================= FORM ALTA ================= -->
-    <div id="formAlta">
+    <!-- DNI SIEMPRE VISIBLE -->
+<div class="row">
+  <div>
+    <label>DNI</label>
+    <input id="dni" inputmode="numeric"/>
+  </div>
+</div>
 
-      <div class="row">
-        <div>
-          <label>Nombre</label>
-          <input id="nombre"/>
-        </div>
-        <div>
-          <label>Apellido</label>
-          <input id="apellido"/>
-        </div>
-      </div>
+<!-- SOLO PARA ALTA -->
+<div id="formAlta">
 
-      <div class="row">
-        <div>
-          <label>DNI</label>
-          <input id="dni" inputmode="numeric"/>
-        </div>
-        <div>
-          <label>Teléfono</label>
-          <input id="telefono"/>
-        </div>
-      </div>
-
-      <label>Actividad</label>
-      <select id="actividad"></select>
-
-      <label>Categoría</label>
-      <select id="categoria"></select>
-
-      <label>Dirección</label>
-      <input id="direccion"/>
-
-      <label>Fecha de Nacimiento</label>
-      <input id="fecha_nacimiento" type="date"/>
-
+  <div class="row">
+    <div>
+      <label>Nombre</label>
+      <input id="nombre"/>
     </div>
+    <div>
+      <label>Apellido</label>
+      <input id="apellido"/>
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Teléfono</label>
+      <input id="telefono"/>
+    </div>
+  </div>
+
+  <label>Actividad</label>
+  <select id="actividad"></select>
+
+  <label>Categoría</label>
+  <select id="categoria"></select>
+
+  <label>Dirección</label>
+  <input id="direccion"/>
+
+  <label>Fecha de Nacimiento</label>
+  <input id="fecha_nacimiento" type="date"/>
+
+</div>
+
     <!-- ================= FIN FORM ALTA ================= -->
 
     <!-- ================= FOTO (SIEMPRE VISIBLE) ================= -->
