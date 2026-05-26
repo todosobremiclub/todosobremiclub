@@ -20,7 +20,7 @@ router.get('/:clubId/pendientes', requireAuth, requireClubAccess, async (req, re
     const { clubId } = req.params;
     const r = await db.query(
       `SELECT id, nombre, apellido, dni, actividad, categoria, telefono, direccion,
-              fecha_nacimiento, foto_url, estado, created_at
+              fecha_nacimiento, foto_url, tipo, estado, created_at
        FROM socios_pendientes
        WHERE club_id=$1 AND estado='pendiente'
        ORDER BY created_at DESC`,
@@ -77,15 +77,55 @@ router.post('/:clubId/pendientes/:id/aceptar', requireAuth, requireClubAccess, a
     }
     const p = rP.rows[0];
 
-    // 2) Validar duplicado DNI contra socios
-    const rDup = await db.query(
-      `SELECT 1 FROM socios WHERE club_id=$1 AND dni=$2 LIMIT 1`,
-      [clubId, p.dni]
-    );
-    if (rDup.rowCount) {
-      await db.query('ROLLBACK');
-      return res.status(409).json({ ok: false, error: 'Ya existe un socio con ese DNI' });
-    }
+const tipo = String(p.tipo ?? 'alta').toLowerCase();
+
+
+    // 2) Validación según tipo
+const rSoc = await db.query(
+  `SELECT id, numero_socio, foto_url FROM socios WHERE club_id=$1 AND dni=$2 LIMIT 1`,
+  [clubId, p.dni]
+);
+
+if (tipo === 'foto') {
+  if (!rSoc.rowCount) {
+    await db.query('ROLLBACK');
+    return res.status(404).json({ ok:false, error:'No existe socio con ese DNI' });
+  }
+  if (!p.foto_url) {
+    await db.query('ROLLBACK');
+    return res.status(400).json({ ok:false, error:'La postulación no trae foto para aplicar' });
+  }
+
+  // Actualizar foto del socio existente
+  const socioId = rSoc.rows[0].id;
+  await db.query(
+    `UPDATE socios SET foto_url = $1, updated_at = NOW() WHERE id = $2 AND club_id = $3`,
+    [p.foto_url, socioId, clubId]
+  );
+
+  // Marcar pendiente como aceptado
+  await db.query(
+    `UPDATE socios_pendientes
+     SET estado='aceptado', updated_at=now()
+     WHERE id=$1 AND club_id=$2`,
+    [id, clubId]
+  );
+
+  await db.query('COMMIT');
+  return res.json({
+    ok:true,
+    modo:'foto',
+    socioId,
+    numero_socio: rSoc.rows[0].numero_socio
+  });
+}
+
+// alta normal: si ya existe, conflicto
+if (rSoc.rowCount) {
+  await db.query('ROLLBACK');
+  return res.status(409).json({ ok: false, error: 'Ya existe un socio con ese DNI' });
+}
+
 
     // 3) Asegurar counter
 await db.query(
