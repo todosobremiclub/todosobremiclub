@@ -60,10 +60,11 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
         socios_cantidad,
         valor_mensual,
         estado,
+mp_habilitado,
 (
-  SELECT COUNT(*)
-  FROM socios s
-  WHERE s.club_id = clubs.id
+ SELECT COUNT(*)
+ FROM socios s
+ WHERE s.club_id = clubs.id
 ) AS socios_activos,
 
         logo_url, 
@@ -105,7 +106,8 @@ router.post(
         estado,
         color_primary,
         color_secondary,
-        color_accent
+        color_accent,
+        mp_habilitado
       } = req.body ?? {};
 
       if (!name?.trim()) {
@@ -140,45 +142,49 @@ router.post(
 
       const r = await db.query(
         `
-        INSERT INTO clubs (
-          name,
-          address,
-          city,
-          province,
-          contact_name,
-          contact_phone,
-          instagram_url,
-          socios_cantidad,
-          valor_mensual,
-          estado,
-          logo_url,
-          background_url,
-          color_primary,
-          color_secondary,
-          color_accent,
-          apply_token
-        )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-        RETURNING *
+        
+INSERT INTO clubs (
+ name,
+ address,
+ city,
+ province,
+ contact_name,
+ contact_phone,
+ instagram_url,
+ socios_cantidad,
+ valor_mensual,
+ estado,
+ mp_habilitado,
+ logo_url,
+ background_url,
+ color_primary,
+ color_secondary,
+ color_accent,
+ apply_token
+)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+RETURNING *
+
         `,
         [
-          name.trim(),
-          address ?? null,
-          city ?? null,
-          province ?? null,
-          contact_name ?? null,
-          contact_phone ?? null,
-          instagram_url ?? null,
-          socios_cantidad ? Number(socios_cantidad) : null,
-          valor_mensual ? Number(valor_mensual) : null,
-          normalizeClubEstado(estado),
-          logo_url,
-          background_url,
-          color_primary ?? '#2563eb',
-          color_secondary ?? '#1e40af',
-          color_accent ?? '#facc15',
-          apply_token
-        ]
+ name.trim(),
+ address ?? null,
+ city ?? null,
+ province ?? null,
+ contact_name ?? null,
+ contact_phone ?? null,
+ instagram_url ?? null,
+ socios_cantidad ? Number(socios_cantidad) : null,
+ valor_mensual ? Number(valor_mensual) : null,
+ normalizeClubEstado(estado),
+ mp_habilitado === true,
+ logo_url,
+ background_url,
+ color_primary ?? '#2563eb',
+ color_secondary ?? '#1e40af',
+ color_accent ?? '#facc15',
+ apply_token
+]
       );
 
       res.json({ ok: true, club: r.rows[0] });
@@ -199,20 +205,21 @@ router.put(
     try {
       const { id } = req.params;
       const {
-        name,
-        address,
-        city,
-        province,
-        contact_name,
-        contact_phone,
-        instagram_url,
-        socios_cantidad,
-        valor_mensual,
-        estado,
-        color_primary,
-        color_secondary,
-        color_accent
-      } = req.body ?? {};
+ name,
+ address,
+ city,
+ province,
+ contact_name,
+ contact_phone,
+ instagram_url,
+ socios_cantidad,
+ valor_mensual,
+ estado,
+ color_primary,
+ color_secondary,
+ color_accent,
+ mp_habilitado
+} = req.body ?? {};
 
       if (!name?.trim()) {
         return res.status(400).json({ ok: false, error: 'Falta name' });
@@ -263,32 +270,35 @@ router.put(
           socios_cantidad = $8,
           valor_mensual = $9,
           estado = COALESCE($10, estado),
-          logo_url = COALESCE($11, logo_url),
-          background_url = COALESCE($12, background_url),
-          color_primary = COALESCE($13, color_primary),
-          color_secondary = COALESCE($14, color_secondary),
-          color_accent = COALESCE($15, color_accent)
-        WHERE id = $16
+mp_habilitado = COALESCE($11, mp_habilitado),
+logo_url = COALESCE($12, logo_url),
+background_url = COALESCE($13, background_url),
+color_primary = COALESCE($14, color_primary),
+color_secondary = COALESCE($15, color_secondary),
+color_accent = COALESCE($16, color_accent)
+WHERE id = $17
         RETURNING *
         `,
         [
-          name.trim(),
-          address ?? null,
-          city ?? null,
-          province ?? null,
-          contact_name ?? null,
-          contact_phone ?? null,
-          instagram_url ?? null,
-          socios_cantidad ? Number(socios_cantidad) : null,
-          valor_mensual ? Number(valor_mensual) : null,
-          normalizeClubEstado(estado),
-          logo_url,
-          background_url,
-          color_primary,
-          color_secondary,
-          color_accent,
-          id
-        ]
+ name.trim(),
+ address ?? null,
+ city ?? null,
+ province ?? null,
+ contact_name ?? null,
+ contact_phone ?? null,
+ instagram_url ?? null,
+ socios_cantidad ? Number(socios_cantidad) : null,
+ valor_mensual ? Number(valor_mensual) : null,
+ normalizeClubEstado(estado),
+ typeof mp_habilitado === 'boolean' ? mp_habilitado : null,
+ logo_url,
+ background_url,
+ color_primary,
+ color_secondary,
+ color_accent,
+ id
+]
+
       );
 
       res.json({ ok: true, club: r.rows[0] });

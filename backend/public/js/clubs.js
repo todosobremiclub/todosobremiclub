@@ -151,6 +151,10 @@ function renderEstadoBadge(v) {
     if ($('club_color_accent') && !$('club_color_accent').value)
       $('club_color_accent').value = '#facc15';
 
+if ($('club_mp_habilitado')) {
+  $('club_mp_habilitado').checked = false;
+}
+
     setEditMode(false);
   }
 
@@ -356,6 +360,12 @@ function renderEstadoBadge(v) {
     fd.append('valor_mensual', $('club_valor_mensual')?.value?.trim() || '');
 fd.append('estado', $('club_estado')?.value?.trim() || 'pendiente');
 
+fd.append(
+  'mp_habilitado',
+  $('club_mp_habilitado')?.checked ? 'true' : 'false'
+);
+
+
     // colores
     fd.append('color_primary', color_primary || '#2563eb');
     fd.append('color_secondary', color_secondary || '#1e40af');
@@ -413,6 +423,11 @@ fd.append('estado', $('club_estado')?.value?.trim() || 'pendiente');
     if ($('club_valor_mensual')) $('club_valor_mensual').value = c.valor_mensual ?? '';
 if ($('club_estado')) $('club_estado').value = (c.estado ?? 'pendiente');
 if ($('club_socios_activos')) $('club_socios_activos').value = (c.socios_activos ?? '');
+
+if ($('club_mp_habilitado')) {
+  $('club_mp_habilitado').checked = c.mp_habilitado === true;
+}
+
 
     const p = c.color_primary ?? '#2563eb';
     const s = c.color_secondary ?? '#1e40af';
