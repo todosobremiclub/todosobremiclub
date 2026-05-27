@@ -36,6 +36,15 @@ function normalizeClubEstado(v) {
   return 'pendiente';
 }
 
+function toBool(v, def = false) {
+  if (typeof v === 'boolean') return v;
+  const s = String(v ?? '').trim().toLowerCase();
+  if (s === 'true' || s === '1' || s === 'si' || s === 'sí') return true;
+  if (s === 'false' || s === '0' || s === 'no') return false;
+  return def;
+}
+
+
 // =============================
 // Multer en memoria (multipart)
 // =============================
@@ -177,7 +186,7 @@ RETURNING *
  socios_cantidad ? Number(socios_cantidad) : null,
  valor_mensual ? Number(valor_mensual) : null,
  normalizeClubEstado(estado),
- mp_habilitado === true,
+ toBool(mp_habilitado, false),
  logo_url,
  background_url,
  color_primary ?? '#2563eb',
@@ -277,27 +286,29 @@ color_primary = COALESCE($14, color_primary),
 color_secondary = COALESCE($15, color_secondary),
 color_accent = COALESCE($16, color_accent)
 WHERE id = $17
-        RETURNING *
+RETURNING *
         `,
         [
- name.trim(),
- address ?? null,
- city ?? null,
- province ?? null,
- contact_name ?? null,
- contact_phone ?? null,
- instagram_url ?? null,
- socios_cantidad ? Number(socios_cantidad) : null,
- valor_mensual ? Number(valor_mensual) : null,
- normalizeClubEstado(estado),
- typeof mp_habilitado === 'boolean' ? mp_habilitado : null,
- logo_url,
- background_url,
- color_primary,
- color_secondary,
- color_accent,
- id
+  name.trim(),
+  address ?? null,
+  city ?? null,
+  province ?? null,
+  contact_name ?? null,
+  contact_phone ?? null,
+  instagram_url ?? null,
+  socios_cantidad ? Number(socios_cantidad) : null,
+  valor_mensual ? Number(valor_mensual) : null,
+  normalizeClubEstado(estado),
+  toBool(mp_habilitado, false),
+  logo_url,
+  background_url,
+  color_primary,
+  color_secondary,
+  color_accent,
+  id
 ]
+
+
 
       );
 
