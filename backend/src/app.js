@@ -20,6 +20,8 @@ const authRoutes = require('./routes/authRoutes');
 const adminClubsRoutes = require('./routes/adminClubsRoutes');
 const adminUsersRoutes = require('./routes/adminUsersRoutes');
 const configuracionRoutes = require('./routes/configuracionRoutes');
+const mercadoPagoRoutes = require('./routes/mercadoPagoRoutes');
+
 
 // ===== API =====
 app.use('/auth', authRoutes);
@@ -34,6 +36,9 @@ app.use('/club', require('./routes/cumplesRoutes'));
 app.use('/club', require('./routes/pagosRoutes'));
 app.use('/club', require('./routes/reportesRoutes'));
 app.use('/club', require('./routes/noticiasRoutes'));
+
+app.use('/mp', mercadoPagoRoutes);
+
 
 // ✅ NUEVO
 app.use('/club', require('./routes/notificacionesRoutes'));
