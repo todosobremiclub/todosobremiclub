@@ -469,3 +469,80 @@ body{ margin:0; color:var(--white); background:#0b0b0b; overflow-x:hidden; }
     bottom: 8px;
   }
 }
+
+/* ==============================
+   MOBILE – SOLUCIÓN DEFINITIVA
+============================== */
+@media (max-width: 640px){
+
+  /* Layout en una columna */
+  .hero-split{
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .hero-text{
+    text-align: center;
+  }
+
+  /* HERO: altura estable */
+  .hero{
+    padding: 28px 20px 40px;
+  }
+
+  /* Ocultar superposiciones */
+  .phone,
+  .app-mockup-dual .app-phone:not(:first-child){
+    display: none !important;
+  }
+
+  /* Mockups centrados */
+  .hero-mockup{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* NOTEBOOK (slide 1 y 2) */
+  .laptop,
+  .laptop-gestion{
+    max-width: 300px;
+    transform: none;
+    margin: 0 auto;
+  }
+
+  /* Gestión: mostrar SOLO una captura */
+  .gestion-grid{
+    grid-template-columns: 1fr;
+  }
+
+  .gestion-grid img:not(:first-child){
+    display: none;
+  }
+
+  /* APP: mostrar SOLO App1 */
+  .app-mockup-dual{
+    max-width: 260px;
+    height: auto;
+    justify-content: center;
+  }
+
+  .app-phone{
+    width: 200px;
+    height: 380px;
+    transform: none;
+    margin: 0 auto;
+  }
+
+  /* Flechas más chicas */
+  .hero-nav{
+    width: 34px;
+    height: 34px;
+    font-size: 22px;
+  }
+
+  /* Dots bien visibles */
+  .hero-dots{
+    bottom: 10px;
+  }
+}
