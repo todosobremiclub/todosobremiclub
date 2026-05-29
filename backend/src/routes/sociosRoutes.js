@@ -672,37 +672,35 @@ const becado = parseBoolSI(row.getCell(13).value, false);  // M
       // 5) Insertar uno por uno
       let insertedCount = 0;
 
-      for (const s of toInsert) {
-        try {
-          const rIns = await db.query(
-            `INSERT INTO socios (
-  club_id, numero_socio, dni, nombre, apellido,
-  telefono, direccion, email,
-  fecha_nacimiento, fecha_ingreso,
-  activo, becado, categoria, actividad
-) VALUES (
-  $1,$2,$3,$4,$5,
-  $6,$7,$8,
-  $9,$10,
-  $11,$12,$13,$14
-) RETURNING id`
-            [
-  clubId,
-  s.numero_socio,
-  s.dni,
-  s.nombre,
-  s.apellido,
-  s.telefono,
-  s.direccion,
-  s.email,
-  s.fecha_nacimiento,
-  s.fecha_ingreso,
-  s.activo,
-  s.becado,
-  s.categoria,
-  s.actividad
-]
-          );
+      const rIns = await db.query(
+  `INSERT INTO socios (
+    club_id, numero_socio, dni, nombre, apellido,
+    telefono, direccion, email,
+    fecha_nacimiento, fecha_ingreso,
+    activo, becado, categoria, actividad
+  ) VALUES (
+    $1,$2,$3,$4,$5,
+    $6,$7,$8,
+    $9,$10,
+    $11,$12,$13,$14
+  ) RETURNING id`,
+  [
+    clubId,
+    s.numero_socio,
+    s.dni,
+    s.nombre,
+    s.apellido,
+    s.telefono,
+    s.direccion,
+    s.email,
+    s.fecha_nacimiento,
+    s.fecha_ingreso,
+    s.activo,
+    s.becado,
+    s.categoria,
+    s.actividad
+  ]
+);
           if (rIns.rowCount) insertedCount++;
         } catch (e) {
           errors.push({
