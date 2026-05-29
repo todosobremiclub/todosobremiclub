@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TSMC · Todo Sobre Mi Club</title>
 
-  <!-- Fuente moderna -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;500;700;800&display=swap" rel="stylesheet">
@@ -15,7 +14,6 @@
 
 <body>
 
-  <!-- Fondo animado -->
   <canvas id="bg-canvas" aria-hidden="true"></canvas>
 
   <!-- HEADER -->
@@ -44,23 +42,19 @@
     </div>
   </header>
 
-  <!-- CONTENIDO -->
   <main class="wrapper">
 
-    <!-- ===== HERO COMO CARRUSEL ===== -->
+    <!-- HERO = CARRUSEL -->
     <section class="hero hero-carousel">
 
-      <!-- Flechas -->
-      <button class="hero-nav prev" aria-label="Anterior">‹</button>
-      <button class="hero-nav next" aria-label="Siguiente">›</button>
+      <button class="hero-nav prev" type="button">‹</button>
+      <button class="hero-nav next" type="button">›</button>
 
       <div class="hero-track">
 
-        <!-- ===== SLIDE 1 (ACTUAL) ===== -->
-        <div class="hero-slide active">
+        <!-- ===== SLIDE 1 ===== -->
+        <article class="hero-slide">
           <div class="hero-split">
-
-            <!-- TEXTO -->
             <div class="hero-text">
               <h1>
                 <strong>TSMC</strong><br>
@@ -75,19 +69,15 @@
                 Reportes claros en tiempo real
               </p>
 
-              <button class="btn" data-open-form>
-                Solicitá tu instancia de prueba
-              </button>
+              <button class="btn" data-open-form>Solicitá tu instancia de prueba</button>
             </div>
 
-            <!-- IMAGEN -->
             <div class="hero-mockup">
               <div class="mockups">
-
                 <div class="laptop">
                   <div class="laptop-top"><div class="laptop-camera"></div></div>
                   <div class="laptop-screen">
-                    <img src="img/app-preview.png" alt="Plataforma Web">
+                    <img src="img/app-preview.png" alt="">
                   </div>
                   <div class="laptop-base"></div>
                 </div>
@@ -95,102 +85,106 @@
                 <div class="phone">
                   <div class="phone-notch"></div>
                   <div class="phone-screen">
-                    <img src="img/socio-preview.jpeg" alt="App del socio">
+                    <img src="img/socio-preview.jpeg" alt="">
                   </div>
                   <div class="phone-btn"></div>
                 </div>
-
               </div>
             </div>
-
           </div>
-        </div>
+        </article>
 
-        <!-- ===== SLIDE 2 (GESTIÓN WEB) ===== -->
-        <div class="hero-slide">
+        <!-- ===== SLIDE 2 ===== -->
+        <article class="hero-slide">
           <div class="hero-split">
-
-            <!-- TEXTO -->
             <div class="hero-text">
-              <h1>
-                Módulo<br>
-                <span>Gestión Web del Club</span>
-              </h1>
-
-              <p class="hero-list">
-                Toda la información del club en un solo lugar.
-              </p>
-
-              <button class="btn" data-open-form>
-                Solicitá tu instancia de prueba
-              </button>
+              <h1>Módulo<br><span>Gestión Web del Club</span></h1>
+              <p class="hero-list">Toda la información del club en un solo lugar.</p>
+              <button class="btn" data-open-form>Solicitá tu instancia de prueba</button>
             </div>
 
-            <!-- IMAGEN -->
             <div class="hero-mockup">
-              <div class="laptop">
+              <div class="laptop laptop-gestion">
                 <div class="laptop-top"><div class="laptop-camera"></div></div>
                 <div class="laptop-screen">
-                  <img src="img/Gestion1.png" alt="Gestión Web del Club">
+                  <div class="gestion-grid">
+                    <img src="img/Gestion1.png">
+                    <img src="img/Gestion2.png">
+                    <img src="img/Gestion3.png">
+                    <img src="img/Gestion4.png">
+                  </div>
                 </div>
                 <div class="laptop-base"></div>
               </div>
             </div>
-
           </div>
+        </article>
+<!-- ===== SLIDE 3 (APP – limpio y balanceado) ===== -->
+<article class="hero-slide">
+  <div class="hero-split">
+
+    <div class="hero-text">
+      <h1>
+        App del Club<br>
+        <span>en tu celular</span>
+      </h1>
+
+      <p class="hero-list">
+        Toda la información de tu club a la palma de la mano
+      </p>
+
+      <button class="btn" data-open-form>
+        Solicitá tu instancia de prueba
+      </button>
+    </div>
+
+    <div class="hero-mockup">
+      <div class="app-mockup app-mockup-dual">
+
+        <div class="app-phone">
+          <img src="img/App1.jpeg" alt="App del Club - Credencial digital">
         </div>
 
+        <div class="app-phone">
+          <img src="img/App4.jpeg" alt="App del Club - Información del socio">
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</article>
+
+
+      </div>
+
+      <div class="hero-dots">
+        <button class="dot active"></button>
+        <button class="dot"></button>
+        <button class="dot"></button>
       </div>
     </section>
 
   </main>
 
   <!-- MODAL -->
-  <div class="modal-overlay" id="demo-modal" aria-hidden="true">
+  <div class="modal-overlay" id="demo-modal">
     <div class="modal-card">
-      <button class="modal-close" aria-label="Cerrar">×</button>
+      <button class="modal-close">×</button>
       <h2>Solicitá tu instancia de prueba</h2>
-
       <form id="demo-form">
         <input type="text" name="nombre" placeholder="Nombre y Apellido" required>
         <input type="text" name="club" placeholder="Nombre del Club" required>
         <input type="number" name="socios" placeholder="Cantidad aproximada de socios" required>
         <input type="tel" name="telefono" placeholder="Teléfono de contacto" required>
-        <button type="submit" class="btn">Enviar solicitud</button>
+        <button class="btn">Enviar solicitud</button>
       </form>
     </div>
   </div>
 
-  <!-- SCRIPTS -->
-  
-<script src="bg.js"></script>
-<script src="form.js"></script>
-<script src="carousel.js"></script>
-
-
-  <!-- JS HERO CAROUSEL -->
-  <script>
-    const track = document.querySelector(".hero-track");
-    const slides = document.querySelectorAll(".hero-slide");
-    const prev = document.querySelector(".hero-nav.prev");
-    const next = document.querySelector(".hero-nav.next");
-
-    let index = 0;
-
-    function updateHero(){
-      track.style.transform = `translateX(-${index * 100}%)`;
-    }
-
-    prev.addEventListener("click", () => {
-      index = (index - 1 + slides.length) % slides.length;
-      updateHero();
-    });
-
-    next.addEventListener("click", () => {
-      index = (index + 1) % slides.length;
-      updateHero();
-    });
-  </script>
+  <script src="bg.js"></script>
+  <script src="form.js"></script>
+  <script src="carousel.js"></script>
 
 </body>
 </html>
