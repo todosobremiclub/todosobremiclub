@@ -23,7 +23,7 @@ const adminUsersRoutes = require('./routes/adminUsersRoutes');
 const configuracionRoutes = require('./routes/configuracionRoutes');
 const mercadoPagoRoutes = require('./routes/mercadoPagoRoutes');
 
-const nodemailer = require("nodemailer");
+
 
 app.post("/api/demo-request", async (req, res) => {
   try {
