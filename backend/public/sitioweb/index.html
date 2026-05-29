@@ -39,7 +39,6 @@
         </svg>
       </a>
 
-      <!-- CTA -->
       <button class="btn-outline" data-open-form>
         Solicitá tu instancia de prueba
       </button>
@@ -66,13 +65,12 @@
           Reportes claros en tiempo real
         </p>
 
-        <!-- ESTE BOTÓN TAMBIÉN ABRE EL MODAL -->
         <button class="btn" data-open-form>
           Solicitá tu instancia de prueba
         </button>
       </div>
 
-      <!-- MOCKUPS -->
+      <!-- MOCKUPS HERO -->
       <div class="hero-mockup">
         <div class="mockups">
 
@@ -81,11 +79,9 @@
             <div class="laptop-top">
               <div class="laptop-camera"></div>
             </div>
-
             <div class="laptop-screen">
               <img src="img/app-preview.png" alt="Vista de la plataforma en notebook">
             </div>
-
             <div class="laptop-base"></div>
           </div>
 
@@ -100,7 +96,71 @@
 
         </div>
       </div>
+    </section>
 
+    <!-- ===== MODULO / CARRUSEL ===== -->
+    <section class="modules">
+
+      <div class="modules-header">
+        <h2>Módulo Gestión Web del Club</h2>
+        <p>Toda la información del club en un solo lugar.</p>
+      </div>
+
+      <div class="carousel">
+
+        <button class="carousel-btn prev" aria-label="Anterior">‹</button>
+
+        <div class="carousel-track">
+
+          <!-- SLIDE 1 -->
+          <div class="carousel-slide active">
+            <div class="laptop">
+              <div class="laptop-top"><div class="laptop-camera"></div></div>
+              <div class="laptop-screen">
+                <img src="img/Gestion1.png" alt="Gestión Web - Dashboard">
+              </div>
+              <div class="laptop-base"></div>
+            </div>
+          </div>
+
+          <!-- SLIDE 2 -->
+          <div class="carousel-slide">
+            <div class="laptop">
+              <div class="laptop-top"><div class="laptop-camera"></div></div>
+              <div class="laptop-screen">
+                <img src="img/Gestion2.png" alt="Gestión Web - Socios">
+              </div>
+              <div class="laptop-base"></div>
+            </div>
+          </div>
+
+          <!-- SLIDE 3 -->
+          <div class="carousel-slide">
+            <div class="laptop">
+              <div class="laptop-top"><div class="laptop-camera"></div></div>
+              <div class="laptop-screen">
+                <img src="img/Gestion3.png" alt="Gestión Web - Agenda">
+              </div>
+              <div class="laptop-base"></div>
+            </div>
+          </div>
+
+          <!-- SLIDE 4 -->
+          <div class="carousel-slide">
+            <div class="laptop">
+              <div class="laptop-top"><div class="laptop-camera"></div></div>
+              <div class="laptop-screen">
+                <img src="img/Gestion4.png" alt="Gestión Web - Pagos">
+              </div>
+              <div class="laptop-base"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <button class="carousel-btn next" aria-label="Siguiente">›</button>
+
+      </div>
     </section>
 
     <!-- FEATURES -->
@@ -109,12 +169,10 @@
         <h3>Gestión clara</h3>
         <p>Socios, pagos, actividades y administración en un solo lugar.</p>
       </div>
-
       <div class="feature">
         <h3>Comunicación</h3>
         <p>Noticias, notificaciones y agenda para que el club esté conectado.</p>
       </div>
-
       <div class="feature">
         <h3>Experiencia digital</h3>
         <p>Diseñado como producto: simple, rápido y escalable.</p>
@@ -123,11 +181,10 @@
 
   </main>
 
-  <!-- MODAL (AHORA SÍ, DENTRO DEL BODY) -->
+  <!-- MODAL -->
   <div class="modal-overlay" id="demo-modal" aria-hidden="true">
     <div class="modal-card">
       <button class="modal-close" aria-label="Cerrar">×</button>
-
       <h2>Solicitá tu instancia de prueba</h2>
 
       <form id="demo-form">
@@ -135,10 +192,7 @@
         <input type="text" name="club" placeholder="Nombre del Club" required>
         <input type="number" name="socios" placeholder="Cantidad aproximada de socios" required>
         <input type="tel" name="telefono" placeholder="Teléfono de contacto" required>
-
-        <button type="submit" class="btn btn-submit">
-          Enviar solicitud
-        </button>
+        <button type="submit" class="btn">Enviar solicitud</button>
       </form>
     </div>
   </div>
@@ -146,6 +200,7 @@
   <!-- SCRIPTS -->
   <script src="bg.js"></script>
   <script src="form.js"></script>
+  <script src="carousel.js"></script>
 
 </body>
 </html>

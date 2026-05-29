@@ -446,4 +446,66 @@ body{
     right: 4px;
   }
 }
-``
+
+/* ==============================
+   MODULOS / CARRUSEL
+============================== */
+.modules{
+  margin-top: 80px;
+  text-align: center;
+}
+
+.modules-header h2{
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.modules-header p{
+  color: var(--text-muted);
+  margin-bottom: 40px;
+}
+
+/* Carrusel */
+.carousel{
+  position: relative;
+  max-width: 900px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.carousel-track{
+  display: flex;
+  transition: transform .6s ease;
+}
+
+.carousel-slide{
+  min-width: 100%;
+  display: flex;
+  justify-content: center;
+  opacity: 0.3;
+  transform: scale(0.96);
+  transition: opacity .4s ease, transform .4s ease;
+}
+
+.carousel-slide.active{
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Botones */
+.carousel-btn{
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+  color: #fff;
+  font-size: 32px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.carousel-btn.prev{ left: 0; }
+.carousel-btn.next{ right: 0; }
