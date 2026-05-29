@@ -341,7 +341,7 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
 
     // Header style
     ws.getRow(1).font = { bold: true };
-    ws.autoFilter = { from: 'A1', to: 'L1' };
+    ws.autoFilter = { from: 'A1', to: 'M1' };
 
     // Hoja oculta para listas
     const lists = wb.addWorksheet('Listas');
@@ -382,17 +382,19 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
         };
       }
 
-      // activo/becado (SI/NO)
-      ws.getCell(`K${r}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: ['"SI,NO"']
-      };
-      ws.getCell(`L${r}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: ['"SI,NO"']
-      };
+      // activo (SI/NO) = columna L
+ws.getCell(`L${r}`).dataValidation = {
+  type: 'list',
+  allowBlank: true,
+  formulae: ['"SI,NO"']
+};
+
+// becado (SI/NO) = columna M
+ws.getCell(`M${r}`).dataValidation = {
+  type: 'list',
+  allowBlank: true,
+  formulae: ['"SI,NO"']
+};
     }
 
     // Nota en fila 2 (opcional, no rompe import)
@@ -567,15 +569,14 @@ router.post(
         const apellido = norm(row.getCell(4).value);
         const actividad = norm(row.getCell(5).value);
         const categoria = norm(row.getCell(6).value);
-        const telefono = norm(row.getCell(7).value);
-        const direccion = norm(row.getCell(8).value);
-const email = norm(row.getCell(9).value);
+        const telefono = norm(row.getCell(7).value);          // G
+const direccion = norm(row.getCell(8).value);         // H
+const email = norm(row.getCell(9).value);             // I
+const fecha_nacimiento_raw = row.getCell(10).value;   // J
+const fecha_ingreso_raw = row.getCell(11).value;      // K
+const activo = parseBoolSI(row.getCell(12).value, true);   // L
+const becado = parseBoolSI(row.getCell(13).value, false);  // M
 
-        const fecha_nacimiento_raw = row.getCell(9).value;
-        const fecha_ingreso_raw = row.getCell(10).value;
-
-        const activo = parseBoolSI(row.getCell(11).value, true);
-        const becado = parseBoolSI(row.getCell(12).value, false);
 
         if (!dni || dni.length < 7) {
           errors.push({
@@ -652,19 +653,20 @@ const email = norm(row.getCell(9).value);
         numExist.add(String(numero));
 
         toInsert.push({
-          numero_socio: Number(numero),
-          dni,
-          nombre,
-          apellido,
-          actividad,
-          categoria,
-          telefono: telefono || null,
-          direccion: direccion || null,
-          fecha_nacimiento: fnISO,
-          fecha_ingreso: fiISO,
-          activo,
-          becado
-        });
+  numero_socio: Number(numero),
+  dni,
+  nombre,
+  apellido,
+  actividad,
+  categoria,
+  telefono: telefono ?? null,
+  direccion: direccion ?? null,
+  email: email ?? null,
+  fecha_nacimiento: fnISO,
+  fecha_ingreso: fiISO,
+  activo,
+  becado
+});
       }
 
       // 5) Insertar uno por uno
@@ -674,28 +676,32 @@ const email = norm(row.getCell(9).value);
         try {
           const rIns = await db.query(
             `INSERT INTO socios (
-              club_id, numero_socio, dni, nombre, apellido,
-              telefono, direccion, fecha_nacimiento, fecha_ingreso,
-              activo, becado, categoria, actividad
-            ) VALUES (
-              $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13
-            ) RETURNING id`,
+  club_id, numero_socio, dni, nombre, apellido,
+  telefono, direccion, email,
+  fecha_nacimiento, fecha_ingreso,
+  activo, becado, categoria, actividad
+) VALUES (
+  $1,$2,$3,$4,$5,
+  $6,$7,$8,
+  $9,$10,
+  $11,$12,$13,$14
+) RETURNING id`
             [
-              clubId,
-              s.numero_socio,
-              s.dni,
-              s.nombre,
-              s.apellido,
-              s.telefono,
-s.direccion,
-s.email,
-s.fecha_nacimiento,
-              s.fecha_ingreso,
-              s.activo,
-              s.becado,
-              s.categoria,
-              s.actividad
-            ]
+  clubId,
+  s.numero_socio,
+  s.dni,
+  s.nombre,
+  s.apellido,
+  s.telefono,
+  s.direccion,
+  s.email,
+  s.fecha_nacimiento,
+  s.fecha_ingreso,
+  s.activo,
+  s.becado,
+  s.categoria,
+  s.actividad
+]
           );
           if (rIns.rowCount) insertedCount++;
         } catch (e) {

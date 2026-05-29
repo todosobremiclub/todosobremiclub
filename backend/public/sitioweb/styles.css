@@ -546,3 +546,25 @@ body{ margin:0; color:var(--white); background:#0b0b0b; overflow-x:hidden; }
     bottom: 10px;
   }
 }
+
+/* ==============================
+   MOBILE – EVITAR QUE SE VEAN OTROS SLIDES
+============================== */
+@media (max-width: 640px){
+
+  .hero-carousel{
+    overflow: hidden;           /* 🔑 corta todo lo que sobra */
+  }
+
+  .hero-track{
+    width: 100%;
+    transform: translateX(0);
+  }
+
+  .hero-slide{
+    width: 100%;
+    min-width: 100%;
+    flex-shrink: 0;
+  }
+
+}
