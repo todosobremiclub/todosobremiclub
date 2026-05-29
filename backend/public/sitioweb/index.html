@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TSMC · Todo Sobre Mi Club</title>
 
-  <!-- Fuente más moderna (menos "cuadrada") -->
+  <!-- Fuente moderna -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;500;700;800&display=swap" rel="stylesheet">
@@ -13,55 +13,40 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 
-<!-- MODAL FORM -->
-<div class="modal" id="demo-modal">
-  <div class="modal-content">
-    <button class="modal-close" aria-label="Cerrar">×</button>
-
-    <h2>Solicitá tu instancia de prueba</h2>
-
-    <form id="demo-form">
-      <input type="text" name="nombre" placeholder="Nombre y Apellido" required>
-      <input type="text" name="club" placeholder="Nombre del Club" required>
-      <input type="number" name="socios" placeholder="Cantidad aproximada de socios" required>
-      <input type="tel" name="telefono" placeholder="Teléfono de contacto" required>
-
-      <button type="submit" class="btn">
-        Enviar solicitud
-      </button>
-    </form>
-  </div>
-</div>
-
-
 <body>
-  <!-- Fondo animado (B/N) -->
+
+  <!-- Fondo animado -->
   <canvas id="bg-canvas" aria-hidden="true"></canvas>
 
-  <!-- Header -->
- <header class="header">
-  <div class="brand">
-    <img src="logo-tsmc.png" alt="TSMC logo">
-    <span>Todo Sobre Mi Club</span>
-  </div>
+  <!-- HEADER -->
+  <header class="header">
+    <div class="brand">
+      <img src="logo-tsmc.png" alt="TSMC logo">
+      <span>Todo Sobre Mi Club</span>
+    </div>
 
-  <div class="header-actions">
-    <a
-      href="https://www.instagram.com/todosobremiclub/?hl=es"
-      target="_blank"
-      rel="noopener"
-      class="ig-link"
-      aria-label="Instagram TSMC"
-    >
-      IG
-    </a>
+    <div class="header-actions">
+      <!-- Instagram -->
+      <a
+        href="https://www.instagram.com/todosobremiclub/?hl=es"
+        target="_blank"
+        rel="noopener"
+        class="ig-icon"
+        aria-label="Instagram Todo Sobre Mi Club"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm5 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm6-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/>
+        </svg>
+      </a>
 
-    <button class="btn-outline" data-open-form>
-      Solicita tu instancia de prueba
-    </button>
-  </div>
-</header>
+      <!-- CTA -->
+      <button class="btn-outline" data-open-form>
+        Solicitá tu instancia de prueba
+      </button>
+    </div>
+  </header>
 
+  <!-- CONTENIDO -->
   <main class="wrapper">
 
     <!-- HERO -->
@@ -69,21 +54,25 @@
 
       <div class="hero-text">
         <h1>
-          <strong>TSMC</strong><br />
-          Llevá tu club<br />
+          <strong>TSMC</strong><br>
+          Llevá tu club<br>
           <span>a otro nivel</span>
         </h1>
 
         <p class="hero-list">
-  Gestión de Socios · Control de cuotas y morosidad ·
-  Carnet digital con QR · Recibos automáticos ·
-  Ingresos y gastos por responsable ·
-  Reportes claros en tiempo real
-</p>
+          Gestión de Socios · Control de cuotas y morosidad ·
+          Carnet digital con QR · Recibos automáticos ·
+          Ingresos y gastos por responsable ·
+          Reportes claros en tiempo real
+        </p>
 
-        <a class="btn" href="#features">Solicita tu instancia de prueba</a>
+        <!-- ESTE BOTÓN TAMBIÉN ABRE EL MODAL -->
+        <button class="btn" data-open-form>
+          Solicitá tu instancia de prueba
+        </button>
       </div>
 
+      <!-- MOCKUPS -->
       <div class="hero-mockup">
         <div class="mockups">
 
@@ -94,7 +83,7 @@
             </div>
 
             <div class="laptop-screen">
-              <img src="img/app-preview.png" alt="Vista de la plataforma (Notebook)" />
+              <img src="img/app-preview.png" alt="Vista de la plataforma en notebook">
             </div>
 
             <div class="laptop-base"></div>
@@ -104,7 +93,7 @@
           <div class="phone" aria-label="Vista móvil">
             <div class="phone-notch"></div>
             <div class="phone-screen">
-              <img src="img/socio-preview.jpeg" alt="Vista móvil (Socios)" />
+              <img src="img/socio-preview.jpeg" alt="Vista móvil de socios">
             </div>
             <div class="phone-btn"></div>
           </div>
@@ -134,7 +123,29 @@
 
   </main>
 
+  <!-- MODAL (AHORA SÍ, DENTRO DEL BODY) -->
+  <div class="modal-overlay" id="demo-modal" aria-hidden="true">
+    <div class="modal-card">
+      <button class="modal-close" aria-label="Cerrar">×</button>
+
+      <h2>Solicitá tu instancia de prueba</h2>
+
+      <form id="demo-form">
+        <input type="text" name="nombre" placeholder="Nombre y Apellido" required>
+        <input type="text" name="club" placeholder="Nombre del Club" required>
+        <input type="number" name="socios" placeholder="Cantidad aproximada de socios" required>
+        <input type="tel" name="telefono" placeholder="Teléfono de contacto" required>
+
+        <button type="submit" class="btn btn-submit">
+          Enviar solicitud
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
   <script src="bg.js"></script>
+  <script src="form.js"></script>
+
 </body>
 </html>
-``
