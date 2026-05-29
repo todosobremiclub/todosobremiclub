@@ -670,47 +670,50 @@ const becado = parseBoolSI(row.getCell(13).value, false);  // M
       }
 
       // 5) Insertar uno por uno
-      let insertedCount = 0;
+let insertedCount = 0;
 
-      const rIns = await db.query(
-  `INSERT INTO socios (
-    club_id, numero_socio, dni, nombre, apellido,
-    telefono, direccion, email,
-    fecha_nacimiento, fecha_ingreso,
-    activo, becado, categoria, actividad
-  ) VALUES (
-    $1,$2,$3,$4,$5,
-    $6,$7,$8,
-    $9,$10,
-    $11,$12,$13,$14
-  ) RETURNING id`,
-  [
-    clubId,
-    s.numero_socio,
-    s.dni,
-    s.nombre,
-    s.apellido,
-    s.telefono,
-    s.direccion,
-    s.email,
-    s.fecha_nacimiento,
-    s.fecha_ingreso,
-    s.activo,
-    s.becado,
-    s.categoria,
-    s.actividad
-  ]
-);
-          if (rIns.rowCount) insertedCount++;
-        } catch (e) {
-          errors.push({
-            row: null,
-            error: e.code === '23505' ? 'Duplicado (DB)' : e.message,
-            dni: s.dni,
-            numero_socio: s.numero_socio
-          });
-        }
-      }
+for (const s of toInsert) {
+  try {
+    const rIns = await db.query(
+      `INSERT INTO socios (
+        club_id, numero_socio, dni, nombre, apellido,
+        telefono, direccion, email,
+        fecha_nacimiento, fecha_ingreso,
+        activo, becado, categoria, actividad
+      ) VALUES (
+        $1,$2,$3,$4,$5,
+        $6,$7,$8,
+        $9,$10,
+        $11,$12,$13,$14
+      ) RETURNING id`,
+      [
+        clubId,
+        s.numero_socio,
+        s.dni,
+        s.nombre,
+        s.apellido,
+        s.telefono,
+        s.direccion,
+        s.email,
+        s.fecha_nacimiento,
+        s.fecha_ingreso,
+        s.activo,
+        s.becado,
+        s.categoria,
+        s.actividad
+      ]
+    );
+
+    if (rIns.rowCount) insertedCount++;
+  } catch (e) {
+    errors.push({
+      row: null,
+      error: e.code === '23505' ? 'Duplicado (DB)' : e.message,
+      dni: s.dni,
+      numero_socio: s.numero_socio
+    });
+  }
+}
 
       await db.query(
         `UPDATE club_counters SET next_socio_num = $2 WHERE club_id = $1`,
