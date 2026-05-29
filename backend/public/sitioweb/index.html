@@ -13,17 +13,54 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 
+<!-- MODAL FORM -->
+<div class="modal" id="demo-modal">
+  <div class="modal-content">
+    <button class="modal-close" aria-label="Cerrar">×</button>
+
+    <h2>Solicitá tu instancia de prueba</h2>
+
+    <form id="demo-form">
+      <input type="text" name="nombre" placeholder="Nombre y Apellido" required>
+      <input type="text" name="club" placeholder="Nombre del Club" required>
+      <input type="number" name="socios" placeholder="Cantidad aproximada de socios" required>
+      <input type="tel" name="telefono" placeholder="Teléfono de contacto" required>
+
+      <button type="submit" class="btn">
+        Enviar solicitud
+      </button>
+    </form>
+  </div>
+</div>
+
+
 <body>
   <!-- Fondo animado (B/N) -->
   <canvas id="bg-canvas" aria-hidden="true"></canvas>
 
   <!-- Header -->
-  <header class="header">
-    <div class="brand">
-      <img src="logo-tsmc.png" alt="TSMC Logo" />
-      <span>Todo Sobre Mi Club</span>
-    </div>
-  </header>
+ <header class="header">
+  <div class="brand">
+    <img src="logo-tsmc.png" alt="TSMC logo">
+    <span>Todo Sobre Mi Club</span>
+  </div>
+
+  <div class="header-actions">
+    <a
+      href="https://www.instagram.com/todosobremiclub/?hl=es"
+      target="_blank"
+      rel="noopener"
+      class="ig-link"
+      aria-label="Instagram TSMC"
+    >
+      IG
+    </a>
+
+    <button class="btn-outline" data-open-form>
+      Solicita tu instancia de prueba
+    </button>
+  </div>
+</header>
 
   <main class="wrapper">
 
@@ -37,12 +74,14 @@
           <span>a otro nivel</span>
         </h1>
 
-        <p>
-          Gestión, información y comunidad en una sola plataforma digital,
-          pensada como producto.
-        </p>
+        <p class="hero-list">
+  Gestión de Socios · Control de cuotas y morosidad ·
+  Carnet digital con QR · Recibos automáticos ·
+  Ingresos y gastos por responsable ·
+  Reportes claros en tiempo real
+</p>
 
-        <a class="btn" href="#features">Ver cómo funciona</a>
+        <a class="btn" href="#features">Solicita tu instancia de prueba</a>
       </div>
 
       <div class="hero-mockup">
