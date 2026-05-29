@@ -1,23 +1,24 @@
-const slides = document.querySelectorAll(".carousel-slide");
-const track = document.querySelector(".carousel-track");
-const prev = document.querySelector(".carousel-btn.prev");
-const next = document.querySelector(".carousel-btn.next");
+document.addEventListener("DOMContentLoaded", () => {
+  const track = document.querySelector(".hero-track");
+  const slides = document.querySelectorAll(".hero-slide");
+  const prev = document.querySelector(".hero-nav.prev");
+  const next = document.querySelector(".hero-nav.next");
 
-let index = 0;
+  if (!track || slides.length === 0 || !prev || !next) return;
 
-function updateCarousel() {
-  track.style.transform = `translateX(-${index * 100}%)`;
-  slides.forEach((s, i) => {
-    s.classList.toggle("active", i === index);
+  let index = 0;
+
+  function updateHeroCarousel() {
+    track.style.transform = `translateX(-${index * 100}%)`;
+  }
+
+  prev.addEventListener("click", () => {
+    index = (index - 1 + slides.length) % slides.length;
+    updateHeroCarousel();
   });
-}
 
-prev.addEventListener("click", () => {
-  index = (index - 1 + slides.length) % slides.length;
-  updateCarousel();
-});
-
-next.addEventListener("click", () => {
-  index = (index + 1) % slides.length;
-  updateCarousel();
+  next.addEventListener("click", () => {
+    index = (index + 1) % slides.length;
+    updateHeroCarousel();
+  });
 });

@@ -26,7 +26,6 @@
     </div>
 
     <div class="header-actions">
-      <!-- Instagram -->
       <a
         href="https://www.instagram.com/todosobremiclub/?hl=es"
         target="_blank"
@@ -48,134 +47,99 @@
   <!-- CONTENIDO -->
   <main class="wrapper">
 
-    <!-- HERO -->
-    <section class="hero hero-split">
+    <!-- ===== HERO COMO CARRUSEL ===== -->
+    <section class="hero hero-carousel">
 
-      <div class="hero-text">
-        <h1>
-          <strong>TSMC</strong><br>
-          Llevá tu club<br>
-          <span>a otro nivel</span>
-        </h1>
+      <!-- Flechas -->
+      <button class="hero-nav prev" aria-label="Anterior">‹</button>
+      <button class="hero-nav next" aria-label="Siguiente">›</button>
 
-        <p class="hero-list">
-          Gestión de Socios · Control de cuotas y morosidad ·
-          Carnet digital con QR · Recibos automáticos ·
-          Ingresos y gastos por responsable ·
-          Reportes claros en tiempo real
-        </p>
+      <div class="hero-track">
 
-        <button class="btn" data-open-form>
-          Solicitá tu instancia de prueba
-        </button>
-      </div>
+        <!-- ===== SLIDE 1 (ACTUAL) ===== -->
+        <div class="hero-slide active">
+          <div class="hero-split">
 
-      <!-- MOCKUPS HERO -->
-      <div class="hero-mockup">
-        <div class="mockups">
+            <!-- TEXTO -->
+            <div class="hero-text">
+              <h1>
+                <strong>TSMC</strong><br>
+                Llevá tu club<br>
+                <span>a otro nivel</span>
+              </h1>
 
-          <!-- NOTEBOOK -->
-          <div class="laptop">
-            <div class="laptop-top">
-              <div class="laptop-camera"></div>
+              <p class="hero-list">
+                Gestión de Socios · Control de cuotas y morosidad ·
+                Carnet digital con QR · Recibos automáticos ·
+                Ingresos y gastos por responsable ·
+                Reportes claros en tiempo real
+              </p>
+
+              <button class="btn" data-open-form>
+                Solicitá tu instancia de prueba
+              </button>
             </div>
-            <div class="laptop-screen">
-              <img src="img/app-preview.png" alt="Vista de la plataforma en notebook">
-            </div>
-            <div class="laptop-base"></div>
-          </div>
 
-          <!-- CELULAR -->
-          <div class="phone" aria-label="Vista móvil">
-            <div class="phone-notch"></div>
-            <div class="phone-screen">
-              <img src="img/socio-preview.jpeg" alt="Vista móvil de socios">
-            </div>
-            <div class="phone-btn"></div>
-          </div>
+            <!-- IMAGEN -->
+            <div class="hero-mockup">
+              <div class="mockups">
 
-        </div>
-      </div>
-    </section>
+                <div class="laptop">
+                  <div class="laptop-top"><div class="laptop-camera"></div></div>
+                  <div class="laptop-screen">
+                    <img src="img/app-preview.png" alt="Plataforma Web">
+                  </div>
+                  <div class="laptop-base"></div>
+                </div>
 
-    <!-- ===== MODULO / CARRUSEL ===== -->
-    <section class="modules">
+                <div class="phone">
+                  <div class="phone-notch"></div>
+                  <div class="phone-screen">
+                    <img src="img/socio-preview.jpeg" alt="App del socio">
+                  </div>
+                  <div class="phone-btn"></div>
+                </div>
 
-      <div class="modules-header">
-        <h2>Módulo Gestión Web del Club</h2>
-        <p>Toda la información del club en un solo lugar.</p>
-      </div>
-
-      <div class="carousel">
-
-        <button class="carousel-btn prev" aria-label="Anterior">‹</button>
-
-        <div class="carousel-track">
-
-          <!-- SLIDE 1 -->
-          <div class="carousel-slide active">
-            <div class="laptop">
-              <div class="laptop-top"><div class="laptop-camera"></div></div>
-              <div class="laptop-screen">
-                <img src="img/Gestion1.png" alt="Gestión Web - Dashboard">
               </div>
-              <div class="laptop-base"></div>
             </div>
-          </div>
 
-          <!-- SLIDE 2 -->
-          <div class="carousel-slide">
-            <div class="laptop">
-              <div class="laptop-top"><div class="laptop-camera"></div></div>
-              <div class="laptop-screen">
-                <img src="img/Gestion2.png" alt="Gestión Web - Socios">
-              </div>
-              <div class="laptop-base"></div>
-            </div>
           </div>
-
-          <!-- SLIDE 3 -->
-          <div class="carousel-slide">
-            <div class="laptop">
-              <div class="laptop-top"><div class="laptop-camera"></div></div>
-              <div class="laptop-screen">
-                <img src="img/Gestion3.png" alt="Gestión Web - Agenda">
-              </div>
-              <div class="laptop-base"></div>
-            </div>
-          </div>
-
-          <!-- SLIDE 4 -->
-          <div class="carousel-slide">
-            <div class="laptop">
-              <div class="laptop-top"><div class="laptop-camera"></div></div>
-              <div class="laptop-screen">
-                <img src="img/Gestion4.png" alt="Gestión Web - Pagos">
-              </div>
-              <div class="laptop-base"></div>
-            </div>
-          </div>
-
         </div>
 
-        <button class="carousel-btn next" aria-label="Siguiente">›</button>
+        <!-- ===== SLIDE 2 (GESTIÓN WEB) ===== -->
+        <div class="hero-slide">
+          <div class="hero-split">
 
-      </div>
-    </section>
+            <!-- TEXTO -->
+            <div class="hero-text">
+              <h1>
+                Módulo<br>
+                <span>Gestión Web del Club</span>
+              </h1>
 
-    <!-- FEATURES -->
-    <section id="features" class="features">
-      <div class="feature">
-        <h3>Gestión clara</h3>
-        <p>Socios, pagos, actividades y administración en un solo lugar.</p>
-      </div>
-      <div class="feature">
-        <h3>Comunicación</h3>
-        <p>Noticias, notificaciones y agenda para que el club esté conectado.</p>
-      </div>
-      <div class="feature">
-        <h3>Experiencia digital</h3>
-        <p>Diseñado como producto: simple, rápido y escalable.</p>
+              <p class="hero-list">
+                Toda la información del club en un solo lugar.
+              </p>
+
+              <button class="btn" data-open-form>
+                Solicitá tu instancia de prueba
+              </button>
+            </div>
+
+            <!-- IMAGEN -->
+            <div class="hero-mockup">
+              <div class="laptop">
+                <div class="laptop-top"><div class="laptop-camera"></div></div>
+                <div class="laptop-screen">
+                  <img src="img/Gestion1.png" alt="Gestión Web del Club">
+                </div>
+                <div class="laptop-base"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
       </div>
     </section>
 
@@ -198,9 +162,35 @@
   </div>
 
   <!-- SCRIPTS -->
-  <script src="bg.js"></script>
-  <script src="form.js"></script>
-  <script src="carousel.js"></script>
+  
+<script src="bg.js"></script>
+<script src="form.js"></script>
+<script src="carousel.js"></script>
+
+
+  <!-- JS HERO CAROUSEL -->
+  <script>
+    const track = document.querySelector(".hero-track");
+    const slides = document.querySelectorAll(".hero-slide");
+    const prev = document.querySelector(".hero-nav.prev");
+    const next = document.querySelector(".hero-nav.next");
+
+    let index = 0;
+
+    function updateHero(){
+      track.style.transform = `translateX(-${index * 100}%)`;
+    }
+
+    prev.addEventListener("click", () => {
+      index = (index - 1 + slides.length) % slides.length;
+      updateHero();
+    });
+
+    next.addEventListener("click", () => {
+      index = (index + 1) % slides.length;
+      updateHero();
+    });
+  </script>
 
 </body>
 </html>

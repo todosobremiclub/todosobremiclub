@@ -116,9 +116,10 @@ body{
 }
 
 /* ==============================
-   HERO
+   HERO (CARD)
 ============================== */
 .hero{
+  position: relative;
   border-radius: var(--radius-lg);
   background: linear-gradient(
     180deg,
@@ -129,8 +130,46 @@ body{
   backdrop-filter: blur(18px);
   box-shadow: 0 40px 90px rgba(0,0,0,0.65);
   padding: 44px 48px;
+  overflow: hidden;
 }
 
+/* ==============================
+   HERO COMO CARRUSEL
+============================== */
+.hero-carousel{
+  overflow: hidden;
+}
+
+.hero-track{
+  display: flex;
+  transition: transform .6s ease;
+}
+
+.hero-slide{
+  min-width: 100%;
+}
+
+.hero-nav{
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.12);
+  border: 1px solid var(--border);
+  color: #fff;
+  font-size: 32px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.hero-nav.prev{ left: 16px; }
+.hero-nav.next{ right: 16px; }
+
+/* ==============================
+   HERO CONTENT
+============================== */
 .hero-split{
   display: grid;
   grid-template-columns: 1fr 1.25fr;
@@ -190,7 +229,7 @@ body{
 }
 
 /* ==============================
-   MOCKUPS (NOTEBOOK + CELULAR)
+   MOCKUPS
 ============================== */
 .hero-mockup{
   display: flex;
@@ -309,44 +348,7 @@ body{
 }
 
 /* ==============================
-   FEATURES
-============================== */
-.features{
-  margin-top: 56px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 18px;
-}
-
-.feature{
-  padding: 26px;
-  border-radius: var(--radius-md);
-  background: var(--glass-1);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(14px);
-  transition: transform .35s ease, background .35s ease;
-}
-
-.feature:hover{
-  transform: translateY(-8px);
-  background: var(--glass-2);
-}
-
-.feature h3{
-  margin: 0 0 10px;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.feature p{
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 14.8px;
-  line-height: 1.45;
-}
-
-/* ==============================
-   MODAL (FORMULARIO)
+   MODAL
 ============================== */
 .modal-overlay{
   position: fixed;
@@ -446,66 +448,3 @@ body{
     right: 4px;
   }
 }
-
-/* ==============================
-   MODULOS / CARRUSEL
-============================== */
-.modules{
-  margin-top: 80px;
-  text-align: center;
-}
-
-.modules-header h2{
-  font-size: 36px;
-  margin-bottom: 10px;
-}
-
-.modules-header p{
-  color: var(--text-muted);
-  margin-bottom: 40px;
-}
-
-/* Carrusel */
-.carousel{
-  position: relative;
-  max-width: 900px;
-  margin: 0 auto;
-  overflow: hidden;
-}
-
-.carousel-track{
-  display: flex;
-  transition: transform .6s ease;
-}
-
-.carousel-slide{
-  min-width: 100%;
-  display: flex;
-  justify-content: center;
-  opacity: 0.3;
-  transform: scale(0.96);
-  transition: opacity .4s ease, transform .4s ease;
-}
-
-.carousel-slide.active{
-  opacity: 1;
-  transform: scale(1);
-}
-
-/* Botones */
-.carousel-btn{
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(255,255,255,0.08);
-  border: 1px solid var(--border);
-  color: #fff;
-  font-size: 32px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.carousel-btn.prev{ left: 0; }
-.carousel-btn.next{ right: 0; }
