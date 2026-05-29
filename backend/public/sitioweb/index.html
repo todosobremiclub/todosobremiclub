@@ -2,70 +2,100 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TSMC | Todo Sobre Mi Club</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TSMC · Todo Sobre Mi Club</title>
 
-  <link rel="stylesheet" href="styles.css" />
+  <!-- Fuente más moderna (menos "cuadrada") -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;500;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
+  <!-- Fondo animado (B/N) -->
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
 
-  <!-- HERO -->
-  <section class="hero">
-    <img src="logo-tsmc.png" alt="TSMC Logo" class="logo" />
-
-    <h1 class="fade-up">
-      Todo sobre tu club,<br>
-      <span>en un solo lugar</span>
-    </h1>
-
-    <p class="fade-up delay-1">
-      Información, comunidad, contenido exclusivo y pasión por los colores.
-    </p>
-
-    <a href="#video" class="cta fade-up delay-2">Conocé el proyecto</a>
-  </section>
-
-  <!-- VIDEO -->
-  <section id="video" class="video-section fade-up">
-    <h2>¿Qué es TSMC?</h2>
-
-    <div class="video-wrapper">
-      <!-- Puede ser YouTube o video propio -->
-      <iframe 
-        src="https://www.youtube.com/embed/VIDEO_ID"
-        frameborder="0"
-        allowfullscreen>
-      </iframe>
+  <!-- Header -->
+  <header class="header">
+    <div class="brand">
+      <img src="logo-tsmc.png" alt="TSMC Logo" />
+      <span>Todo Sobre Mi Club</span>
     </div>
-  </section>
+  </header>
 
-  <!-- FEATURES -->
-  <section class="features">
-    <div class="feature fade-up">
-      <h3>📊 Datos del club</h3>
-      <p>Historia, estadísticas y actualidad en tiempo real.</p>
-    </div>
+  <main class="wrapper">
 
-    <div class="feature fade-up delay-1">
-      <h3>🎥 Contenido multimedia</h3>
-      <p>Videos, entrevistas, análisis y material exclusivo.</p>
-    </div>
+    <!-- HERO -->
+    <section class="hero hero-split">
 
-    <div class="feature fade-up delay-2">
-      <h3>🤝 Comunidad</h3>
-      <p>Un espacio para hinchas, socios y apasionados.</p>
-    </div>
-  </section>
+      <div class="hero-text">
+        <h1>
+          <strong>TSMC</strong><br />
+          Llevá tu club<br />
+          <span>a otro nivel</span>
+        </h1>
 
-  <!-- FOOTER -->
-  <footer>
-    <p>© 2026 · Todo Sobre Mi Club</p>
-  </footer>
+        <p>
+          Gestión, información y comunidad en una sola plataforma digital,
+          pensada como producto.
+        </p>
 
-  <script src="main.js"></script>
+        <a class="btn" href="#features">Ver cómo funciona</a>
+      </div>
+
+      <div class="hero-mockup">
+        <div class="mockups">
+
+          <!-- NOTEBOOK -->
+          <div class="laptop">
+            <div class="laptop-top">
+              <div class="laptop-camera"></div>
+            </div>
+
+            <div class="laptop-screen">
+              <img src="img/app-preview.png" alt="Vista de la plataforma (Notebook)" />
+            </div>
+
+            <div class="laptop-base"></div>
+          </div>
+
+          <!-- CELULAR -->
+          <div class="phone" aria-label="Vista móvil">
+            <div class="phone-notch"></div>
+            <div class="phone-screen">
+              <img src="img/socio-preview.jpeg" alt="Vista móvil (Socios)" />
+            </div>
+            <div class="phone-btn"></div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features" class="features">
+      <div class="feature">
+        <h3>Gestión clara</h3>
+        <p>Socios, pagos, actividades y administración en un solo lugar.</p>
+      </div>
+
+      <div class="feature">
+        <h3>Comunicación</h3>
+        <p>Noticias, notificaciones y agenda para que el club esté conectado.</p>
+      </div>
+
+      <div class="feature">
+        <h3>Experiencia digital</h3>
+        <p>Diseñado como producto: simple, rápido y escalable.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="bg.js"></script>
 </body>
 </html>
+``
