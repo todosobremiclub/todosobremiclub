@@ -392,3 +392,80 @@ body{ margin:0; color:var(--white); background:#0b0b0b; overflow-x:hidden; }
     height: 240px;
   }
 }
+
+/* ==============================
+   MOBILE FIX – CARRUSEL
+============================== */
+@media (max-width: 640px){
+
+  /* Hero layout en columna */
+  .hero-split{
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .hero-text{
+    text-align: center;
+  }
+
+  /* Ocultamos superposiciones */
+  .phone{
+    display: none;
+  }
+
+  /* Mockup centrado */
+  .hero-mockup{
+    justify-content: center;
+  }
+
+  .mockups,
+  .laptop,
+  .app-mockup-dual{
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  /* Notebook mobile */
+  .laptop{
+    max-width: 320px;
+    transform: none;
+  }
+
+  /* SLIDE 2 – gestión */
+  .laptop-gestion{
+    max-width: 320px;
+  }
+
+  .gestion-grid{
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .gestion-grid img{
+    height: auto;
+  }
+
+  /* SLIDE 3 – APP */
+  .app-mockup-dual{
+    height: auto;
+    gap: 16px;
+  }
+
+  .app-phone{
+    width: 200px;
+    height: 380px;
+    transform: none;
+  }
+
+  /* Flechas más chicas */
+  .hero-nav{
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
+  }
+
+  /* Dots más visibles */
+  .hero-dots{
+    bottom: 8px;
+  }
+}
