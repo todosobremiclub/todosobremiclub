@@ -3416,4 +3416,322 @@ router.get(
   }
 );
 
+// ============================================================
+// 1) Verificar si YA existe el esperado guardado
+// ============================================================
+const rExist = await db.query(
+  `
+  SELECT monto_esperado, socios_count
+  FROM resumen_esperado_mensual
+  WHERE club_id = $1
+    AND anio = $2
+    AND mes = $3
+  LIMIT 1
+  `,
+  [clubId, anio, mes]
+);
+
+if (rExist.rowCount) {
+  return res.json({
+    ok: true,
+    anio,
+    mes,
+    socios: Number(rExist.rows[0].socios_count),
+    esperado: Number(rExist.rows[0].monto_esperado),
+    source: 'guardado'
+  });
+}
+
+
+// ============================================================
+// NUEVO: Esperado mensual (DINÁMICO)
+// GET /club/:clubId/reportes/esperado-mensual?anio=2026&mes=5
+// ============================================================
+router.get(
+  '/:clubId/reportes/esperado-mensual',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({
+        ok: false,
+        error: 'anio y mes son obligatorios'
+      });
+    }
+
+    try {
+      const q = `
+        SELECT 
+          s.id,
+          s.becado,
+          s.excepcion_cuota_id,
+          ec.monto AS excepcion_monto,
+          a.precio_mensual
+        FROM socios s
+        LEFT JOIN excepciones_cuota ec
+          ON ec.id = s.excepcion_cuota_id
+          AND ec.club_id = s.club_id
+          AND ec.activo = true
+        LEFT JOIN actividades a
+          ON a.nombre = s.actividad
+          AND a.club_id = s.club_id
+          AND a.activo = true
+        WHERE s.club_id = $1
+          AND s.activo = true
+          AND (
+            s.fecha_ingreso IS NULL
+            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+            OR (
+              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+            )
+          )
+      `;
+
+      const r = await db.query(q, [clubId, anio, mes]);
+
+      let totalEsperado = 0;
+      let sociosCount = 0;
+
+      for (const s of r.rows) {
+        // ✅ excluir becados
+        if (s.becado) continue;
+
+        let monto = 0;
+
+        // ✅ prioridad: excepción
+        if (s.excepcion_monto !== null && s.excepcion_monto !== undefined) {
+          monto = Number(s.excepcion_monto) || 0;
+        } else {
+          // ✅ sino actividad
+          monto = Number(s.precio_mensual) || 0;
+        }
+
+        totalEsperado += monto;
+        sociosCount++;
+      }
+
+      // ============================================================
+// 2) Guardar el esperado (freeze)
+// ============================================================
+await db.query(
+  `
+  INSERT INTO resumen_esperado_mensual
+    (club_id, anio, mes, monto_esperado, socios_count)
+  VALUES ($1, $2, $3, $4, $5)
+  ON CONFLICT (club_id, anio, mes) DO NOTHING
+  `,
+  [clubId, anio, mes, totalEsperado, sociosCount]
+);
+
+// ============================================================
+// 3) Responder
+// ============================================================
+return res.json({
+  ok: true,
+  anio,
+  mes,
+  socios: sociosCount,
+  esperado: totalEsperado,
+  source: 'calculado'
+});
+
+    } catch (e) {
+      console.error('❌ esperado-mensual:', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ============================================================
+// NUEVO: Recaudado mensual
+// GET /club/:clubId/reportes/recaudado-mensual?anio=2026&mes=5
+// ============================================================
+router.get(
+  '/:clubId/reportes/recaudado-mensual',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({
+        ok: false,
+        error: 'anio y mes son obligatorios'
+      });
+    }
+
+    try {
+      const q = `
+        SELECT COALESCE(SUM(monto), 0) AS total
+        FROM pagos_mensuales
+        WHERE club_id = $1
+          AND anio = $2
+          AND mes = $3
+      `;
+
+      const r = await db.query(q, [clubId, anio, mes]);
+
+      return res.json({
+        ok: true,
+        anio,
+        mes,
+        recaudado: Number(r.rows[0].total || 0)
+      });
+
+    } catch (e) {
+      console.error('❌ recaudado-mensual:', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ============================================================
+// NUEVO: Reporte Esperado vs Recaudado
+// GET /club/:clubId/reportes/esperado-vs-recaudado?anio=2026&mes=5
+// ============================================================
+router.get(
+  '/:clubId/reportes/esperado-vs-recaudado',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({
+        ok: false,
+        error: 'anio y mes son obligatorios'
+      });
+    }
+
+    try {
+      // ============================================================
+      // 1) OBTENER ESPERADO (guardado o calcular + guardar)
+      // ============================================================
+      let esperado = 0;
+      let socios = 0;
+
+      const rExist = await db.query(
+        `
+        SELECT monto_esperado, socios_count
+        FROM resumen_esperado_mensual
+        WHERE club_id = $1
+          AND anio = $2
+          AND mes = $3
+        LIMIT 1
+        `,
+        [clubId, anio, mes]
+      );
+
+      if (rExist.rowCount) {
+        esperado = Number(rExist.rows[0].monto_esperado);
+        socios = Number(rExist.rows[0].socios_count);
+      } else {
+        // calcular igual que endpoint anterior
+        const q = `
+          SELECT 
+            s.id,
+            s.becado,
+            s.excepcion_cuota_id,
+            ec.monto AS excepcion_monto,
+            a.precio_mensual
+          FROM socios s
+          LEFT JOIN excepciones_cuota ec
+            ON ec.id = s.excepcion_cuota_id
+            AND ec.club_id = s.club_id
+            AND ec.activo = true
+          LEFT JOIN actividades a
+            ON a.nombre = s.actividad
+            AND a.club_id = s.club_id
+            AND a.activo = true
+          WHERE s.club_id = $1
+            AND s.activo = true
+            AND (
+              s.fecha_ingreso IS NULL
+              OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+              OR (
+                EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+                AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+              )
+            )
+        `;
+
+        const r = await db.query(q, [clubId, anio, mes]);
+
+        for (const s of r.rows) {
+          if (s.becado) continue;
+
+          let monto = 0;
+
+          if (s.excepcion_monto !== null && s.excepcion_monto !== undefined) {
+            monto = Number(s.excepcion_monto) || 0;
+          } else {
+            monto = Number(s.precio_mensual) || 0;
+          }
+
+          esperado += monto;
+          socios++;
+        }
+
+        // guardar snapshot
+        await db.query(
+          `
+          INSERT INTO resumen_esperado_mensual
+            (club_id, anio, mes, monto_esperado, socios_count)
+          VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (club_id, anio, mes) DO NOTHING
+          `,
+          [clubId, anio, mes, esperado, socios]
+        );
+      }
+
+      // ============================================================
+      // 2) OBTENER RECAUDADO
+      // ============================================================
+      const rPagos = await db.query(
+        `
+        SELECT COALESCE(SUM(monto), 0) AS total
+        FROM pagos_mensuales
+        WHERE club_id = $1
+          AND anio = $2
+          AND mes = $3
+        `,
+        [clubId, anio, mes]
+      );
+
+      const recaudado = Number(rPagos.rows[0].total || 0);
+
+      // ============================================================
+      // 3) CALCULAR DIFERENCIA
+      // ============================================================
+      const diferencia = recaudado - esperado;
+
+      // ============================================================
+      // 4) RESPUESTA FINAL
+      // ============================================================
+      return res.json({
+        ok: true,
+        anio,
+        mes,
+        socios,
+        esperado,
+        recaudado,
+        diferencia
+      });
+
+    } catch (e) {
+      console.error('❌ esperado-vs-recaudado:', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
 module.exports = router;
