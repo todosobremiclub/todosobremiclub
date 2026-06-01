@@ -241,7 +241,14 @@
 <!-- BLOQUE – INGRESOS Y GASTOS POR DÍA -->
 <div class="detail-card" id="card-ig-dia" style="grid-column: 1 / -1;">
 
-  <h3 class="detail-title">Ingresos y Gastos por día</h3>
+  <h3 
+    class="detail-title" 
+    id="toggleIGDia"
+    style="display:flex; align-items:center; gap:8px; cursor:pointer;"
+  >
+    <span id="igDiaArrow">▶</span>
+    Ingresos y Gastos por día
+  </h3>
 
   <div class="ranking-toolbar">
     <button id="btnIGDiaPrev" class="btn-nav-sm">◀</button>
@@ -249,8 +256,10 @@
     <button id="btnIGDiaNext" class="btn-nav-sm">▶</button>
   </div>
 
-  <div id="igDiaBody" class="detail-body">
-    <div class="muted small">Cargando datos...</div>
+  <div id="igDiaContainer" style="display:none;">
+    <div id="igDiaBody" class="detail-body">
+      <div class="muted small">Cargando datos...</div>
+    </div>
   </div>
 
 </div>
