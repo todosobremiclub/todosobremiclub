@@ -17,301 +17,308 @@
        =============================== -->
   <div class="reportes-grid">
 
-    <!-- =========================
-         SOCIOS (TOP ROW)
-         ========================= -->
+  <!-- =========================
+       SOCIOS (TOP ROW)
+       ========================= -->
 
-    <!-- BLOQUE – SOCIOS NUEVOS POR MES -->
-    <div class="report-card report-socios" id="card-nuevos">
-      <div class="card-header">
-        <div>
-          <h3 class="card-title">Socios nuevos por mes</h3>
-          <div class="card-subtitle muted">
-            Altas mensuales de socios.
-          </div>
-        </div>
-
-        <div class="ranking-toolbar">
-          <button id="btnNuevosMesPrev" class="btn-nav-sm">◀</button>
-          <span id="nuevosMesLabel" class="nav-label small">Mes actual</span>
-          <button id="btnNuevosMesNext" class="btn-nav-sm">▶</button>
+  <!-- BLOQUE – SOCIOS NUEVOS POR MES -->
+  <div class="report-card report-socios" id="card-nuevos">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Socios nuevos por mes</h3>
+        <div class="card-subtitle muted">
+          Altas mensuales de socios.
         </div>
       </div>
-
-      <div class="card-body">
-        <div id="nuevosTop" class="nuevos-top">
-          <div class="nuevos-label">Socios nuevos</div>
-          <div id="nuevosCount" class="nuevos-value">–</div>
-        </div>
-
-        <div id="tablaNuevos" class="detail-body">
-          <div class="muted small">Cargando meses…</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PANEL – CUOTAS IMPAGAS -->
-    <div class="report-card report-socios" id="card-impagos">
-      <div class="card-header">
-        <div>
-          <h3 class="card-title">Cuotas impagas</h3>
-          <div class="card-subtitle muted">
-            Morosidad mensual de socios activos.
-          </div>
-        </div>
-
-        <div class="card-toolbar" style="gap:6px;">
-          <button id="btnImpagosPrev" class="btn-nav">◀</button>
-          <span id="impagosMesLabel" class="nav-label">Mes actual</span>
-          <button id="btnImpagosNext" class="btn-nav">▶</button>
-
-          <button class="btn-export-icon"
-                  title="Exportar cuotas impagas"
-                  onclick="openExportModal({
-                    title: 'Cuotas impagas',
-                    endpoint: 'impagos-mes'
-                  })">
-            ⬇
-          </button>
-        </div>
-      </div>
-
-      <div class="card-body">
-        <div class="impagos-top">
-          <div class="impagos-kpi">
-            <div class="impagos-label">Socios sin pago</div>
-            <div id="impagosCount" class="impagos-value">–</div>
-            <div id="impagosYearLabel" class="impagos-year muted small"></div>
-          </div>
-          <div class="impagos-secondary muted small">
-            Click en la cantidad para ver el detalle de socios.
-          </div>
-        </div>
-
-        <div class="card-table" id="tablaImpagos">
-          <div class="muted">Seleccionando mes…</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PANEL – SOCIOS POR ACTIVIDAD / CATEGORÍA -->
-    <div class="report-card report-socios" id="card-actividades">
-      <div class="card-header">
-        <div>
-          <h3 class="card-title">Socios por Actividad / Categoría</h3>
-          <div id="actividadesSubtitle" class="card-subtitle muted">
-            Distribución de socios activos por actividad.
-          </div>
-        </div>
-
-        <button class="btn-export-icon"
-                title="Descargar socios por actividad / categoría"
-                onclick="openExportModal({
-                  title: 'Socios por Actividad / Categoría',
-                  endpoint: 'socios-actividad-categoria',
-                  extraKey: 'sociosActCatActual'
-                })">
-          ⬇
-        </button>
-
-        <button id="btnActividadesReset" class="btn btn-secondary btn-xs hidden">
-          ← Ver actividades
-        </button>
-      </div>
-
-      <div class="card-body">
-        <div class="card-chart">
-          <canvas id="chartActividades"></canvas>
-        </div>
-        <div class="card-table hidden" id="tablaActividades"></div>
-      </div>
-    </div>
-
-    <!-- =========================
-         FINANZAS (TOP ROW)
-         ========================= -->
-
-    <!-- PANEL – INGRESOS VS GASTOS -->
-    <div class="report-card report-finanzas" id="card-ingresos">
-      <div class="card-header">
-        <div>
-          <h3 class="card-title">Ingresos vs Gastos</h3>
-          <div class="card-subtitle muted">Comparativo mensual y anual.</div>
-        </div>
-
-        <div class="card-toolbar stacked">
-          <div class="toolbar-row">
-            <button id="btnIGMesPrev" class="btn-nav">◀</button>
-            <span id="igMesLabel" class="nav-label">Mes actual</span>
-            <button id="btnIGMesNext" class="btn-nav">▶</button>
-            <button id="btnIGExportRange" class="btn-export-icon" title="Exportar detalle (rango de fechas)">⬇</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="card-body">
-        <span id="igAnioLabel" class="nav-label small" style="display:none;"></span>
-
-        <div class="ig-month-summary">
-          <div class="ig-month-item">
-            <span class="ig-label">Ingresos mes</span>
-            <span id="igMesIngresos" class="ig-month-value">–</span>
-          </div>
-          <div class="ig-month-item">
-            <span class="ig-label">Gastos mes</span>
-            <span id="igMesGastos" class="ig-month-value">–</span>
-          </div>
-          <div class="ig-month-item">
-            <span class="ig-label">Resultado mes</span>
-            <span id="igMesResultado" class="ig-month-value">–</span>
-          </div>
-        </div>
-
-        <div class="card-chart" style="min-height:180px;">
-          <canvas id="chartIGMes"></canvas>
-        </div>
-
-        <div class="ig-summary">
-          <div class="ig-summary-item">
-            <span class="ig-label">Ingresos año</span>
-            <span id="igAnualIngresos" class="ig-value">–</span>
-          </div>
-          <div class="ig-summary-item">
-            <span class="ig-label">Gastos año</span>
-            <span id="igAnualGastos" class="ig-value">–</span>
-          </div>
-          <div class="ig-summary-item">
-            <span class="ig-label">Resultado año</span>
-            <span id="igAnualResultado" class="ig-value">–</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PANEL – RANKING INGRESOS / GASTOS -->
-    <div class="report-card report-finanzas" id="card-ranking">
-      <div class="card-header">
-        <div>
-          <h3 class="card-title">Ranking por Gastos / Ingresos</h3>
-          <div class="card-subtitle muted">Ranking mensual de ingresos y gastos.</div>
-        </div>
-
-        <div class="ranking-toolbar">
-          <button id="btnRankMesPrev" class="btn-nav-sm">◀</button>
-          <span id="rankMesLabel" class="nav-label small">Mes actual</span>
-          <button id="btnRankMesNext" class="btn-nav-sm">▶</button>
-        </div>
-      </div>
-
-      <div id="rankingBody" class="card-body">
-        <div class="muted small">Cargando ranking…</div>
-      </div>
-    </div>
-
-    <!-- PANEL – INGRESOS / GASTOS POR RESPONSABLE -->
-    <div class="report-card report-finanzas" id="card-cuentas">
-      <div class="card-header">
-        <div>
-          <h3 class="card-title">Ingresos por responsable / Gastos por responsable</h3>
-          <div class="card-subtitle muted">Resumen mensual por responsable.</div>
-        </div>
-
-        <div class="cuentas-toolbar">
-          <button id="btnCuentasMesPrev" class="btn-nav-sm">◀</button>
-          <span id="cuentasMesLabel" class="nav-label small">Mes actual</span>
-          <button id="btnCuentasMesNext" class="btn-nav-sm">▶</button>
-        </div>
-      </div>
-
-      <div id="cuentasBody" class="card-body">
-        <div class="muted small">Cargando datos…</div>
-      </div>
-    </div>
-
-  </div>
-  <!-- /reportes-grid -->
-
-  <!-- =============================
-       FINANZAS – FULL WIDTH
-       ============================= -->
-  <div class="reportes-detail-grid">
-
-    <!-- BLOQUE – INGRESOS VS GASTOS POR RESPONSABLE -->
-    <div class="detail-card report-finanzas" id="card-ig-responsable" style="grid-column: 1 / -1;">
-      <h3 class="detail-title">Ingresos Vs Gastos por responsable</h3>
 
       <div class="ranking-toolbar">
-        <button id="btnIGRespMesPrev" class="btn-nav-sm">◀</button>
-        <span id="igRespMesLabel" class="nav-label small">Mes actual</span>
-        <button id="btnIGRespMesNext" class="btn-nav-sm">▶</button>
+        <button id="btnNuevosMesPrev" class="btn-nav-sm">◀</button>
+        <span id="nuevosMesLabel" class="nav-label small">Mes actual</span>
+        <button id="btnNuevosMesNext" class="btn-nav-sm">▶</button>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div id="nuevosTop" class="nuevos-top">
+        <div class="nuevos-label">Socios nuevos</div>
+        <div id="nuevosCount" class="nuevos-value">–</div>
+      </div>
+
+      <div id="tablaNuevos" class="detail-body">
+        <div class="muted small">Cargando meses…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOQUE – CUOTAS IMPAGAS -->
+  <div class="report-card report-socios" id="card-impagos">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Cuotas impagas</h3>
+        <div class="card-subtitle muted">
+          Morosidad mensual de socios activos.
+        </div>
+      </div>
+
+      <div class="card-toolbar" style="gap:6px;">
+        <button id="btnImpagosPrev" class="btn-nav">◀</button>
+        <span id="impagosMesLabel" class="nav-label">Mes actual</span>
+        <button id="btnImpagosNext" class="btn-nav">▶</button>
 
         <button class="btn-export-icon"
-                title="Exportar Ingresos vs Gastos por responsable"
+                title="Exportar cuotas impagas"
                 onclick="openExportModal({
-                  title: 'Ingresos_vs_Gastos_por_responsable',
-                  endpoint: 'ingresos-vs-gastos-por-responsable'
+                  title: 'Cuotas impagas',
+                  endpoint: 'impagos-mes'
                 })">
           ⬇
         </button>
       </div>
+    </div>
 
-      <div id="igRespBody" class="detail-body">
-        <div class="muted small">Cargando datos…</div>
+    <div class="card-body">
+      <div class="impagos-top">
+        <div class="impagos-kpi">
+          <div class="impagos-label">Socios sin pago</div>
+          <div id="impagosCount" class="impagos-value">–</div>
+          <div id="impagosYearLabel" class="impagos-year muted small"></div>
+        </div>
+
+        <div class="impagos-secondary muted small">
+          Click en la cantidad para ver el detalle de socios.
+        </div>
+      </div>
+
+      <div class="card-table" id="tablaImpagos">
+        <div class="muted">Seleccionando mes…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOQUE – SOCIOS POR ACTIVIDAD / CATEGORÍA -->
+  <div class="report-card report-socios" id="card-actividades">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Socios por Actividad / Categoría</h3>
+        <div id="actividadesSubtitle" class="card-subtitle muted">
+          Distribución de socios activos por actividad.
+        </div>
+      </div>
+
+      <button class="btn-export-icon"
+              title="Descargar socios por actividad / categoría"
+              onclick="openExportModal({
+                title: 'Socios por Actividad / Categoría',
+                endpoint: 'socios-actividad-categoria',
+                extraKey: 'sociosActCatActual'
+              })">
+        ⬇
+      </button>
+
+      <button id="btnActividadesReset" class="btn btn-secondary btn-xs hidden">
+        ← Ver actividades
+      </button>
+    </div>
+
+    <div class="card-body">
+      <div class="card-chart">
+        <canvas id="chartActividades"></canvas>
+      </div>
+      <div class="card-table hidden" id="tablaActividades"></div>
+    </div>
+  </div>
+
+  <!-- =========================
+       FINANZAS (TOP ROW)
+       ========================= -->
+
+  <!-- BLOQUE – INGRESOS VS GASTOS -->
+  <div class="report-card report-finanzas" id="card-ingresos">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Ingresos vs Gastos</h3>
+        <div class="card-subtitle muted">Comparativo mensual y anual.</div>
+      </div>
+
+      <div class="card-toolbar stacked">
+        <div class="toolbar-row">
+          <button id="btnIGMesPrev" class="btn-nav">◀</button>
+          <span id="igMesLabel" class="nav-label">Mes actual</span>
+          <button id="btnIGMesNext" class="btn-nav">▶</button>
+          <button id="btnIGExportRange" class="btn-export-icon" title="Exportar detalle (rango de fechas)">⬇</button>
+        </div>
       </div>
     </div>
 
-    <!-- BLOQUE – INGRESOS Y GASTOS POR DÍA -->
-    <div class="detail-card report-finanzas" id="card-ig-dia" style="grid-column: 1 / -1;">
-      <h3 class="detail-title"
-          id="toggleIGDia"
-          style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-        <span id="igDiaArrow">▶</span>
-        Ingresos y Gastos por día
-      </h3>
-
-      <div id="igDiaContainer" style="display:none;">
-        <div class="ranking-toolbar">
-          <button id="btnIGDiaPrev" class="btn-nav-sm">◀</button>
-          <span id="igDiaMesLabel" class="nav-label small">Mes actual</span>
-          <button id="btnIGDiaNext" class="btn-nav-sm">▶</button>
-        </div>
-
-        <div id="igDiaBody" class="detail-body">
-          <div class="muted small">Cargando datos...</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- BLOQUE – ESPERADO VS RECAUDADO -->
-    <div class="detail-card report-finanzas" id="card-esperado-final" style="grid-column: 1 / -1;">
-      <h3 class="detail-title">Esperado vs Recaudado</h3>
-
-      <div class="ranking-toolbar" style="margin-bottom:12px;">
-        <button id="btnEVRMesPrev" class="btn-nav-sm">◀</button>
-        <span id="evrMesLabel" class="nav-label small">Mes actual</span>
-        <button id="btnEVRMesNext" class="btn-nav-sm">▶</button>
-      </div>
+    <div class="card-body">
+      <span id="igAnioLabel" class="nav-label small" style="display:none;"></span>
 
       <div class="ig-month-summary">
         <div class="ig-month-item">
-          <span class="ig-label">Esperado</span>
-          <span id="evrEsperado" class="ig-value">–</span>
+          <span class="ig-label">Ingresos mes</span>
+          <span id="igMesIngresos" class="ig-month-value">–</span>
         </div>
-
         <div class="ig-month-item">
-          <span class="ig-label">Recaudado</span>
-          <span id="evrRecaudado" class="ig-value">–</span>
+          <span class="ig-label">Gastos mes</span>
+          <span id="igMesGastos" class="ig-month-value">–</span>
         </div>
-
         <div class="ig-month-item">
-          <span class="ig-label">Diferencia</span>
-          <span id="evrDiferencia" class="ig-value">–</span>
+          <span class="ig-label">Resultado mes</span>
+          <span id="igMesResultado" class="ig-month-value">–</span>
+        </div>
+      </div>
+
+      <div class="card-chart" style="min-height:180px;">
+        <canvas id="chartIGMes"></canvas>
+      </div>
+
+      <div class="ig-summary">
+        <div class="ig-summary-item">
+          <span class="ig-label">Ingresos año</span>
+          <span id="igAnualIngresos" class="ig-value">–</span>
+        </div>
+        <div class="ig-summary-item">
+          <span class="ig-label">Gastos año</span>
+          <span id="igAnualGastos" class="ig-value">–</span>
+        </div>
+        <div class="ig-summary-item">
+          <span class="ig-label">Resultado año</span>
+          <span id="igAnualResultado" class="ig-value">–</span>
         </div>
       </div>
     </div>
-
   </div>
-  <!-- /reportes-detail-grid -->
+
+  <!-- BLOQUE – RANKING INGRESOS / GASTOS -->
+  <div class="report-card report-finanzas" id="card-ranking">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Ranking por Gastos / Ingresos</h3>
+        <div class="card-subtitle muted">
+          Ranking mensual de ingresos y gastos.
+        </div>
+      </div>
+
+      <div class="ranking-toolbar">
+        <button id="btnRankMesPrev" class="btn-nav-sm">◀</button>
+        <span id="rankMesLabel" class="nav-label small">Mes actual</span>
+        <button id="btnRankMesNext" class="btn-nav-sm">▶</button>
+      </div>
+    </div>
+
+    <div id="rankingBody" class="card-body">
+      <div class="muted small">Cargando ranking…</div>
+    </div>
+  </div>
+
+  <!-- BLOQUE – INGRESOS / GASTOS POR RESPONSABLE -->
+  <div class="report-card report-finanzas" id="card-cuentas">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Ingresos / Gastos por responsable</h3>
+        <div class="card-subtitle muted">
+          Resumen mensual por responsable.
+        </div>
+      </div>
+
+      <div class="cuentas-toolbar cuentas-toolbar-compact">
+        <button id="btnCuentasMesPrev" class="btn-nav-sm">◀</button>
+        <span id="cuentasMesLabel" class="nav-label small">Mes actual</span>
+        <button id="btnCuentasMesNext" class="btn-nav-sm">▶</button>
+      </div>
+    </div>
+
+    <div id="cuentasBody" class="card-body">
+      <div class="muted small">Cargando datos…</div>
+    </div>
+  </div>
+
+</div>
+<!-- /reportes-grid -->
+
+  <!-- =============================
+     FINANZAS – FULL WIDTH
+     ============================= -->
+<div class="reportes-detail-grid">
+
+  <!-- BLOQUE – INGRESOS VS GASTOS POR RESPONSABLE -->
+  <div class="detail-card report-finanzas" id="card-ig-responsable" style="grid-column: 1 / -1;">
+    <h3 class="detail-title">Ingresos Vs Gastos por responsable</h3>
+
+    <div class="ranking-toolbar">
+      <button id="btnIGRespMesPrev" class="btn-nav-sm">◀</button>
+      <span id="igRespMesLabel" class="nav-label small">Mes actual</span>
+      <button id="btnIGRespMesNext" class="btn-nav-sm">▶</button>
+
+      <button class="btn-export-icon"
+              title="Exportar Ingresos vs Gastos por responsable"
+              onclick="openExportModal({
+                title: 'Ingresos_vs_Gastos_por_responsable',
+                endpoint: 'ingresos-vs-gastos-por-responsable'
+              })">
+        ⬇
+      </button>
+    </div>
+
+    <div id="igRespBody" class="detail-body">
+      <div class="muted small">Cargando datos…</div>
+    </div>
+  </div>
+
+  <!-- BLOQUE – INGRESOS Y GASTOS POR DÍA -->
+  <div class="detail-card report-finanzas" id="card-ig-dia" style="grid-column: 1 / -1;">
+    <h3
+      class="detail-title"
+      id="toggleIGDia"
+      style="display:flex; align-items:center; gap:8px; cursor:pointer;"
+    >
+      <span id="igDiaArrow">▶</span>
+      Ingresos y Gastos por día
+    </h3>
+
+    <div id="igDiaContainer" style="display:none;">
+      <div class="ranking-toolbar">
+        <button id="btnIGDiaPrev" class="btn-nav-sm">◀</button>
+        <span id="igDiaMesLabel" class="nav-label small">Mes actual</span>
+        <button id="btnIGDiaNext" class="btn-nav-sm">▶</button>
+      </div>
+
+      <div id="igDiaBody" class="detail-body">
+        <div class="muted small">Cargando datos...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOQUE – ESPERADO VS RECAUDADO -->
+  <div class="detail-card report-finanzas" id="card-esperado-final" style="grid-column: 1 / -1;">
+    <h3 class="detail-title">Esperado vs Recaudado</h3>
+
+    <div class="ranking-toolbar" style="margin-bottom:12px;">
+      <button id="btnEVRMesPrev" class="btn-nav-sm">◀</button>
+      <span id="evrMesLabel" class="nav-label small">Mes actual</span>
+      <button id="btnEVRMesNext" class="btn-nav-sm">▶</button>
+    </div>
+
+    <div class="ig-month-summary">
+      <div class="ig-month-item">
+        <span class="ig-label">Esperado</span>
+        <span id="evrEsperado" class="ig-value">–</span>
+      </div>
+
+      <div class="ig-month-item">
+        <span class="ig-label">Recaudado</span>
+        <span id="evrRecaudado" class="ig-value">–</span>
+      </div>
+
+      <div class="ig-month-item">
+        <span class="ig-label">Diferencia</span>
+        <span id="evrDiferencia" class="ig-value">–</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+<!-- /reportes-detail-grid -->
 
   <!-- =============================
        MODAL SOCIOS NUEVOS (NUEVO)
@@ -801,4 +808,43 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
   }
+
+/* =============================
+   CARD CUENTAS – HEADER COMPACTO
+   ============================= */
+
+#card-cuentas .card-title {
+  font-size: 13px;
+  line-height: 1.15;
+  margin-bottom: 2px;
+}
+
+#card-cuentas .card-subtitle {
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+#card-cuentas .cuentas-toolbar-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  margin-bottom: 0;
+}
+
+#card-cuentas .cuentas-toolbar-compact .nav-label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#card-cuentas .cuentas-toolbar-compact .btn-nav-sm {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 </style>
