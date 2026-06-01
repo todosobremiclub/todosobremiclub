@@ -3737,4 +3737,115 @@ router.get(
     }
   }
 );
+
+// ============================================================
+// NUEVO: Ingresos y gastos por día (por mes)
+// GET /club/:clubId/reportes/ingresos-gastos-por-dia?anio=2026&mes=5
+// ============================================================
+router.get(
+  '/:clubId/reportes/ingresos-gastos-por-dia',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({
+        ok: false,
+        error: 'anio y mes son obligatorios'
+      });
+    }
+
+    try {
+
+      const q = `
+        WITH dias AS (
+          SELECT
+            generate_series(
+              make_date($2, $3, 1),
+              (make_date($2, $3, 1) + interval '1 month - 1 day')::date,
+              interval '1 day'
+            )::date AS fecha
+        ),
+
+        ingresos AS (
+          SELECT
+            fecha::date,
+            SUM(monto) AS total
+          FROM (
+            -- Cuotas
+            SELECT
+              pm.fecha_pago::date AS fecha,
+              pm.monto
+            FROM pagos_mensuales pm
+            WHERE pm.club_id = $1
+              AND pm.fecha_pago IS NOT NULL
+              AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
+              AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
+
+            UNION ALL
+
+            -- Ingresos generales
+            SELECT
+              ig.fecha::date AS fecha,
+              ig.monto
+            FROM ingresos_generales ig
+            WHERE ig.club_id = $1
+              AND ig.activo = true
+              AND EXTRACT(YEAR FROM ig.fecha) = $2
+              AND EXTRACT(MONTH FROM ig.fecha) = $3
+          ) t
+          GROUP BY fecha
+        ),
+
+        gastos AS (
+          SELECT
+            g.fecha_gasto::date AS fecha,
+            SUM(g.monto) AS total
+          FROM gastos g
+          WHERE g.club_id = $1
+            AND g.activo = true
+            AND EXTRACT(YEAR FROM g.fecha_gasto) = $2
+            AND EXTRACT(MONTH FROM g.fecha_gasto) = $3
+          GROUP BY g.fecha_gasto::date
+        )
+
+        SELECT
+          d.fecha,
+          EXTRACT(DAY FROM d.fecha)::int AS dia,
+
+          COALESCE(i.total, 0) AS ingresos,
+          COALESCE(g.total, 0) AS gastos,
+          COALESCE(i.total, 0) - COALESCE(g.total, 0) AS resultado
+
+        FROM dias d
+        LEFT JOIN ingresos i ON i.fecha = d.fecha
+        LEFT JOIN gastos g ON g.fecha = d.fecha
+        ORDER BY d.fecha
+      `;
+
+      const r = await db.query(q, [clubId, anio, mes]);
+
+      return res.json({
+        ok: true,
+        anio,
+        mes,
+        rows: r.rows.map(row => ({
+          fecha: row.fecha,
+          dia: Number(row.dia),
+          ingresos: Number(row.ingresos || 0),
+          gastos: Number(row.gastos || 0),
+          resultado: Number(row.resultado || 0)
+        }))
+      });
+
+    } catch (e) {
+      console.error('❌ ingresos-gastos-por-dia:', e);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
 module.exports = router;
