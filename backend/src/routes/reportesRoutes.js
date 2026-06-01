@@ -3849,5 +3849,83 @@ router.get(
   }
 );
 
+router.get(
+  '/:clubId/reportes/ingresos-gastos-por-dia/detalle',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+
+    const { clubId } = req.params;
+    const { fecha, tipo } = req.query;
+
+    if (!fecha || !tipo) {
+      return res.status(400).json({ ok: false, error: 'fecha y tipo requeridos' });
+    }
+
+    try {
+
+      if (tipo === 'ingresos') {
+
+        const r = await db.query(`
+          SELECT *
+          FROM (
+            SELECT
+              pm.fecha_pago::date AS fecha,
+              'Cuota' AS origen,
+              pm.monto,
+              pm.cuenta,
+              s.apellido || ' ' || s.nombre AS socio_nombre,
+              ('Cuota ' || pm.mes || '/' || pm.anio) AS descripcion
+            FROM pagos_mensuales pm
+            LEFT JOIN socios s ON s.id = pm.socio_id
+            WHERE pm.club_id = $1
+              AND pm.fecha_pago::date = $2
+
+            UNION ALL
+
+            SELECT
+              ig.fecha::date AS fecha,
+              'Ingreso' AS origen,
+              ig.monto,
+              ig.cuenta,
+              NULL AS socio_nombre,
+              ig.observacion AS descripcion
+            FROM ingresos_generales ig
+            WHERE ig.club_id = $1
+              AND ig.fecha::date = $2
+          ) t
+        `, [clubId, fecha]);
+
+        return res.json({ ok: true, rows: r.rows });
+      }
+
+      if (tipo === 'gastos') {
+
+        const r = await db.query(`
+          SELECT
+            g.fecha_gasto::date AS fecha,
+            g.monto,
+            g.descripcion,
+            tg.nombre AS tipo_gasto,
+            rg.nombre AS responsable
+          FROM gastos g
+          LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
+          LEFT JOIN responsables_gasto rg ON rg.id = g.responsable_id
+          WHERE g.club_id = $1
+            AND g.fecha_gasto::date = $2
+        `, [clubId, fecha]);
+
+        return res.json({ ok: true, rows: r.rows });
+      }
+
+      return res.status(400).json({ ok: false, error: 'tipo inválido' });
+
+    } catch (e) {
+      console.error('❌ detalle dia:', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
 
 module.exports = router;
