@@ -86,6 +86,12 @@ const igRespState = {
   mes: new Date().getMonth() + 1
 };
 
+const evrState = {
+ anio: new Date().getFullYear(),
+ mes: new Date().getMonth() + 1
+};
+
+
   // =============================
   // HELPERS AUTH + FETCH
   // =============================
@@ -2008,6 +2014,51 @@ async function loadEsperadoVsRecaudado() {
   }
 }
 
+async function loadEsperadoVsRecaudado() {
+  const elEsperado = $('evrEsperado');
+  const elRecaudado = $('evrRecaudado');
+  const elDiferencia = $('evrDiferencia');
+  const elMesLabel = $('evrMesLabel');
+
+  if (!elEsperado || !elRecaudado || !elDiferencia || !elMesLabel) return;
+
+  try {
+    const clubId = getActiveClubId();
+    const { anio, mes } = evrState;
+
+    elMesLabel.textContent = `${MESES[mes - 1]} ${anio}`;
+
+    const { data } = await fetchAuth(
+      `/club/${clubId}/reportes/esperado-vs-recaudado?anio=${anio}&mes=${mes}`
+    );
+
+    if (!data.ok) {
+      elEsperado.textContent = '–';
+      elRecaudado.textContent = '–';
+      elDiferencia.textContent = '–';
+      return;
+    }
+
+    const esperado = Number(data.esperado || 0);
+    const recaudado = Number(data.recaudado || 0);
+    const diferencia = Number(data.diferencia || 0);
+
+    elEsperado.textContent = moneyARS.format(esperado);
+    elRecaudado.textContent = moneyARS.format(recaudado);
+    elDiferencia.textContent = moneyARS.format(diferencia);
+
+    elDiferencia.style.color = diferencia < 0 ? '#b91c1c' : '#16a34a';
+    elDiferencia.style.fontWeight = '700';
+
+  } catch (e) {
+    console.error('❌ loadEsperadoVsRecaudado', e);
+    if ($('evrEsperado')) $('evrEsperado').textContent = '–';
+    if ($('evrRecaudado')) $('evrRecaudado').textContent = '–';
+    if ($('evrDiferencia')) $('evrDiferencia').textContent = '–';
+  }
+}
+
+
 
  // =============================
 // INIT DASHBOARD
@@ -2170,9 +2221,39 @@ document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) =>
  loadCuentas();
  bindCuentasDetalleClicks();
 
+ // =============================
  // BLOQUE FINAL – ESPERADO VS RECAUDADO
+ // =============================
+ const btnEVRPrev = $('btnEVRMesPrev');
+ const btnEVRNext = $('btnEVRMesNext');
+
+ if (btnEVRPrev) {
+   btnEVRPrev.addEventListener('click', async () => {
+     if (evrState.mes === 1) {
+       evrState.mes = 12;
+       evrState.anio -= 1;
+     } else {
+       evrState.mes -= 1;
+     }
+     await loadEsperadoVsRecaudado();
+   });
+ }
+
+ if (btnEVRNext) {
+   btnEVRNext.addEventListener('click', async () => {
+     if (evrState.mes === 12) {
+       evrState.mes = 1;
+       evrState.anio += 1;
+     } else {
+       evrState.mes += 1;
+     }
+     await loadEsperadoVsRecaudado();
+   });
+ }
+
  await loadEsperadoVsRecaudado();
 }
+
 
 window.initReportesSection = initReportesSection;
 
