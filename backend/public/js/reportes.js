@@ -2192,6 +2192,49 @@ function bindIGDiaToggle() {
 // INIT DASHBOARD
 // =============================
 async function initReportesSection() {
+
+  // =============================
+  // SWITCH FINANZAS / SOCIOS
+  // =============================
+  function applyReportesView(mode) {
+    const financieros = document.querySelectorAll('.report-finanzas');
+    const socios = document.querySelectorAll('.report-socios');
+
+    if (mode === 'finanzas') {
+      financieros.forEach(el => el.style.display = '');
+      socios.forEach(el => el.style.display = 'none');
+    } else {
+      financieros.forEach(el => el.style.display = 'none');
+      socios.forEach(el => el.style.display = '');
+    }
+  }
+
+  const btnFin = $('btnSwitchFinanzas');
+  const btnSoc = $('btnSwitchSocios');
+
+  if (btnFin && btnSoc) {
+
+    btnFin.addEventListener('click', () => {
+      btnFin.classList.remove('btn-secondary');
+      btnSoc.classList.add('btn-secondary');
+      applyReportesView('finanzas');
+    });
+
+    btnSoc.addEventListener('click', () => {
+      btnSoc.classList.remove('btn-secondary');
+      btnFin.classList.add('btn-secondary');
+      applyReportesView('socios');
+    });
+
+    // 👉 estado inicial
+    applyReportesView('finanzas');
+  }
+
+  // =============================
+  // PANEL 1 – actividades / categorías
+  // =============================
+  bindActividadesInteractions();
+  await loadActividadesMain();
   // Panel 1 – actividades / categorías
   bindActividadesInteractions();
   await loadActividadesMain();
@@ -2224,6 +2267,20 @@ async function initReportesSection() {
   document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) => {
     if (ev.target?.id === 'exportIGRangeModal') closeExportIGRangeModal();
   });
+
+function applyReportesView(mode) {
+  const financieros = document.querySelectorAll('.report-finanzas');
+  const socios = document.querySelectorAll('.report-socios');
+
+  if (mode === 'finanzas') {
+    financieros.forEach(el => el.style.display = '');
+    socios.forEach(el => el.style.display = 'none');
+  } else {
+    financieros.forEach(el => el.style.display = 'none');
+    socios.forEach(el => el.style.display = '');
+  }
+}
+
 
   // =============================
   // ABAJO IZQUIERDA – SOCIOS NUEVOS

@@ -1,6 +1,11 @@
 <section id="reportes-section" class="section-reportes">
 
   <h2 style="margin-bottom:16px;">📊 Dashboard de Reportes</h2>
+<div id="reportesSwitch" style="display:flex; gap:8px; margin-bottom:16px;">
+  <button id="btnSwitchFinanzas" class="btn btn-secondary">Finanzas</button>
+  <button id="btnSwitchSocios" class="btn">Socios</button>
+</div>
+
   <div class="muted" style="margin-bottom:18px; font-size:13px;">
     Resumen visual de socios, morosidad e ingresos vs gastos. Todo en una sola vista.
   </div>
@@ -12,7 +17,7 @@
   <div class="reportes-grid">
 
     <!-- PANEL 1 – SOCIOS POR ACTIVIDAD / CATEGORÍA -->
-    <div class="report-card" id="card-actividades">
+    <div class="report-card report-socios" id="card-actividades">
       <div class="card-header">
         <div>
           <h3 class="card-title">Socios por Actividad / Categoría</h3>
@@ -45,7 +50,7 @@
     </div>
 
     <!-- PANEL 2 – CUOTAS IMPAGAS -->
-    <div class="report-card" id="card-impagos">
+    <div class="report-card report-socios" id="card-impagos">
       <div class="card-header">
         <div>
           <h3 class="card-title">Cuotas impagas</h3>
@@ -90,7 +95,7 @@
     </div>
 
     <!-- PANEL 3 – INGRESOS VS GASTOS -->
-    <div class="report-card" id="card-ingresos">
+    <div class="report-card report-finanzas" id="card-ingresos">
 
       <div class="card-header">
         <div>
@@ -158,7 +163,7 @@
   <div class="reportes-detail-grid">
 
     <!-- BLOQUE 1 – SOCIOS NUEVOS POR MES -->
-    <div class="detail-card" id="card-nuevos">
+    <div class="detail-card report-socios" id="card-nuevos">
       <h3 class="detail-title">Socios nuevos por mes</h3>
 
       <div class="ranking-toolbar">
@@ -178,7 +183,7 @@
     </div>
 
     <!-- BLOQUE 2 – RANKING INGRESOS / GASTOS -->
-    <div class="detail-card" id="card-ranking">
+    <div class="detail-card report-finanzas" id="card-ranking">
       <h3 class="detail-title">Ranking por Gastos / Ingresos</h3>
 
 
@@ -194,7 +199,7 @@
     </div>
 
     <!-- BLOQUE 3 – INGRESOS / GASTOS POR RESPONSABLE -->
-    <div class="detail-card" id="card-cuentas">
+    <div class="detail-card report-finanzas" id="card-cuentas">
       <h3 class="detail-title">Ingresos por responsable / Gastos por responsable</h3>
 
       <div class="cuentas-toolbar">
@@ -209,8 +214,7 @@
     </div>
 
 <!-- BLOQUE 7 – INGRESOS VS GASTOS POR RESPONSABLE -->
-<div class="detail-card"
-     id="card-ig-responsable"
+<div class="detail-card report-finanzas" id="card-ig-responsable"
      style="grid-column: 1 / -1;">
 
   <h3 class="detail-title">Ingresos Vs Gastos por responsable</h3>
@@ -239,7 +243,8 @@
   </div>
 
 <!-- BLOQUE – INGRESOS Y GASTOS POR DÍA -->
-<div class="detail-card" id="card-ig-dia" style="grid-column: 1 / -1;">
+<div class="detail-card report-finanzas" id="card-ig-dia"
+ style="grid-column: 1 / -1;">
 
   <h3 
     class="detail-title" 
@@ -265,7 +270,7 @@
 </div>
 
 <!-- BLOQUE FINAL – ESPERADO VS RECAUDADO -->
-<div class="detail-card" id="card-esperado-final" style="grid-column: 1 / -1;">
+<div class="detail-card report-finanzas" id="card-esperado-final" style="grid-column: 1 / -1;">
 
   <h3 class="detail-title">Esperado vs Recaudado</h3>
 
