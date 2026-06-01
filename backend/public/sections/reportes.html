@@ -1,55 +1,56 @@
 <section id="reportes-section" class="section-reportes">
 
   <h2 style="margin-bottom:16px;">📊 Dashboard de Reportes</h2>
-<div id="reportesSwitch" style="display:flex; gap:8px; margin-bottom:16px;">
-  <button id="btnSwitchFinanzas" class="btn btn-secondary">Finanzas</button>
-  <button id="btnSwitchSocios" class="btn">Socios</button>
-</div>
 
-  <div class="muted" style="margin-bottom:18px; font-size:13px;">
-    Resumen visual de socios, morosidad e ingresos vs gastos. Todo en una sola vista.
+  <div id="reportesSwitch" class="reportes-switch">
+    <button id="btnSwitchFinanzas" class="btn reportes-switch-btn reportes-switch-btn-active">
+      💰 Finanzas
+    </button>
+
+    <button id="btnSwitchSocios" class="btn btn-secondary reportes-switch-btn">
+      👥 Socios
+    </button>
   </div>
-
 
   <!-- ===============================
        GRID PRINCIPAL (3 COLUMNAS)
        =============================== -->
   <div class="reportes-grid">
 
-    <!-- PANEL 1 – SOCIOS POR ACTIVIDAD / CATEGORÍA -->
-    <div class="report-card report-socios" id="card-actividades">
+    <!-- =========================
+         SOCIOS (TOP ROW)
+         ========================= -->
+
+    <!-- BLOQUE – SOCIOS NUEVOS POR MES -->
+    <div class="report-card report-socios" id="card-nuevos">
       <div class="card-header">
         <div>
-          <h3 class="card-title">Socios por Actividad / Categoría</h3>
-          <div id="actividadesSubtitle" class="card-subtitle muted">
-            Distribución de socios activos por actividad.
+          <h3 class="card-title">Socios nuevos por mes</h3>
+          <div class="card-subtitle muted">
+            Altas mensuales de socios.
           </div>
         </div>
 
-<button class="btn-export-icon"
- title="Descargar socios por actividad / categoría"
- onclick="openExportModal({
-   title: 'Socios por Actividad / Categoría',
-   endpoint: 'socios-actividad-categoria',
-   extraKey: 'sociosActCatActual'
- })">
- ⬇
-</button>
-
-        <button id="btnActividadesReset" class="btn btn-secondary btn-xs hidden">
-          ← Ver actividades
-        </button>
+        <div class="ranking-toolbar">
+          <button id="btnNuevosMesPrev" class="btn-nav-sm">◀</button>
+          <span id="nuevosMesLabel" class="nav-label small">Mes actual</span>
+          <button id="btnNuevosMesNext" class="btn-nav-sm">▶</button>
+        </div>
       </div>
 
       <div class="card-body">
-        <div class="card-chart">
-          <canvas id="chartActividades"></canvas>
+        <div id="nuevosTop" class="nuevos-top">
+          <div class="nuevos-label">Socios nuevos</div>
+          <div id="nuevosCount" class="nuevos-value">–</div>
         </div>
-        <div class="card-table hidden" id="tablaActividades"></div>
+
+        <div id="tablaNuevos" class="detail-body">
+          <div class="muted small">Cargando meses…</div>
+        </div>
       </div>
     </div>
 
-    <!-- PANEL 2 – CUOTAS IMPAGAS -->
+    <!-- PANEL – CUOTAS IMPAGAS -->
     <div class="report-card report-socios" id="card-impagos">
       <div class="card-header">
         <div>
@@ -60,21 +61,20 @@
         </div>
 
         <div class="card-toolbar" style="gap:6px;">
-  <button id="btnImpagosPrev" class="btn-nav">◀</button>
-  <span id="impagosMesLabel" class="nav-label">Mes actual</span>
-  <button id="btnImpagosNext" class="btn-nav">▶</button>
+          <button id="btnImpagosPrev" class="btn-nav">◀</button>
+          <span id="impagosMesLabel" class="nav-label">Mes actual</span>
+          <button id="btnImpagosNext" class="btn-nav">▶</button>
 
-  <!-- Exportar impagos (icono chico) -->
-  <button class="btn-export-icon"
-          title="Exportar cuotas impagas"
-          onclick="openExportModal({
-            title: 'Cuotas impagas',
-            endpoint: 'impagos-mes'
-          })">
-    ⬇
-  </button>
-</div>
-</div>
+          <button class="btn-export-icon"
+                  title="Exportar cuotas impagas"
+                  onclick="openExportModal({
+                    title: 'Cuotas impagas',
+                    endpoint: 'impagos-mes'
+                  })">
+            ⬇
+          </button>
+        </div>
+      </div>
 
       <div class="card-body">
         <div class="impagos-top">
@@ -94,9 +94,45 @@
       </div>
     </div>
 
-    <!-- PANEL 3 – INGRESOS VS GASTOS -->
-    <div class="report-card report-finanzas" id="card-ingresos">
+    <!-- PANEL – SOCIOS POR ACTIVIDAD / CATEGORÍA -->
+    <div class="report-card report-socios" id="card-actividades">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Socios por Actividad / Categoría</h3>
+          <div id="actividadesSubtitle" class="card-subtitle muted">
+            Distribución de socios activos por actividad.
+          </div>
+        </div>
 
+        <button class="btn-export-icon"
+                title="Descargar socios por actividad / categoría"
+                onclick="openExportModal({
+                  title: 'Socios por Actividad / Categoría',
+                  endpoint: 'socios-actividad-categoria',
+                  extraKey: 'sociosActCatActual'
+                })">
+          ⬇
+        </button>
+
+        <button id="btnActividadesReset" class="btn btn-secondary btn-xs hidden">
+          ← Ver actividades
+        </button>
+      </div>
+
+      <div class="card-body">
+        <div class="card-chart">
+          <canvas id="chartActividades"></canvas>
+        </div>
+        <div class="card-table hidden" id="tablaActividades"></div>
+      </div>
+    </div>
+
+    <!-- =========================
+         FINANZAS (TOP ROW)
+         ========================= -->
+
+    <!-- PANEL – INGRESOS VS GASTOS -->
+    <div class="report-card report-finanzas" id="card-ingresos">
       <div class="card-header">
         <div>
           <h3 class="card-title">Ingresos vs Gastos</h3>
@@ -108,14 +144,12 @@
             <button id="btnIGMesPrev" class="btn-nav">◀</button>
             <span id="igMesLabel" class="nav-label">Mes actual</span>
             <button id="btnIGMesNext" class="btn-nav">▶</button>
-<button id="btnIGExportRange" class="btn-export-icon" title="Exportar detalle (rango de fechas)">⬇</button>
-
+            <button id="btnIGExportRange" class="btn-export-icon" title="Exportar detalle (rango de fechas)">⬇</button>
           </div>
         </div>
       </div>
 
       <div class="card-body">
-
         <span id="igAnioLabel" class="nav-label small" style="display:none;"></span>
 
         <div class="ig-month-summary">
@@ -151,156 +185,133 @@
             <span id="igAnualResultado" class="ig-value">–</span>
           </div>
         </div>
-
       </div>
     </div>
 
-  </div> <!-- /reportes-grid -->
+    <!-- PANEL – RANKING INGRESOS / GASTOS -->
+    <div class="report-card report-finanzas" id="card-ranking">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Ranking por Gastos / Ingresos</h3>
+          <div class="card-subtitle muted">Ranking mensual de ingresos y gastos.</div>
+        </div>
 
-  <!-- =============================
-       ZONA DE DETALLES NUEVA (3 REPORTES)
-       ============================= -->
-  <div class="reportes-detail-grid">
-
-    <!-- BLOQUE 1 – SOCIOS NUEVOS POR MES -->
-    <div class="detail-card report-socios" id="card-nuevos">
-      <h3 class="detail-title">Socios nuevos por mes</h3>
-
-      <div class="ranking-toolbar">
-        <button id="btnNuevosMesPrev" class="btn-nav-sm">◀</button>
-        <span id="nuevosMesLabel" class="nav-label small">Mes actual</span>
-        <button id="btnNuevosMesNext" class="btn-nav-sm">▶</button>
+        <div class="ranking-toolbar">
+          <button id="btnRankMesPrev" class="btn-nav-sm">◀</button>
+          <span id="rankMesLabel" class="nav-label small">Mes actual</span>
+          <button id="btnRankMesNext" class="btn-nav-sm">▶</button>
+        </div>
       </div>
 
-      <div id="nuevosTop" class="nuevos-top">
-        <div class="nuevos-label">Socios nuevos</div>
-        <div id="nuevosCount" class="nuevos-value">–</div>
-      </div>
-
-      <div id="tablaNuevos" class="detail-body">
-        <div class="muted small">Cargando meses…</div>
-      </div>
-    </div>
-
-    <!-- BLOQUE 2 – RANKING INGRESOS / GASTOS -->
-    <div class="detail-card report-finanzas" id="card-ranking">
-      <h3 class="detail-title">Ranking por Gastos / Ingresos</h3>
-
-
-      <div class="ranking-toolbar">
-        <button id="btnRankMesPrev" class="btn-nav-sm">◀</button>
-        <span id="rankMesLabel" class="nav-label small">Mes actual</span>
-        <button id="btnRankMesNext" class="btn-nav-sm">▶</button>
-      </div>
-
-      <div id="rankingBody" class="detail-body">
+      <div id="rankingBody" class="card-body">
         <div class="muted small">Cargando ranking…</div>
       </div>
     </div>
 
-    <!-- BLOQUE 3 – INGRESOS / GASTOS POR RESPONSABLE -->
-    <div class="detail-card report-finanzas" id="card-cuentas">
-      <h3 class="detail-title">Ingresos por responsable / Gastos por responsable</h3>
+    <!-- PANEL – INGRESOS / GASTOS POR RESPONSABLE -->
+    <div class="report-card report-finanzas" id="card-cuentas">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Ingresos por responsable / Gastos por responsable</h3>
+          <div class="card-subtitle muted">Resumen mensual por responsable.</div>
+        </div>
 
-      <div class="cuentas-toolbar">
-        <button id="btnCuentasMesPrev" class="btn-nav-sm">◀</button>
-        <span id="cuentasMesLabel" class="nav-label small">Mes actual</span>
-        <button id="btnCuentasMesNext" class="btn-nav-sm">▶</button>
+        <div class="cuentas-toolbar">
+          <button id="btnCuentasMesPrev" class="btn-nav-sm">◀</button>
+          <span id="cuentasMesLabel" class="nav-label small">Mes actual</span>
+          <button id="btnCuentasMesNext" class="btn-nav-sm">▶</button>
+        </div>
       </div>
 
-      <div id="cuentasBody" class="detail-body">
+      <div id="cuentasBody" class="card-body">
         <div class="muted small">Cargando datos…</div>
       </div>
     </div>
 
-<!-- BLOQUE 7 – INGRESOS VS GASTOS POR RESPONSABLE -->
-<div class="detail-card report-finanzas" id="card-ig-responsable"
-     style="grid-column: 1 / -1;">
-
-  <h3 class="detail-title">Ingresos Vs Gastos por responsable</h3>
-
-  <div class="ranking-toolbar">
-    <button id="btnIGRespMesPrev" class="btn-nav-sm">◀</button>
-    <span id="igRespMesLabel" class="nav-label small">Mes actual</span>
-    <button id="btnIGRespMesNext" class="btn-nav-sm">▶</button>
-<button class="btn-export-icon"
-  title="Exportar Ingresos vs Gastos por responsable"
-  onclick="openExportModal({
-    title: 'Ingresos_vs_Gastos_por_responsable',
-    endpoint: 'ingresos-vs-gastos-por-responsable'
-  })">
-  ⬇
-</button>
   </div>
+  <!-- /reportes-grid -->
 
-  <div id="igRespBody" class="detail-body">
-    <div class="muted small">Cargando datos…</div>
-  </div>
+  <!-- =============================
+       FINANZAS – FULL WIDTH
+       ============================= -->
+  <div class="reportes-detail-grid">
 
-</div>
+    <!-- BLOQUE – INGRESOS VS GASTOS POR RESPONSABLE -->
+    <div class="detail-card report-finanzas" id="card-ig-responsable" style="grid-column: 1 / -1;">
+      <h3 class="detail-title">Ingresos Vs Gastos por responsable</h3>
 
+      <div class="ranking-toolbar">
+        <button id="btnIGRespMesPrev" class="btn-nav-sm">◀</button>
+        <span id="igRespMesLabel" class="nav-label small">Mes actual</span>
+        <button id="btnIGRespMesNext" class="btn-nav-sm">▶</button>
 
-  </div>
+        <button class="btn-export-icon"
+                title="Exportar Ingresos vs Gastos por responsable"
+                onclick="openExportModal({
+                  title: 'Ingresos_vs_Gastos_por_responsable',
+                  endpoint: 'ingresos-vs-gastos-por-responsable'
+                })">
+          ⬇
+        </button>
+      </div>
 
-<!-- BLOQUE – INGRESOS Y GASTOS POR DÍA -->
-<div class="detail-card report-finanzas" id="card-ig-dia"
- style="grid-column: 1 / -1;">
-
-  <h3 
-    class="detail-title" 
-    id="toggleIGDia"
-    style="display:flex; align-items:center; gap:8px; cursor:pointer;"
-  >
-    <span id="igDiaArrow">▶</span>
-    Ingresos y Gastos por día
-  </h3>
-
-  <div class="ranking-toolbar">
-    <button id="btnIGDiaPrev" class="btn-nav-sm">◀</button>
-    <span id="igDiaMesLabel" class="nav-label small">Mes actual</span>
-    <button id="btnIGDiaNext" class="btn-nav-sm">▶</button>
-  </div>
-
-  <div id="igDiaContainer" style="display:none;">
-    <div id="igDiaBody" class="detail-body">
-      <div class="muted small">Cargando datos...</div>
-    </div>
-  </div>
-
-</div>
-
-<!-- BLOQUE FINAL – ESPERADO VS RECAUDADO -->
-<div class="detail-card report-finanzas" id="card-esperado-final" style="grid-column: 1 / -1;">
-
-  <h3 class="detail-title">Esperado vs Recaudado</h3>
-
-  <div class="ranking-toolbar" style="margin-bottom:12px;">
-    <button id="btnEVRMesPrev" class="btn-nav-sm">◀</button>
-    <span id="evrMesLabel" class="nav-label small">Mes actual</span>
-    <button id="btnEVRMesNext" class="btn-nav-sm">▶</button>
-  </div>
-
-  <div class="ig-month-summary">
-
-    <div class="ig-month-item">
-      <span class="ig-label">Esperado</span>
-      <span id="evrEsperado" class="ig-value">–</span>
+      <div id="igRespBody" class="detail-body">
+        <div class="muted small">Cargando datos…</div>
+      </div>
     </div>
 
-    <div class="ig-month-item">
-      <span class="ig-label">Recaudado</span>
-      <span id="evrRecaudado" class="ig-value">–</span>
+    <!-- BLOQUE – INGRESOS Y GASTOS POR DÍA -->
+    <div class="detail-card report-finanzas" id="card-ig-dia" style="grid-column: 1 / -1;">
+      <h3 class="detail-title"
+          id="toggleIGDia"
+          style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <span id="igDiaArrow">▶</span>
+        Ingresos y Gastos por día
+      </h3>
+
+      <div id="igDiaContainer" style="display:none;">
+        <div class="ranking-toolbar">
+          <button id="btnIGDiaPrev" class="btn-nav-sm">◀</button>
+          <span id="igDiaMesLabel" class="nav-label small">Mes actual</span>
+          <button id="btnIGDiaNext" class="btn-nav-sm">▶</button>
+        </div>
+
+        <div id="igDiaBody" class="detail-body">
+          <div class="muted small">Cargando datos...</div>
+        </div>
+      </div>
     </div>
 
-    <div class="ig-month-item">
-      <span class="ig-label">Diferencia</span>
-      <span id="evrDiferencia" class="ig-value">–</span>
+    <!-- BLOQUE – ESPERADO VS RECAUDADO -->
+    <div class="detail-card report-finanzas" id="card-esperado-final" style="grid-column: 1 / -1;">
+      <h3 class="detail-title">Esperado vs Recaudado</h3>
+
+      <div class="ranking-toolbar" style="margin-bottom:12px;">
+        <button id="btnEVRMesPrev" class="btn-nav-sm">◀</button>
+        <span id="evrMesLabel" class="nav-label small">Mes actual</span>
+        <button id="btnEVRMesNext" class="btn-nav-sm">▶</button>
+      </div>
+
+      <div class="ig-month-summary">
+        <div class="ig-month-item">
+          <span class="ig-label">Esperado</span>
+          <span id="evrEsperado" class="ig-value">–</span>
+        </div>
+
+        <div class="ig-month-item">
+          <span class="ig-label">Recaudado</span>
+          <span id="evrRecaudado" class="ig-value">–</span>
+        </div>
+
+        <div class="ig-month-item">
+          <span class="ig-label">Diferencia</span>
+          <span id="evrDiferencia" class="ig-value">–</span>
+        </div>
+      </div>
     </div>
 
   </div>
-
-</div>
-
+  <!-- /reportes-detail-grid -->
 
   <!-- =============================
        MODAL SOCIOS NUEVOS (NUEVO)
@@ -335,126 +346,141 @@
     </div>
   </div>
 
-<!-- =============================
- MODAL DETALLE (Ranking / Cuentas / IG Responsable)
- ============================= -->
-<div id="detalleModal" class="modal hidden">
-  <div class="modal-content" style="max-width: 980px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <div>
-        <h3 id="detalleModalTitle" style="margin:0;">Detalle</h3>
-        <div id="detalleModalSub" class="muted" style="margin-top:4px; font-size:13px;"></div>
+  <!-- =============================
+       MODAL DETALLE (Ranking / Cuentas / IG Responsable)
+       ============================= -->
+  <div id="detalleModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 980px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <div>
+          <h3 id="detalleModalTitle" style="margin:0;">Detalle</h3>
+          <div id="detalleModalSub" class="muted" style="margin-top:4px; font-size:13px;"></div>
+        </div>
+        <button id="detalleModalClose" class="btn btn-secondary">✕</button>
       </div>
-      <button id="detalleModalClose" class="btn btn-secondary">✕</button>
-    </div>
 
-    <div id="detalleModalBody" style="margin-top:12px; max-height:65vh; overflow:auto;">
-      <div class="muted small">Seleccioná un ítem para ver el detalle…</div>
-    </div>
+      <div id="detalleModalBody" style="margin-top:12px; max-height:65vh; overflow:auto;">
+        <div class="muted small">Seleccioná un ítem para ver el detalle…</div>
+      </div>
 
-    <div id="detalleModalFooter"
-         style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
-      <div class="muted small" id="detalleModalInfo"></div>
-      <div style="font-weight:700;" id="detalleModalTotal"></div>
-    </div>
-  </div>
-</div>
-
-<!-- =============================
-     MODAL EXPORTAR REPORTE
-     ============================= -->
-<div id="exportModal" class="modal hidden">
-  <div class="modal-content" style="max-width:420px;">
-    
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h3 id="exportModalTitle" style="margin:0;">
-        Exportar reporte
-      </h3>
-      <button class="btn btn-secondary" onclick="closeExportModal()">✕</button>
-    </div>
-
-    <div class="muted small" id="exportModalSub" style="margin-top:4px;">
-  Seleccioná período (Mes o Año) y formato
-</div>
-
-<div style="margin-top:14px; display:flex; gap:10px; align-items:flex-end;">
-  <label style="flex:1;">
-    Período
-    <select id="exportModalPeriodo" style="width:100%;">
-      <option value="mes">Mes</option>
-      <option value="anio">Año</option>
-    </select>
-  </label>
-
-  <label style="flex:1;">
-    Año
-    <select id="exportModalAnio" style="width:100%;"></select>
-  </label>
-
-  <label style="flex:1;">
-    Mes
-    <select id="exportModalMes" style="width:100%;">
-      <option value="1">Enero</option>
-      <option value="2">Febrero</option>
-      <option value="3">Marzo</option>
-      <option value="4">Abril</option>
-      <option value="5">Mayo</option>
-      <option value="6">Junio</option>
-      <option value="7">Julio</option>
-      <option value="8">Agosto</option>
-      <option value="9">Septiembre</option>
-      <option value="10">Octubre</option>
-      <option value="11">Noviembre</option>
-      <option value="12">Diciembre</option>
-    </select>
-  </label>
-</div>
-
-<div style="margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
-  <button class="btn btn-secondary" onclick="confirmExport('pdf')">📄 PDF</button>
-  <button class="btn btn-secondary" onclick="confirmExport('excel')">📊 Excel</button>
-</div>
-
-
-  </div>
-</div>
-
-<!-- =============================
- MODAL EXPORTAR INGRESOS VS GASTOS (RANGO DE FECHAS)
- ============================= -->
-<div id="exportIGRangeModal" class="modal hidden">
-  <div class="modal-content" style="max-width:460px;">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h3 style="margin:0;">Exportar detalle – Ingresos vs Gastos</h3>
-      <button id="btnIGExportRangeClose" class="btn btn-secondary">✕</button>
-    </div>
-    <div class="muted small" style="margin-top:4px;">Seleccioná fecha inicio y fecha fin (pueden ser de distintos años).</div>
-
-    <div style="margin-top:14px; display:flex; gap:10px;">
-      <label style="flex:1;">Inicio
-        <input type="date" id="igExportDesde" style="width:100%;">
-      </label>
-      <label style="flex:1;">Fin
-        <input type="date" id="igExportHasta" style="width:100%;">
-      </label>
-    </div>
-
-    <div style="margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
-      <button id="btnIGExportRangeCancel" class="btn btn-secondary">Cancelar</button>
-      <button id="btnIGExportRangeExcel" class="btn btn-secondary">📊 Excel</button>
+      <div id="detalleModalFooter"
+           style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
+        <div class="muted small" id="detalleModalInfo"></div>
+        <div style="font-weight:700;" id="detalleModalTotal"></div>
+      </div>
     </div>
   </div>
-</div>
+
+  <!-- =============================
+       MODAL EXPORTAR REPORTE
+       ============================= -->
+  <div id="exportModal" class="modal hidden">
+    <div class="modal-content" style="max-width:420px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="exportModalTitle" style="margin:0;">
+          Exportar reporte
+        </h3>
+        <button class="btn btn-secondary" onclick="closeExportModal()">✕</button>
+      </div>
+
+      <div class="muted small" id="exportModalSub" style="margin-top:4px;">
+        Seleccioná período (Mes o Año) y formato
+      </div>
+
+      <div style="margin-top:14px; display:flex; gap:10px; align-items:flex-end;">
+        <label style="flex:1;">
+          Período
+          <select id="exportModalPeriodo" style="width:100%;">
+            <option value="mes">Mes</option>
+            <option value="anio">Año</option>
+          </select>
+        </label>
+
+        <label style="flex:1;">
+          Año
+          <select id="exportModalAnio" style="width:100%;"></select>
+        </label>
+
+        <label style="flex:1;">
+          Mes
+          <select id="exportModalMes" style="width:100%;">
+            <option value="1">Enero</option>
+            <option value="2">Febrero</option>
+            <option value="3">Marzo</option>
+            <option value="4">Abril</option>
+            <option value="5">Mayo</option>
+            <option value="6">Junio</option>
+            <option value="7">Julio</option>
+            <option value="8">Agosto</option>
+            <option value="9">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+          </select>
+        </label>
+      </div>
+
+      <div style="margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="confirmExport('pdf')">📄 PDF</button>
+        <button class="btn btn-secondary" onclick="confirmExport('excel')">📊 Excel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =============================
+       MODAL EXPORTAR INGRESOS VS GASTOS (RANGO DE FECHAS)
+       ============================= -->
+  <div id="exportIGRangeModal" class="modal hidden">
+    <div class="modal-content" style="max-width:460px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">Exportar detalle – Ingresos vs Gastos</h3>
+        <button id="btnIGExportRangeClose" class="btn btn-secondary">✕</button>
+      </div>
+      <div class="muted small" style="margin-top:4px;">Seleccioná fecha inicio y fecha fin (pueden ser de distintos años).</div>
+
+      <div style="margin-top:14px; display:flex; gap:10px;">
+        <label style="flex:1;">Inicio
+          <input type="date" id="igExportDesde" style="width:100%;">
+        </label>
+        <label style="flex:1;">Fin
+          <input type="date" id="igExportHasta" style="width:100%;">
+        </label>
+      </div>
+
+      <div style="margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
+        <button id="btnIGExportRangeCancel" class="btn btn-secondary">Cancelar</button>
+        <button id="btnIGExportRangeExcel" class="btn btn-secondary">📊 Excel</button>
+      </div>
+    </div>
+  </div>
 
 </section>
 
 <style>
+  /* SWITCH */
+  .reportes-switch {
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    margin-bottom:20px;
+  }
+
+  .reportes-switch-btn {
+    min-width:140px;
+    font-weight:600;
+  }
+
+  .reportes-switch-btn-active {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
   /* GRID PRINCIPAL (3 columnas) */
   .reportes-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
     margin-bottom: 18px;
+    align-items: start;
   }
 
   .report-card {
@@ -473,6 +499,7 @@
     display:flex;
     justify-content:space-between;
     align-items:flex-start;
+    gap:10px;
   }
 
   .card-title {
@@ -557,7 +584,7 @@
     flex:1;
     background:#f9fafb;
     border-radius:8px;
-    padding:4px 6px;
+    padding:8px 10px;
     display:flex;
     flex-direction:column;
     gap:2px;
@@ -585,6 +612,7 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap:16px;
     margin-top:20px;
+    align-items:start;
   }
 
   .detail-card {
@@ -630,6 +658,7 @@
     justify-content:center;
     gap:6px;
     margin-bottom:8px;
+    flex-wrap:wrap;
   }
 
   .small-table table {
@@ -637,6 +666,7 @@
     font-size:13px;
     border-collapse:collapse;
   }
+
   .small-table td {
     padding:4px 0;
   }
@@ -651,6 +681,7 @@
     align-items:center;
     z-index:9999;
   }
+
   .modal.hidden { display:none !important; }
 
   .modal-content {
@@ -667,127 +698,107 @@
     .reportes-grid {
       grid-template-columns: 1fr;
     }
+
     .reportes-detail-grid {
       grid-template-columns: 1fr;
     }
   }
 
-/* =============================
-   REPORTE #7: Ingresos vs Gastos por responsable
-   Mejoras de legibilidad: números menos amontonados + bordes por columna
-   ============================= */
+  /* REPORTE #7: Ingresos vs Gastos por responsable */
+  #card-ig-responsable .small-table table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    font-size: 12px;
+  }
 
-#card-ig-responsable .small-table table {
-  width: 100%;
-  border-collapse: separate;      /* permite bordes más “suaves” */
-  border-spacing: 0;              /* sin espacios raros */
-  table-layout: fixed;            /* distribuye mejor columnas */
-  font-size: 12px;                /* achica un poco */
-}
+  #card-ig-responsable .small-table th,
+  #card-ig-responsable .small-table td {
+    padding: 8px 10px;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
 
-#card-ig-responsable .small-table th,
-#card-ig-responsable .small-table td {
-  padding: 8px 10px;              /* más aire */
-  vertical-align: middle;
-  white-space: nowrap;            /* evita saltos de línea en montos */
-}
+  #card-ig-responsable .small-table thead th {
+    background: #f3f4f6;
+    font-weight: 700;
+    border-bottom: 1px solid #e5e7eb;
+  }
 
-#card-ig-responsable .small-table thead th {
-  background: #f3f4f6;
-  font-weight: 700;
-  border-bottom: 1px solid #e5e7eb;
-}
+  #card-ig-responsable .small-table th:not(:last-child),
+  #card-ig-responsable .small-table td:not(:last-child) {
+    border-right: 1px solid #e5e7eb;
+  }
 
-/* Bordes verticales entre columnas */
-#card-ig-responsable .small-table th:not(:last-child),
-#card-ig-responsable .small-table td:not(:last-child) {
-  border-right: 1px solid #e5e7eb;
-}
+  #card-ig-responsable .small-table tbody td {
+    border-bottom: 1px solid #f1f5f9;
+  }
 
-/* Bordes horizontales entre filas */
-#card-ig-responsable .small-table tbody td {
-  border-bottom: 1px solid #f1f5f9;
-}
+  #card-ig-responsable .small-table thead th:first-child {
+    border-top-left-radius: 8px;
+  }
 
-/* Redondeo suave en header */
-#card-ig-responsable .small-table thead th:first-child {
-  border-top-left-radius: 8px;
-}
-#card-ig-responsable .small-table thead th:last-child {
-  border-top-right-radius: 8px;
-}
+  #card-ig-responsable .small-table thead th:last-child {
+    border-top-right-radius: 8px;
+  }
 
-/* Alineación + números más legibles */
-#card-ig-responsable .col-num {
-  text-align: right;
-  font-variant-numeric: tabular-nums; /* columnas numéricas alineadas */
-}
+  #card-ig-responsable .col-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
 
-/* Ajuste de anchos para que no se choquen */
-#card-ig-responsable .col-resp { width: 40%; }
-#card-ig-responsable .col-ing,
-#card-ig-responsable .col-gas,
-#card-ig-responsable .col-res { width: 20%; }
+  #card-ig-responsable .col-resp { width: 35%; }
+  #card-ig-responsable .col-ing  { width: 20%; }
+  #card-ig-responsable .col-gas  { width: 20%; }
+  #card-ig-responsable .col-res  { width: 25%; }
 
-/* =============================
-   REPORTE #7 – ANCHO COMPLETO
-   ============================= */
+  #card-ig-responsable {
+    padding: 16px 20px;
+  }
 
-#card-ig-responsable {
-  padding: 16px 20px;
-}
+  #card-ig-responsable .detail-body {
+    overflow-x: visible;
+  }
 
-#card-ig-responsable .detail-body {
-  overflow-x: visible;        /* elimina scroll */
-}
+  #card-ig-responsable table {
+    width: 100%;
+  }
 
-#card-ig-responsable table {
-  width: 100%;
-}
+  /* Botón exportar mini (icono) */
+  .btn-export-icon {
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+  }
 
-#card-ig-responsable .col-resp { width: 35%; }
-#card-ig-responsable .col-ing  { width: 20%; }
-#card-ig-responsable .col-gas  { width: 20%; }
-#card-ig-responsable .col-res  { width: 25%; }
+  .btn-export-icon:hover {
+    background: #f3f4f6;
+  }
 
-/* Botón exportar mini (icono) */
-.btn-export-icon {
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  border-radius: 6px;
-  padding: 2px 6px;
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-}
+  /* Modal detalle */
+  #detalleModal .socios-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
 
-.btn-export-icon:hover {
-  background: #f3f4f6;
-}
+  #detalleModal .socios-table th,
+  #detalleModal .socios-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-/* Modal detalle: mejorar tablas y alineación de montos */
-#detalleModal .socios-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-#detalleModal .socios-table th,
-#detalleModal .socios-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #f1f5f9;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-#detalleModal .socios-table td:last-child,
-#detalleModal .socios-table th:last-child {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-
-
-
+  #detalleModal .socios-table td:last-child,
+  #detalleModal .socios-table th:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
 </style>
