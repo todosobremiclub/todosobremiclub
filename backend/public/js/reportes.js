@@ -91,6 +91,12 @@ const evrState = {
  mes: new Date().getMonth() + 1
 };
 
+const igDiaState = {
+  anio: new Date().getFullYear(),
+  mes: new Date().getMonth() + 1
+};
+
+
 
   // =============================
   // HELPERS AUTH + FETCH
@@ -2058,6 +2064,144 @@ async function loadEsperadoVsRecaudado() {
   }
 }
 
+async function loadIngresosGastosDia() {
+  const body = $('igDiaBody');
+  const label = $('igDiaMesLabel');
+
+  if (!body || !label) return;
+
+  try {
+    const clubId = getActiveClubId();
+    const { anio, mes } = igDiaState;
+
+    label.textContent = `${MESES[mes - 1]} ${anio}`;
+    showLoading(body, 'Cargando días...');
+
+    const { data } = await fetchAuth(
+      `/club/${clubId}/reportes/ingresos-gastos-por-dia?anio=${anio}&mes=${mes}`
+    );
+
+    if (!data.ok) {
+      showError(body, data.error || 'Error cargando reporte');
+      return;
+    }
+
+    if (!data.rows || !data.rows.length) {
+      body.innerHTML = `<div class="muted small">Sin datos para este mes.</div>`;
+      return;
+    }
+
+    const html = `
+      <div class="small-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Día</th>
+              <th style="text-align:right;">Ingresos</th>
+              <th style="text-align:right;">Gastos</th>
+              <th style="text-align:right;">Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.rows.map(r => {
+
+              const color = r.resultado < 0 ? '#b91c1c' : '#16a34a';
+
+              return `
+                <tr>
+                  <td>${String(r.dia).padStart(2,'0')}</td>
+
+                  <td 
+                    class="cell-dia" 
+                    data-tipo="ingresos"
+                    data-fecha="${r.fecha}"
+                    style="text-align:right; cursor:pointer; text-decoration:underline;"
+                  >
+                    ${moneyARS.format(r.ingresos)}
+                  </td>
+
+                  <td 
+                    class="cell-dia" 
+                    data-tipo="gastos"
+                    data-fecha="${r.fecha}"
+                    style="text-align:right; cursor:pointer; text-decoration:underline;"
+                  >
+                    ${moneyARS.format(r.gastos)}
+                  </td>
+
+                  <td style="text-align:right; font-weight:600; color:${color};">
+                    ${moneyARS.format(r.resultado)}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    body.innerHTML = html;
+
+  } catch (e) {
+    console.error('❌ loadIngresosGastosDia', e);
+    showError(body, 'Error inesperado');
+  }
+}
+
+function bindIGDiaClicks() {
+  const body = $('igDiaBody');
+  if (!body || body.dataset.bound === '1') return;
+
+  body.dataset.bound = '1';
+
+  body.addEventListener('click', (ev) => {
+    const cell = ev.target.closest('.cell-dia');
+    if (!cell) return;
+
+    const tipo = cell.dataset.tipo;
+    const fecha = cell.dataset.fecha;
+
+    if (!tipo || !fecha) return;
+
+    const clubId = getActiveClubId();
+
+    if (tipo === 'ingresos') {
+      openDetalleModal({
+        title: `Ingresos del día`,
+        sub: fecha,
+        url: `/club/${clubId}/reportes/ingresos-gastos-por-dia/detalle?fecha=${fecha}&tipo=ingresos`,
+        columns: [
+          { key: 'fecha', label: 'Fecha' },
+          { key: 'origen', label: 'Origen' },
+          { key: 'descripcion', label: 'Descripción' },
+          { key: 'cuenta', label: 'Cuenta' },
+          { key: 'socio_nombre', label: 'Socio' },
+          { key: 'monto', label: 'Monto' }
+        ],
+        moneyKey: 'monto',
+        dateKey: 'fecha'
+      });
+    }
+
+    if (tipo === 'gastos') {
+      openDetalleModal({
+        title: `Gastos del día`,
+        sub: fecha,
+        url: `/club/${clubId}/reportes/ingresos-gastos-por-dia/detalle?fecha=${fecha}&tipo=gastos`,
+        columns: [
+          { key: 'fecha', label: 'Fecha' },
+          { key: 'tipo_gasto', label: 'Tipo' },
+          { key: 'responsable', label: 'Responsable' },
+          { key: 'descripcion', label: 'Descripción' },
+          { key: 'monto', label: 'Monto' }
+        ],
+        moneyKey: 'monto',
+        dateKey: 'fecha'
+      });
+    }
+
+  });
+}
 
 
  // =============================
@@ -2254,6 +2398,38 @@ document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) =>
  await loadEsperadoVsRecaudado();
 }
 
+// =============================
+// BLOQUE – INGRESOS Y GASTOS POR DÍA
+// =============================
+const btnPrev = $('btnIGDiaPrev');
+const btnNext = $('btnIGDiaNext');
+
+if (btnPrev) {
+  btnPrev.addEventListener('click', async () => {
+    if (igDiaState.mes === 1) {
+      igDiaState.mes = 12;
+      igDiaState.anio -= 1;
+    } else {
+      igDiaState.mes -= 1;
+    }
+    await loadIngresosGastosDia();
+  });
+}
+
+if (btnNext) {
+  btnNext.addEventListener('click', async () => {
+    if (igDiaState.mes === 12) {
+      igDiaState.mes = 1;
+      igDiaState.anio += 1;
+    } else {
+      igDiaState.mes += 1;
+    }
+    await loadIngresosGastosDia();
+  });
+}
+
+await loadIngresosGastosDia();
+bindIGDiaClicks();
 
 window.initReportesSection = initReportesSection;
 
