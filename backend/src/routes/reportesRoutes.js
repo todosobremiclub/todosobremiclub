@@ -169,14 +169,22 @@ function getYearFromQuery(q) {
 
 function isClosedMonth(anio, mes) {
   const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit'
+  }).formatToParts(now);
+
+  const currentYear = Number(parts.find(p => p.type === 'year').value);
+  const currentMonth = Number(parts.find(p => p.type === 'month').value);
 
   if (anio < currentYear) return true;
   if (anio > currentYear) return false;
 
   return mes < currentMonth;
 }
+
 // ===============================
 // 1) Socios por Actividad / Categoría
 // Vista principal: SOLO por Actividad (retraído)
