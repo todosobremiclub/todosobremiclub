@@ -1962,6 +1962,53 @@ console.log('[EXPORT]', url);
   window.closeExportModal();
 };
 
+// =============================
+// BLOQUE FINAL – ESPERADO VS RECAUDADO
+// =============================
+async function loadEsperadoVsRecaudado() {
+  const elEsperado = $('evrEsperado');
+  const elRecaudado = $('evrRecaudado');
+  const elDiferencia = $('evrDiferencia');
+
+  if (!elEsperado || !elRecaudado || !elDiferencia) return;
+
+  try {
+    const clubId = getActiveClubId();
+    const hoy = new Date();
+    const anio = hoy.getFullYear();
+    const mes = hoy.getMonth() + 1;
+
+    const { data } = await fetchAuth(
+      `/club/${clubId}/reportes/esperado-vs-recaudado?anio=${anio}&mes=${mes}`
+    );
+
+    if (!data.ok) {
+      elEsperado.textContent = '–';
+      elRecaudado.textContent = '–';
+      elDiferencia.textContent = '–';
+      console.error('Error esperado-vs-recaudado:', data.error);
+      return;
+    }
+
+    const esperado = Number(data.esperado || 0);
+    const recaudado = Number(data.recaudado || 0);
+    const diferencia = Number(data.diferencia || 0);
+
+    elEsperado.textContent = moneyARS.format(esperado);
+    elRecaudado.textContent = moneyARS.format(recaudado);
+    elDiferencia.textContent = moneyARS.format(diferencia);
+
+    elDiferencia.style.color = diferencia < 0 ? '#b91c1c' : '#16a34a';
+    elDiferencia.style.fontWeight = '700';
+  } catch (e) {
+    console.error('Error inesperado esperado-vs-recaudado:', e);
+    elEsperado.textContent = '–';
+    elRecaudado.textContent = '–';
+    elDiferencia.textContent = '–';
+  }
+}
+
+
  // =============================
 // INIT DASHBOARD
 // =============================
@@ -2120,8 +2167,11 @@ document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) =>
   }
 
   // carga inicial cuentas
-  loadCuentas();
-  bindCuentasDetalleClicks();
+ loadCuentas();
+ bindCuentasDetalleClicks();
+
+ // BLOQUE FINAL – ESPERADO VS RECAUDADO
+ await loadEsperadoVsRecaudado();
 }
 
 window.initReportesSection = initReportesSection;
