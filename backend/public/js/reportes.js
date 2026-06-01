@@ -2159,6 +2159,35 @@ function bindIGDiaClicks() {
   });
 }
 
+function bindIGDiaToggle() {
+  const header = $('toggleIGDia');
+  const container = $('igDiaContainer');
+  const arrow = $('igDiaArrow');
+
+  if (!header || !container || !arrow) return;
+  if (header.dataset.boundToggle === '1') return;
+
+  header.dataset.boundToggle = '1';
+
+  let open = false;
+
+  container.style.display = 'none';
+  arrow.textContent = '▶';
+
+  header.addEventListener('click', () => {
+    open = !open;
+
+    if (open) {
+      container.style.display = '';
+      arrow.textContent = '▼';
+    } else {
+      container.style.display = 'none';
+      arrow.textContent = '▶';
+    }
+  });
+}
+
+
 // =============================
 // INIT DASHBOARD
 // =============================
@@ -2322,9 +2351,12 @@ async function initReportesSection() {
   loadCuentas();
   bindCuentasDetalleClicks();
 
+
   // =============================
   // BLOQUE – INGRESOS Y GASTOS POR DÍA
   // =============================
+bindIGDiaToggle();
+
   const btnIGDiaPrev = $('btnIGDiaPrev');
   const btnIGDiaNext = $('btnIGDiaNext');
 
