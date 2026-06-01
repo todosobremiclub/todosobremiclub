@@ -166,6 +166,17 @@ function getYearFromQuery(q) {
   const now = new Date();
   return n && n >= 2000 && n <= 2100 ? n : now.getFullYear();
 }
+
+function isClosedMonth(anio, mes) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  if (anio < currentYear) return true;
+  if (anio > currentYear) return false;
+
+  return mes < currentMonth;
+}
 // ===============================
 // 1) Socios por Actividad / Categoría
 // Vista principal: SOLO por Actividad (retraído)
@@ -3417,7 +3428,7 @@ router.get(
 );
 
 // ============================================================
-// NUEVO: Esperado mensual (DINÁMICO + FREEZE)
+// NUEVO: Esperado mensual (DINÁMICO + FREEZE SOLO AL CERRAR MES)
 // GET /club/:clubId/reportes/esperado-mensual?anio=2026&mes=5
 // ============================================================
 router.get(
@@ -3437,31 +3448,37 @@ router.get(
     }
 
     try {
-      const rExist = await db.query(
-        `
-        SELECT monto_esperado, socios_count
-        FROM resumen_esperado_mensual
-        WHERE club_id = $1
-          AND anio = $2
-          AND mes = $3
-        LIMIT 1
-        `,
-        [clubId, anio, mes]
-      );
+      const closedMonth = isClosedMonth(anio, mes);
 
-      if (rExist.rowCount) {
-        return res.json({
-          ok: true,
-          anio,
-          mes,
-          socios: Number(rExist.rows[0].socios_count),
-          esperado: Number(rExist.rows[0].monto_esperado),
-          source: 'guardado'
-        });
+      // 1) Si el mes ya cerró, intentar usar snapshot
+      if (closedMonth) {
+        const rExist = await db.query(
+          `
+          SELECT monto_esperado, socios_count
+          FROM resumen_esperado_mensual
+          WHERE club_id = $1
+            AND anio = $2
+            AND mes = $3
+          LIMIT 1
+          `,
+          [clubId, anio, mes]
+        );
+
+        if (rExist.rowCount) {
+          return res.json({
+            ok: true,
+            anio,
+            mes,
+            socios: Number(rExist.rows[0].socios_count),
+            esperado: Number(rExist.rows[0].monto_esperado),
+            source: 'guardado'
+          });
+        }
       }
 
+      // 2) Calcular esperado en vivo
       const q = `
-        SELECT
+        SELECT 
           s.becado,
           ec.monto AS excepcion_monto,
           a.precio_mensual
@@ -3503,23 +3520,27 @@ router.get(
         sociosCount++;
       }
 
-      await db.query(
-        `
-        INSERT INTO resumen_esperado_mensual
-          (club_id, anio, mes, monto_esperado, socios_count)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (club_id, anio, mes) DO NOTHING
-        `,
-        [clubId, anio, mes, totalEsperado, sociosCount]
-      );
+      // 3) Guardar SOLO si el mes ya cerró
+      if (closedMonth) {
+        await db.query(
+          `
+          INSERT INTO resumen_esperado_mensual
+            (club_id, anio, mes, monto_esperado, socios_count)
+          VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (club_id, anio, mes) DO NOTHING
+          `,
+          [clubId, anio, mes, totalEsperado, sociosCount]
+        );
+      }
 
+      // 4) Respuesta
       return res.json({
         ok: true,
         anio,
         mes,
         socios: sociosCount,
         esperado: totalEsperado,
-        source: 'calculado'
+        source: closedMonth ? 'calculado_y_guardado' : 'dinamico'
       });
 
     } catch (e) {
@@ -3595,25 +3616,33 @@ router.get(
     }
 
     try {
+      const closedMonth = isClosedMonth(anio, mes);
+
       let esperado = 0;
       let socios = 0;
 
-      const rExist = await db.query(
-        `
-        SELECT monto_esperado, socios_count
-        FROM resumen_esperado_mensual
-        WHERE club_id = $1
-          AND anio = $2
-          AND mes = $3
-        LIMIT 1
-        `,
-        [clubId, anio, mes]
-      );
+      // 1) Si el mes cerró, intentar usar snapshot
+      if (closedMonth) {
+        const rExist = await db.query(
+          `
+          SELECT monto_esperado, socios_count
+          FROM resumen_esperado_mensual
+          WHERE club_id = $1
+            AND anio = $2
+            AND mes = $3
+          LIMIT 1
+          `,
+          [clubId, anio, mes]
+        );
 
-      if (rExist.rowCount) {
-        esperado = Number(rExist.rows[0].monto_esperado);
-        socios = Number(rExist.rows[0].socios_count);
-      } else {
+        if (rExist.rowCount) {
+          esperado = Number(rExist.rows[0].monto_esperado);
+          socios = Number(rExist.rows[0].socios_count);
+        }
+      }
+
+      // 2) Si no había snapshot o el mes no cerró, calcular en vivo
+      if (!esperado && !socios) {
         const q = `
           SELECT
             s.becado,
@@ -3654,17 +3683,21 @@ router.get(
           socios++;
         }
 
-        await db.query(
-          `
-          INSERT INTO resumen_esperado_mensual
-            (club_id, anio, mes, monto_esperado, socios_count)
-          VALUES ($1, $2, $3, $4, $5)
-          ON CONFLICT (club_id, anio, mes) DO NOTHING
-          `,
-          [clubId, anio, mes, esperado, socios]
-        );
+        // Guardar snapshot SOLO si el mes cerró
+        if (closedMonth) {
+          await db.query(
+            `
+            INSERT INTO resumen_esperado_mensual
+              (club_id, anio, mes, monto_esperado, socios_count)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (club_id, anio, mes) DO NOTHING
+            `,
+            [clubId, anio, mes, esperado, socios]
+          );
+        }
       }
 
+      // 3) Recaudado
       const rPagos = await db.query(
         `
         SELECT COALESCE(SUM(monto), 0) AS total
@@ -3686,7 +3719,8 @@ router.get(
         socios,
         esperado,
         recaudado,
-        diferencia
+        diferencia,
+        source: closedMonth ? 'cerrado' : 'dinamico'
       });
 
     } catch (e) {
