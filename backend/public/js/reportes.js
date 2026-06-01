@@ -1974,51 +1974,6 @@ console.log('[EXPORT]', url);
   window.closeExportModal();
 };
 
-// =============================
-// BLOQUE FINAL – ESPERADO VS RECAUDADO
-// =============================
-async function loadEsperadoVsRecaudado() {
-  const elEsperado = $('evrEsperado');
-  const elRecaudado = $('evrRecaudado');
-  const elDiferencia = $('evrDiferencia');
-
-  if (!elEsperado || !elRecaudado || !elDiferencia) return;
-
-  try {
-    const clubId = getActiveClubId();
-    const hoy = new Date();
-    const anio = hoy.getFullYear();
-    const mes = hoy.getMonth() + 1;
-
-    const { data } = await fetchAuth(
-      `/club/${clubId}/reportes/esperado-vs-recaudado?anio=${anio}&mes=${mes}`
-    );
-
-    if (!data.ok) {
-      elEsperado.textContent = '–';
-      elRecaudado.textContent = '–';
-      elDiferencia.textContent = '–';
-      console.error('Error esperado-vs-recaudado:', data.error);
-      return;
-    }
-
-    const esperado = Number(data.esperado || 0);
-    const recaudado = Number(data.recaudado || 0);
-    const diferencia = Number(data.diferencia || 0);
-
-    elEsperado.textContent = moneyARS.format(esperado);
-    elRecaudado.textContent = moneyARS.format(recaudado);
-    elDiferencia.textContent = moneyARS.format(diferencia);
-
-    elDiferencia.style.color = diferencia < 0 ? '#b91c1c' : '#16a34a';
-    elDiferencia.style.fontWeight = '700';
-  } catch (e) {
-    console.error('Error inesperado esperado-vs-recaudado:', e);
-    elEsperado.textContent = '–';
-    elRecaudado.textContent = '–';
-    elDiferencia.textContent = '–';
-  }
-}
 
 async function loadEsperadoVsRecaudado() {
   const elEsperado = $('evrEsperado');
@@ -2104,33 +2059,35 @@ async function loadIngresosGastosDia() {
           </thead>
           <tbody>
             ${data.rows.map(r => {
-
-              const color = r.resultado < 0 ? '#b91c1c' : '#16a34a';
+              const ingresos = Number(r.ingresos || 0);
+              const gastos = Number(r.gastos || 0);
+              const resultado = Number(r.resultado || 0);
+              const color = resultado < 0 ? '#b91c1c' : '#16a34a';
 
               return `
                 <tr>
-                  <td>${String(r.dia).padStart(2,'0')}</td>
+                  <td>${String(r.dia).padStart(2, '0')}</td>
 
-                  <td 
-                    class="cell-dia" 
+                  <td
+                    class="${ingresos > 0 ? 'cell-dia' : ''}"
                     data-tipo="ingresos"
                     data-fecha="${r.fecha}"
-                    style="text-align:right; cursor:pointer; text-decoration:underline;"
+                    style="text-align:right; ${ingresos > 0 ? 'cursor:pointer; text-decoration:underline;' : ''}"
                   >
-                    ${moneyARS.format(r.ingresos)}
+                    ${moneyARS.format(ingresos)}
                   </td>
 
-                  <td 
-                    class="cell-dia" 
+                  <td
+                    class="${gastos > 0 ? 'cell-dia' : ''}"
                     data-tipo="gastos"
                     data-fecha="${r.fecha}"
-                    style="text-align:right; cursor:pointer; text-decoration:underline;"
+                    style="text-align:right; ${gastos > 0 ? 'cursor:pointer; text-decoration:underline;' : ''}"
                   >
-                    ${moneyARS.format(r.gastos)}
+                    ${moneyARS.format(gastos)}
                   </td>
 
                   <td style="text-align:right; font-weight:600; color:${color};">
-                    ${moneyARS.format(r.resultado)}
+                    ${moneyARS.format(resultado)}
                   </td>
                 </tr>
               `;
@@ -2150,9 +2107,9 @@ async function loadIngresosGastosDia() {
 
 function bindIGDiaClicks() {
   const body = $('igDiaBody');
-  if (!body || body.dataset.bound === '1') return;
+  if (!body || body.dataset.boundDetalleDia === '1') return;
 
-  body.dataset.bound = '1';
+  body.dataset.boundDetalleDia = '1';
 
   body.addEventListener('click', (ev) => {
     const cell = ev.target.closest('.cell-dia');
@@ -2167,9 +2124,9 @@ function bindIGDiaClicks() {
 
     if (tipo === 'ingresos') {
       openDetalleModal({
-        title: `Ingresos del día`,
+        title: 'Ingresos del día',
         sub: fecha,
-        url: `/club/${clubId}/reportes/ingresos-gastos-por-dia/detalle?fecha=${fecha}&tipo=ingresos`,
+        url: `/club/${clubId}/reportes/ingresos-gastos-por-dia/detalle?fecha=${encodeURIComponent(fecha)}&tipo=ingresos`,
         columns: [
           { key: 'fecha', label: 'Fecha' },
           { key: 'origen', label: 'Origen' },
@@ -2185,9 +2142,9 @@ function bindIGDiaClicks() {
 
     if (tipo === 'gastos') {
       openDetalleModal({
-        title: `Gastos del día`,
+        title: 'Gastos del día',
         sub: fecha,
-        url: `/club/${clubId}/reportes/ingresos-gastos-por-dia/detalle?fecha=${fecha}&tipo=gastos`,
+        url: `/club/${clubId}/reportes/ingresos-gastos-por-dia/detalle?fecha=${encodeURIComponent(fecha)}&tipo=gastos`,
         columns: [
           { key: 'fecha', label: 'Fecha' },
           { key: 'tipo_gasto', label: 'Tipo' },
@@ -2199,12 +2156,10 @@ function bindIGDiaClicks() {
         dateKey: 'fecha'
       });
     }
-
   });
 }
 
-
- // =============================
+// =============================
 // INIT DASHBOARD
 // =============================
 async function initReportesSection() {
@@ -2220,15 +2175,26 @@ async function initReportesSection() {
   bindIGInteractions();
   await loadIGAnual();
 
-// Export rango IG
-document.getElementById('btnIGExportRange')?.addEventListener('click', (e) => {
-  e.preventDefault();
-  openExportIGRangeModal();
-});
-document.getElementById('btnIGExportRangeClose')?.addEventListener('click', (e) => { e.preventDefault(); closeExportIGRangeModal(); });
-document.getElementById('btnIGExportRangeCancel')?.addEventListener('click', (e) => { e.preventDefault(); closeExportIGRangeModal(); });
-document.getElementById('btnIGExportRangeExcel')?.addEventListener('click', async (e) => { e.preventDefault(); await confirmExportIGRangeExcel(); });
-document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) => { if (ev.target?.id === 'exportIGRangeModal') closeExportIGRangeModal(); });
+  // Export rango IG
+  document.getElementById('btnIGExportRange')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    openExportIGRangeModal();
+  });
+  document.getElementById('btnIGExportRangeClose')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeExportIGRangeModal();
+  });
+  document.getElementById('btnIGExportRangeCancel')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeExportIGRangeModal();
+  });
+  document.getElementById('btnIGExportRangeExcel')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    await confirmExportIGRangeExcel();
+  });
+  document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) => {
+    if (ev.target?.id === 'exportIGRangeModal') closeExportIGRangeModal();
+  });
 
   // =============================
   // ABAJO IZQUIERDA – SOCIOS NUEVOS
@@ -2244,7 +2210,7 @@ document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) =>
       nuevosState.mesIndex = idx;
 
       renderNuevos();
-      loadNuevosDetalle(idx); // abre el modal con el detalle
+      loadNuevosDetalle(idx);
     });
   }
 
@@ -2276,12 +2242,10 @@ document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) =>
   const btnNuevosClose = $('nuevosModalClose');
 
   if (nuevosModal && btnNuevosClose) {
-    // Cerrar con la X
     btnNuevosClose.addEventListener('click', () => {
       nuevosModal.classList.add('hidden');
     });
 
-    // Cerrar haciendo click en el fondo oscuro
     nuevosModal.addEventListener('click', (ev) => {
       if (ev.target === nuevosModal) {
         nuevosModal.classList.add('hidden');
@@ -2309,10 +2273,8 @@ document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) =>
     });
   }
 
-  // carga inicial ranking
   loadRanking();
   bindRankingDetalleClicks();
-
 
   // =============================
   // FILA 2 CENTRO – INGRESOS VS GASTOS POR RESPONSABLE
@@ -2334,12 +2296,8 @@ document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) =>
     });
   }
 
-  // carga inicial IG por responsable
   loadIGResp();
   bindIGRespDetalleClicks();
-
-
-
 
   // =============================
   // ABAJO DERECHA – CUENTAS
@@ -2361,75 +2319,74 @@ document.getElementById('exportIGRangeModal')?.addEventListener('click', (ev) =>
     });
   }
 
-  // carga inicial cuentas
- loadCuentas();
- bindCuentasDetalleClicks();
+  loadCuentas();
+  bindCuentasDetalleClicks();
 
- // =============================
- // BLOQUE FINAL – ESPERADO VS RECAUDADO
- // =============================
- const btnEVRPrev = $('btnEVRMesPrev');
- const btnEVRNext = $('btnEVRMesNext');
+  // =============================
+  // BLOQUE – INGRESOS Y GASTOS POR DÍA
+  // =============================
+  const btnIGDiaPrev = $('btnIGDiaPrev');
+  const btnIGDiaNext = $('btnIGDiaNext');
 
- if (btnEVRPrev) {
-   btnEVRPrev.addEventListener('click', async () => {
-     if (evrState.mes === 1) {
-       evrState.mes = 12;
-       evrState.anio -= 1;
-     } else {
-       evrState.mes -= 1;
-     }
-     await loadEsperadoVsRecaudado();
-   });
- }
+  if (btnIGDiaPrev) {
+    btnIGDiaPrev.addEventListener('click', async () => {
+      if (igDiaState.mes === 1) {
+        igDiaState.mes = 12;
+        igDiaState.anio -= 1;
+      } else {
+        igDiaState.mes -= 1;
+      }
+      await loadIngresosGastosDia();
+    });
+  }
 
- if (btnEVRNext) {
-   btnEVRNext.addEventListener('click', async () => {
-     if (evrState.mes === 12) {
-       evrState.mes = 1;
-       evrState.anio += 1;
-     } else {
-       evrState.mes += 1;
-     }
-     await loadEsperadoVsRecaudado();
-   });
- }
+  if (btnIGDiaNext) {
+    btnIGDiaNext.addEventListener('click', async () => {
+      if (igDiaState.mes === 12) {
+        igDiaState.mes = 1;
+        igDiaState.anio += 1;
+      } else {
+        igDiaState.mes += 1;
+      }
+      await loadIngresosGastosDia();
+    });
+  }
 
- await loadEsperadoVsRecaudado();
+  await loadIngresosGastosDia();
+  bindIGDiaClicks();
+
+  // =============================
+  // BLOQUE FINAL – ESPERADO VS RECAUDADO
+  // =============================
+  const btnEVRPrev = $('btnEVRMesPrev');
+  const btnEVRNext = $('btnEVRMesNext');
+
+  if (btnEVRPrev) {
+    btnEVRPrev.addEventListener('click', async () => {
+      if (evrState.mes === 1) {
+        evrState.mes = 12;
+        evrState.anio -= 1;
+      } else {
+        evrState.mes -= 1;
+      }
+      await loadEsperadoVsRecaudado();
+    });
+  }
+
+  if (btnEVRNext) {
+    btnEVRNext.addEventListener('click', async () => {
+      if (evrState.mes === 12) {
+        evrState.mes = 1;
+        evrState.anio += 1;
+      } else {
+        evrState.mes += 1;
+      }
+      await loadEsperadoVsRecaudado();
+    });
+  }
+
+  await loadEsperadoVsRecaudado();
 }
-
-// =============================
-// BLOQUE – INGRESOS Y GASTOS POR DÍA
-// =============================
-const btnPrev = $('btnIGDiaPrev');
-const btnNext = $('btnIGDiaNext');
-
-if (btnPrev) {
-  btnPrev.addEventListener('click', async () => {
-    if (igDiaState.mes === 1) {
-      igDiaState.mes = 12;
-      igDiaState.anio -= 1;
-    } else {
-      igDiaState.mes -= 1;
-    }
-    await loadIngresosGastosDia();
-  });
-}
-
-if (btnNext) {
-  btnNext.addEventListener('click', async () => {
-    if (igDiaState.mes === 12) {
-      igDiaState.mes = 1;
-      igDiaState.anio += 1;
-    } else {
-      igDiaState.mes += 1;
-    }
-    await loadIngresosGastosDia();
-  });
-}
-
-await loadIngresosGastosDia();
-bindIGDiaClicks();
 
 window.initReportesSection = initReportesSection;
 
