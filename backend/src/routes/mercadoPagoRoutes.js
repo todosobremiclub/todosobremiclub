@@ -86,7 +86,10 @@ function escapeHtml(str) {
 
 router.get(
   '/oauth/connect/:clubId',
+  requireAuth,
+  requireRole('superadmin'),
   async (req, res) => {
+
 
     try {
       const { clubId } = req.params;
