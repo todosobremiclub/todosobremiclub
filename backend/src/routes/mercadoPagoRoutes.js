@@ -272,4 +272,55 @@ router.get('/oauth/callback', async (req, res) => {
   }
 });
 
+// =====================================================
+// Link público para que el club conecte su Mercado Pago
+// GET /mp/public/connect/:clubId?token=apply_token
+// =====================================================
+router.get('/public/connect/:clubId', async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const token = String(req.query?.token || '').trim();
+
+    if (!token) {
+      return res.status(400).send('Falta token');
+    }
+
+    // Validar club + token (usamos apply_token como token de conexión)
+    const r = await db.query(
+      `SELECT id, name, apply_token FROM clubs WHERE id = $1 LIMIT 1`,
+      [clubId]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).send('Club no encontrado');
+    }
+
+    const club = r.rows[0];
+    if (String(club.apply_token || '') !== token) {
+      return res.status(403).send('Token inválido');
+    }
+
+    const clientId = process.env.MP_CLIENT_ID;
+    const redirectUri = `${process.env.PUBLIC_BASE_URL}/mp/oauth/callback`;
+
+    if (!clientId || !process.env.MP_CLIENT_SECRET || !process.env.PUBLIC_BASE_URL) {
+      return res.status(500).send('Configuración MP incompleta');
+    }
+
+    const state = buildOAuthState(clubId);
+
+    const oauthUrl =
+      'https://auth.mercadopago.com.ar/authorization' +
+      `?response_type=code` +
+      `&client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&state=${encodeURIComponent(state)}`;
+
+    return res.redirect(oauthUrl);
+  } catch (err) {
+    console.error('❌ MP public connect:', err);
+    return res.status(500).send('Error interno');
+  }
+});
+
 module.exports = router;
