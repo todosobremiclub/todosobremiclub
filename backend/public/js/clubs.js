@@ -117,6 +117,12 @@ function renderEstadoBadge(v) {
   let clubsCache = [];
   let currentComments = []; // historial comentarios del club en edición
 
+// ===============================
+// Estado del club en edición (MP)
+// ===============================
+let editingClubId = null;
+let editingClubMpConnected = false;
+
   // =============================
   // Form helpers
   // =============================
@@ -410,6 +416,9 @@ fd.append(
     if (!c) return;
 
     $('club_id').value = c.id;
+// Guardamos estado Mercado Pago del club
+editingClubId = String(c.id);
+editingClubMpConnected = (c.mp_connected === true);
     $('club_name').value = c.name ?? '';
     $('club_address').value = c.address ?? '';
     $('club_city').value = c.city ?? '';
@@ -510,6 +519,49 @@ async function impersonateReadonly(clubId, clubName) {
     $('btnCloseClubForm')?.addEventListener('click', closeClubForm);
 
     $('btnAddClubComment')?.addEventListener('click', addClubComment);
+
+// =====================================================
+// Mercado Pago: iniciar OAuth si el club no está conectado
+// =====================================================
+$('club_mp_habilitado')?.addEventListener('change', async (ev) => {
+  const chk = ev.target;
+  if (!chk) return;
+
+  // Solo cuando se intenta ACTIVAR
+  if (chk.checked !== true) return;
+
+  // Debe haber club en edición
+  if (!editingClubId) return;
+
+  // Si el club NO está conectado → OAuth
+  if (!editingClubMpConnected) {
+    // Volvemos el checkbox a OFF
+    chk.checked = false;
+
+    try {
+      const res = await fetchAuthClubs(
+        `/mp/oauth/connect/${editingClubId}?json=1`,
+        { method: 'GET' }
+      );
+      const data = await safeJson(res);
+
+      if (!res.ok || !data.ok || !data.oauthUrl) {
+        showClubMsg(
+          data?.error || 'No se pudo iniciar la conexión con Mercado Pago',
+          false
+        );
+        return;
+      }
+
+      // Redirigir a Mercado Pago
+      window.location.href = data.oauthUrl;
+    } catch (e) {
+      console.error(e);
+      showClubMsg('Error iniciando OAuth con Mercado Pago', false);
+    }
+  }
+});
+
 
     $('clubs-table')?.addEventListener('click', (ev) => {
       const btn = ev.target.closest('button');
