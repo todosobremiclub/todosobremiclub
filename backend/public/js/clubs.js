@@ -581,21 +581,44 @@ async function impersonateReadonly(clubId, clubName) {
 // Copiar link de conexión Mercado Pago para el club
 // =====================================================
 $('btnCopyMpLink')?.addEventListener('click', async () => {
+ $('btnCopyMpLink')?.addEventListener('click', () => {
   if (!editingClubId) {
-    showClubMsg('Primero seleccioná un club', false);
+    showClubMsg('Primero seleccioná un club (Editar)', false);
     return;
   }
 
   const link = `${window.location.origin}/mp/oauth/connect/${editingClubId}`;
 
-  try {
-    await navigator.clipboard.writeText(link);
-    showClubMsg('✅ Link copiado. Enviáselo al club para que conecte su Mercado Pago.', true);
-  } catch (e) {
-    console.error(e);
-    showClubMsg('No se pudo copiar el link', false);
+  // Clipboard moderno
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(link)
+      .then(() => {
+        showClubMsg('✅ Link copiado. Enviáselo al club.', true);
+      })
+      .catch(() => {
+        fallbackCopyText(link);
+      });
+  } else {
+    fallbackCopyText(link);
   }
 });
+
+function fallbackCopyText(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.top = '-1000px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showClubMsg('✅ Link copiado. Enviáselo al club.', true);
+  } catch {
+    showClubMsg('No se pudo copiar el link. Copialo manualmente.', false);
+  }
+  document.body.removeChild(ta);
+}
 
 
 // =====================================================
@@ -646,63 +669,110 @@ $('club_mp_habilitado')?.addEventListener('change', async (ev) => {
   const chk = ev.target;
   if (!chk) return;
 
-  // Solo cuando se intenta ACTIVAR
-  if (chk.checked !== true) return;
-
   // Debe haber club en edición
-  if (!editingClubId) return;
-
-  // Si el club NO está conectado → OAuth
-  if (!editingClubMpConnected) {
-    // Volvemos el checkbox a OFF
+  if (!editingClubId) {
+    showClubMsg('Primero seleccioná un club (Editar)', false);
     chk.checked = false;
+    return;
+  }
 
-    try {
-      const res = await fetchAuthClubs(
-        `/mp/oauth/connect/${editingClubId}?json=1`,
-        { method: 'GET' }
-      );
-      const data = await safeJson(res);
+  // ===========================
+  // CASO 1: Habilitan pagos
+  // ===========================
+  if (chk.checked === true && !editingClubMpConnected) {
+    // ✅ Mostrar estado pendiente
+    renderMpStatus(false, true);
 
-      if (!res.ok || !data.ok || !data.oauthUrl) {
-        showClubMsg(
-          data?.error || 'No se pudo iniciar la conexión con Mercado Pago',
-          false
-        );
-        return;
-      }
+    // Redirigir a OAuth (NO destildar)
+    window.location.href = `/mp/oauth/connect/${editingClubId}`;
+    return;
+  }
 
-      // Redirigir a Mercado Pago
-      window.location.href = data.oauthUrl;
-    } catch (e) {
-      console.error(e);
-      showClubMsg('Error iniciando OAuth con Mercado Pago', false);
-    }
+  // ===========================
+  // CASO 2: Deshabilitan pagos
+  // ===========================
+  if (chk.checked === false) {
+    renderMpStatus(editingClubMpConnected, false);
   }
 });
 
+// =====================================================
+// Copiar link de conexión Mercado Pago para el club
+// =====================================================
+$('btnCopyMpLink')?.addEventListener('click', () => {
+  if (!editingClubId) {
+    showClubMsg('Primero seleccioná un club (Editar)', false);
+    return;
+  }
 
-    $('clubs-table')?.addEventListener('click', (ev) => {
-      const btn = ev.target.closest('button');
-      if (!btn) return;
+  const link = `${window.location.origin}/mp/oauth/connect/${editingClubId}`;
 
-      const action = btn.dataset.action;
-      const id = btn.dataset.id;
-      const name = btn.dataset.name;
+  // Clipboard moderno
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(link)
+      .then(() => {
+        showClubMsg('✅ Link copiado. Enviáselo al club.', true);
+      })
+      .catch(() => {
+        fallbackCopyText(link);
+      });
+  } else {
+    fallbackCopyText(link);
+  }
+});
 
-if (action === 'impersonate_ro') {
-  impersonateReadonly(id, name);
-  return;
+function fallbackCopyText(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.top = '-1000px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+
+  try {
+    document.execCommand('copy');
+    showClubMsg('✅ Link copiado. Enviáselo al club.', true);
+  } catch (e) {
+    showClubMsg('No se pudo copiar el link. Copialo manualmente.', false);
+  }
+
+  document.body.removeChild(ta);
 }
 
-      if (action === 'users') {
-        window.openUsersForClub?.(id, name);
-        return;
-      }
-      if (action === 'edit') startEdit(id);
-      if (action === 'delete') delClub(id);
-    });
+// =====================================================
+// Acciones de la tabla de clubes
+// =====================================================
+$('clubs-table')?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
 
-    loadClubs();
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  const name = btn.dataset.name;
+
+  if (action === 'impersonate_ro') {
+    impersonateReadonly(id, name);
+    return;
+  }
+
+  if (action === 'users') {
+    window.openUsersForClub?.(id, name);
+    return;
+  }
+
+  if (action === 'edit') {
+    startEdit(id);
+    return;
+  }
+
+  if (action === 'delete') {
+    delClub(id);
+    return;
+  }
+});
+
+// Cargar clubes al iniciar
+loadClubs();
   });
 })();
