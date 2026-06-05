@@ -62,6 +62,22 @@ function renderEstadoBadge(v) {
   return `<span class="status-badge status-${k}">${escapeHtml(label)}</span>`;
 }
 
+// ===============================
+// Estado visible Mercado Pago
+// ===============================
+function renderMpStatus(isConnected) {
+  const box = $('mpStatusBadge');
+  if (!box) return;
+
+  if (isConnected) {
+    box.textContent = '🟢 Mercado Pago conectado';
+    box.style.color = '#166534';
+  } else {
+    box.textContent = '🔴 Mercado Pago no conectado';
+    box.style.color = '#991b1b';
+  }
+}
+
   // =============================
   // Auth (JWT token)
   // =============================
@@ -141,28 +157,56 @@ let editingClubMpConnected = false;
   }
 
   function resetClubForm() {
-    $('formClub')?.reset();
-    if ($('club_id')) $('club_id').value = '';
+  // Reset del form HTML
+  $('formClub')?.reset();
 
-    // limpiar comentarios
-    currentComments = [];
-    if ($('club_new_comment')) $('club_new_comment').value = '';
-    renderClubComments([]);
+  // Limpiar id del club en edición
+  if ($('club_id')) $('club_id').value = '';
 
-    // Defaults de colores
-    if ($('club_color_primary') && !$('club_color_primary').value)
-      $('club_color_primary').value = '#2563eb';
-    if ($('club_color_secondary') && !$('club_color_secondary').value)
-      $('club_color_secondary').value = '#1e40af';
-    if ($('club_color_accent') && !$('club_color_accent').value)
-      $('club_color_accent').value = '#facc15';
+  // =========================
+  // Limpiar estado de edición
+  // =========================
+  editingClubId = null;
+  editingClubMpConnected = false;
 
-if ($('club_mp_habilitado')) {
-  $('club_mp_habilitado').checked = false;
+  // =========================
+  // Limpiar comentarios
+  // =========================
+  currentComments = [];
+  if ($('club_new_comment')) $('club_new_comment').value = '';
+  renderClubComments([]);
+
+  // =========================
+  // Defaults de colores
+  // =========================
+  if ($('club_color_primary') && !$('club_color_primary').value)
+    $('club_color_primary').value = '#2563eb';
+
+  if ($('club_color_secondary') && !$('club_color_secondary').value)
+    $('club_color_secondary').value = '#1e40af';
+
+  if ($('club_color_accent') && !$('club_color_accent').value)
+    $('club_color_accent').value = '#facc15';
+
+  // =========================
+  // Reset checkbox Mercado Pago
+  // =========================
+  if ($('club_mp_habilitado')) {
+    $('club_mp_habilitado').checked = false;
+  }
+
+  // =========================
+  // Reset estado visual Mercado Pago
+  // =========================
+  renderMpStatus(false);
+
+  // =========================
+  // Modo formulario
+  // =========================
+  setEditMode(false);
 }
 
-    setEditMode(false);
-  }
+
 
   function openClubForm(editMode = false) {
     const card = $('clubFormCard');
@@ -419,6 +463,7 @@ fd.append(
 // Guardamos estado Mercado Pago del club
 editingClubId = String(c.id);
 editingClubMpConnected = (c.mp_connected === true);
+renderMpStatus(editingClubMpConnected);
     $('club_name').value = c.name ?? '';
     $('club_address').value = c.address ?? '';
     $('club_city').value = c.city ?? '';
@@ -552,6 +597,7 @@ $('btnReconnectMp')?.addEventListener('click', async () => {
     if ($('club_mp_habilitado')) {
       $('club_mp_habilitado').checked = false;
     }
+renderMpStatus(false);
 
   } catch (e) {
     console.error(e);
