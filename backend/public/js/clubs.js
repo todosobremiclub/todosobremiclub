@@ -665,7 +665,7 @@ renderMpStatus(false);
 // =====================================================
 // Mercado Pago: iniciar OAuth si el club no está conectado
 // =====================================================
-$('club_mp_habilitado')?.addEventListener('change', async (ev) => {
+$('club_mp_habilitado')?.addEventListener('change', (ev) => {
   const chk = ev.target;
   if (!chk) return;
 
@@ -680,7 +680,7 @@ $('club_mp_habilitado')?.addEventListener('change', async (ev) => {
   // CASO 1: Habilitan pagos
   // ===========================
   if (chk.checked === true && !editingClubMpConnected) {
-    // ✅ Mostrar estado pendiente
+    // Mostrar estado pendiente
     renderMpStatus(false, true);
 
     // Redirigir a OAuth (NO destildar)
@@ -707,7 +707,6 @@ $('btnCopyMpLink')?.addEventListener('click', () => {
 
   const link = `${window.location.origin}/mp/oauth/connect/${editingClubId}`;
 
-  // Clipboard moderno
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(link)
       .then(() => {
@@ -774,5 +773,9 @@ $('clubs-table')?.addEventListener('click', (ev) => {
 
 // Cargar clubes al iniciar
 loadClubs();
-  });
+
+// ✅ CIERRE CORRECTO DEL DOMContentLoaded
+});
+
+// ✅ CIERRE CORRECTO DEL IIFE
 })();
