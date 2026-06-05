@@ -521,6 +521,46 @@ async function impersonateReadonly(clubId, clubName) {
     $('btnAddClubComment')?.addEventListener('click', addClubComment);
 
 // =====================================================
+// Reconectar Mercado Pago (desconectar tokens)
+// =====================================================
+$('btnReconnectMp')?.addEventListener('click', async () => {
+  if (!editingClubId) {
+    showClubMsg('Primero seleccioná un club', false);
+    return;
+  }
+
+  if (!confirm('Esto va a desconectar Mercado Pago del club. ¿Continuar?')) {
+    return;
+  }
+
+  try {
+    const res = await fetchAuthClubs(
+      `/admin/clubs/${editingClubId}/mp/disconnect`,
+      { method: 'POST' }
+    );
+    const data = await safeJson(res);
+
+    if (!res.ok || !data.ok) {
+      showClubMsg(data.error || 'No se pudo desconectar Mercado Pago', false);
+      return;
+    }
+
+    showClubMsg('✅ Mercado Pago desconectado. Volvé a habilitar para reconectar.', true);
+
+    // Refrescar estado local
+    editingClubMpConnected = false;
+    if ($('club_mp_habilitado')) {
+      $('club_mp_habilitado').checked = false;
+    }
+
+  } catch (e) {
+    console.error(e);
+    showClubMsg('Error al desconectar Mercado Pago', false);
+  }
+});
+``
+
+// =====================================================
 // Mercado Pago: iniciar OAuth si el club no está conectado
 // =====================================================
 $('club_mp_habilitado')?.addEventListener('change', async (ev) => {
