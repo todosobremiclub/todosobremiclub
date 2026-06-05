@@ -70,11 +70,13 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
         valor_mensual,
         estado,
 mp_habilitado,
+mp_connected,
 (
  SELECT COUNT(*)
  FROM socios s
  WHERE s.club_id = clubs.id
 ) AS socios_activos,
+``
 
         logo_url, 
         background_url, 

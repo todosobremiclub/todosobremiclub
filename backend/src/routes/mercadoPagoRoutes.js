@@ -134,8 +134,15 @@ router.get(
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
         `&state=${encodeURIComponent(state)}`;
 
-      // 3. Redirigir a Mercado Pago
-      return res.redirect(oauthUrl);
+
+
+      // 3) Si el frontend lo pide en JSON, devolvemos la URL (para luego redirigir con window.location.href)
+if (req.query && String(req.query.json || '') === '1') {
+  return res.json({ ok: true, oauthUrl });
+}
+
+// 4) Comportamiento normal: redirigir
+return res.redirect(oauthUrl);
     } catch (err) {
       console.error('❌ MP OAuth connect:', err);
       return res.status(500).json({
