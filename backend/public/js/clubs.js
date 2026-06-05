@@ -65,17 +65,27 @@ function renderEstadoBadge(v) {
 // ===============================
 // Estado visible Mercado Pago
 // ===============================
-function renderMpStatus(isConnected) {
+function renderMpStatus(isConnected, isEnabled) {
   const box = $('mpStatusBadge');
   if (!box) return;
 
+  // Pagos habilitados pero NO conectado
+  if (isEnabled && !isConnected) {
+    box.textContent = '🟡 Pendiente de conexión con Mercado Pago';
+    box.style.color = '#92400e';
+    return;
+  }
+
+  // Conectado
   if (isConnected) {
     box.textContent = '🟢 Mercado Pago conectado';
     box.style.color = '#166534';
-  } else {
-    box.textContent = '🔴 Mercado Pago no conectado';
-    box.style.color = '#991b1b';
+    return;
   }
+
+  // Deshabilitado
+  box.textContent = '🔴 Mercado Pago no conectado';
+  box.style.color = '#991b1b';
 }
 
   // =============================
@@ -198,7 +208,8 @@ let editingClubMpConnected = false;
   // =========================
   // Reset estado visual Mercado Pago
   // =========================
-  renderMpStatus(false);
+  renderMpStatus(false, false);
+
 
   // =========================
   // Modo formulario
@@ -463,6 +474,7 @@ fd.append(
 // Guardamos estado Mercado Pago del club
 editingClubId = String(c.id);
 editingClubMpConnected = (c.mp_connected === true);
+renderMpStatus(editingClubMpConnected, c.mp_habilitado === true);
 renderMpStatus(editingClubMpConnected);
     $('club_name').value = c.name ?? '';
     $('club_address').value = c.address ?? '';
@@ -566,6 +578,27 @@ async function impersonateReadonly(clubId, clubName) {
     $('btnAddClubComment')?.addEventListener('click', addClubComment);
 
 // =====================================================
+// Copiar link de conexión Mercado Pago para el club
+// =====================================================
+$('btnCopyMpLink')?.addEventListener('click', async () => {
+  if (!editingClubId) {
+    showClubMsg('Primero seleccioná un club', false);
+    return;
+  }
+
+  const link = `${window.location.origin}/mp/oauth/connect/${editingClubId}`;
+
+  try {
+    await navigator.clipboard.writeText(link);
+    showClubMsg('✅ Link copiado. Enviáselo al club para que conecte su Mercado Pago.', true);
+  } catch (e) {
+    console.error(e);
+    showClubMsg('No se pudo copiar el link', false);
+  }
+});
+
+
+// =====================================================
 // Reconectar Mercado Pago (desconectar tokens)
 // =====================================================
 $('btnReconnectMp')?.addEventListener('click', async () => {
@@ -604,7 +637,7 @@ renderMpStatus(false);
     showClubMsg('Error al desconectar Mercado Pago', false);
   }
 });
-``
+
 
 // =====================================================
 // Mercado Pago: iniciar OAuth si el club no está conectado
