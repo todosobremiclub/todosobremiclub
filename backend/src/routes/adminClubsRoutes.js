@@ -485,4 +485,45 @@ router.delete('/:id', requireAuth, requireRole('superadmin'), async (req, res) =
   }
 });
 
+// ================== DESCONECTAR MERCADO PAGO ==================
+router.post(
+  '/:id/mp/disconnect',
+  requireAuth,
+  requireRole('superadmin'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const r = await db.query(
+        `
+        UPDATE clubs
+        SET
+          mp_connected = false,
+          mp_habilitado = false,
+          mp_access_token = NULL,
+          mp_refresh_token = NULL,
+          mp_user_id = NULL,
+          mp_expires_at = NULL
+        WHERE id = $1
+        RETURNING id, name
+        `,
+        [id]
+      );
+
+      if (!r.rowCount) {
+        return res.status(404).json({ ok: false, error: 'Club no encontrado' });
+      }
+
+      return res.json({
+        ok: true,
+        message: 'Mercado Pago desconectado correctamente',
+        club: r.rows[0]
+      });
+    } catch (err) {
+      console.error('❌ disconnect MP:', err);
+      return res.status(500).json({ ok: false, error: 'Error interno' });
+    }
+  }
+);
+
 module.exports = router;
