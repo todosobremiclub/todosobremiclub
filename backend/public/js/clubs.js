@@ -538,49 +538,54 @@
       }
     });
 
-    // Copiar link al club (link público con token)// Copiar link aladdEventListener('click', async () => {
+   // Copiar link al club (link público con token)
+$('btnCopyMpLink')?.addEventListener('click', () => {
   if (!editingClubId || !editingClubApplyToken) {
     showClubMsg('Primero seleccioná un club (Editar)', false);
     return;
   }
 
+  // ✅ ESTE es el link que se le manda al club (de TU dominio)
   const link = `${window.location.origin}/mp/public/connect/${editingClubId}?token=${encodeURIComponent(editingClubApplyToken)}`;
 
-  // 1) Intentar copiar
-  let copiado = false;
+  // Intento 1: Clipboard moderno (sin await)
   if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(link);
-      copiado = true;
-    } catch (_) {
-      copiado = false;
-    }
+    navigator.clipboard.writeText(link)
+      .then(() => {
+        showClubMsg('✅ Link copiado. Enviáselo al club.', true);
+        window.prompt('Copiá este link y enviáselo al club:', link);
+      })
+      .catch(() => {
+        fallbackCopyText(link);
+      });
+
+    return;
   }
 
-  // 2) Fallback si no copió
-  if (!copiado) {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = link;
-      ta.style.position = 'fixed';
-      ta.style.top = '-1000px';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      copiado = true;
-    } catch (_) {
-      copiado = false;
-    }
-  }
-
-  // 3) Mensaje + mostrar link sí o sí
-  showClubMsg(copiado ? '✅ Link copiado. Enviáselo al club.' : '⚠️ No se pudo copiar automático. Copialo manualmente.', copiado);
-
-  // Esto garantiza que SIEMPRE puedas copiarlo
-  window.prompt('Copiá este link y enviáselo al club:', link);
+  // Intento 2: Fallback
+  fallbackCopyText(link);
 });
+
+function fallbackCopyText(text) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+
+    showClubMsg('✅ Link copiado. Enviáselo al club.', true);
+  } catch {
+    showClubMsg('⚠️ No se pudo copiar automático. Copialo manualmente.', false);
+  }
+
+  // Siempre mostrarmos el link para copiar manualmente
+  window.prompt('Copiá este link y enviáselo al club:', text);
+}
 
     // Acciones tabla
     $('clubs-table')?.addEventListener('click', (ev) => {
