@@ -185,10 +185,10 @@ router.post('/payments/mercadopago/preference', requireAuth, async (req, res) =>
           failure: 'https://todosobremiclub.com.ar/pago-fallido',
           pending: 'https://todosobremiclub.com.ar/pago-pendiente'
         },
-        auto_return: 'approved'
+        auto_return: 'approved',
 external_reference: `app_${club_id}_${Date.now()}`,
 notification_url: buildNotificationUrl(club_id),
-metadata: { club_id: String(club_id) },
+metadata: { club_id: String(club_id) }
       })
     });
 
