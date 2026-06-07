@@ -289,44 +289,38 @@ router.post('/payments/mercadopago/cuota-preference', requireAuth, async (req, r
     const notification_url = buildNotificationUrl(club_id);
     const external_reference = `cuota|${club_id}|${socio_id}|${anioNum}|${mesesNum.join(',')}`;
 
-    const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-  items: [
-    {
-      title: concepto || `Pago ${club.name}`,
-      quantity: 1,
-      currency_id: 'ARS',
-      unit_price: unitPrice
-    }
-  ],
-  back_urls: {
-    success: 'https://todosobremiclub.com.ar/pago-exitoso',
-    failure: 'https://todosobremiclub.com.ar/pago-fallido',
-    pending: 'https://todosobremiclub.com.ar/pago-pendiente'
+   const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
   },
-  auto_return: 'approved',
-  external_reference: `app_${club_id}_${Date.now()}`,
-  notification_url: buildNotificationUrl(club_id),
-  metadata: { club_id: String(club_id) }
-})
-
-    const mpData = await mpRes.json().catch(() => null);
-    if (!mpRes.ok) return res.status(400).json({ ok: false, error: 'Error creando preferencia (cuota)', mp: mpData });
-
-    return res.json({
-      ok: true,
-      preference_id: mpData.id,
-      init_point: mpData.init_point,
-      sandbox_init_point: mpData.sandbox_init_point,
-      total,
-      monto_por_mes: montoPorMes,
-      meses: mesesNum
-    });
+  body: JSON.stringify({
+    items: [
+      {
+        title: `Cuota social ${anioNum} (${mesesNum.length} mes/es)`,
+        quantity: 1,
+        currency_id: 'ARS',
+        unit_price: Number(total)
+      }
+    ],
+    external_reference,
+    notification_url,
+    metadata: {
+      club_id: String(club_id),
+      socio_id: String(socio_id),
+      anio: Number(anioNum),
+      meses: mesesNum.join(','),
+      monto_por_mes: Number(montoPorMes)
+    },
+    back_urls: {
+      success: 'https://todosobremiclub.com.ar/pago-exitoso',
+      failure: 'https://todosobremiclub.com.ar/pago-fallido',
+      pending: 'https://todosobremiclub.com.ar/pago-pendiente'
+    },
+    auto_return: 'approved'
+  })
+});
   } catch (err) {
     console.error('❌ cuota-preference error:', err);
     return res.status(500).json({ ok: false, error: 'Error interno' });
