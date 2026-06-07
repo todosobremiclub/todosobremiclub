@@ -550,7 +550,6 @@ router.get('/public/connect/:clubId', async (req, res) => {
    POST /mp/webhook?clubId=XXX&sig=YYY
 ====================================================== */
 
-const crypto = require('crypto');
 
 // 🔐 Secreto compartido (NO exponer)
 function getMpWebhookSecret() {
