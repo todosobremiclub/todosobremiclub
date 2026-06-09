@@ -273,4 +273,47 @@ router.post('/payments/transfer/proof', requireAuth, async (req, res) => {
   }
 });
 
+// ======================================================
+// GET /app/club/transferencia-config
+// Devuelve CVU / Alias / Titular del club para la app
+// ======================================================
+router.get('/club/transferencia-config', requireAuth, async (req, res) => {
+  try {
+    const clubId = getClubId(req);
+
+    if (!clubId) {
+      return res.status(401).json({
+        ok: false,
+        error: 'Token inválido para la app (no se pudo determinar clubId)'
+      });
+    }
+
+    const r = await db.query(
+      `SELECT transferencia_cvu, transferencia_alias, transferencia_titular
+       FROM clubs
+       WHERE id = $1
+       LIMIT 1`,
+      [clubId]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Club no encontrado'
+      });
+    }
+
+    return res.json({
+      ok: true,
+      transferencia_cvu: r.rows[0].transferencia_cvu,
+      transferencia_alias: r.rows[0].transferencia_alias,
+      transferencia_titular: r.rows[0].transferencia_titular
+    });
+  } catch (err) {
+    console.error('❌ /app/club/transferencia-config error:', err);
+    return res.status(500).json({ ok: false, error: 'Error interno' });
+  }
+});
+
+
 module.exports = router;
