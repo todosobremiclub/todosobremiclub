@@ -1,8 +1,26 @@
 const express = require('express');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
+const crypto = require('crypto');
 
 const router = express.Router();
+
+// ======================================================
+// Helper fetch con timeout (evita requests colgados)
+// ======================================================
+async function fetchWithTimeout(url, options = {}, ms = 15000) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return res;
+  } finally {
+    clearTimeout(t);
+  }
+}
 
 // ======================================================
 // CORS (necesario para Flutter Web / Chrome localhost)
@@ -15,12 +33,9 @@ router.use((req, res, next) => {
   );
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
 
-  // Preflight
   if (req.method === 'OPTIONS') return res.sendStatus(204);
-
   next();
 });
-
 
 // ======================================================
 // Helpers Mercado Pago (token + webhook signature)
@@ -38,7 +53,6 @@ function getMpSecret() {
 function signMpWebhook(clubId) {
   const secret = getMpSecret();
   if (!secret) return null;
-  const crypto = require('crypto');
   return crypto.createHmac('sha256', secret).update(String(clubId)).digest('hex');
 }
 
@@ -47,6 +61,8 @@ function buildNotificationUrl(clubId) {
   if (!base) return null;
   const sig = signMpWebhook(clubId);
   if (!sig) return null;
+
+  // ✅ IMPORTANTE: en backend es "&" (NO "&amp;")
   return `${base}/mp/webhook?clubId=${encodeURIComponent(clubId)}&sig=${encodeURIComponent(sig)}`;
 }
 
@@ -58,27 +74,41 @@ async function refreshClubMpToken(clubId) {
      LIMIT 1`,
     [clubId]
   );
+
   if (!r.rowCount) throw new Error('Club no encontrado');
+
   const club = r.rows[0];
-  if (!club.mp_connected || !club.mp_access_token) throw new Error('El club no tiene Mercado Pago conectado');
+
+  if (!club.mp_connected || !club.mp_access_token) {
+    throw new Error('El club no tiene Mercado Pago conectado');
+  }
+
+  // Si no hay refresh_token, no podemos refrescar
   if (!club.mp_refresh_token) return club.mp_access_token;
 
   const clientId = process.env.MP_CLIENT_ID;
   const clientSecret = process.env.MP_CLIENT_SECRET;
   if (!clientId || !clientSecret) return club.mp_access_token;
 
-  const mpRes = await fetch('https://api.mercadopago.com/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: 'refresh_token',
-      refresh_token: club.mp_refresh_token
-    })
-  });
+  const mpRes = await fetchWithTimeout(
+    'https://api.mercadopago.com/oauth/token',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'refresh_token',
+        refresh_token: club.mp_refresh_token,
+      }),
+    },
+    15000
+  );
 
-  const mpData = await mpRes.json().catch(() => null);
+  const mpText = await mpRes.text();
+  let mpData;
+  try { mpData = JSON.parse(mpText); } catch { mpData = { raw: mpText }; }
+
   if (!mpRes.ok || !mpData?.access_token) {
     console.error('❌ MP refresh_token error:', mpData);
     return club.mp_access_token;
@@ -110,22 +140,30 @@ async function getClubMpAccessToken(clubId) {
      LIMIT 1`,
     [clubId]
   );
+
   if (!r.rowCount) throw new Error('Club no encontrado');
+
   const club = r.rows[0];
-  if (!club.mp_connected || !club.mp_access_token) throw new Error('El club no tiene Mercado Pago conectado');
+
+  if (!club.mp_connected || !club.mp_access_token) {
+    throw new Error('El club no tiene Mercado Pago conectado');
+  }
 
   if (!club.mp_expires_at) return club.mp_access_token;
 
   const exp = new Date(club.mp_expires_at);
   const msLeft = exp.getTime() - Date.now();
+
+  // Si faltan menos de 48hs, refrescamos
   if (Number.isFinite(msLeft) && msLeft < 48 * 60 * 60 * 1000) {
     return await refreshClubMpToken(clubId);
   }
+
   return club.mp_access_token;
 }
 
+// Si el token JWT es de socio, solo puede pagar SU socioId/clubId
 function assertSocioOrAdmin(req, clubId, socioId) {
-  // Si el token es de socio (app), debe coincidir con socioId + clubId
   if (req.user?.socioId) {
     if (String(req.user.socioId) !== String(socioId)) {
       const err = new Error('No autorizado: socioId no coincide');
@@ -140,22 +178,19 @@ function assertSocioOrAdmin(req, clubId, socioId) {
   }
 }
 
-/**
- * Crear preferencia de Mercado Pago (Checkout Pro)
- * POST /app/payments/mercadopago/preference
- */
+// ======================================================
+// Endpoint SIMPLE (si lo usás en algún lado)
+// POST /app/payments/mercadopago/preference
+// body: { club_id, concepto, monto }
+// ======================================================
 router.post('/payments/mercadopago/preference', requireAuth, async (req, res) => {
   try {
     const { club_id, concepto, monto } = req.body || {};
 
     if (!club_id || monto == null) {
-      return res.status(400).json({
-        ok: false,
-        error: 'club_id y monto son obligatorios'
-      });
+      return res.status(400).json({ ok: false, error: 'club_id y monto son obligatorios' });
     }
 
-    // 1) Obtener token del club
     const rClub = await db.query(
       `SELECT name, mp_connected, mp_access_token
        FROM clubs
@@ -164,17 +199,11 @@ router.post('/payments/mercadopago/preference', requireAuth, async (req, res) =>
       [club_id]
     );
 
-    if (!rClub.rowCount) {
-      return res.status(404).json({ ok: false, error: 'Club no encontrado' });
-    }
+    if (!rClub.rowCount) return res.status(404).json({ ok: false, error: 'Club no encontrado' });
 
     const club = rClub.rows[0];
-
     if (!club.mp_connected || !club.mp_access_token) {
-      return res.status(400).json({
-        ok: false,
-        error: 'El club no tiene Mercado Pago conectado'
-      });
+      return res.status(400).json({ ok: false, error: 'El club no tiene Mercado Pago conectado' });
     }
 
     const unitPrice = Number(monto);
@@ -182,61 +211,70 @@ router.post('/payments/mercadopago/preference', requireAuth, async (req, res) =>
       return res.status(400).json({ ok: false, error: 'monto inválido' });
     }
 
-    // 2) Crear preferencia en Mercado Pago (con token del CLUB)
-    const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${club.mp_access_token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        items: [
-          {
-            title: concepto || `Pago ${club.name}`,
-            quantity: 1,
-            currency_id: 'ARS',
-            unit_price: unitPrice
-          }
-        ],
-        back_urls: {
-          success: 'https://todosobremiclub.com.ar/pago-exitoso',
-          failure: 'https://todosobremiclub.com.ar/pago-fallido',
-          pending: 'https://todosobremiclub.com.ar/pago-pendiente'
-        },
-        auto_return: 'approved',
-external_reference: `app_${club_id}_${Date.now()}`,
-notification_url: buildNotificationUrl(club_id),
-metadata: { club_id: String(club_id) }
-      })
-    });
+    const notification_url = buildNotificationUrl(club_id);
+    if (!notification_url) {
+      return res.status(500).json({
+        ok: false,
+        error: 'Falta PUBLIC_BASE_URL o MP_WEBHOOK_SECRET para armar notification_url'
+      });
+    }
 
-    const mpData = await mpRes.json().catch(() => null);
+    const mpRes = await fetchWithTimeout(
+      'https://api.mercadopago.com/checkout/preferences',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${club.mp_access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: [
+            {
+              title: concepto || `Pago ${club.name}`,
+              quantity: 1,
+              currency_id: 'ARS',
+              unit_price: unitPrice,
+            },
+          ],
+          back_urls: {
+            success: 'https://todosobremiclub.com.ar/pago-exitoso',
+            failure: 'https://todosobremiclub.com.ar/pago-fallido',
+            pending: 'https://todosobremiclub.com.ar/pago-pendiente',
+          },
+          auto_return: 'approved',
+          external_reference: `app_${club_id}_${Date.now()}`,
+          notification_url,
+          metadata: { club_id: String(club_id) },
+        }),
+      },
+      15000
+    );
+
+    const mpText = await mpRes.text();
+    let mpData;
+    try { mpData = JSON.parse(mpText); } catch { mpData = { raw: mpText }; }
 
     if (!mpRes.ok) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Error creando preferencia de Mercado Pago',
-        mp: mpData
-      });
+      return res.status(400).json({ ok: false, error: 'Error creando preferencia', mp: mpData });
     }
 
     return res.json({
       ok: true,
       preference_id: mpData.id,
       init_point: mpData.init_point,
-      sandbox_init_point: mpData.sandbox_init_point
+      sandbox_init_point: mpData.sandbox_init_point,
     });
   } catch (err) {
-    console.error('❌ create preference error:', err);
+    console.error('❌ preference error:', err);
     return res.status(500).json({ ok: false, error: 'Error interno' });
   }
 });
 
-/**
- * Crear preferencia para pagar CUOTA (mensualidades)
- * POST /app/payments/mercadopago/cuota-preference
- * body: { club_id, socio_id, anio, meses:[1..12], es_parcial?, monto_parcial? }
- */
+// ======================================================
+// Endpoint PRINCIPAL (el que usa la app)
+// POST /app/payments/mercadopago/cuota-preference
+// body: { club_id, socio_id, anio, meses:[1..12], es_parcial?, monto_parcial? }
+// ======================================================
 router.post('/payments/mercadopago/cuota-preference', requireAuth, async (req, res) => {
   try {
     const { club_id, socio_id, anio, meses, es_parcial = false, monto_parcial = null } = req.body || {};
@@ -257,13 +295,14 @@ router.post('/payments/mercadopago/cuota-preference', requireAuth, async (req, r
 
     // Traer socio
     const rSoc = await db.query(
-      `SELECT id, nombre, apellido, numero_socio, actividad, excepcion_cuota_id
+      `SELECT id, actividad, excepcion_cuota_id
        FROM socios
        WHERE id=$1 AND club_id=$2
        LIMIT 1`,
       [socio_id, club_id]
     );
     if (!rSoc.rowCount) return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+
     const socio = rSoc.rows[0];
 
     // Calcular monto por mes
@@ -272,7 +311,9 @@ router.post('/payments/mercadopago/cuota-preference', requireAuth, async (req, r
 
     if (esParcialBool) {
       const m = Number(monto_parcial);
-      if (!Number.isFinite(m) || m < 0) return res.status(400).json({ ok: false, error: 'monto_parcial inválido (>=0)' });
+      if (!Number.isFinite(m) || m < 0) {
+        return res.status(400).json({ ok: false, error: 'monto_parcial inválido (>=0)' });
+      }
       montoPorMes = m;
     } else {
       if (socio.excepcion_cuota_id) {
@@ -293,6 +334,7 @@ router.post('/payments/mercadopago/cuota-preference', requireAuth, async (req, r
         );
         montoPorMes = rAct.rowCount ? (Number(rAct.rows[0].precio_mensual) || 0) : 0;
       }
+
       if (!Number.isFinite(montoPorMes) || montoPorMes <= 0) {
         return res.status(400).json({ ok: false, error: 'No se pudo determinar el monto mensual (actividad/excepción)' });
       }
@@ -300,50 +342,88 @@ router.post('/payments/mercadopago/cuota-preference', requireAuth, async (req, r
 
     const total = montoPorMes * mesesNum.length;
 
-    // Token del club
+    // Token del club (con refresh)
     const accessToken = await getClubMpAccessToken(club_id);
 
-    // Preferencia
     const notification_url = buildNotificationUrl(club_id);
+    if (!notification_url) {
+      return res.status(500).json({
+        ok: false,
+        error: 'Falta PUBLIC_BASE_URL o MP_WEBHOOK_SECRET para armar notification_url'
+      });
+    }
+
     const external_reference = `cuota|${club_id}|${socio_id}|${anioNum}|${mesesNum.join(',')}`;
 
-   const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${accessToken}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    items: [
-      {
-        title: `Cuota social ${anioNum} (${mesesNum.length} mes/es)`,
-        quantity: 1,
-        currency_id: 'ARS',
-        unit_price: Number(total)
-      }
-    ],
-    external_reference,
-    notification_url,
-    metadata: {
-      club_id: String(club_id),
-      socio_id: String(socio_id),
-      anio: Number(anioNum),
-      meses: mesesNum.join(','),
-      monto_por_mes: Number(montoPorMes)
-    },
-    back_urls: {
-      success: 'https://todosobremiclub.com.ar/pago-exitoso',
-      failure: 'https://todosobremiclub.com.ar/pago-fallido',
-      pending: 'https://todosobremiclub.com.ar/pago-pendiente'
-    },
-    auto_return: 'approved'
-  })
-});
+    console.log('🟦 [MP cuota] start', { club_id, socio_id, anio: anioNum, meses: mesesNum });
+
+    let mpRes;
+    try {
+      mpRes = await fetchWithTimeout(
+        'https://api.mercadopago.com/checkout/preferences',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            items: [
+              {
+                title: `Cuota social ${anioNum} (${mesesNum.length} mes/es)`,
+                quantity: 1,
+                currency_id: 'ARS',
+                unit_price: Number(total),
+              },
+            ],
+            external_reference,
+            notification_url,
+            metadata: {
+              club_id: String(club_id),
+              socio_id: String(socio_id),
+              anio: Number(anioNum),
+              meses: mesesNum.join(','),
+              monto_por_mes: Number(montoPorMes),
+            },
+            back_urls: {
+              success: 'https://todosobremiclub.com.ar/pago-exitoso',
+              failure: 'https://todosobremiclub.com.ar/pago-fallido',
+              pending: 'https://todosobremiclub.com.ar/pago-pendiente',
+            },
+            auto_return: 'approved',
+          }),
+        },
+        15000
+      );
+    } catch (e) {
+      console.error('❌ [MP cuota] fetch error/timeout:', e);
+      return res.status(504).json({ ok: false, error: 'Timeout o error de red llamando a Mercado Pago' });
+    }
+
+    const mpText = await mpRes.text();
+    let mpData;
+    try { mpData = JSON.parse(mpText); } catch { mpData = { raw: mpText }; }
+
+    if (!mpRes.ok) {
+      console.error('❌ [MP cuota] MP error:', mpData);
+      return res.status(400).json({ ok: false, error: 'Error creando preferencia (cuota)', mp: mpData });
+    }
+
+    console.log('✅ [MP cuota] ok preference', { id: mpData.id });
+
+    return res.json({
+      ok: true,
+      preference_id: mpData.id,
+      init_point: mpData.init_point,
+      sandbox_init_point: mpData.sandbox_init_point,
+      total,
+      monto_por_mes: montoPorMes,
+      meses: mesesNum,
+    });
   } catch (err) {
     console.error('❌ cuota-preference error:', err);
     return res.status(500).json({ ok: false, error: 'Error interno' });
   }
 });
-
 
 module.exports = router;
