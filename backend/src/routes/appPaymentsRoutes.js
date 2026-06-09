@@ -5,6 +5,24 @@ const requireAuth = require('../middleware/requireAuth');
 const router = express.Router();
 
 // ======================================================
+// CORS (necesario para Flutter Web / Chrome localhost)
+// ======================================================
+router.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+  );
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+
+  // Preflight
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+
+  next();
+});
+
+
+// ======================================================
 // Helpers Mercado Pago (token + webhook signature)
 // ======================================================
 function getMpSecret() {
