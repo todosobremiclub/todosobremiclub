@@ -152,13 +152,7 @@ async function saveTransferConfigForClub(clubId) {
   let clubsCache = [];
   let currentComments = [];
 
-  // ===============================
-  // Estado del club en edición (MP)
-  // ===============================
-  let editingClubId = null;
-  let editingClubMpConnected = false;
-  let editingClubApplyToken = null;
-
+  
   // =============================
   // Form helpers
   // =============================
@@ -180,7 +174,6 @@ async function saveTransferConfigForClub(clubId) {
     if ($('club_id')) $('club_id').value = '';
 
     editingClubId = null;
-    editingClubMpConnected = false;
     editingClubApplyToken = null;
 
     currentComments = [];
@@ -376,7 +369,7 @@ if ($('club_transferencia_titular')) $('club_transferencia_titular').value = '';
     fd.append('valor_mensual', $('club_valor_mensual')?.value?.trim() || '');
     fd.append('estado', $('club_estado')?.value?.trim() || 'pendiente');
 
-    fd.append('mp_habilitado', $('club_mp_habilitado')?.checked ? 'true' : 'false');
+    
 
     fd.append('color_primary', color_primary || '#2563eb');
     fd.append('color_secondary', color_secondary || '#1e40af');
@@ -429,10 +422,10 @@ closeClubForm();
     $('club_id').value = c.id;
 
     editingClubId = String(c.id);
-    editingClubMpConnected = (c.mp_connected === true);
+    
     editingClubApplyToken = c.apply_token || null;
 
-    if ($('club_mp_habilitado')) $('club_mp_habilitado').checked = (c.mp_habilitado === true);
+    
 
     
 
