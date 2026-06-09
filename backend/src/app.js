@@ -22,6 +22,7 @@ const adminClubsRoutes = require('./routes/adminClubsRoutes');
 const adminUsersRoutes = require('./routes/adminUsersRoutes');
 const configuracionRoutes = require('./routes/configuracionRoutes');
 const appTransferRoutes = require('./routes/appTransferRoutes');
+const adminTransferRoutes = require('./routes/adminTransferRoutes');
 
 
 
@@ -78,6 +79,7 @@ app.use('/club', require('./routes/reportesRoutes'));
 app.use('/club', require('./routes/noticiasRoutes'));
 
 app.use('/app', appTransferRoutes);
+app.use('/admin', adminTransferRoutes);
 
 
 
