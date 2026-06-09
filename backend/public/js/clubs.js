@@ -197,7 +197,7 @@ if ($('club_transferencia_cvu')) $('club_transferencia_cvu').value = '';
 if ($('club_transferencia_alias')) $('club_transferencia_alias').value = '';
 if ($('club_transferencia_titular')) $('club_transferencia_titular').value = '';
 
-    renderMpStatus(false, false);
+    
     setEditMode(false);
   }
 
