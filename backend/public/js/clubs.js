@@ -52,37 +52,12 @@
     }
   }
   function renderEstadoBadge(v) {
-    const k = normalizeEstado(v);
-    const label = estadoLabel(k);
-    return `<span class="status-badge status-${k}">${escapeHtml(label)}</span>`;
-  }
+  const k = normalizeEstado(v);
+  const label = estadoLabel(k);
+  return `<span class="status-badge status-${k}">${escapeHtml(label)}</span>`;
+}
 
-  // ===============================
-  // Estado visible Mercado Pago
-  // ===============================
-  function renderMpStatus(isConnected, isEnabled) {
-    const box = $('mpStatusBadge');
-    if (!box) return;
-
-    // Pagos habilitados pero NO conectado
-    if (isEnabled && !isConnected) {
-      box.textContent = '🟡 Pendiente de conexión con Mercado Pago';
-      box.style.color = '#92400e';
-      return;
-    }
-
-    // Conectado
-    if (isConnected) {
-      box.textContent = '🟢 Mercado Pago conectado';
-      box.style.color = '#166534';
-      return;
-    }
-
-    // Deshabilitado / no conectado
-    box.textContent = '🔴 Mercado Pago no conectado';
-    box.style.color = '#991b1b';
-  }
-
+  
   // =============================
   // Auth (JWT token)
   // =============================
@@ -126,6 +101,50 @@
     try { return JSON.parse(text); }
     catch { return { ok: false, error: text }; }
   }
+
+// =============================
+// Transferencias (CVU/ALIAS/TITULAR)
+// =============================
+function getTransferPayloadFromForm() {
+  const cvu = $('club_transferencia_cvu')?.value?.trim() || null;
+  const alias = $('club_transferencia_alias')?.value?.trim() || null;
+  const titular = $('club_transferencia_titular')?.value?.trim() || null;
+
+  return {
+    transferencia_cvu: cvu,
+    transferencia_alias: alias,
+    transferencia_titular: titular
+  };
+}
+
+function setTransferFormFromClub(c) {
+  // Si el backend /admin/clubs devuelve estos campos, se precargan.
+  // Si no vienen, quedan vacíos (no rompe).
+  if ($('club_transferencia_cvu')) $('club_transferencia_cvu').value = c?.transferencia_cvu ?? '';
+  if ($('club_transferencia_alias')) $('club_transferencia_alias').value = c?.transferencia_alias ?? '';
+  if ($('club_transferencia_titular')) $('club_transferencia_titular').value = c?.transferencia_titular ?? '';
+}
+
+async function saveTransferConfigForClub(clubId) {
+  if (!clubId) return;
+  const payload = getTransferPayloadFromForm();
+
+  // Si están todos vacíos, no pegamos (evita requests inútiles)
+  const allEmpty = !payload.transferencia_cvu && !payload.transferencia_alias && !payload.transferencia_titular;
+  if (allEmpty) return;
+
+  const res = await fetchAuthClubs(`/club/${clubId}/config/transferencia`, {
+    method: 'PATCH',
+    json: true,
+    body: JSON.stringify(payload)
+  });
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    // No frenamos el guardado del club; solo avisamos
+    showClubMsg(data.error || '⚠️ Club guardado, pero no se pudo guardar CVU/Alias/Titular', false);
+  }
+}
 
   // =============================
   // Estado
@@ -173,6 +192,10 @@
     if ($('club_color_accent') && !$('club_color_accent').value) $('club_color_accent').value = '#facc15';
 
     if ($('club_mp_habilitado')) $('club_mp_habilitado').checked = false;
+
+if ($('club_transferencia_cvu')) $('club_transferencia_cvu').value = '';
+if ($('club_transferencia_alias')) $('club_transferencia_alias').value = '';
+if ($('club_transferencia_titular')) $('club_transferencia_titular').value = '';
 
     renderMpStatus(false, false);
     setEditMode(false);
@@ -372,16 +395,28 @@
 
     try {
       const res = await fetchAuthClubs(url, { method, body: fd });
-      const data = await safeJson(res);
+const data = await safeJson(res);
 
-      if (!res.ok || !data.ok) {
-        showClubMsg(data.error || 'No se pudo guardar', false);
-        return;
-      }
+if (!res.ok || !data.ok) {
+  showClubMsg(data.error || 'No se pudo guardar', false);
+  return;
+}
 
-      showClubMsg(id ? '✅ Club actualizado' : '✅ Club creado', true);
-      await loadClubs();
-      closeClubForm();
+// Obtener el clubId guardado (sirve para create y update)
+const savedClubId =
+  id ||
+  data?.club?.id ||
+  data?.clubId ||
+  data?.id ||
+  data?.club_id ||
+  null;
+
+// Guardar configuración de transferencia (CVU/alias/titular)
+await saveTransferConfigForClub(savedClubId);
+
+showClubMsg(id ? '✅ Club actualizado' : '✅ Club creado', true);
+await loadClubs();
+closeClubForm();
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -408,6 +443,7 @@
     $('club_contact_name').value = c.contact_name ?? '';
     $('club_contact_phone').value = c.contact_phone ?? '';
     $('club_instagram').value = c.instagram_url ?? '';
+setTransferFormFromClub(c);
 
     if ($('club_socios_cantidad')) $('club_socios_cantidad').value = c.socios_cantidad ?? '';
     if ($('club_valor_mensual')) $('club_valor_mensual').value = c.valor_mensual ?? '';
@@ -484,109 +520,7 @@
     $('btnCloseClubForm')?.addEventListener('click', closeClubForm);
     $('btnAddClubComment')?.addEventListener('click', addClubComment);
 
-    // Reconectar MP
-    $('btnReconnectMp')?.addEventListener('click', async () => {
-      if (!editingClubId) {
-        showClubMsg('Primero seleccioná un club', false);
-        return;
-      }
-      if (!confirm('Esto va a desconectar Mercado Pago del club. ¿Continuar?')) return;
-
-      const res = await fetchAuthClubs(`/admin/clubs/${editingClubId}/mp/disconnect`, { method: 'POST' });
-      const data = await safeJson(res);
-
-      if (!res.ok || !data.ok) {
-        showClubMsg(data.error || 'No se pudo desconectar Mercado Pago', false);
-        return;
-      }
-
-      showClubMsg('✅ Mercado Pago desconectado. Volvé a habilitar para reconectar.', true);
-      editingClubMpConnected = false;
-      if ($('club_mp_habilitado')) $('club_mp_habilitado').checked = false;
-      renderMpStatus(false, false);
-    });
-
-    // Checkbox MP: si habilitan y no está conectado → pendiente + OAuth
-    $('club_mp_habilitado')?.addEventListener('change', async (ev) => {
-      const chk = ev.target;
-      if (!chk) return;
-
-      if (!editingClubId) {
-        showClubMsg('Primero seleccioná un club (Editar)', false);
-        chk.checked = false;
-        return;
-      }
-
-      if (chk.checked === true && !editingClubMpConnected) {
-        renderMpStatus(false, true);
-
-        // Pedimos URL OAuth (autenticado) y redirigimos
-        const res = await fetchAuthClubs(`/mp/oauth/connect/${editingClubId}?json=1`, { method: 'GET' });
-        const data = await safeJson(res);
-
-        if (!res.ok || !data.ok || !data.oauthUrl) {
-          showClubMsg(data?.error || 'No se pudo iniciar OAuth', false);
-          return;
-        }
-
-        window.location.href = data.oauthUrl;
-        return;
-      }
-
-      if (chk.checked === false) {
-        renderMpStatus(editingClubMpConnected, false);
-      }
-    });
-
-   // Copiar link al club (link público con token)
-$('btnCopyMpLink')?.addEventListener('click', () => {
-  if (!editingClubId || !editingClubApplyToken) {
-    showClubMsg('Primero seleccioná un club (Editar)', false);
-    return;
-  }
-
-  // ✅ ESTE es el link que se le manda al club (de TU dominio)
-  const link = `${window.location.origin}/mp/public/connect/${editingClubId}?token=${encodeURIComponent(editingClubApplyToken)}`;
-
-  // Intento 1: Clipboard moderno (sin await)
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(link)
-      .then(() => {
-        showClubMsg('✅ Link copiado. Enviáselo al club.', true);
-        window.prompt('Copiá este link y enviáselo al club:', link);
-      })
-      .catch(() => {
-        fallbackCopyText(link);
-      });
-
-    return;
-  }
-
-  // Intento 2: Fallback
-  fallbackCopyText(link);
-});
-
-function fallbackCopyText(text) {
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.top = '-1000px';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-
-    showClubMsg('✅ Link copiado. Enviáselo al club.', true);
-  } catch {
-    showClubMsg('⚠️ No se pudo copiar automático. Copialo manualmente.', false);
-  }
-
-  // Siempre mostrarmos el link para copiar manualmente
-  window.prompt('Copiá este link y enviáselo al club:', text);
-}
-
+   
     // Acciones tabla
     $('clubs-table')?.addEventListener('click', (ev) => {
       const btn = ev.target.closest('button');
