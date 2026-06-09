@@ -1,4 +1,6 @@
 <section id="pendientes-section" class="section-pendientes">
+
+  <!-- ================= PENDIENTES SOCIOS ================= -->
   <h2 style="margin-bottom:16px;">🕒 Pendientes</h2>
 
   <div class="table-wrapper">
@@ -17,11 +19,48 @@
       <tbody id="pendientesTableBody"></tbody>
     </table>
   </div>
+
+  <!-- ================= TRANSFERENCIAS PENDIENTES ================= -->
+  <h2 style="margin:32px 0 16px;">💸 Transferencias pendientes</h2>
+
+  <div class="table-wrapper">
+    <table class="socios-table">
+      <thead>
+        <tr>
+          <th>Socio</th>
+          <th>Periodo</th>
+          <th>Monto</th>
+          <th>Referencia</th>
+          <th>Estado</th>
+          <th>Comprobante</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="transferPendientesBody"></tbody>
+    </table>
+  </div>
+
 </section>
 
 <style>
   .pend-mini{
-    width:34px;height:34px;border-radius:10px;object-fit:cover;
-    border:1px solid #ddd;background:#fff;
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    object-fit:cover;
+    border:1px solid #ddd;
+    background:#fff;
+  }
+
+  /* Opcional: mejorar visual de acciones */
+  .socios-table button{
+    padding:6px 10px;
+    border-radius:8px;
+    border:1px solid #ccc;
+    cursor:pointer;
+    background:#fff;
+  }
+  .socios-table button:hover{
+    background:#f3f4f6;
   }
 </style>
