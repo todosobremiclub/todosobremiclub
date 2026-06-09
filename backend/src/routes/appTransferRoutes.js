@@ -182,4 +182,95 @@ router.post('/payments/transfer/start', requireAuth, async (req, res) => {
   }
 });
 
+// ======================================================
+// POST /app/payments/transfer/proof
+// body: { anio, mes, comprobante_url?, comprobante_texto? }
+// ======================================================
+router.post('/payments/transfer/proof', requireAuth, async (req, res) => {
+  try {
+    const clubId = getClubId(req);
+    const socioId = getSocioId(req);
+
+    if (!clubId || !socioId) {
+      return res.status(401).json({
+        ok: false,
+        error: 'Token inválido para la app (faltan clubId/socioId)'
+      });
+    }
+
+    const { anio, mes, comprobante_url, comprobante_texto } = req.body || {};
+    const anioNum = Number(anio);
+    const mesNum = Number(mes);
+
+    if (!Number.isFinite(anioNum) || anioNum < 2000 || anioNum > 2100) {
+      return res.status(400).json({ ok: false, error: 'Año inválido' });
+    }
+    if (!Number.isFinite(mesNum) || mesNum < 1 || mesNum > 12) {
+      return res.status(400).json({ ok: false, error: 'Mes inválido' });
+    }
+
+    if (!comprobante_url && !comprobante_texto) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Debe adjuntar un comprobante o un texto'
+      });
+    }
+
+    // 1) Verificar que no esté ya pagado
+    const rYaPago = await db.query(
+      `SELECT id
+       FROM pagos_mensuales
+       WHERE club_id=$1 AND socio_id=$2 AND anio=$3 AND mes=$4
+       LIMIT 1`,
+      [clubId, socioId, anioNum, mesNum]
+    );
+    if (rYaPago.rowCount) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Ese mes ya figura como pagado'
+      });
+    }
+
+    // 2) Buscar intento activo
+    const rIntento = await db.query(
+      `SELECT id, estado
+       FROM transferencias_pago
+       WHERE club_id=$1 AND socio_id=$2 AND anio=$3 AND mes=$4
+         AND estado='iniciado'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [clubId, socioId, anioNum, mesNum]
+    );
+
+    if (!rIntento.rowCount) {
+      return res.status(400).json({
+        ok: false,
+        error: 'No hay una transferencia iniciada para ese período'
+      });
+    }
+
+    const intentoId = rIntento.rows[0].id;
+
+    // 3) Actualizar intento con comprobante
+    await db.query(
+      `UPDATE transferencias_pago
+       SET
+         comprobante_url = COALESCE($1, comprobante_url),
+         comprobante_texto = COALESCE($2, comprobante_texto),
+         estado = 'comprobante_subido',
+         updated_at = now()
+       WHERE id = $3`,
+      [comprobante_url || null, comprobante_texto || null, intentoId]
+    );
+
+    return res.json({
+      ok: true,
+      estado: 'en_revision'
+    });
+  } catch (err) {
+    console.error('❌ /payments/transfer/proof error:', err);
+    return res.status(500).json({ ok: false, error: 'Error interno' });
+  }
+});
+
 module.exports = router;
