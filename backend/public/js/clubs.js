@@ -191,7 +191,7 @@ async function saveTransferConfigForClub(clubId) {
     if ($('club_color_secondary') && !$('club_color_secondary').value) $('club_color_secondary').value = '#1e40af';
     if ($('club_color_accent') && !$('club_color_accent').value) $('club_color_accent').value = '#facc15';
 
-    if ($('club_mp_habilitado')) $('club_mp_habilitado').checked = false;
+    
 
 if ($('club_transferencia_cvu')) $('club_transferencia_cvu').value = '';
 if ($('club_transferencia_alias')) $('club_transferencia_alias').value = '';
@@ -434,7 +434,7 @@ closeClubForm();
 
     if ($('club_mp_habilitado')) $('club_mp_habilitado').checked = (c.mp_habilitado === true);
 
-    renderMpStatus(editingClubMpConnected, c.mp_habilitado === true);
+    
 
     $('club_name').value = c.name ?? '';
     $('club_address').value = c.address ?? '';
