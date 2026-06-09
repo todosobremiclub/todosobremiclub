@@ -1,0 +1,185 @@
+const express = require('express');
+const db = require('../db');
+const requireAuth = require('../middleware/requireAuth');
+
+const router = express.Router();
+
+// ======================================================
+// CORS (para Flutter Web localhost) — opcional si ya está global
+// ======================================================
+router.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+  );
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+// ======================================================
+// Helpers
+// ======================================================
+function getSocioId(req) {
+  return req.user?.socioId || req.user?.socio_id || req.user?.socioID || null;
+}
+function getClubId(req) {
+  return req.user?.clubId || req.user?.club_id || req.user?.clubID || null;
+}
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+// ======================================================
+// POST /app/payments/transfer/start
+// body: { anio, mes }
+// ======================================================
+router.post('/payments/transfer/start', requireAuth, async (req, res) => {
+  try {
+    const clubId = getClubId(req);
+    const socioId = getSocioId(req);
+
+    if (!clubId || !socioId) {
+      return res.status(401).json({
+        ok: false,
+        error: 'Token inválido para la app (faltan clubId/socioId en el JWT)'
+      });
+    }
+
+    const { anio, mes } = req.body || {};
+    const anioNum = Number(anio);
+    const mesNum = Number(mes);
+
+    if (!Number.isFinite(anioNum) || anioNum < 2000 || anioNum > 2100) {
+      return res.status(400).json({ ok: false, error: 'Año inválido' });
+    }
+    if (!Number.isFinite(mesNum) || mesNum < 1 || mesNum > 12) {
+      return res.status(400).json({ ok: false, error: 'Mes inválido' });
+    }
+
+    // 1) Si ya existe pago confirmado en pagos_mensuales, no dejamos iniciar transferencia
+    const rYaPago = await db.query(
+      `SELECT id
+       FROM pagos_mensuales
+       WHERE club_id=$1 AND socio_id=$2 AND anio=$3 AND mes=$4
+       LIMIT 1`,
+      [clubId, socioId, anioNum, mesNum]
+    );
+    if (rYaPago.rowCount) {
+      return res.status(400).json({ ok: false, error: 'Ese mes ya figura como pagado' });
+    }
+
+    // 2) Obtener numero_socio + actividad/excepción para calcular monto
+    const rSoc = await db.query(
+      `SELECT id, numero_socio, actividad, excepcion_cuota_id
+       FROM socios
+       WHERE id=$1 AND club_id=$2
+       LIMIT 1`,
+      [socioId, clubId]
+    );
+    if (!rSoc.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+    }
+    const socio = rSoc.rows[0];
+
+    const numeroSocio = socio.numero_socio;
+    if (!numeroSocio) {
+      return res.status(400).json({ ok: false, error: 'El socio no tiene numero_socio' });
+    }
+
+    // 3) Calcular monto mensual (misma lógica que usábamos para la cuota)
+    let montoPorMes = 0;
+
+    if (socio.excepcion_cuota_id) {
+      const rExc = await db.query(
+        `SELECT monto
+         FROM excepciones_cuota
+         WHERE club_id=$1 AND id=$2 AND activo=true
+         LIMIT 1`,
+        [clubId, socio.excepcion_cuota_id]
+      );
+      montoPorMes = rExc.rowCount ? (Number(rExc.rows[0].monto) || 0) : 0;
+    } else {
+      const act = String(socio.actividad || '').trim();
+      if (act) {
+        const rAct = await db.query(
+          `SELECT precio_mensual
+           FROM actividades
+           WHERE club_id=$1 AND nombre=$2 AND activo=true
+           LIMIT 1`,
+          [clubId, act]
+        );
+        montoPorMes = rAct.rowCount ? (Number(rAct.rows[0].precio_mensual) || 0) : 0;
+      }
+    }
+
+    // Fallback: si no hay actividad/excepción, usamos valor mensual del club (si existe)
+    if (!Number.isFinite(montoPorMes) || montoPorMes <= 0) {
+      const rClub = await db.query(
+        `SELECT valor_mensual
+         FROM clubs
+         WHERE id=$1
+         LIMIT 1`,
+        [clubId]
+      );
+      montoPorMes = rClub.rowCount ? (Number(rClub.rows[0].valor_mensual) || 0) : 0;
+    }
+
+    if (!Number.isFinite(montoPorMes) || montoPorMes <= 0) {
+      return res.status(400).json({
+        ok: false,
+        error: 'No se pudo determinar el monto mensual (actividad/excepción/valor_mensual)'
+      });
+    }
+
+    // 4) Generar referencia única: TSMC-<numero_socio>-<YYYYMM>
+    const referencia = `TSMC-${numeroSocio}-${anioNum}${pad2(mesNum)}`;
+
+    // 5) Si ya hay un intento activo, devolverlo
+    const rExiste = await db.query(
+      `SELECT id, referencia, monto_esperado, estado, comprobante_url
+       FROM transferencias_pago
+       WHERE club_id=$1 AND socio_id=$2 AND anio=$3 AND mes=$4
+         AND estado IN ('iniciado', 'comprobante_subido')
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [clubId, socioId, anioNum, mesNum]
+    );
+
+    if (rExiste.rowCount) {
+      const t = rExiste.rows[0];
+      return res.json({
+        ok: true,
+        referencia: t.referencia,
+        monto: Number(t.monto_esperado),
+        estado: t.estado,
+        ya_existia: true
+      });
+    }
+
+    // 6) Crear intento
+    const rIns = await db.query(
+      `INSERT INTO transferencias_pago
+       (club_id, socio_id, anio, mes, referencia, monto_esperado, estado)
+       VALUES ($1,$2,$3,$4,$5,$6,'iniciado')
+       RETURNING id, referencia, monto_esperado, estado`,
+      [clubId, socioId, anioNum, mesNum, referencia, montoPorMes]
+    );
+
+    const nuevo = rIns.rows[0];
+
+    return res.json({
+      ok: true,
+      referencia: nuevo.referencia,
+      monto: Number(nuevo.monto_esperado),
+      estado: 'transferencia_iniciada',
+      ya_existia: false
+    });
+  } catch (err) {
+    console.error('❌ /payments/transfer/start error:', err);
+    return res.status(500).json({ ok: false, error: 'Error interno' });
+  }
+});
+
+module.exports = router;

@@ -21,7 +21,7 @@ const authRoutes = require('./routes/authRoutes');
 const adminClubsRoutes = require('./routes/adminClubsRoutes');
 const adminUsersRoutes = require('./routes/adminUsersRoutes');
 const configuracionRoutes = require('./routes/configuracionRoutes');
-const mercadoPagoRoutes = require('./routes/mercadoPagoRoutes');
+const appTransferRoutes = require('./routes/appTransferRoutes');
 
 
 
@@ -77,7 +77,7 @@ app.use('/club', require('./routes/pagosRoutes'));
 app.use('/club', require('./routes/reportesRoutes'));
 app.use('/club', require('./routes/noticiasRoutes'));
 
-app.use('/mp', mercadoPagoRoutes);
+app.use('/app', appTransferRoutes);
 
 
 
