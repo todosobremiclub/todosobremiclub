@@ -129,6 +129,20 @@ router.post('/:clubId/payments/transfer/:transferId/confirm', requireAuth, requi
         `UPDATE transferencias_pago SET estado='confirmado', pago_mensual_id=$2, updated_at=now() WHERE id=$1`,
         [t.id, rYa.rows[0].id]
       );
+
+// 6) Cerrar otros intentos activos del mismo período (seguridad)
+await db.query(
+  `UPDATE transferencias_pago
+   SET estado='cancelado', updated_at=now()
+   WHERE club_id = $1
+     AND socio_id = $2
+     AND anio = $3
+     AND mes = $4
+     AND id <> $5
+     AND estado IN ('iniciado','comprobante_subido')`,
+  [clubId, t.socio_id, t.anio, t.mes, t.id]
+);
+
       await db.query('COMMIT');
       return res.json({ ok: true, ya_existia: true, pago_mensual_id: rYa.rows[0].id });
     }
@@ -191,6 +205,7 @@ router.post('/:clubId/payments/transfer/:transferId/confirm', requireAuth, requi
     return res.status(500).json({ ok: false, error: e.message });
   }
 });
+
 
 /**
  * POST /club/:clubId/payments/transfer/:transferId/reject

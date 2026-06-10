@@ -70,6 +70,40 @@ router.post('/payments/transfer/start', requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Ese mes ya figura como pagado' });
     }
 
+// 1.b) Si ya existe intento activo para ese período, no crear otro
+const rActivo = await db.query(
+  `SELECT id, estado
+   FROM transferencias_pago
+   WHERE club_id=$1 AND socio_id=$2 AND anio=$3 AND mes=$4
+     AND estado IN ('iniciado','comprobante_subido')
+   ORDER BY created_at DESC
+   LIMIT 1`,
+  [clubId, socioId, anioNum, mesNum]
+);
+
+if (rActivo.rowCount) {
+  const activo = rActivo.rows[0];
+
+  // Si ya subió comprobante → ya está en revisión, no permitir otro start
+  if (activo.estado === 'comprobante_subido') {
+    return res.json({
+      ok: true,
+      transferenciaId: activo.id,
+      estado: 'en_revision',
+      reuse: true
+    });
+  }
+
+  // Si está iniciado → reutilizar el mismo intento
+  return res.json({
+    ok: true,
+    transferenciaId: activo.id,
+    estado: 'iniciado',
+    reuse: true
+  });
+}
+
+
     // 2) Obtener numero_socio + actividad/excepción para calcular monto
     const rSoc = await db.query(
       `SELECT id, numero_socio, actividad, excepcion_cuota_id
@@ -231,16 +265,16 @@ router.post('/payments/transfer/proof', requireAuth, async (req, res) => {
       });
     }
 
-    // 2) Buscar intento activo
-    const rIntento = await db.query(
-      `SELECT id, estado
-       FROM transferencias_pago
-       WHERE club_id=$1 AND socio_id=$2 AND anio=$3 AND mes=$4
-         AND estado='iniciado'
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [clubId, socioId, anioNum, mesNum]
-    );
+    /// 2) Buscar intento activo (iniciado o ya con comprobante)
+const rIntento = await db.query(
+  `SELECT id, estado
+   FROM transferencias_pago
+   WHERE club_id=$1 AND socio_id=$2 AND anio=$3 AND mes=$4
+     AND estado IN ('iniciado','comprobante_subido')
+   ORDER BY created_at DESC
+   LIMIT 1`,
+  [clubId, socioId, anioNum, mesNum]
+);
 
     if (!rIntento.rowCount) {
       return res.status(400).json({
@@ -250,6 +284,11 @@ router.post('/payments/transfer/proof', requireAuth, async (req, res) => {
     }
 
     const intentoId = rIntento.rows[0].id;
+
+// Si ya estaba con comprobante, devolvemos OK (idempotente)
+if (rIntento.rows[0].estado === 'comprobante_subido') {
+  return res.json({ ok: true, estado: 'en_revision', transferenciaId: intentoId });
+}
 
     // 3) Actualizar intento con comprobante
     await db.query(

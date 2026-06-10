@@ -143,21 +143,87 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
     }
 
     const r = await db.query(
+  `
+  SELECT
+    pm.id,
+    pm.mes,
+    pm.monto,
+    pm.fecha_pago,
+    pm.cuenta,
+    tp.estado_transferencia
+  FROM pagos_mensuales pm
+  LEFT JOIN LATERAL (
+    SELECT
+      CASE
+        WHEN estado = 'comprobante_subido' THEN 'en_revision'
+        WHEN estado = 'rechazado' THEN 'rechazado'
+        ELSE NULL
+      END AS estado_transferencia
+    FROM transferencias_pago
+    WHERE club_id = pm.club_id
+      AND socio_id = pm.socio_id
+      AND anio = pm.anio
+      AND mes = pm.mes
+    ORDER BY created_at DESC
+    LIMIT 1
+  ) tp ON true
+  WHERE pm.club_id = $1
+    AND pm.socio_id = $2
+    AND pm.anio = $3
+  ORDER BY pm.mes ASC
+  `,
+  [clubId, socioId, anio]
+);
+
+    let pagos = r.rows ?? [];
+
+const now = new Date();
+const anioNow = now.getFullYear();
+const mesNow = now.getMonth() + 1;
+
+// Solo para el año actual
+if (Number(anio) === Number(anioNow)) {
+  const existeMes = pagos.some((p) => Number(p.mes) === Number(mesNow));
+
+  if (!existeMes) {
+    const rT = await db.query(
       `
-      SELECT id, mes, monto, fecha_pago, cuenta
-      FROM pagos_mensuales
-      WHERE club_id = $1 AND socio_id = $2 AND anio = $3
-      ORDER BY mes ASC
+      SELECT
+        CASE
+          WHEN estado = 'comprobante_subido' THEN 'en_revision'
+          WHEN estado = 'rechazado' THEN 'rechazado'
+          ELSE NULL
+        END AS estado_transferencia
+      FROM transferencias_pago
+      WHERE club_id = $1
+        AND socio_id = $2
+        AND anio = $3
+        AND mes = $4
+      ORDER BY created_at DESC
+      LIMIT 1
       `,
-      [clubId, socioId, anio]
+      [clubId, socioId, anioNow, mesNow]
     );
 
-    return res.json({
-      ok: true,
-      anio,
-      pagos: r.rows,
-      mesesPagados: r.rows.map((x) => Number(x.mes)),
+    pagos.push({
+      mes: mesNow,
+      monto: 0,
+      fecha_pago: '',
+      cuenta: '',
+      pendiente: true,
+      estado_transferencia: rT.rowCount ? rT.rows[0].estado_transferencia : null,
     });
+  }
+}
+
+return res.json({
+  ok: true,
+  anio,
+  pagos,
+  mesesPagados: pagos
+    .filter((p) => !p.pendiente)
+    .map((p) => Number(p.mes)),
+});
   } catch (e) {
     console.error('❌ pagos socio:', e);
     return res.status(500).json({ ok: false, error: e.message });

@@ -15,7 +15,8 @@ function requireClubAccess(req, res, next) {
 }
 
 // GET /club/:clubId/pendientes
-router.get('/:clubId/pendientes', requireAuth, requireClubAccess, async (req, res) => {
+router.get('/:clubId/pendientes', requireAuth, async (req, res) => {
+  const { tipo } = req.query;
   try {
     const { clubId } = req.params;
     const r = await db.query(
