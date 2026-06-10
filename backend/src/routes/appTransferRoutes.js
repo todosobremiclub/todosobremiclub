@@ -334,7 +334,7 @@ router.get('/club/transferencia-config', requireAuth, async (req, res) => {
       });
     }
 
-    rreturn res.json({
+    return res.json({
   ok: true,
 
   // claves que usa Flutter
