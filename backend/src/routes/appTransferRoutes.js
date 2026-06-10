@@ -167,31 +167,23 @@ if (rActivo.rowCount) {
       });
     }
 
-    // 4) Generar referencia única: TSMC-<numero_socio>-<YYYYMM>
-    const referencia = `TSMC-${numeroSocio}-${anioNum}${pad2(mesNum)}`;
+    // 4) Generar referencia base: TSMC-<numero_socio>-<YYYYMM>
+const referenciaBase = `TSMC-${numeroSocio}-${anioNum}${pad2(mesNum)}`;
 
-    // 5) Si ya hay un intento activo, devolverlo
-    const rExiste = await db.query(
-      `SELECT id, referencia, monto_esperado, estado, comprobante_url
-       FROM transferencias_pago
-       WHERE club_id=$1 AND socio_id=$2 AND anio=$3 AND mes=$4
-         AND estado IN ('iniciado', 'comprobante_subido')
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [clubId, socioId, anioNum, mesNum]
-    );
+// 4.b) Asegurar unicidad de referencia (porque existe UNIQUE idx_transferencias_referencia)
+const rRef = await db.query(
+  `SELECT 1
+   FROM transferencias_pago
+   WHERE referencia = $1
+   LIMIT 1`,
+  [referenciaBase]
+);
 
-    if (rExiste.rowCount) {
-      const t = rExiste.rows[0];
-      return res.json({
-        ok: true,
-        referencia: t.referencia,
-        monto: Number(t.monto_esperado),
-        estado: t.estado,
-        ya_existia: true
-      });
-    }
+const referencia = rRef.rowCount
+  ? `${referenciaBase}-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+  : referenciaBase;
 
+    
     // 6) Crear intento
     const rIns = await db.query(
       `INSERT INTO transferencias_pago
@@ -342,12 +334,19 @@ router.get('/club/transferencia-config', requireAuth, async (req, res) => {
       });
     }
 
-    return res.json({
-      ok: true,
-      transferencia_cvu: r.rows[0].transferencia_cvu,
-      transferencia_alias: r.rows[0].transferencia_alias,
-      transferencia_titular: r.rows[0].transferencia_titular
-    });
+    rreturn res.json({
+  ok: true,
+
+  // claves que usa Flutter
+  cvu: r.rows[0].transferencia_cvu,
+  alias: r.rows[0].transferencia_alias,
+  titular: r.rows[0].transferencia_titular,
+
+  // claves antiguas (compatibilidad)
+  transferencia_cvu: r.rows[0].transferencia_cvu,
+  transferencia_alias: r.rows[0].transferencia_alias,
+  transferencia_titular: r.rows[0].transferencia_titular
+});
   } catch (err) {
     console.error('❌ /app/club/transferencia-config error:', err);
     return res.status(500).json({ ok: false, error: 'Error interno' });
