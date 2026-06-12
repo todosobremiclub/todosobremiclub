@@ -141,25 +141,32 @@
         : (t.comprobante_texto ? 'Texto' : '—');
 
       tr.innerHTML = `
-        <td>${socioLabel}</td>
-        <td>${periodo}</td>
-        <td>${moneyArs(t.monto_esperado)}</td>
-        <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
-          ${t.referencia || '—'}
-        </td>
-        <td>${estadoTxt}</td>
-        <td>${comprobanteHtml}</td>
-        <td style="white-space:nowrap;">
-          <button class="btn btn-primary" data-act="t_confirm">
-            Confirmar
-          </button>
-          <button class="btn btn-secondary"
-                  data-act="t_reject"
-                  style="background:#ef4444;border-color:#ef4444;color:#fff;">
-            Rechazar
-          </button>
-        </td>
-      `;
+  <td>${socioLabel}</td>
+  <td>${periodo}</td>
+  <td>${moneyArs(t.monto_esperado)}</td>
+
+  <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+    ${t.referencia || '—'}
+  </td>
+
+  <td>${t.fecha_formateada || '—'}</td>
+
+  <td>
+    ${t.comprobante_texto ? t.comprobante_texto : '—'}
+  </td>
+
+  <td style="white-space:nowrap;">
+    <button class="btn-ok" data-act="t_confirm">
+      Aceptar
+    </button>
+
+    <button class="btn btn-secondary"
+            data-act="t_reject"
+            style="background:#ef4444;border-color:#ef4444;color:#fff;">
+      Rechazar
+    </button>
+  </td>
+`;
       tbody.appendChild(tr);
     });
   }
