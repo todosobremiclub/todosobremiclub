@@ -75,16 +75,17 @@
         <td>${p.actividad || ''}</td>
         <td>${p.categoria || ''}</td>
         <td>${p.telefono || ''}</td>
-        <td style="white-space:nowrap;">
-          <button class="btn btn-primary" data-act="accept">
-            ${p.tipo === 'foto' ? 'Aplicar foto' : 'Aceptar'}
-          </button>
-          <button class="btn btn-secondary"
-                  data-act="reject"
-                  style="background:#ef4444;border-color:#ef4444;color:#fff;">
-            Rechazar
-          </button>
-        </td>
+       <td style="white-space:nowrap;">
+  <button class="btn-ok" data-act="accept">
+    ${p.tipo === 'foto' ? 'Aplicar foto' : 'Aceptar'}
+  </button>
+
+  <button
+    data-act="reject"
+    style="background:#ef4444;border-color:#ef4444;color:#fff;padding:6px 12px;border-radius:8px;">
+    Rechazar
+  </button>
+</td>
       `;
       tbody.appendChild(tr);
     });
