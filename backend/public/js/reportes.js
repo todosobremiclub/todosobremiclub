@@ -212,6 +212,24 @@ async function downloadWithToken({ url, filename }) {
 
   	
     
+function formatFecha(d) {
+  if (!d) return '';
+
+  // ✅ Evita timezone (UTC-3)
+  const str = String(d);
+  const fecha = str.substring(0, 10);
+
+  const parts = fecha.split('-');
+  if (parts.length !== 3) return '';
+
+  const yyyy = parts[0];
+  const mm = parts[1];
+  const dd = parts[2];
+
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+
 // =============================
 // MODAL DETALLE (Ranking / Cuentas / IG Responsable)
 // =============================
