@@ -211,16 +211,7 @@ async function downloadWithToken({ url, filename }) {
   }
 
   	
-    function formatFecha(d) {
-  if (!d) return '';
-  const dt = new Date(d);
-  if (Number.isNaN(dt.getTime())) return '';
-  const dd = String(dt.getDate()).padStart(2, '0');
-  const mm = String(dt.getMonth() + 1).padStart(2, '0');
-  const yyyy = dt.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
-}
-
+    
 // =============================
 // MODAL DETALLE (Ranking / Cuentas / IG Responsable)
 // =============================
