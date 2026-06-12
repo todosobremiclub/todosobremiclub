@@ -66,7 +66,7 @@ router.get('/:clubId/payments/transfer/pending', requireAuth, requireClubAccess,
         t.estado,
         t.comprobante_url,
 t.comprobante_texto,
-to_char(t.created_at, 'DD/MM/YYYY HH24:MI') as fecha_formateada
+to_char(t.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires', 'DD/MM/YYYY HH24:MI') as fecha_formateada
       FROM transferencias_pago t
       JOIN socios s ON s.id = t.socio_id AND s.club_id = t.club_id
       WHERE t.club_id = $1
