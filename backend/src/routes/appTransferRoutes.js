@@ -310,48 +310,47 @@ if (rIntento.rows[0].estado === 'comprobante_subido') {
 // ======================================================
 router.get('/club/transferencia-config', requireAuth, async (req, res) => {
   try {
-    const clubId = getClubId(req);
+    const clubId = req.user.clubId;
 
-    if (!clubId) {
-      return res.status(401).json({
-        ok: false,
-        error: 'Token inválido para la app (no se pudo determinar clubId)'
-      });
-    }
-
-    const r = await db.query(
-      `SELECT transferencia_cvu, transferencia_alias, transferencia_titular
-       FROM clubs
-       WHERE id = $1
-       LIMIT 1`,
-      [clubId]
-    );
+    const r = await db.query(`
+      SELECT
+        transferencia_habilitada,
+        transferencia_cvu,
+        transferencia_alias,
+        transferencia_titular
+      FROM clubs
+      WHERE id = $1
+      LIMIT 1
+    `, [clubId]);
 
     if (!r.rowCount) {
-      return res.status(404).json({
-        ok: false,
-        error: 'Club no encontrado'
+      return res.json({
+        ok: true,
+        transferencia_habilitada: false,
+        alias: '',
+        cvu: '',
+        titular: '',
       });
     }
 
+    const club = r.rows[0];
+
     return res.json({
-  ok: true,
+      ok: true,
 
-  // claves que usa Flutter
-  cvu: r.rows[0].transferencia_cvu,
-  alias: r.rows[0].transferencia_alias,
-  titular: r.rows[0].transferencia_titular,
+      // ✅ ESTA ES LA CLAVE
+      transferencia_habilitada: club.transferencia_habilitada === true,
 
-  // claves antiguas (compatibilidad)
-  transferencia_cvu: r.rows[0].transferencia_cvu,
-  transferencia_alias: r.rows[0].transferencia_alias,
-  transferencia_titular: r.rows[0].transferencia_titular
-});
+      // ✅ estos los usa el modal
+      alias: club.transferencia_alias || '',
+      cvu: club.transferencia_cvu || '',
+      titular: club.transferencia_titular || '',
+    });
+
   } catch (err) {
     console.error('❌ /app/club/transferencia-config error:', err);
-    return res.status(500).json({ ok: false, error: 'Error interno' });
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
-
 
 module.exports = router;
