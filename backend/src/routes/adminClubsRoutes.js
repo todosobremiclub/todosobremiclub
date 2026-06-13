@@ -267,30 +267,31 @@ router.put(
 
       const r = await db.query(
         `
-        UPDATE clubs
-        SET
-          name = $1,
-          address = $2,
-          city = $3,
-          province = $4,
-          contact_name = $5,
-          contact_phone = $6,
-          instagram_url = $7,
-          socios_cantidad = $8,
-          valor_mensual = $9,
-          estado = COALESCE($10, estado),
-mp_habilitado = COALESCE($11, mp_habilitado),
-transferencia_habilitada = COALESCE($18, transferencia_habilitada),
-logo_url = COALESCE($12, logo_url),
-background_url = COALESCE($13, background_url),
-color_primary = COALESCE($14, color_primary),
-color_secondary = COALESCE($15, color_secondary),
-color_accent = COALESCE($16, color_accent),
-transferencia_habilitada = COALESCE($17, transferencia_habilitada)
-WHERE id = $18
+       `
+`
+UPDATE clubs
+SET
+  name = $1,
+  address = $2,
+  city = $3,
+  province = $4,
+  contact_name = $5,
+  contact_phone = $6,
+  instagram_url = $7,
+  socios_cantidad = $8,
+  valor_mensual = $9,
+  estado = COALESCE($10::text, estado),
+  mp_habilitado = COALESCE($11::boolean, mp_habilitado),
+  transferencia_habilitada = COALESCE($12::boolean, transferencia_habilitada),
+  logo_url = COALESCE($13::text, logo_url),
+  background_url = COALESCE($14::text, background_url),
+  color_primary = COALESCE($15::text, color_primary),
+  color_secondary = COALESCE($16::text, color_secondary),
+  color_accent = COALESCE($17::text, color_accent)
+WHERE id = $18::uuid
 RETURNING *
-        `,
-        [
+`,
+[
   name.trim(),
   address ?? null,
   city ?? null,
@@ -300,17 +301,16 @@ RETURNING *
   instagram_url ?? null,
   socios_cantidad ? Number(socios_cantidad) : null,
   valor_mensual ? Number(valor_mensual) : null,
-  normalizeClubEstado(estado),
-  toBool(mp_habilitado, false),
-toBool(req.body?.transferencia_habilitada, false),
-  logo_url,
-  background_url,
-  color_primary,
-  color_secondary,
-  color_accent,
+  normalizeClubEstado(estado) ?? null,
+  toBool(mp_habilitado, null),
+  toBool(req.body?.transferencia_habilitada, null),
+  logo_url ?? null,
+  background_url ?? null,
+  color_primary ?? null,
+  color_secondary ?? null,
+  color_accent ?? null,
   id
 ]
-
 
 
       );
