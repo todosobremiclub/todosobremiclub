@@ -280,12 +280,14 @@ router.put(
           valor_mensual = $9,
           estado = COALESCE($10, estado),
 mp_habilitado = COALESCE($11, mp_habilitado),
+transferencia_habilitada = COALESCE($18, transferencia_habilitada),
 logo_url = COALESCE($12, logo_url),
 background_url = COALESCE($13, background_url),
 color_primary = COALESCE($14, color_primary),
 color_secondary = COALESCE($15, color_secondary),
-color_accent = COALESCE($16, color_accent)
-WHERE id = $17
+color_accent = COALESCE($16, color_accent),
+transferencia_habilitada = COALESCE($17, transferencia_habilitada)
+WHERE id = $18
 RETURNING *
         `,
         [
@@ -300,6 +302,7 @@ RETURNING *
   valor_mensual ? Number(valor_mensual) : null,
   normalizeClubEstado(estado),
   toBool(mp_habilitado, false),
+toBool(req.body?.transferencia_habilitada, false),
   logo_url,
   background_url,
   color_primary,

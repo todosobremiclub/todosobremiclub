@@ -274,6 +274,12 @@
               <label>Valor mensual</label>
               <input id="club_valor_mensual" type="number" step="0.01" min="0" placeholder="Ej: 15000">
 
+<label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+  <input type="checkbox" id="transferenciaHabilitada">
+  Permitir pagos por transferencia
+</label>
+
+
 <h4>💳 Datos para transferencias</h4>
 
 <div class="form-grid">
@@ -436,39 +442,6 @@
 
     </div>
 
-<!-- ================= TRANSFERENCIAS (PENDIENTES) ================= -->
-<div class="card">
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <h3>Transferencias pendientes</h3>
-    <div style="display:flex; gap:10px; align-items:center;">
-      <select id="trEstado" style="width:180px;">
-        <option value="all" selected>Todos</option>
-        <option value="comprobante_subido">Con comprobante</option>
-        <option value="iniciado">Iniciadas</option>
-      </select>
-      <button id="btnReloadTransfers" class="primary">🔄 Recargar</button>
-    </div>
-  </div>
-
-  <div id="transferMsg" class="msg"></div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Club</th>
-        <th>Socio</th>
-        <th>Periodo</th>
-        <th>Monto</th>
-        <th>Referencia</th>
-        <th>Estado</th>
-        <th>Comprobante</th>
-        <th>Acciones</th>
-      </tr>
-    </thead>
-    <tbody id="transferTableBody"></tbody>
-  </table>
-</div>
-  </div>
 
   <script src="/js/clubs.js"></script>
   <script src="/js/users.js"></script>

@@ -125,12 +125,33 @@ function setTransferFormFromClub(c) {
   if ($('club_transferencia_titular')) $('club_transferencia_titular').value = c?.transferencia_titular ?? '';
 }
 
+function syncTransferFieldsVisibility() {
+  const enabled = $('club_transferencia_habilitada')?.checked === true;
+  const box = $('clubTransferBox');
+  if (box) box.style.display = enabled ? 'block' : 'none';
+}
+
+function setTransferEnabledFromClub(c) {
+  if ($('club_transferencia_habilitada')) {
+    $('club_transferencia_habilitada').checked = c?.transferencia_habilitada === true;
+  }
+  syncTransferFieldsVisibility();
+}
+
 async function saveTransferConfigForClub(clubId) {
   if (!clubId) return;
+
+  const enabled = $('club_transferencia_habilitada')?.checked === true;
+  if (!enabled) return;
+
   const payload = getTransferPayloadFromForm();
 
   // Si están todos vacíos, no pegamos (evita requests inútiles)
-  const allEmpty = !payload.transferencia_cvu && !payload.transferencia_alias && !payload.transferencia_titular;
+  const allEmpty =
+    !payload.transferencia_cvu &&
+    !payload.transferencia_alias &&
+    !payload.transferencia_titular;
+
   if (allEmpty) return;
 
   const res = await fetchAuthClubs(`/club/${clubId}/config/transferencia`, {
@@ -142,7 +163,10 @@ async function saveTransferConfigForClub(clubId) {
 
   if (!res.ok || !data.ok) {
     // No frenamos el guardado del club; solo avisamos
-    showClubMsg(data.error || '⚠️ Club guardado, pero no se pudo guardar CVU/Alias/Titular', false);
+    showClubMsg(
+      data.error || '⚠️ Club guardado, pero no se pudo guardar CVU/Alias/Titular',
+      false
+    );
   }
 }
 
@@ -189,6 +213,8 @@ async function saveTransferConfigForClub(clubId) {
 if ($('club_transferencia_cvu')) $('club_transferencia_cvu').value = '';
 if ($('club_transferencia_alias')) $('club_transferencia_alias').value = '';
 if ($('club_transferencia_titular')) $('club_transferencia_titular').value = '';
+if ($('club_transferencia_habilitada')) $('club_transferencia_habilitada').checked = false;
+syncTransferFieldsVisibility();
 
     
     setEditMode(false);
@@ -368,6 +394,10 @@ if ($('club_transferencia_titular')) $('club_transferencia_titular').value = '';
     fd.append('socios_cantidad', $('club_socios_cantidad')?.value?.trim() || '');
     fd.append('valor_mensual', $('club_valor_mensual')?.value?.trim() || '');
     fd.append('estado', $('club_estado')?.value?.trim() || 'pendiente');
+fd.append(
+  'transferencia_habilitada',
+  $('club_transferencia_habilitada')?.checked ? 'true' : 'false'
+);
 
     
 
@@ -437,6 +467,7 @@ closeClubForm();
     $('club_contact_phone').value = c.contact_phone ?? '';
     $('club_instagram').value = c.instagram_url ?? '';
 setTransferFormFromClub(c);
+setTransferEnabledFromClub(c);
 
     if ($('club_socios_cantidad')) $('club_socios_cantidad').value = c.socios_cantidad ?? '';
     if ($('club_valor_mensual')) $('club_valor_mensual').value = c.valor_mensual ?? '';
@@ -512,6 +543,9 @@ setTransferFormFromClub(c);
     $('btnOpenClubForm')?.addEventListener('click', () => openClubForm(false));
     $('btnCloseClubForm')?.addEventListener('click', closeClubForm);
     $('btnAddClubComment')?.addEventListener('click', addClubComment);
+
+$('club_transferencia_habilitada')?.addEventListener('change', syncTransferFieldsVisibility);
+syncTransferFieldsVisibility();
 
    
     // Acciones tabla
