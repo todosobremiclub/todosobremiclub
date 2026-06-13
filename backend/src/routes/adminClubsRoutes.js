@@ -266,9 +266,7 @@ router.put(
       }
 
       const r = await db.query(
-        `
-       `
-`
+  `
 UPDATE clubs
 SET
   name = $1,
@@ -290,30 +288,28 @@ SET
   color_accent = COALESCE($17::text, color_accent)
 WHERE id = $18::uuid
 RETURNING *
-`,
-[
-  name.trim(),
-  address ?? null,
-  city ?? null,
-  province ?? null,
-  contact_name ?? null,
-  contact_phone ?? null,
-  instagram_url ?? null,
-  socios_cantidad ? Number(socios_cantidad) : null,
-  valor_mensual ? Number(valor_mensual) : null,
-  normalizeClubEstado(estado) ?? null,
-  toBool(mp_habilitado, null),
-  toBool(req.body?.transferencia_habilitada, null),
-  logo_url ?? null,
-  background_url ?? null,
-  color_primary ?? null,
-  color_secondary ?? null,
-  color_accent ?? null,
-  id
-]
-
-
-      );
+  `,
+  [
+    name.trim(),
+    address ?? null,
+    city ?? null,
+    province ?? null,
+    contact_name ?? null,
+    contact_phone ?? null,
+    instagram_url ?? null,
+    socios_cantidad ? Number(socios_cantidad) : null,
+    valor_mensual ? Number(valor_mensual) : null,
+    normalizeClubEstado(estado) ?? null,
+    toBool(mp_habilitado, null),
+    toBool(req.body?.transferencia_habilitada, null),
+    logo_url ?? null,
+    background_url ?? null,
+    color_primary ?? null,
+    color_secondary ?? null,
+    color_accent ?? null,
+    id
+  ]
+);
 
       res.json({ ok: true, club: r.rows[0] });
     } catch (err) {
