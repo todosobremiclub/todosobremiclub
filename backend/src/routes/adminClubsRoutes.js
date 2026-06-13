@@ -71,6 +71,7 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
     estado,
     mp_habilitado,
     mp_connected,
+    transferencia_habilitada,
     (
       SELECT COUNT(*)
       FROM socios s
