@@ -110,12 +110,37 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
         [clubId, socioId, anio]
       );
 
-      return res.json({
-        ok: true,
-        anio,
-        pagos: r.rows,
-        mesesPagados: r.rows.map((x) => Number(x.mes)),
-      });
+      // 🔥 TRAER CONFIG DEL CLUB
+const rClub = await db.query(
+  `
+  SELECT 
+    transferencia_habilitada,
+    transferencia_cvu,
+    transferencia_alias,
+    transferencia_titular
+  FROM clubs
+  WHERE id = $1
+  LIMIT 1
+  `,
+  [clubId]
+);
+
+const clubConfig = rClub.rowCount ? rClub.rows[0] : {};
+
+return res.json({
+  ok: true,
+  anio,
+  pagos,
+  mesesPagados: pagos
+    .filter((p) => !p.pendiente)
+    .map((p) => Number(p.mes)),
+
+  // ✅ 🔥 AGREGAR ESTO
+  transferencia_habilitada: clubConfig.transferencia_habilitada,
+  transferencia_cvu: clubConfig.transferencia_cvu,
+  transferencia_alias: clubConfig.transferencia_alias,
+  transferencia_titular: clubConfig.transferencia_titular,
+});
     }
 
     // Caso APP del socio
