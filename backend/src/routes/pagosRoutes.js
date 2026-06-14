@@ -115,11 +115,14 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
       const pagosRowsAdmin = rAdmin.rows || [];
 
       return res.json({
-        ok: true,
-        anio,
-        pagos: pagosRowsAdmin,
-        mesesPagados: pagosRowsAdmin.map((x) => Number(x.mes)),
-      });
+      ok: true,
+      anio,
+      transferencia_habilitada: transferenciaHabilitada,
+      pagos: pagosRows,
+      mesesPagados: pagosRows
+        .filter((p) => !p.pendiente)
+        .map((p) => Number(p.mes)),
+    });
     }
 
     // =========================
@@ -145,6 +148,21 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
         error: 'El socio no pertenece a este club',
       });
     }
+
+const rClub = await db.query(
+      `
+      SELECT transferencia_habilitada
+      FROM clubs
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [clubId]
+    );
+
+    const transferenciaHabilitada = rClub.rowCount
+      ? rClub.rows[0].transferencia_habilitada === true
+      : false;
+
 
     const rSocio = await db.query(
       `
