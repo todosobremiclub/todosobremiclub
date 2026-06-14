@@ -180,4 +180,120 @@ const al_dia = ultimoIdx ? (ultimoIdx >= (curIdx - 1)) : false;
   }
 });
 
+// ======================================================
+// POST /app/socios/photo-request
+// App: solicitar cambio de foto del socio (queda pendiente para aprobación)
+// ======================================================
+router.post('/socios/photo-request', requireAuth, async (req, res) => {
+  try {
+    const clubId =
+      req.user?.clubId ||
+      req.user?.club_id ||
+      req.user?.clubID ||
+      null;
+
+    const socioIdToken =
+      req.user?.socioId ||
+      req.user?.socio_id ||
+      req.user?.socioID ||
+      null;
+
+    const {
+      socio_id,
+      foto_base64,
+      filename = 'foto.jpg',
+      mimetype = 'image/jpeg',
+    } = req.body || {};
+
+    if (!clubId || !socioIdToken) {
+      return res.status(401).json({
+        ok: false,
+        error: 'Token inválido para la app',
+      });
+    }
+
+    if (!socio_id || !foto_base64) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Faltan datos',
+      });
+    }
+
+    // El socio solo puede pedir cambio de SU propia foto
+    if (String(socio_id) !== String(socioIdToken)) {
+      return res.status(403).json({
+        ok: false,
+        error: 'No autorizado para solicitar cambio de foto de otro socio',
+      });
+    }
+
+    // Verificar socio
+    const rSocio = await db.query(
+      `
+      SELECT id, nombre, apellido, dni, actividad, categoria, telefono, direccion, fecha_nacimiento
+      FROM socios
+      WHERE id = $1 AND club_id = $2
+      LIMIT 1
+      `,
+      [socio_id, clubId]
+    );
+
+    if (!rSocio.rowCount) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Socio no encontrado',
+      });
+    }
+
+    const s = rSocio.rows[0];
+
+    // Guardamos la imagen como data URL para reutilizar el flujo actual de aprobación
+    const fotoUrl = `data:${mimetype};base64,${foto_base64}`;
+
+    const r = await db.query(
+      `
+      INSERT INTO socios_pendientes (
+        club_id,
+        nombre,
+        apellido,
+        dni,
+        actividad,
+        categoria,
+        telefono,
+        direccion,
+        fecha_nacimiento,
+        foto_url,
+        tipo,
+        estado
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'foto','pendiente')
+      RETURNING id
+      `,
+      [
+        clubId,
+        s.nombre,
+        s.apellido,
+        s.dni,
+        s.actividad,
+        s.categoria,
+        s.telefono,
+        s.direccion,
+        s.fecha_nacimiento,
+        fotoUrl,
+      ]
+    );
+
+    return res.json({
+      ok: true,
+      pendiente_id: r.rows[0].id,
+    });
+  } catch (e) {
+    console.error('❌ app photo request', e);
+    return res.status(500).json({
+      ok: false,
+      error: e.message || 'Error interno',
+    });
+  }
+});
+
 module.exports = router;
