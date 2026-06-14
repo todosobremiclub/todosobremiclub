@@ -2,7 +2,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
-
+const requireAuth = require('../middleware/requireAuth');
 const router = express.Router();
 
 // ✅ CORS simple para Flutter Web (sin instalar cors)
@@ -227,7 +227,7 @@ router.post('/socios/photo-request', requireAuth, async (req, res) => {
       });
     }
 
-    // Verificar socio
+    // Buscar socio real
     const rSocio = await db.query(
       `
       SELECT id, nombre, apellido, dni, actividad, categoria, telefono, direccion, fecha_nacimiento
@@ -247,7 +247,7 @@ router.post('/socios/photo-request', requireAuth, async (req, res) => {
 
     const s = rSocio.rows[0];
 
-    // Guardamos la imagen como data URL para reutilizar el flujo actual de aprobación
+    // Guardamos la foto como data URL para reutilizar el flujo actual de pendientes tipo "foto"
     const fotoUrl = `data:${mimetype};base64,${foto_base64}`;
 
     const r = await db.query(
@@ -286,6 +286,7 @@ router.post('/socios/photo-request', requireAuth, async (req, res) => {
     return res.json({
       ok: true,
       pendiente_id: r.rows[0].id,
+      filename,
     });
   } catch (e) {
     console.error('❌ app photo request', e);
