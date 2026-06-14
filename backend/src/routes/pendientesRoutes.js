@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
+const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 
 const router = express.Router();
 
@@ -297,8 +298,18 @@ router.post('/app/socios/photo-request', requireAuth, async (req, res) => {
 
     const s = rSocio.rows[0];
 
-    // 👉 subir imagen (reutilizá tu helper si tenés firebase)
-    const fotoUrl = `data:${mimetype};base64,${foto_base64}`;
+    /// 👉 subir imagen a storage y guardar URL real
+const buffer = Buffer.from(foto_base64, 'base64');
+
+const up = await uploadImageBuffer({
+  buffer,
+  mimetype: mimetype || 'image/jpeg',
+  originalname: filename || 'socio-app.jpg',
+  folder: `clubs/${clubId}/socios`
+});
+
+const fotoUrl = up.url;
+
 
     // 👉 CREAR PENDIENTE
     const r = await db.query(
