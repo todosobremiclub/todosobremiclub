@@ -57,35 +57,41 @@ const upload = multer({
 router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
   try {
     const r = await db.query(`
-  SELECT 
-    id, 
-    name, 
-    address, 
-    city, 
-    province, 
-    contact_name, 
-    contact_phone, 
-    instagram_url, 
-    socios_cantidad,
-    valor_mensual,
-    estado,
-    mp_habilitado,
-    mp_connected,
-    transferencia_habilitada,
-    (
-      SELECT COUNT(*)
-      FROM socios s
-      WHERE s.club_id = clubs.id
-    ) AS socios_activos,
-    logo_url, 
-    background_url, 
-    color_primary, 
-    color_secondary, 
-    color_accent, 
-    apply_token,
-    created_at
-  FROM clubs 
-  ORDER BY created_at DESC
+  SELECT
+  id,
+  name,
+  address,
+  city,
+  province,
+  contact_name,
+  contact_phone,
+  instagram_url,
+  socios_cantidad,
+  valor_mensual,
+  estado,
+  mp_habilitado,
+  mp_connected,
+
+  transferencia_habilitada,
+  transferencia_cvu,
+  transferencia_alias,
+  transferencia_titular,
+
+  (
+    SELECT COUNT(*)
+    FROM socios s
+    WHERE s.club_id = clubs.id
+  ) AS socios_activos,
+
+  logo_url,
+  background_url,
+  color_primary,
+  color_secondary,
+  color_accent,
+  apply_token,
+  created_at
+FROM clubs
+ORDER BY created_at DESC
 `);
 
     res.json({ ok: true, clubs: r.rows });

@@ -77,21 +77,30 @@ router.post('/login', async (req, res) => {
 
     const clubId = socio.club_id;
 
-    // 2) Traer club (para theme dinámico)
+    /// 2) Traer club (para theme dinámico + transferencias)
 const rClub = await db.query(
-  `SELECT
-         id,
-         name,
-         logo_url,
-         color_primary,
-         color_secondary,
-         color_accent,
-         instagram_url          -- 👈 AGREGADO
-       FROM clubs
-       WHERE id = $1
-       LIMIT 1`,
+  `
+  SELECT
+    id,
+    name,
+    logo_url,
+    color_primary,
+    color_secondary,
+    color_accent,
+    instagram_url,
+
+    transferencia_habilitada,
+    transferencia_cvu,
+    transferencia_alias,
+    transferencia_titular
+
+  FROM clubs
+  WHERE id = $1
+  LIMIT 1
+  `,
   [clubId]
 );
+
 
     if (rClub.rowCount === 0) {
       return res.status(404).json({ ok: false, error: 'Club no encontrado' });
@@ -166,12 +175,17 @@ const al_dia = ultimoIdx ? (ultimoIdx >= (curIdx - 1)) : false;
       },
       club: {
    id: club.id,
-   nombre: club.name,
-   logo_url: club.logo_url,
-   color_primary: club.color_primary,
-   color_secondary: club.color_secondary,
-   color_accent: club.color_accent,
-   instagram_url: club.instagram_url      // 👈 AGREGADO
+nombre: club.name,
+logo_url: club.logo_url,
+color_primary: club.color_primary,
+color_secondary: club.color_secondary,
+color_accent: club.color_accent,
+instagram_url: club.instagram_url,
+
+transferencia_habilitada: club.transferencia_habilitada,
+transferencia_cvu: club.transferencia_cvu,
+transferencia_alias: club.transferencia_alias,
+transferencia_titular: club.transferencia_titular
 }
     });
   } catch (e) {

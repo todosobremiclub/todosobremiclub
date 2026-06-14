@@ -27,11 +27,16 @@ router.get('/:clubId', requireAuth, async (req, res) => {
   color_secondary,
   color_accent,
   apply_token,
-  instagram_url        -- 👈 AGREGADO
-transferencia_habilitada
+  instagram_url,
+
+  transferencia_habilitada,
+  transferencia_cvu,
+  transferencia_alias,
+  transferencia_titular
+
 FROM clubs
 WHERE id = $1
-      LIMIT 1
+LIMIT 1
       `,
       [clubId]
     );
