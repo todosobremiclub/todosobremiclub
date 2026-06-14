@@ -258,4 +258,94 @@ if (p.foto_url) {
   }
 });
 
+// ==========================================
+// APP: solicitud cambio de foto
+// ==========================================
+router.post('/app/socios/photo-request', requireAuth, async (req, res) => {
+  try {
+    const { socio_id, foto_base64, filename, mimetype } = req.body;
+
+    if (!socio_id || !foto_base64) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Faltan datos'
+      });
+    }
+
+    // 👉 sacar club del usuario
+    const clubId = req.user?.roles?.[0]?.club_id;
+
+    if (!clubId) {
+      return res.status(400).json({
+        ok: false,
+        error: 'No se pudo determinar el club'
+      });
+    }
+
+    // 👉 obtener socio actual
+    const rSocio = await db.query(
+      `SELECT * FROM socios WHERE id=$1 AND club_id=$2 LIMIT 1`,
+      [socio_id, clubId]
+    );
+
+    if (!rSocio.rowCount) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Socio no encontrado'
+      });
+    }
+
+    const s = rSocio.rows[0];
+
+    // 👉 subir imagen (reutilizá tu helper si tenés firebase)
+    const fotoUrl = `data:${mimetype};base64,${foto_base64}`;
+
+    // 👉 CREAR PENDIENTE
+    const r = await db.query(
+      `
+      INSERT INTO socios_pendientes (
+        club_id,
+        nombre,
+        apellido,
+        dni,
+        actividad,
+        categoria,
+        telefono,
+        direccion,
+        fecha_nacimiento,
+        foto_url,
+        tipo,
+        estado
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'foto','pendiente')
+      RETURNING id
+      `,
+      [
+        clubId,
+        s.nombre,
+        s.apellido,
+        s.dni,
+        s.actividad,
+        s.categoria,
+        s.telefono,
+        s.direccion,
+        s.fecha_nacimiento,
+        fotoUrl
+      ]
+    );
+
+    return res.json({
+      ok: true,
+      pendiente_id: r.rows[0].id
+    });
+
+  } catch (e) {
+    console.error('❌ photo request', e);
+    return res.status(500).json({
+      ok: false,
+      error: e.message
+    });
+  }
+});
+
 module.exports = router;

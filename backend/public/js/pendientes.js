@@ -36,60 +36,67 @@
   }
 
   // =========================
-  // PENDIENTES SOCIOS (EXISTENTE)
-  // =========================
-  function renderSociosPendientes(items) {
-    const tbody = $('pendientesTableBody');
-    if (!tbody) return;
+// PENDIENTES SOCIOS (EXISTENTE)
+// =========================
+function renderSociosPendientes(items) {
+  const tbody = $('pendientesTableBody');
+  if (!tbody) return;
 
-    tbody.innerHTML = '';
+  tbody.innerHTML = '';
 
-    if (!items.length) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="8" class="muted">
-            No hay postulaciones pendientes.
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    items.forEach(p => {
-      const tr = document.createElement('tr');
-      tr.dataset.id = p.id;
-
-      const tipoTxt = (p.tipo === 'foto')
-        ? 'Actualización de foto'
-        : 'Alta';
-
-      tr.innerHTML = `
-        <td>
-          <img class="pend-mini"
-               src="${p.foto_url || '/img/user-placeholder.png'}"
-               onerror="this.src='/img/user-placeholder.png'"/>
+  if (!items.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" class="muted">
+          No hay postulaciones pendientes.
         </td>
-        <td><b>${p.apellido || ''} ${p.nombre || ''}</b></td>
-        <td>${p.dni || ''}</td>
-        <td>${tipoTxt}</td>
-        <td>${p.actividad || ''}</td>
-        <td>${p.categoria || ''}</td>
-        <td>${p.telefono || ''}</td>
-       <td style="white-space:nowrap;">
-  <button class="btn-ok" data-act="accept">
-    ${p.tipo === 'foto' ? 'Aplicar foto' : 'Aceptar'}
-  </button>
-
-  <button
-    data-act="reject"
-    style="background:#ef4444;border-color:#ef4444;color:#fff;padding:6px 12px;border-radius:8px;">
-    Rechazar
-  </button>
-</td>
-      `;
-      tbody.appendChild(tr);
-    });
+      </tr>
+    `;
+    return;
   }
+
+  items.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.dataset.id = p.id;
+
+    const tipoTxt = (p.tipo === 'foto')
+      ? 'Actualización de foto'
+      : 'Alta';
+
+    // ✅ ACA ESTÁ LA CLAVE (faltaba esto)
+    const fotoHtml = p.foto_url
+      ? `<img 
+           src="${p.foto_url}" 
+           class="pend-mini" 
+           style="cursor:pointer;" 
+           onclick="window.open('${p.foto_url}','_blank')"
+         />`
+      : '—';
+
+    tr.innerHTML = `
+      <td>${fotoHtml}</td>
+      <td><b>${p.apellido || ''} ${p.nombre || ''}</b></td>
+      <td>${p.dni || ''}</td>
+      <td>${tipoTxt}</td>
+      <td>${p.actividad || ''}</td>
+      <td>${p.categoria || ''}</td>
+      <td>${p.telefono || ''}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn-ok" data-act="accept">
+          ${p.tipo === 'foto' ? 'Aplicar foto' : 'Aceptar'}
+        </button>
+
+        <button
+          data-act="reject"
+          style="background:#ef4444;border-color:#ef4444;color:#fff;padding:6px 12px;border-radius:8px;">
+          Rechazar
+        </button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
 
   async function loadSociosPendientes() {
     const clubId = getActiveClubId();
