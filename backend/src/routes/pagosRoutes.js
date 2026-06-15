@@ -102,28 +102,40 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
     // CASO ADMIN
     // =========================
     if (esAdmin) {
-      const rAdmin = await db.query(
-        `
-        SELECT id, mes, monto, fecha_pago, cuenta
-        FROM pagos_mensuales
-        WHERE club_id = $1 AND socio_id = $2 AND anio = $3
-        ORDER BY mes ASC
-        `,
-        [clubId, socioId, anio]
-      );
+  const [rAdmin, rClub] = await Promise.all([
+    db.query(
+      `
+      SELECT id, mes, monto, fecha_pago, cuenta
+      FROM pagos_mensuales
+      WHERE club_id = $1 AND socio_id = $2 AND anio = $3
+      ORDER BY mes ASC
+      `,
+      [clubId, socioId, anio]
+    ),
+    db.query(
+      `
+      SELECT transferencia_habilitada
+      FROM clubs
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [clubId]
+    )
+  ]);
 
-      const pagosRowsAdmin = rAdmin.rows || [];
+  const pagosRowsAdmin = rAdmin.rows || [];
+  const transferenciaHabilitada = rClub.rowCount
+    ? rClub.rows[0].transferencia_habilitada === true
+    : false;
 
-      return res.json({
-      ok: true,
-      anio,
-      transferencia_habilitada: transferenciaHabilitada,
-      pagos: pagosRows,
-      mesesPagados: pagosRows
-        .filter((p) => !p.pendiente)
-        .map((p) => Number(p.mes)),
-    });
-    }
+  return res.json({
+    ok: true,
+    anio,
+    transferencia_habilitada: transferenciaHabilitada,
+    pagos: pagosRowsAdmin,
+    mesesPagados: pagosRowsAdmin.map((p) => Number(p.mes)),
+  });
+}
 
     // =========================
     // CASO APP SOCIO
