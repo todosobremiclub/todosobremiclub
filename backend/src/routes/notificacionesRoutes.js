@@ -85,7 +85,7 @@ async function sendPushToClubTopic({ clubId, clubName, titulo, cuerpo, notificac
 // - ADMIN (panel): lista las activas del club (historial)
 // - SOCIO (app): lista las activas del club (valida clubId si viene en token)
 // ============================================================
-router.get('/:clubId/notificaciones', requireAuth, async (req, res) => {
+router.get('/:clubId/notificaciones', requireAuth, async (req, res, next) => {
   const { clubId } = req.params;
 
   try {
@@ -111,21 +111,19 @@ router.get('/:clubId/notificaciones', requireAuth, async (req, res) => {
       return res.json({ ok: true, notificaciones: r.rows });
     }
 
-    // Caso ADMIN: token con roles
-    if (!isAdminToken(req)) {
-      return res
-        .status(401)
-        .json({ ok: false, error: 'Token inválido (no es socio ni admin)' });
+    // Caso ADMIN / STAFF / usuario con acceso al club
+    if (!req.user?.socioId) {
+      await new Promise((resolve, reject) => {
+        requireClubAccess(req, res, (err) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+
+      // Si requireClubAccess ya respondió error, cortamos
+      if (res.headersSent) return;
     }
 
-    // Validar que tenga el club en roles (mismo criterio que otros routes)
-    const roles = req.user?.roles ?? [];
-    const allowed = roles.some(
-      (r) => String(r.club_id) === String(clubId) || r.role === 'superadmin'
-    );
-    if (!allowed) {
-      return res.status(403).json({ ok: false, error: 'No autorizado para este club' });
-    }
 
     const r = await db.query(
       `
