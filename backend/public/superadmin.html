@@ -97,6 +97,11 @@
       padding: 2px;
     }
 
+    input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+
     textarea {
       resize: vertical;
     }
@@ -107,8 +112,22 @@
       gap: 10px;
     }
 
+    .toolbar-filters {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-filters input,
+    .toolbar-filters select {
+      margin: 0;
+    }
+
     @media (max-width: 900px) {
       .form-grid { grid-template-columns: 1fr; }
+      .toolbar-filters { flex-direction: column; align-items: stretch; }
     }
 
     button.primary {
@@ -132,6 +151,7 @@
     th, td {
       padding: 6px 8px;
       border-bottom: 1px solid var(--border);
+      vertical-align: middle;
     }
 
     th {
@@ -158,108 +178,108 @@
     .msg.ok { display:block; background:#e7f7ea; color:#11601d; }
     .msg.err { display:block; background:#fdeaea; color:#a11a1a; }
 
-/* ===== FIX LOGOS CLUBES ===== */
-.club-logo-thumb {
-  width: 46px;
-  height: 46px;
-  object-fit: contain;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: #fff;
-}
+    /* ===== FIX LOGOS CLUBES ===== */
+    .club-logo-thumb {
+      width: 46px;
+      height: 46px;
+      object-fit: contain;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
 
-/* =========================
-   ESTADO DEL CLUB (BADGES)
-========================= */
-.status-badge{
-  display:inline-block;
-  padding:4px 10px;
-  border-radius:999px;
-  font-weight:700;
-  font-size:12px;
-  border:1px solid rgba(0,0,0,0.08);
-  white-space:nowrap;
-}
+    /* =========================
+       ESTADO DEL CLUB (BADGES)
+    ========================= */
+    .status-badge{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      font-weight:700;
+      font-size:12px;
+      border:1px solid rgba(0,0,0,0.08);
+      white-space:nowrap;
+    }
 
-/* Verde */
-.status-productivo{
-  background:#dcfce7;
-  color:#166534;
-}
+    .status-productivo{
+      background:#dcfce7;
+      color:#166534;
+    }
 
-/* Azul */
-.status-avanzado{
-  background:#dbeafe;
-  color:#1e40af;
-}
+    .status-avanzado{
+      background:#dbeafe;
+      color:#1e40af;
+    }
 
-/* Amarillo */
-.status-pendiente{
-  background:#fef9c3;
-  color:#854d0e;
-}
+    .status-pendiente{
+      background:#fef9c3;
+      color:#854d0e;
+    }
 
-/* Rojo */
-.status-sin_respuesta{
-  background:#fee2e2;
-  color:#991b1b;
-}
+    .status-sin_respuesta{
+      background:#fee2e2;
+      color:#991b1b;
+    }
 
-/* =========================
-   MODAL CLUB
-========================= */
-.modal.hidden {
-  display: none;
-}
+    /* =========================
+       MODAL CLUB
+    ========================= */
+    .modal.hidden {
+      display: none;
+    }
 
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-  padding: 20px;
-}
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 20px;
+    }
 
-.modal-content {
-  width: min(950px, 95vw);
-  max-height: 90vh;
-  overflow-y: auto;
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.18);
-}
-
+    .modal-content {
+      width: min(950px, 95vw);
+      max-height: 90vh;
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    }
   </style>
 </head>
 
 <body>
-
   <div class="topbar">
     <h2>Panel Super Admin</h2>
     <button onclick="logout()">Cerrar sesión</button>
   </div>
 
   <div class="container">
-
     <!-- ================= CLUBES ================= -->
     <div class="card">
-
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3>Clubes</h3>
         <button id="btnOpenClubForm" class="primary">➕ Crear club</button>
       </div>
 
-      <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+      <div class="toolbar-filters">
         <input
           type="text"
           id="clubSearch"
           placeholder="🔎 Buscar club por nombre..."
           style="max-width:320px;"
         >
+
+        <select id="clubStatusFilter" style="max-width:220px;">
+          <option value="">Todos los estados</option>
+          <option value="productivo">Productivo</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="avanzado">Avanzado</option>
+          <option value="sin_respuesta">Sin respuesta</option>
+        </select>
       </div>
 
       <!-- FORM CLUB -->
@@ -311,29 +331,31 @@
                     Permitir pagos por transferencia
                   </label>
 
-                  <h4>💳 Datos para transferencias</h4>
-                  <div class="form-grid">
-                    <div>
-                      <label>CVU</label>
-                      <input
-                        id="club_transferencia_cvu"
-                        type="text"
-                        placeholder="0000000000000000000000">
+                  <div id="clubTransferBox">
+                    <h4>💳 Datos para transferencias</h4>
+                    <div class="form-grid">
+                      <div>
+                        <label>CVU</label>
+                        <input
+                          id="club_transferencia_cvu"
+                          type="text"
+                          placeholder="0000000000000000000000">
+                      </div>
+                      <div>
+                        <label>Alias</label>
+                        <input
+                          id="club_transferencia_alias"
+                          type="text"
+                          placeholder="club.ejemplo">
+                      </div>
                     </div>
-                    <div>
-                      <label>Alias</label>
-                      <input
-                        id="club_transferencia_alias"
-                        type="text"
-                        placeholder="club.ejemplo">
-                    </div>
-                  </div>
 
-                  <label>Titular de la cuenta</label>
-                  <input
-                    id="club_transferencia_titular"
-                    type="text"
-                    placeholder="Nombre legal del club">
+                    <label>Titular de la cuenta</label>
+                    <input
+                      id="club_transferencia_titular"
+                      type="text"
+                      placeholder="Nombre legal del club">
+                  </div>
 
                   <div>
                     <label>Estado</label>
@@ -465,7 +487,6 @@
         </thead>
         <tbody id="clubs-table"></tbody>
       </table>
-
     </div>
 
   <script src="/js/clubs.js"></script>
@@ -478,6 +499,5 @@
       window.location.href = '/admin.html';
     }
   </script>
-
 </body>
 </html>

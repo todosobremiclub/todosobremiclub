@@ -28,16 +28,6 @@
       .replace(/'/g, '&#39;');
   }
 
-  function fmtMoney(v) {
-    if (v === null || v === undefined || v === '') return '';
-    const n = Number(v);
-    if (!Number.isFinite(n)) return String(v);
-    return n.toLocaleString('es-AR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    });
-  }
-
   function fmtDateTime(iso) {
     if (!iso) return '';
     try {
@@ -141,13 +131,9 @@
     if ($('club_transferencia_titular')) $('club_transferencia_titular').value = c?.transferencia_titular ?? '';
   }
 
-  function getTransferFieldsContainer() {
-    return $('clubTransferBox') || null;
-  }
-
   function syncTransferFieldsVisibility() {
     const enabled = $('club_transferencia_habilitada')?.checked === true;
-    const box = getTransferFieldsContainer();
+    const box = $('clubTransferBox');
     if (box) box.style.display = enabled ? 'block' : 'none';
   }
 
@@ -237,9 +223,12 @@
 
     syncTransferFieldsVisibility();
     setEditMode(false);
-    showClubMsg('', true);
     const msg = $('clubMsg');
-    if (msg) msg.style.display = 'none';
+    if (msg) {
+      msg.textContent = '';
+      msg.className = 'msg';
+      msg.style.display = 'none';
+    }
   }
 
   function openClubForm(editMode = false) {
@@ -359,17 +348,16 @@
     });
   }
 
-  function filterClubs() {
+  function applyFilters() {
     const q = $('clubSearch')?.value?.trim().toLowerCase() || '';
+    const selectedStatus = normalizeEstado($('clubStatusFilter')?.value || '');
+    const statusFilterActive = Boolean($('clubStatusFilter')?.value);
 
-    if (!q) {
-      renderClubsTable(clubsCache);
-      return;
-    }
-
-    const filtered = clubsCache.filter((c) =>
-      String(c.name ?? '').toLowerCase().includes(q)
-    );
+    const filtered = clubsCache.filter((c) => {
+      const matchesName = !q || String(c.name ?? '').toLowerCase().includes(q);
+      const matchesStatus = !statusFilterActive || normalizeEstado(c.estado) === selectedStatus;
+      return matchesName && matchesStatus;
+    });
 
     renderClubsTable(filtered);
   }
@@ -394,7 +382,7 @@
     }
 
     clubsCache = data.clubs || [];
-    renderClubsTable(clubsCache);
+    applyFilters();
   }
 
   // =============================
@@ -558,7 +546,8 @@
     $('formClub')?.addEventListener('submit', saveClub);
     $('btnOpenClubForm')?.addEventListener('click', () => openClubForm(false));
     $('btnCloseClubForm')?.addEventListener('click', closeClubForm);
-    $('clubSearch')?.addEventListener('input', filterClubs);
+    $('clubSearch')?.addEventListener('input', applyFilters);
+    $('clubStatusFilter')?.addEventListener('change', applyFilters);
     $('btnAddClubComment')?.addEventListener('click', addClubComment);
     $('club_transferencia_habilitada')?.addEventListener('change', syncTransferFieldsVisibility);
 
