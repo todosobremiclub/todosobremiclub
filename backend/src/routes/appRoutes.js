@@ -45,12 +45,27 @@ router.post('/login', async (req, res) => {
 
     // 1) Buscar socio (multiclub) por numero + dni
     const rSocio = await db.query(
-      `SELECT id, club_id, numero_socio, dni, nombre, apellido, actividad, categoria, fecha_nacimiento, fecha_ingreso, foto_url, activo, becado
-FROM socios
-WHERE numero_socio = $1 AND dni = $2
-LIMIT 1
-      [numero, dni]
-    );
+  `SELECT 
+    id,
+    club_id,
+    numero_socio,
+    dni,
+    nombre,
+    apellido,
+    actividad,
+    categoria,
+    fecha_nacimiento,
+    fecha_ingreso,
+    foto_url,
+    activo,
+    becado
+  FROM socios
+  WHERE numero_socio = $1 
+    AND dni = $2
+  LIMIT 1`,
+  [numero, dni]
+);
+
 
     if (rSocio.rowCount === 0) {
       return res.status(401).json({ ok: false, error: 'Credenciales incorrectas' });
