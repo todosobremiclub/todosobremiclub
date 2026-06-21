@@ -221,16 +221,14 @@ syncTransferFieldsVisibility();
   }
 
   function openClubForm(editMode = false) {
-    const card = $('clubFormCard');
-    if (card) card.style.display = 'block';
-    setEditMode(editMode);
-  }
+  $('clubModal')?.classList.remove('hidden');
+  setEditMode(editMode);
+}
 
-  function closeClubForm() {
-    const card = $('clubFormCard');
-    if (card) card.style.display = 'none';
-    resetClubForm();
-  }
+function closeClubForm() {
+  $('clubModal')?.classList.add('hidden');
+  resetClubForm();
+}
 
   // =============================
   // Comentarios (histórico)
@@ -306,32 +304,68 @@ syncTransferFieldsVisibility();
   // =============================
   // Render tabla clubes
   // =============================
-  function renderRow(c) {
-    const logoHtml = c.logo_url
-      ? `<img src="${escapeHtml(c.logo_url)}" class="club-logo-thumb" alt="logo club">`
-      : '—';
 
-    return `
-      <td>${logoHtml}</td>
-      <td><b>${escapeHtml(c.name ?? '')}</b></td>
-      <td>${escapeHtml(c.city ?? '')}</td>
-      <td>${escapeHtml(c.province ?? '')}</td>
-      <td>${renderEstadoBadge(c.estado)}</td>
-      <td style="text-align:right;">${escapeHtml(String(c.socios_activos ?? '—'))}</td>
-      <td style="white-space:nowrap;">
-        <button data-action="impersonate_ro" data-id="${escapeHtml(String(c.id))}" data-name="${escapeHtml(String(c.name ?? ''))}">👁️ Ver</button>
-        <button data-action="users" data-id="${escapeHtml(String(c.id))}" data-name="${escapeHtml(String(c.name ?? ''))}">Usuarios</button>
-        <button data-action="edit" data-id="${escapeHtml(String(c.id))}">Editar</button>
-        <button data-action="delete" data-id="${escapeHtml(String(c.id))}">Eliminar</button>
-      </td>
+function renderClubsTable(list = []) {
+  const tbody = $('clubs-table');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (!list.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8">No hay resultados</td>
+      </tr>
     `;
+    return;
   }
+
+  list.forEach((c) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = renderRow(c);
+    tbody.appendChild(tr);
+  });
+}
+
+  function renderRow(c) {
+  const logoHtml = c.logo_url
+    ? `<img src="${c.logo_url}" alt="logo club" class="club-logo-thumb">`
+    : '—';
+
+  const transferenciaHtml = c.transferencia_habilitada
+    ? '<span title="Transferencia habilitada">✅</span>'
+    : '<span title="Transferencia deshabilitada">❌</span>';
+
+  return `
+    <td>${logoHtml}</td>
+    <td><b>${escapeHtml(c.name ?? '')}</b></td>
+    <td>${escapeHtml(c.city ?? '')}</td>
+    <td>${escapeHtml(c.province ?? '')}</td>
+    <td><span class="status-badge status-${normalizeEstado(c.estado)}">${renderEstadoBadge(c.estado)}</span></td>
+    <td>${escapeHtml(String(c.socios_activos ?? '—'))}</td>
+    <td>${transferenciaHtml}</td>
+    <td>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <button type="button" title="Ver club" data-action="impersonate_ro" data-id="${c.id}" data-name="${escapeHtml(c.name ?? '')}">👁️</button>
+        <button type="button" title="Usuarios" data-action="users" data-id="${c.id}" data-name="${escapeHtml(c.name ?? '')}">👥</button>
+        <button type="button" title="Editar" data-action="edit" data-id="${c.id}">✏️</button>
+        <button type="button" title="Eliminar" data-action="delete" data-id="${c.id}" style="color:#dc2626;">🗑️</button>
+      </div>
+    </td>
+  `;
+}
+
 
   async function loadClubs() {
     const tbody = $('clubs-table');
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="7">Cargando...</td></tr>`;
+    tbody.innerHTML = `
+  <tr>
+    <td colspan="8">Cargando...</td>
+  </tr>
+`;
+
 
     const res = await fetchAuthClubs('/admin/clubs');
     const data = await safeJson(res);
@@ -343,18 +377,7 @@ syncTransferFieldsVisibility();
     }
 
     clubsCache = data.clubs || [];
-    tbody.innerHTML = '';
-
-    if (!clubsCache.length) {
-      tbody.innerHTML = `<tr><td colspan="7">No hay clubes</td></tr>`;
-      return;
-    }
-
-    clubsCache.forEach((c) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = renderRow(c);
-      tbody.appendChild(tr);
-    });
+renderClubsTable(clubsCache);
   }
 
   // =============================
@@ -542,6 +565,11 @@ setTransferEnabledFromClub(c);
     $('formClub')?.addEventListener('submit', saveClub);
     $('btnOpenClubForm')?.addEventListener('click', () => openClubForm(false));
     $('btnCloseClubForm')?.addEventListener('click', closeClubForm);
+$('clubSearch')?.addEventListener('input', filterClubs);
+
+$('clubModal')?.addEventListener('click', (ev) => {
+  if (ev.target?.id === 'clubModal') closeClubForm();
+});
     $('btnAddClubComment')?.addEventListener('click', addClubComment);
 
 $('club_transferencia_habilitada')?.addEventListener('change', syncTransferFieldsVisibility);
