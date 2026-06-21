@@ -89,7 +89,6 @@ async function deleteFirebaseObjectByUrl(url) {
 router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) => {
   try {
     const { clubId } = req.params;
-
     const {
       search = '',
       categoria = '',
@@ -99,17 +98,6 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
       limit = '200',
       offset = '0'
     } = req.query;
-
-    // Periodo actual y anterior (para estado de pago)
-    const now = new Date();
-    const curY = now.getFullYear();
-    const curM = now.getMonth() + 1;
-    let prevY = curY;
-    let prevM = curM - 1;
-    if (prevM === 0) {
-      prevM = 12;
-      prevY = curY - 1;
-    }
 
     const where = ['s.club_id = $1'];
     const params = [clubId];
@@ -145,16 +133,6 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
       p++;
     }
 
-    // params para cálculo pago
-    const pCurY = p++;
-    params.push(curY);
-    const pCurM = p++;
-    params.push(curM);
-    const pPrevY = p++;
-    params.push(prevY);
-    const pPrevM = p++;
-    params.push(prevM);
-
     const q = `
       SELECT
         s.id,
@@ -168,15 +146,15 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
         s.categoria,
         s.actividad,
         s.telefono,
-s.direccion,
-s.email,
-s.fecha_nacimiento,
+        s.direccion,
+        s.email,
+        s.fecha_nacimiento,
         s.fecha_ingreso,
         s.activo,
         s.becado,
-s.excepcion_cuota_id,
-ec.nombre AS excepcion_cuota_nombre,
-ec.monto AS excepcion_cuota_monto,
+        s.excepcion_cuota_id,
+        ec.nombre AS excepcion_cuota_nombre,
+        ec.monto AS excepcion_cuota_monto,
         s.foto_url,
         s.created_at,
         s.updated_at,
@@ -184,62 +162,61 @@ ec.monto AS excepcion_cuota_monto,
         EXTRACT(YEAR FROM s.fecha_nacimiento)::int AS anio_nacimiento,
         CASE
           WHEN s.becado = true THEN true
-          WHEN EXISTS (
-            SELECT 1
-            FROM pagos_mensuales pm
-            WHERE pm.club_id = s.club_id
-              AND pm.socio_id = s.id
-              AND (
-                (pm.anio = $${pCurY} AND pm.mes = $${pCurM})
-                OR
-                (pm.anio = $${pPrevY} AND pm.mes = $${pPrevM})
-              )
-          ) THEN true
-          ELSE false
+          ELSE
+            COALESCE((
+              SELECT MAX((pm.anio::int * 100) + (pm.mes::int))
+              FROM pagos_mensuales pm
+              WHERE pm.club_id = s.club_id
+                AND pm.socio_id = s.id
+            ), 0) >=
+            CASE
+              WHEN EXTRACT(DAY FROM CURRENT_DATE)::int <= COALESCE(c.payment_due_day, 31)
+              THEN
+                CASE
+                  WHEN EXTRACT(MONTH FROM CURRENT_DATE)::int = 1
+                  THEN ((EXTRACT(YEAR FROM CURRENT_DATE)::int - 1) * 100) + 12
+                  ELSE (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + (EXTRACT(MONTH FROM CURRENT_DATE)::int - 1)
+                END
+              ELSE
+                (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + EXTRACT(MONTH FROM CURRENT_DATE)::int
+            END
         END AS pago_al_dia
       FROM socios s
-LEFT JOIN excepciones_cuota ec
-  ON ec.id = s.excepcion_cuota_id
- AND ec.club_id = s.club_id
-WHERE ${where.join(' AND ')}
+      LEFT JOIN excepciones_cuota ec
+        ON ec.id = s.excepcion_cuota_id
+       AND ec.club_id = s.club_id
+      LEFT JOIN clubs c
+        ON c.id = s.club_id
+      WHERE ${where.join(' AND ')}
       ORDER BY s.numero_socio ASC
       LIMIT $${p++} OFFSET $${p++}
     `;
 
     params.push(Number(limit), Number(offset));
 
-// ===============================
-// COUNT total socios (sin limit)
-// ===============================
-const qCount = `
-  SELECT COUNT(*)::int AS total
-  FROM socios s
-  WHERE ${where.join(' AND ')}
-`;
+    const qCount = `
+      SELECT COUNT(*)::int AS total
+      FROM socios s
+      WHERE ${where.join(' AND ')}
+    `;
 
-const rCount = await db.query(
-  qCount,
-  params.slice(0, pCurY - 1) // params usados en WHERE (clubId + filtros). pCurY apunta al primer param de pago.
-
-);
-
-const total = rCount.rows[0]?.total ?? 0;
+    const rCount = await db.query(qCount, params.slice(0, params.length - 2));
+    const total = rCount.rows[0]?.total ?? 0;
 
     const r = await db.query(q, params);
-    res.json({
-  ok: true,
-  socios: r.rows,
-  total,
-  limit: Number(limit),
-  offset: Number(offset)
-});
 
+    res.json({
+      ok: true,
+      socios: r.rows,
+      total,
+      limit: Number(limit),
+      offset: Number(offset)
+    });
   } catch (e) {
     console.error('❌ list socios', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
-
 
 // ===============================
 // ESTADO ADJUNTOS / COMENTARIO – RESUMEN PARA TABLA

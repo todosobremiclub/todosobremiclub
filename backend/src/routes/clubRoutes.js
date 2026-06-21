@@ -28,7 +28,7 @@ router.get('/:clubId', requireAuth, async (req, res) => {
   color_accent,
   apply_token,
   instagram_url,
-
+  payment_due_day,
   transferencia_habilitada,
   transferencia_cvu,
   transferencia_alias,

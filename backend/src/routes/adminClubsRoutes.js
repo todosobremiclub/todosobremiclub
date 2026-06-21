@@ -69,6 +69,7 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
   socios_cantidad,
   valor_mensual,
   estado,
+  payment_due_day,
   mp_habilitado,
   mp_connected,
 
@@ -119,6 +120,7 @@ router.post(
         instagram_url,
         socios_cantidad,
         valor_mensual,
+        payment_due_day,
         estado,
         color_primary,
         color_secondary,
@@ -169,6 +171,7 @@ INSERT INTO clubs (
  instagram_url,
  socios_cantidad,
  valor_mensual,
+ payment_due_day,
  estado,
  mp_habilitado,
  logo_url,
@@ -178,7 +181,7 @@ INSERT INTO clubs (
  color_accent,
  apply_token
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
 RETURNING *
 
         `,
@@ -192,6 +195,7 @@ RETURNING *
  instagram_url ?? null,
  socios_cantidad ? Number(socios_cantidad) : null,
  valor_mensual ? Number(valor_mensual) : null,
+ payment_due_day ? Number(payment_due_day) : 31,
  normalizeClubEstado(estado),
  toBool(mp_habilitado, false),
  logo_url,
@@ -230,6 +234,7 @@ router.put(
  instagram_url,
  socios_cantidad,
  valor_mensual,
+ payment_due_day,
  estado,
  color_primary,
  color_secondary,
@@ -292,30 +297,32 @@ SET
   background_url = COALESCE($14::text, background_url),
   color_primary = COALESCE($15::text, color_primary),
   color_secondary = COALESCE($16::text, color_secondary),
-  color_accent = COALESCE($17::text, color_accent)
-WHERE id = $18::uuid
+  color_accent = COALESCE($17::text, color_accent),
+  payment_due_day = COALESCE($18::int, payment_due_day)
+WHERE id = $19::uuid
 RETURNING *
   `,
   [
-    name.trim(),
-    address ?? null,
-    city ?? null,
-    province ?? null,
-    contact_name ?? null,
-    contact_phone ?? null,
-    instagram_url ?? null,
-    socios_cantidad ? Number(socios_cantidad) : null,
-    valor_mensual ? Number(valor_mensual) : null,
-    normalizeClubEstado(estado) ?? null,
-    toBool(mp_habilitado, null),
-    toBool(req.body?.transferencia_habilitada, null),
-    logo_url ?? null,
-    background_url ?? null,
-    color_primary ?? null,
-    color_secondary ?? null,
-    color_accent ?? null,
-    id
-  ]
+  name.trim(),
+  address ?? null,
+  city ?? null,
+  province ?? null,
+  contact_name ?? null,
+  contact_phone ?? null,
+  instagram_url ?? null,
+  socios_cantidad ? Number(socios_cantidad) : null,
+  valor_mensual ? Number(valor_mensual) : null,
+  normalizeClubEstado(estado) ?? null,
+  toBool(mp_habilitado, null),
+  toBool(req.body?.transferencia_habilitada, null),
+  logo_url ?? null,
+  background_url ?? null,
+  color_primary ?? null,
+  color_secondary ?? null,
+  color_accent ?? null,
+  payment_due_day ? Number(payment_due_day) : null,
+  id
+]
 );
 
       res.json({ ok: true, club: r.rows[0] });

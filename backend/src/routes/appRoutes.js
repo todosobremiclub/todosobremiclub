@@ -45,23 +45,10 @@ router.post('/login', async (req, res) => {
 
     // 1) Buscar socio (multiclub) por numero + dni
     const rSocio = await db.query(
-      `SELECT
-         id,
-         club_id,
-         numero_socio,
-         dni,
-         nombre,
-         apellido,
-         actividad,
-         categoria,
-         fecha_nacimiento,
-         fecha_ingreso,
-         foto_url,
-         activo
-       FROM socios
-       WHERE numero_socio = $1
-         AND dni = $2
-       LIMIT 1`,
+      `SELECT id, club_id, numero_socio, dni, nombre, apellido, actividad, categoria, fecha_nacimiento, fecha_ingreso, foto_url, activo, becado
+FROM socios
+WHERE numero_socio = $1 AND dni = $2
+LIMIT 1
       [numero, dni]
     );
 
@@ -87,8 +74,8 @@ const rClub = await db.query(
     color_primary,
     color_secondary,
     color_accent,
-    instagram_url,
-
+    instagram_url,  
+    payment_due_day,
     transferencia_habilitada,
     transferencia_cvu,
     transferencia_alias,
@@ -131,13 +118,30 @@ const ultimoYM = rUlt.rows?.[0]?.ultimo_ym
 const now = new Date();
 const curYear = now.getFullYear();
 const curMonth = now.getMonth() + 1; // 1-12
-const curIdx = curYear * 12 + curMonth;
+const curDay = now.getDate();
 
 const ultimo_pago = ultimoYM ? ymToString(ultimoYM) : null;
 
-// ✅ al_dia: consideramos OK si último mes pagado es el actual O el anterior
-// es decir: ultimoIdx >= (curIdx - 1)
-const al_dia = ultimoIdx ? (ultimoIdx >= (curIdx - 1)) : false;
+const paymentDueDay = Number(rClub.rows?.[0]?.payment_due_day ?? 31);
+
+// período exigido según fecha actual y corte del club
+let requiredYear = curYear;
+let requiredMonth = curMonth;
+
+if (curDay <= paymentDueDay) {
+  requiredMonth = curMonth - 1;
+  if (requiredMonth === 0) {
+    requiredMonth = 12;
+    requiredYear = curYear - 1;
+  }
+}
+
+const requiredIdx = requiredYear * 12 + requiredMonth;
+
+// becado = siempre al día
+const al_dia = socio.becado === true
+  ? true
+  : (ultimoIdx ? (ultimoIdx >= requiredIdx) : false);
 
     // 4) Emitir token APP (JWT)
     if (!process.env.JWT_SECRET) {

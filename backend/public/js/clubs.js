@@ -219,6 +219,8 @@
     if ($('club_transferencia_titular')) $('club_transferencia_titular').value = '';
     if ($('club_transferencia_habilitada')) $('club_transferencia_habilitada').checked = false;
 
+if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
+
     if ($('club_socios_activos')) $('club_socios_activos').value = '';
 
     syncTransferFieldsVisibility();
@@ -419,6 +421,7 @@
     fd.append('instagram_url', $('club_instagram')?.value?.trim() || '');
     fd.append('socios_cantidad', $('club_socios_cantidad')?.value?.trim() || '');
     fd.append('valor_mensual', $('club_valor_mensual')?.value?.trim() || '');
+    fd.append('payment_due_day', $('club_payment_due_day')?.value?.trim() || '31');
     fd.append('estado', $('club_estado')?.value?.trim() || 'pendiente');
     fd.append('transferencia_habilitada', $('club_transferencia_habilitada')?.checked ? 'true' : 'false');
     fd.append('color_primary', color_primary || '#2563eb');
@@ -476,6 +479,7 @@
 
     if ($('club_socios_cantidad')) $('club_socios_cantidad').value = c.socios_cantidad ?? '';
     if ($('club_valor_mensual')) $('club_valor_mensual').value = c.valor_mensual ?? '';
+    if ($('club_payment_due_day')) $('club_payment_due_day').value = c.payment_due_day ?? 31;
     if ($('club_estado')) $('club_estado').value = c.estado ?? 'pendiente';
     if ($('club_socios_activos')) $('club_socios_activos').value = c.socios_activos ?? '';
 
