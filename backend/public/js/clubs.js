@@ -2,6 +2,14 @@
   const $ = (id) => document.getElementById(id);
 
   // =============================
+  // Estado global
+  // =============================
+  let clubsCache = [];
+  let currentComments = [];
+  let editingClubId = null;
+  let editingClubApplyToken = null;
+
+  // =============================
   // UI helpers
   // =============================
   function showClubMsg(text, ok = true) {
@@ -11,26 +19,32 @@
     box.textContent = text;
   }
 
-  function escapeHtml(str) {
-    return String(str ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function fmtMoney(v) {
     if (v === null || v === undefined || v === '') return '';
     const n = Number(v);
     if (!Number.isFinite(n)) return String(v);
-    return n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return n.toLocaleString('es-AR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
   }
 
   function fmtDateTime(iso) {
     if (!iso) return '';
-    try { return new Date(iso).toLocaleString('es-AR'); }
-    catch { return String(iso); }
+    try {
+      return new Date(iso).toLocaleString('es-AR');
+    } catch {
+      return String(iso);
+    }
   }
 
   // =============================
@@ -40,9 +54,12 @@
     const s = String(v ?? '').trim().toLowerCase();
     if (!s) return 'pendiente';
     if (s === 'sin respuesta') return 'sin_respuesta';
-    if (['productivo','avanzado','pendiente','sin_respuesta'].includes(s)) return s;
+    if (['productivo', 'avanzado', 'pendiente', 'sin_respuesta'].includes(s)) {
+      return s;
+    }
     return 'pendiente';
   }
+
   function estadoLabel(key) {
     switch (key) {
       case 'productivo': return 'Productivo';
@@ -51,13 +68,13 @@
       default: return 'Pendiente';
     }
   }
-  function renderEstadoBadge(v) {
-  const k = normalizeEstado(v);
-  const label = estadoLabel(k);
-  return `<span class="status-badge status-${k}">${escapeHtml(label)}</span>`;
-}
 
-  
+  function renderEstadoBadge(v) {
+    const k = normalizeEstado(v);
+    const label = estadoLabel(k);
+    return `<span class="status-badge status-${k}">${escapeHtml(label)}</span>`;
+  }
+
   // =============================
   // Auth (JWT token)
   // =============================
@@ -73,12 +90,10 @@
 
   async function fetchAuthClubs(url, options = {}) {
     const token = getTokenOrRedirect();
-    const headers = options.headers || {};
+    const headers = { ...(options.headers || {}) };
     headers['Authorization'] = 'Bearer ' + token;
 
-    const isFormData =
-      typeof FormData !== 'undefined' && options.body instanceof FormData;
-
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     if (options.json && !isFormData) {
       headers['Content-Type'] = 'application/json';
     }
@@ -93,90 +108,78 @@
       window.location.href = '/admin.html';
       throw new Error('401');
     }
+
     return res;
   }
 
   async function safeJson(res) {
     const text = await res.text();
-    try { return JSON.parse(text); }
-    catch { return { ok: false, error: text }; }
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { ok: false, error: text };
+    }
   }
-
-// =============================
-// Transferencias (CVU/ALIAS/TITULAR)
-// =============================
-function getTransferPayloadFromForm() {
-  const cvu = $('club_transferencia_cvu')?.value?.trim() || null;
-  const alias = $('club_transferencia_alias')?.value?.trim() || null;
-  const titular = $('club_transferencia_titular')?.value?.trim() || null;
-
-  return {
-    transferencia_cvu: cvu,
-    transferencia_alias: alias,
-    transferencia_titular: titular
-  };
-}
-
-function setTransferFormFromClub(c) {
-  // Si el backend /admin/clubs devuelve estos campos, se precargan.
-  // Si no vienen, quedan vacíos (no rompe).
-  if ($('club_transferencia_cvu')) $('club_transferencia_cvu').value = c?.transferencia_cvu ?? '';
-  if ($('club_transferencia_alias')) $('club_transferencia_alias').value = c?.transferencia_alias ?? '';
-  if ($('club_transferencia_titular')) $('club_transferencia_titular').value = c?.transferencia_titular ?? '';
-}
-
-function syncTransferFieldsVisibility() {
-  const enabled = $('club_transferencia_habilitada')?.checked === true;
-  const box = $('clubTransferBox');
-  if (box) box.style.display = enabled ? 'block' : 'none';
-}
-
-function setTransferEnabledFromClub(c) {
-  if ($('club_transferencia_habilitada')) {
-    $('club_transferencia_habilitada').checked = c?.transferencia_habilitada === true;
-  }
-  syncTransferFieldsVisibility();
-}
-
-async function saveTransferConfigForClub(clubId) {
-  if (!clubId) return;
-
-  const enabled = $('club_transferencia_habilitada')?.checked === true;
-  if (!enabled) return;
-
-  const payload = getTransferPayloadFromForm();
-
-  // Si están todos vacíos, no pegamos (evita requests inútiles)
-  const allEmpty =
-    !payload.transferencia_cvu &&
-    !payload.transferencia_alias &&
-    !payload.transferencia_titular;
-
-  if (allEmpty) return;
-
-  const res = await fetchAuthClubs(`/club/${clubId}/config/transferencia`, {
-    method: 'PATCH',
-    json: true,
-    body: JSON.stringify(payload)
-  });
-  const data = await safeJson(res);
-
-  if (!res.ok || !data.ok) {
-    // No frenamos el guardado del club; solo avisamos
-    showClubMsg(
-      data.error || '⚠️ Club guardado, pero no se pudo guardar CVU/Alias/Titular',
-      false
-    );
-  }
-}
 
   // =============================
-  // Estado
+  // Transferencias (CVU/ALIAS/TITULAR)
   // =============================
-  let clubsCache = [];
-  let currentComments = [];
+  function getTransferPayloadFromForm() {
+    const cvu = $('club_transferencia_cvu')?.value?.trim() || null;
+    const alias = $('club_transferencia_alias')?.value?.trim() || null;
+    const titular = $('club_transferencia_titular')?.value?.trim() || null;
+    return {
+      transferencia_cvu: cvu,
+      transferencia_alias: alias,
+      transferencia_titular: titular,
+    };
+  }
 
-  
+  function setTransferFormFromClub(c) {
+    if ($('club_transferencia_cvu')) $('club_transferencia_cvu').value = c?.transferencia_cvu ?? '';
+    if ($('club_transferencia_alias')) $('club_transferencia_alias').value = c?.transferencia_alias ?? '';
+    if ($('club_transferencia_titular')) $('club_transferencia_titular').value = c?.transferencia_titular ?? '';
+  }
+
+  function getTransferFieldsContainer() {
+    return $('clubTransferBox') || null;
+  }
+
+  function syncTransferFieldsVisibility() {
+    const enabled = $('club_transferencia_habilitada')?.checked === true;
+    const box = getTransferFieldsContainer();
+    if (box) box.style.display = enabled ? 'block' : 'none';
+  }
+
+  function setTransferEnabledFromClub(c) {
+    if ($('club_transferencia_habilitada')) {
+      $('club_transferencia_habilitada').checked = c?.transferencia_habilitada === true;
+    }
+    syncTransferFieldsVisibility();
+  }
+
+  async function saveTransferConfigForClub(clubId) {
+    if (!clubId) return;
+
+    const enabled = $('club_transferencia_habilitada')?.checked === true;
+    if (!enabled) return;
+
+    const payload = getTransferPayloadFromForm();
+    const allEmpty = !payload.transferencia_cvu && !payload.transferencia_alias && !payload.transferencia_titular;
+    if (allEmpty) return;
+
+    const res = await fetchAuthClubs(`/club/${clubId}/config/transferencia`, {
+      method: 'PATCH',
+      json: true,
+      body: JSON.stringify(payload),
+    });
+
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) {
+      showClubMsg(data.error || '⚠️ Club guardado, pero no se pudo guardar CVU/Alias/Titular', false);
+    }
+  }
+
   // =============================
   // Form helpers
   // =============================
@@ -193,14 +196,31 @@ async function saveTransferConfigForClub(clubId) {
     if (submitBtn) submitBtn.textContent = on ? 'Guardar cambios' : 'Guardar club';
   }
 
+  function renderClubComments(comments = []) {
+    const box = $('clubCommentsList');
+    if (!box) return;
+
+    if (!comments || comments.length === 0) {
+      box.innerHTML = '<div class="subcard">No hay comentarios.</div>';
+      return;
+    }
+
+    box.innerHTML = comments.map((c) => `
+      <div class="subcard" style="margin-top:8px;">
+        <div style="font-size:12px;color:#6b7280;">${escapeHtml(fmtDateTime(c.created_at))}</div>
+        <div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(c.comment)}</div>
+      </div>
+    `).join('');
+  }
+
   function resetClubForm() {
     $('formClub')?.reset();
     if ($('club_id')) $('club_id').value = '';
 
     editingClubId = null;
     editingClubApplyToken = null;
-
     currentComments = [];
+
     if ($('club_new_comment')) $('club_new_comment').value = '';
     renderClubComments([]);
 
@@ -208,52 +228,36 @@ async function saveTransferConfigForClub(clubId) {
     if ($('club_color_secondary') && !$('club_color_secondary').value) $('club_color_secondary').value = '#1e40af';
     if ($('club_color_accent') && !$('club_color_accent').value) $('club_color_accent').value = '#facc15';
 
-    
+    if ($('club_transferencia_cvu')) $('club_transferencia_cvu').value = '';
+    if ($('club_transferencia_alias')) $('club_transferencia_alias').value = '';
+    if ($('club_transferencia_titular')) $('club_transferencia_titular').value = '';
+    if ($('club_transferencia_habilitada')) $('club_transferencia_habilitada').checked = false;
 
-if ($('club_transferencia_cvu')) $('club_transferencia_cvu').value = '';
-if ($('club_transferencia_alias')) $('club_transferencia_alias').value = '';
-if ($('club_transferencia_titular')) $('club_transferencia_titular').value = '';
-if ($('club_transferencia_habilitada')) $('club_transferencia_habilitada').checked = false;
-syncTransferFieldsVisibility();
+    if ($('club_socios_activos')) $('club_socios_activos').value = '';
 
-    
+    syncTransferFieldsVisibility();
     setEditMode(false);
+    showClubMsg('', true);
+    const msg = $('clubMsg');
+    if (msg) msg.style.display = 'none';
   }
 
   function openClubForm(editMode = false) {
-  $('clubModal')?.classList.remove('hidden');
-  setEditMode(editMode);
-}
+    $('clubModal')?.classList.remove('hidden');
+    setEditMode(editMode);
+  }
 
-function closeClubForm() {
-  $('clubModal')?.classList.add('hidden');
-  resetClubForm();
-}
+  function closeClubForm() {
+    $('clubModal')?.classList.add('hidden');
+    resetClubForm();
+  }
 
   // =============================
   // Comentarios (histórico)
   // =============================
-  function renderClubComments(comments = []) {
-    const box = $('clubCommentsList');
-    if (!box) return;
-
-    if (!comments || comments.length === 0) {
-      box.innerHTML = `<div style="color:#6b7280;">No hay comentarios.</div>`;
-      return;
-    }
-
-    box.innerHTML = comments.map((c) => `
-      <div style="border-left:3px solid #2563eb; padding:6px 10px; margin-bottom:8px; background:#fafafa; border-radius:8px;">
-        <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">
-          ${escapeHtml(fmtDateTime(c.created_at))}
-        </div>
-        <div>${escapeHtml(c.comment)}</div>
-      </div>
-    `).join('');
-  }
-
   async function loadClubComments(clubId) {
     if (!clubId) return;
+
     const res = await fetchAuthClubs(`/admin/clubs/${clubId}/comments`);
     const data = await safeJson(res);
 
@@ -262,6 +266,7 @@ function closeClubForm() {
       renderClubComments([]);
       return;
     }
+
     currentComments = data.comments || [];
     renderClubComments(currentComments);
   }
@@ -304,68 +309,80 @@ function closeClubForm() {
   // =============================
   // Render tabla clubes
   // =============================
+  function renderRow(c) {
+    const logoHtml = c.logo_url
+      ? `<img src="${escapeHtml(c.logo_url)}" alt="logo club" class="club-logo-thumb">`
+      : '—';
 
-function renderClubsTable(list = []) {
-  const tbody = $('clubs-table');
-  if (!tbody) return;
+    const transferenciaHtml = c.transferencia_habilitada
+      ? '<span title="Transferencia habilitada">✅</span>'
+      : '<span title="Transferencia deshabilitada">❌</span>';
 
-  tbody.innerHTML = '';
-
-  if (!list.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="8">No hay resultados</td>
-      </tr>
+    return `
+      <td>${logoHtml}</td>
+      <td><strong>${escapeHtml(c.name ?? '')}</strong></td>
+      <td>${escapeHtml(c.city ?? '')}</td>
+      <td>${escapeHtml(c.province ?? '')}</td>
+      <td>${renderEstadoBadge(c.estado)}</td>
+      <td>${escapeHtml(String(c.socios_activos ?? '—'))}</td>
+      <td>${transferenciaHtml}</td>
+      <td>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <button type="button" title="Ver club" data-action="impersonate_ro" data-id="${escapeHtml(c.id)}" data-name="${escapeHtml(c.name ?? '')}">👁️</button>
+          <button type="button" title="Usuarios" data-action="users" data-id="${escapeHtml(c.id)}" data-name="${escapeHtml(c.name ?? '')}">👥</button>
+          <button type="button" title="Editar" data-action="edit" data-id="${escapeHtml(c.id)}">✏️</button>
+          <button type="button" title="Eliminar" data-action="delete" data-id="${escapeHtml(c.id)}" style="color:#dc2626;">🗑️</button>
+        </div>
+      </td>
     `;
-    return;
   }
 
-  list.forEach((c) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = renderRow(c);
-    tbody.appendChild(tr);
-  });
-}
+  function renderClubsTable(list = []) {
+    const tbody = $('clubs-table');
+    if (!tbody) return;
 
-  function renderRow(c) {
-  const logoHtml = c.logo_url
-    ? `<img src="${c.logo_url}" alt="logo club" class="club-logo-thumb">`
-    : '—';
+    tbody.innerHTML = '';
 
-  const transferenciaHtml = c.transferencia_habilitada
-    ? '<span title="Transferencia habilitada">✅</span>'
-    : '<span title="Transferencia deshabilitada">❌</span>';
+    if (!list.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8">No hay resultados</td>
+        </tr>
+      `;
+      return;
+    }
 
-  return `
-    <td>${logoHtml}</td>
-    <td><b>${escapeHtml(c.name ?? '')}</b></td>
-    <td>${escapeHtml(c.city ?? '')}</td>
-    <td>${escapeHtml(c.province ?? '')}</td>
-    <td><span class="status-badge status-${normalizeEstado(c.estado)}">${renderEstadoBadge(c.estado)}</span></td>
-    <td>${escapeHtml(String(c.socios_activos ?? '—'))}</td>
-    <td>${transferenciaHtml}</td>
-    <td>
-      <div style="display:flex; gap:6px; align-items:center;">
-        <button type="button" title="Ver club" data-action="impersonate_ro" data-id="${c.id}" data-name="${escapeHtml(c.name ?? '')}">👁️</button>
-        <button type="button" title="Usuarios" data-action="users" data-id="${c.id}" data-name="${escapeHtml(c.name ?? '')}">👥</button>
-        <button type="button" title="Editar" data-action="edit" data-id="${c.id}">✏️</button>
-        <button type="button" title="Eliminar" data-action="delete" data-id="${c.id}" style="color:#dc2626;">🗑️</button>
-      </div>
-    </td>
-  `;
-}
+    list.forEach((c) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = renderRow(c);
+      tbody.appendChild(tr);
+    });
+  }
 
+  function filterClubs() {
+    const q = $('clubSearch')?.value?.trim().toLowerCase() || '';
+
+    if (!q) {
+      renderClubsTable(clubsCache);
+      return;
+    }
+
+    const filtered = clubsCache.filter((c) =>
+      String(c.name ?? '').toLowerCase().includes(q)
+    );
+
+    renderClubsTable(filtered);
+  }
 
   async function loadClubs() {
     const tbody = $('clubs-table');
     if (!tbody) return;
 
     tbody.innerHTML = `
-  <tr>
-    <td colspan="8">Cargando...</td>
-  </tr>
-`;
-
+      <tr>
+        <td colspan="8">Cargando...</td>
+      </tr>
+    `;
 
     const res = await fetchAuthClubs('/admin/clubs');
     const data = await safeJson(res);
@@ -377,7 +394,7 @@ function renderClubsTable(list = []) {
     }
 
     clubsCache = data.clubs || [];
-renderClubsTable(clubsCache);
+    renderClubsTable(clubsCache);
   }
 
   // =============================
@@ -409,21 +426,13 @@ renderClubsTable(clubsCache);
     fd.append('address', $('club_address')?.value?.trim() || '');
     fd.append('city', $('club_city')?.value?.trim() || '');
     fd.append('province', $('club_province')?.value?.trim() || '');
-
     fd.append('contact_name', $('club_contact_name')?.value?.trim() || '');
     fd.append('contact_phone', $('club_contact_phone')?.value?.trim() || '');
     fd.append('instagram_url', $('club_instagram')?.value?.trim() || '');
-
     fd.append('socios_cantidad', $('club_socios_cantidad')?.value?.trim() || '');
     fd.append('valor_mensual', $('club_valor_mensual')?.value?.trim() || '');
     fd.append('estado', $('club_estado')?.value?.trim() || 'pendiente');
-fd.append(
-  'transferencia_habilitada',
-  $('club_transferencia_habilitada')?.checked ? 'true' : 'false'
-);
-
-    
-
+    fd.append('transferencia_habilitada', $('club_transferencia_habilitada')?.checked ? 'true' : 'false');
     fd.append('color_primary', color_primary || '#2563eb');
     fd.append('color_secondary', color_secondary || '#1e40af');
     fd.append('color_accent', color_accent || '#facc15');
@@ -435,34 +444,24 @@ fd.append(
 
     const url = id ? `/admin/clubs/${id}` : '/admin/clubs';
     const method = id ? 'PUT' : 'POST';
-
     const submitBtn = $('formClub')?.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.disabled = true;
 
     try {
       const res = await fetchAuthClubs(url, { method, body: fd });
-const data = await safeJson(res);
+      const data = await safeJson(res);
 
-if (!res.ok || !data.ok) {
-  showClubMsg(data.error || 'No se pudo guardar', false);
-  return;
-}
+      if (!res.ok || !data.ok) {
+        showClubMsg(data.error || 'No se pudo guardar', false);
+        return;
+      }
 
-// Obtener el clubId guardado (sirve para create y update)
-const savedClubId =
-  id ||
-  data?.club?.id ||
-  data?.clubId ||
-  data?.id ||
-  data?.club_id ||
-  null;
+      const savedClubId = id || data?.club?.id || data?.clubId || data?.id || data?.club_id || null;
+      await saveTransferConfigForClub(savedClubId);
 
-// Guardar configuración de transferencia (CVU/alias/titular)
-await saveTransferConfigForClub(savedClubId);
-
-showClubMsg(id ? '✅ Club actualizado' : '✅ Club creado', true);
-await loadClubs();
-closeClubForm();
+      showClubMsg(id ? '✅ Club actualizado' : '✅ Club creado', true);
+      await loadClubs();
+      closeClubForm();
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -473,14 +472,8 @@ closeClubForm();
     if (!c) return;
 
     $('club_id').value = c.id;
-
     editingClubId = String(c.id);
-    
     editingClubApplyToken = c.apply_token || null;
-
-    
-
-    
 
     $('club_name').value = c.name ?? '';
     $('club_address').value = c.address ?? '';
@@ -489,13 +482,14 @@ closeClubForm();
     $('club_contact_name').value = c.contact_name ?? '';
     $('club_contact_phone').value = c.contact_phone ?? '';
     $('club_instagram').value = c.instagram_url ?? '';
-setTransferFormFromClub(c);
-setTransferEnabledFromClub(c);
+
+    setTransferFormFromClub(c);
+    setTransferEnabledFromClub(c);
 
     if ($('club_socios_cantidad')) $('club_socios_cantidad').value = c.socios_cantidad ?? '';
     if ($('club_valor_mensual')) $('club_valor_mensual').value = c.valor_mensual ?? '';
-    if ($('club_estado')) $('club_estado').value = (c.estado ?? 'pendiente');
-    if ($('club_socios_activos')) $('club_socios_activos').value = (c.socios_activos ?? '');
+    if ($('club_estado')) $('club_estado').value = c.estado ?? 'pendiente';
+    if ($('club_socios_activos')) $('club_socios_activos').value = c.socios_activos ?? '';
 
     const p = c.color_primary ?? '#2563eb';
     const s = c.color_secondary ?? '#1e40af';
@@ -521,10 +515,10 @@ setTransferEnabledFromClub(c);
     const res = await fetchAuthClubs(`/admin/clubs/${clubId}/impersonate`, {
       method: 'POST',
       json: true,
-      body: JSON.stringify({ role: 'solo_lectura' })
+      body: JSON.stringify({ role: 'solo_lectura' }),
     });
-
     const data = await safeJson(res);
+
     if (!res.ok || !data.ok) {
       showClubMsg(data.error || 'No se pudo impersonar', false);
       return;
@@ -534,7 +528,6 @@ setTransferEnabledFromClub(c);
     localStorage.setItem('activeClubId', String(clubId));
     localStorage.setItem('impersonated', '1');
     localStorage.setItem('impersonatedClubName', String(clubName || data?.club?.name || ''));
-
     window.location.href = '/club.html';
   }
 
@@ -565,18 +558,14 @@ setTransferEnabledFromClub(c);
     $('formClub')?.addEventListener('submit', saveClub);
     $('btnOpenClubForm')?.addEventListener('click', () => openClubForm(false));
     $('btnCloseClubForm')?.addEventListener('click', closeClubForm);
-$('clubSearch')?.addEventListener('input', filterClubs);
-
-$('clubModal')?.addEventListener('click', (ev) => {
-  if (ev.target?.id === 'clubModal') closeClubForm();
-});
+    $('clubSearch')?.addEventListener('input', filterClubs);
     $('btnAddClubComment')?.addEventListener('click', addClubComment);
+    $('club_transferencia_habilitada')?.addEventListener('change', syncTransferFieldsVisibility);
 
-$('club_transferencia_habilitada')?.addEventListener('change', syncTransferFieldsVisibility);
-syncTransferFieldsVisibility();
+    $('clubModal')?.addEventListener('click', (ev) => {
+      if (ev.target?.id === 'clubModal') closeClubForm();
+    });
 
-   
-    // Acciones tabla
     $('clubs-table')?.addEventListener('click', (ev) => {
       const btn = ev.target.closest('button');
       if (!btn) return;
@@ -585,12 +574,24 @@ syncTransferFieldsVisibility();
       const id = btn.dataset.id;
       const name = btn.dataset.name;
 
-      if (action === 'impersonate_ro') { impersonateReadonly(id, name); return; }
-      if (action === 'users') { window.openUsersForClub?.(id, name); return; }
-      if (action === 'edit') { startEdit(id); return; }
-      if (action === 'delete') { delClub(id); return; }
+      if (action === 'impersonate_ro') {
+        impersonateReadonly(id, name);
+        return;
+      }
+      if (action === 'users') {
+        window.openUsersForClub?.(id, name);
+        return;
+      }
+      if (action === 'edit') {
+        startEdit(id);
+        return;
+      }
+      if (action === 'delete') {
+        delClub(id);
+      }
     });
 
+    syncTransferFieldsVisibility();
     loadClubs();
   });
 })();

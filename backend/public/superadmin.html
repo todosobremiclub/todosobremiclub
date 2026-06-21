@@ -253,191 +253,144 @@
         <button id="btnOpenClubForm" class="primary">➕ Crear club</button>
       </div>
 
-<div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
-  <input
-    type="text"
-    id="clubSearch"
-    placeholder="🔎 Buscar club por nombre..."
-    style="max-width:320px;"
-  >
-</div>
+      <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+        <input
+          type="text"
+          id="clubSearch"
+          placeholder="🔎 Buscar club por nombre..."
+          style="max-width:320px;"
+        >
+      </div>
 
       <!-- FORM CLUB -->
-<div id="clubModal" class="modal hidden">
-  <div class="modal-content">
-    <div id="clubFormCard" class="subcard" style="display:block; margin-top:0;">
-      <h4 id="clubFormTitle">Crear club</h4>
-      <form id="formClub">
-        <input type="hidden" id="club_id">
-        <label>Nombre *</label>
-        <input id="club_name" required>
-        <label>Dirección</label>
-        <input id="club_address">
-        <div class="form-grid">
-          <div>
-            <label>Ciudad</label>
-            <input id="club_city">
-          </div>
-          <div>
-            <label>Provincia</label>
-            <input id="club_province">
-          </div>
-        </div>
-        <h4>Contacto</h4>
-        <div class="form-grid">
-          <div>
-            <label>Persona de contacto</label>
-            <input id="club_contact_name">
-          </div>
-          <div>
-            <label>Teléfono</label>
-            <input id="club_contact_phone">
-          </div>
-        </div>
-        <label>Instagram</label>
-        <input id="club_instagram">
-        <h4>Datos del club</h4>
-        <div class="form-grid">
-          <div>
-            <label>Cantidad de socios</label>
-            <input id="club_socios_cantidad" type="number" min="0" placeholder="Ej: 120">
-          </div>
-          <div>
-            <label>Valor mensual</label>
-            <input id="club_valor_mensual" type="number" step="0.01" min="0" placeholder="Ej: 15000">
-
-            <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
-              <input type="checkbox" id="club_transferencia_habilitada">
-              Permitir pagos por transferencia
-            </label>
-
-            <h4>💳 Datos para transferencias</h4>
-            <div class="form-grid">
-              <div>
-                <label>CVU</label>
-                <input
-                  id="club_transferencia_cvu"
-                  type="text"
-                  placeholder="0000000000000000000000">
+      <div id="clubModal" class="modal hidden">
+        <div class="modal-content">
+          <div id="clubFormCard" class="subcard" style="display:block; margin-top:0;">
+            <h4 id="clubFormTitle">Crear club</h4>
+            <form id="formClub">
+              <input type="hidden" id="club_id">
+              <label>Nombre *</label>
+              <input id="club_name" required>
+              <label>Dirección</label>
+              <input id="club_address">
+              <div class="form-grid">
+                <div>
+                  <label>Ciudad</label>
+                  <input id="club_city">
+                </div>
+                <div>
+                  <label>Provincia</label>
+                  <input id="club_province">
+                </div>
               </div>
-              <div>
-                <label>Alias</label>
-                <input
-                  id="club_transferencia_alias"
-                  type="text"
-                  placeholder="club.ejemplo">
+              <h4>Contacto</h4>
+              <div class="form-grid">
+                <div>
+                  <label>Persona de contacto</label>
+                  <input id="club_contact_name">
+                </div>
+                <div>
+                  <label>Teléfono</label>
+                  <input id="club_contact_phone">
+                </div>
               </div>
-            </div>
+              <label>Instagram</label>
+              <input id="club_instagram">
+              <h4>Datos del club</h4>
+              <div class="form-grid">
+                <div>
+                  <label>Cantidad de socios</label>
+                  <input id="club_socios_cantidad" type="number" min="0" placeholder="Ej: 120">
+                </div>
+                <div>
+                  <label>Valor mensual</label>
+                  <input id="club_valor_mensual" type="number" step="0.01" min="0" placeholder="Ej: 15000">
 
-            <label>Titular de la cuenta</label>
-            <input
-              id="club_transferencia_titular"
-              type="text"
-              placeholder="Nombre legal del club">
+                  <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                    <input type="checkbox" id="club_transferencia_habilitada">
+                    Permitir pagos por transferencia
+                  </label>
 
-            <div>
-              <label>Estado</label>
-              <select id="club_estado">
-                <option value="productivo">Productivo</option>
-                <option value="avanzado">Avanzado</option>
-                <option value="pendiente" selected>Pendiente</option>
-                <option value="sin_respuesta">Sin respuesta</option>
-              </select>
-            </div>
+                  <h4>💳 Datos para transferencias</h4>
+                  <div class="form-grid">
+                    <div>
+                      <label>CVU</label>
+                      <input
+                        id="club_transferencia_cvu"
+                        type="text"
+                        placeholder="0000000000000000000000">
+                    </div>
+                    <div>
+                      <label>Alias</label>
+                      <input
+                        id="club_transferencia_alias"
+                        type="text"
+                        placeholder="club.ejemplo">
+                    </div>
+                  </div>
 
-            <div></div>
+                  <label>Titular de la cuenta</label>
+                  <input
+                    id="club_transferencia_titular"
+                    type="text"
+                    placeholder="Nombre legal del club">
 
-            <div>
-              <label>Socios activos</label>
-              <input id="club_socios_activos" type="number" readonly placeholder="—">
-            </div>
+                  <div>
+                    <label>Estado</label>
+                    <select id="club_estado">
+                      <option value="productivo">Productivo</option>
+                      <option value="avanzado">Avanzado</option>
+                      <option value="pendiente" selected>Pendiente</option>
+                      <option value="sin_respuesta">Sin respuesta</option>
+                    </select>
+                  </div>
+
+                  <div></div>
+
+                  <div>
+                    <label>Socios activos</label>
+                    <input id="club_socios_activos" type="number" readonly placeholder="—">
+                  </div>
+                </div>
+              </div>
+
+              <h4>Identidad visual</h4>
+              <div class="form-grid">
+                <div>
+                  <label>Color primario</label>
+                  <input type="color" id="club_color_primary" value="#2563eb">
+                </div>
+                <div>
+                  <label>Color secundario</label>
+                  <input type="color" id="club_color_secondary" value="#1e40af">
+                </div>
+              </div>
+
+              <label>Color acento</label>
+              <input type="color" id="club_color_accent" value="#facc15">
+
+              <h4>Imágenes</h4>
+              <label>Logo</label>
+              <input type="file" id="club_logo" accept="image/*">
+              <label>Fondo</label>
+              <input type="file" id="club_background" accept="image/*">
+
+              <h4>Comentarios</h4>
+              <textarea id="club_new_comment" rows="2"
+                placeholder="Agregar comentario (queda como historial)"></textarea>
+              <button type="button" id="btnAddClubComment">➕ Agregar comentario</button>
+
+              <div id="clubCommentsList" style="margin-top:10px;"></div>
+
+              <div style="margin-top:10px; display:flex; gap:10px;">
+                <button class="primary" type="submit">Guardar club</button>
+                <button type="button" id="btnCloseClubForm">Cancelar</button>
+              </div>
+            </form>
+
+            <div id="clubMsg" class="msg"></div>
           </div>
         </div>
-
-        <h4>Identidad visual</h4>
-        <div class="form-grid">
-          <div>
-            <label>Color primario</label>
-            <input type="color" id="club_color_primary" value="#2563eb">
-          </div>
-          <div>
-            <label>Color secundario</label>
-            <input type="color" id="club_color_secondary" value="#1e40af">
-          </div>
-        </div>
-
-        <label>Color acento</label>
-        <input type="color" id="club_color_accent" value="#facc15">
-
-        <h4>Imágenes</h4>
-        <label>Logo</label>
-        <input type="file" id="club_logo" accept="image/*">
-        <label>Fondo</label>
-        <input type="file" id="club_background" accept="image/*">
-
-        <h4>Comentarios</h4>
-        <textarea id="club_new_comment" rows="2"
-          placeholder="Agregar comentario (queda como historial)"></textarea>
-        <button type="button" id="btnAddClubComment">➕ Agregar comentario</button>
-
-        <div id="clubCommentsList" style="margin-top:10px;"></div>
-
-        <div style="margin-top:10px; display:flex; gap:10px;">
-          <button class="primary" type="submit">Guardar club</button>
-          <button type="button" id="btnCloseClubForm">Cancelar</button>
-        </div>
-      </form>
-
-      <div id="clubMsg" class="msg"></div>
-    </div>
-  </div>
-</div>
-
-
-
-<div>
-  <label>Socios activos</label>
-  <input id="club_socios_activos" type="number" readonly placeholder="—">
-</div>
-            </div>
-          </div>
-
-          <h4>Identidad visual</h4>
-          <div class="form-grid">
-            <div>
-              <label>Color primario</label>
-              <input type="color" id="club_color_primary" value="#2563eb">
-            </div>
-            <div>
-              <label>Color secundario</label>
-              <input type="color" id="club_color_secondary" value="#1e40af">
-            </div>
-          </div>
-
-          <label>Color acento</label>
-          <input type="color" id="club_color_accent" value="#facc15">
-
-          <h4>Imágenes</h4>
-          <label>Logo</label>
-          <input type="file" id="club_logo" accept="image/*">
-
-          <label>Fondo</label>
-          <input type="file" id="club_background" accept="image/*">
-
-          <h4>Comentarios</h4>
-          <textarea id="club_new_comment" rows="2"
-            placeholder="Agregar comentario (queda como historial)"></textarea>
-          <button type="button" id="btnAddClubComment">➕ Agregar comentario</button>
-
-          <div id="clubCommentsList" style="margin-top:10px;"></div>
-
-          <div style="margin-top:10px; display:flex; gap:10px;">
-            <button class="primary" type="submit">Guardar club</button>
-            <button type="button" id="btnCloseClubForm">Cancelar</button>
-          </div>
-        </form>
-
-        <div id="clubMsg" class="msg"></div>
       </div>
 
       <!-- USUARIOS DEL CLUB -->
@@ -468,12 +421,11 @@
 
             <label>Rol</label>
             <select id="clubUser_role">
-  <option value="admin">admin</option>
-  <option value="solo_lectura">solo_lectura</option>
-  <option value="comunicacion">comunicacion</option>
-  <option value="finanzas">finanzas</option>
-  
-</select>
+              <option value="admin">admin</option>
+              <option value="solo_lectura">solo_lectura</option>
+              <option value="comunicacion">comunicacion</option>
+              <option value="finanzas">finanzas</option>
+            </select>
 
             <div style="display:flex; gap:10px;">
               <button id="clubUserSubmitBtn" class="primary" type="submit">Guardar usuario</button>
@@ -501,25 +453,24 @@
       <table>
         <thead>
           <tr>
-  <th>Logo</th>
-  <th>Nombre</th>
-  <th>Ciudad</th>
-  <th>Provincia</th>
-  <th>Estado</th>
-  <th>Socios activos</th>
-  <th>Transferencia</th>
-  <th>Acciones</th>
-</tr>
+            <th>Logo</th>
+            <th>Nombre</th>
+            <th>Ciudad</th>
+            <th>Provincia</th>
+            <th>Estado</th>
+            <th>Socios activos</th>
+            <th>Transferencia</th>
+            <th>Acciones</th>
+          </tr>
         </thead>
         <tbody id="clubs-table"></tbody>
       </table>
 
     </div>
 
-
   <script src="/js/clubs.js"></script>
   <script src="/js/users.js"></script>
-<script src="/js/transfers_admin.js"></script>
+  <script src="/js/transfers_admin.js"></script>
 
   <script>
     function logout() {
