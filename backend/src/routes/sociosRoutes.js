@@ -314,26 +314,28 @@ END AS tipo_grupo_familiar,
 DATE_PART('year', AGE(s.fecha_nacimiento))::int AS edad,
         EXTRACT(YEAR FROM s.fecha_nacimiento)::int AS anio_nacimiento,
         CASE
-          WHEN s.becado = true THEN true
-          ELSE
-            COALESCE((
-              SELECT MAX((pm.anio::int * 100) + (pm.mes::int))
-              FROM pagos_mensuales pm
-              WHERE pm.club_id = s.club_id
-                AND pm.socio_id = s.id
-            ), 0) >=
-            CASE
-              WHEN EXTRACT(DAY FROM CURRENT_DATE)::int <= COALESCE(c.payment_due_day, 31)
-              THENgf_miembro.jefe_socio_id AS grupo_familiar_jefe_id,
-                CASE
-                  WHEN EXTRACT(MONTH FROM CURRENT_DATE)::int = 1
-                  THEN ((EXTRACT(YEAR FROM CURRENT_DATE)::int - 1) * 100) + 12
-                  ELSE (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + (EXTRACT(MONTH FROM CURRENT_DATE)::int - 1)
-                END
-              ELSE
-                (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + EXTRACT(MONTH FROM CURRENT_DATE)::int
-            END
-        END AS pago_al_dia
+          CASE
+  WHEN s.becado = true THEN true
+  ELSE
+    COALESCE((
+      SELECT MAX((pm.anio::int * 100) + (pm.mes::int))
+      FROM pagos_mensuales pm
+      WHERE pm.club_id = s.club_id
+        AND pm.socio_id = s.id
+    ), 0) >=
+    CASE
+      WHEN EXTRACT(DAY FROM CURRENT_DATE)::int <= COALESCE(c.payment_due_day, 31)
+      THEN
+        CASE
+          WHEN EXTRACT(MONTH FROM CURRENT_DATE)::int = 1
+          THEN ((EXTRACT(YEAR FROM CURRENT_DATE)::int - 1) * 100) + 12
+          ELSE (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + (EXTRACT(MONTH FROM CURRENT_DATE)::int - 1)
+        END
+      ELSE
+        (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + EXTRACT(MONTH FROM CURRENT_DATE)::int
+    END
+END AS pago_al_dia
+
       FROM socios s
       LEFT JOIN excepciones_cuota ec
         ON ec.id = s.excepcion_cuota_id
@@ -350,7 +352,6 @@ LEFT JOIN grupos_familiares_miembros gfm
 
 LEFT JOIN grupos_familiares gf_miembro
   ON gf_miembro.id = gfm.grupo_familiar_id
- AND gf_miembro.club_id = s.club_id
  AND gf_miembro.activo = true
       WHERE ${where.join(' AND ')}
       ORDER BY s.numero_socio ASC
