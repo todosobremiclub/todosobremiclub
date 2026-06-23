@@ -1,6 +1,8 @@
 // helpers DOM
 const $ = (id) => document.getElementById(id);
 
+const GRUPO_FAMILIAR_NOMBRE = 'Grupo Familiar';
+
 const MESES = [
   { n: 1, nombre: 'Enero' },
   { n: 2, nombre: 'Febrero' },
@@ -260,12 +262,22 @@ async function loadActividades() {
     return;
   }
 
-  renderActividades(data.actividades ?? []);
+const actividades = data.actividades ?? [];
+const checkGF = document.getElementById('checkGrupoFamiliar');
+const existeGrupoFamiliar = actividades.some(a => String(a.nombre || '').trim() === GRUPO_FAMILIAR_NOMBRE);
+
+if (checkGF) {
+  checkGF.checked = existeGrupoFamiliar;
 }
 
-function renderActividades(items) {
+  renderActividades(actividades);
+
+}
+
+ffunction renderActividades(items) {
   const tbody = document.getElementById('actividadesTableBody');
   if (!tbody) return;
+
   tbody.innerHTML = '';
 
   const moneyARS = new Intl.NumberFormat('es-AR', {
@@ -276,6 +288,8 @@ function renderActividades(items) {
   });
 
   items.forEach(a => {
+    const esGrupoFamiliar = String(a.nombre || '').trim() === GRUPO_FAMILIAR_NOMBRE;
+
     const tr = document.createElement('tr');
 
     const precio = (typeof a.precio_mensual === 'number')
@@ -291,9 +305,9 @@ function renderActividades(items) {
           type="text"
           id="act_${a.id}"
           value="${escapeHtml(a.nombre)}"
+          ${esGrupoFamiliar ? 'disabled style="background:#f3f4f6; color:#6b7280;"' : ''}
         />
       </td>
-
       <td>
         <div style="display:flex; align-items:center; gap:10px;">
           <input
@@ -314,12 +328,15 @@ function renderActividades(items) {
           </span>
         </div>
       </td>
-
       <td style="text-align:center">
         <button class="btn-save" data-act="save-act" data-id="${a.id}">💾</button>
       </td>
       <td style="text-align:center">
-        <button class="btn-del" data-act="del-act" data-id="${a.id}">🗑️</button>
+        ${
+          esGrupoFamiliar
+            ? '<span class="muted" style="font-size:12px;">—</span>'
+            : `<button class="btn-del" data-act="del-act" data-id="${a.id}">🗑️</button>`
+        }
       </td>
     `;
 
@@ -327,6 +344,7 @@ function renderActividades(items) {
 
     const inp = document.getElementById(`act_precio_${a.id}`);
     const lbl = document.getElementById(`act_precio_fmt_${a.id}`);
+
     if (inp && lbl) {
       const updateLabel = () => {
         const v = Number(inp.value);
@@ -381,6 +399,22 @@ async function deleteActividad(id) {
   const res = await fetchAuth(`${actividadesUrl()}/${id}`, { method: 'DELETE' });
   const data = await safeJson(res);
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando actividad');
+}
+
+async function setGrupoFamiliarEnabled(enabled) {
+  const clubId = getActiveClubId();
+
+  const res = await fetchAuth(`/club/${clubId}/config/grupo-familiar`, {
+    method: 'POST',
+    json: true,
+    body: JSON.stringify({ enabled: !!enabled })
+  });
+
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error configurando Grupo Familiar');
+  }
 }
 
 /* ============================================================
@@ -1087,6 +1121,21 @@ async function initConfiguracionSection() {
   await loadTiposIngreso(); // importante para que se llene la tabla
   await loadResponsables();
   await loadActividades();
+
+const checkGF = document.getElementById('checkGrupoFamiliar');
+if (checkGF && !checkGF.dataset.bound) {
+  checkGF.dataset.bound = '1';
+
+  checkGF.addEventListener('change', async () => {
+    try {
+      await setGrupoFamiliarEnabled(checkGF.checked);
+      await loadActividades();
+    } catch (err) {
+      alert(err.message || 'Error configurando Grupo Familiar');
+      checkGF.checked = !checkGF.checked;
+    }
+  });
+}
 
   // ✅ NUEVO: Excepciones de cuota
   await loadExcepcionesCuota();

@@ -4,6 +4,8 @@ const requireAuth = require('../middleware/requireAuth');
 
 const router = express.Router();
 
+const GRUPO_FAMILIAR_NOMBRE = 'Grupo Familiar';
+
 // ===============================
 // Helper: validar acceso al club
 // ===============================
@@ -230,6 +232,13 @@ router.post('/:clubId/config/actividades', requireAuth, requireClubAccess, async
   try {
     if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
 
+if (String(nombre).trim() === GRUPO_FAMILIAR_NOMBRE) {
+  return res.status(400).json({
+    ok: false,
+    error: 'La actividad Grupo Familiar se administra únicamente con el check correspondiente'
+  });
+}
+
 let precioNum = null;
 if (precio_mensual !== undefined && precio_mensual !== null && String(precio_mensual).trim() !== '') {
   const parsed = Number(precio_mensual);
@@ -282,11 +291,6 @@ router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, as
   const { nombre, precio_mensual } = req.body ?? {};
 
   try {
-    const nuevoNombre = (nombre ?? '').trim();
-    if (!nuevoNombre) {
-      return res.status(400).json({ ok: false, error: 'Falta nombre' });
-    }
-
     let precioNum = null;
     if (precio_mensual !== undefined && precio_mensual !== null && String(precio_mensual).trim() !== '') {
       const parsed = Number(precio_mensual);
@@ -299,18 +303,49 @@ router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, as
       precioNum = parsed;
     }
 
-    // 1) Obtener nombre anterior de la actividad
     const rPrev = await db.query(
       `SELECT nombre FROM actividades WHERE id = $1 AND club_id = $2 LIMIT 1`,
       [id, clubId]
     );
+
     if (!rPrev.rowCount) {
       return res.status(404).json({ ok: false, error: 'No encontrada' });
     }
 
-    const nombreAnterior = (rPrev.rows[0].nombre ?? '').trim();
+    const nombreAnterior = String(rPrev.rows[0].nombre ?? '').trim();
+    const esGrupoFamiliar = nombreAnterior === GRUPO_FAMILIAR_NOMBRE;
 
-    // 2) Transacción: actualizar actividad + propagar a socios
+    if (esGrupoFamiliar) {
+      const rAct = await db.query(
+        `
+        UPDATE actividades
+        SET precio_mensual = $1,
+            updated_at = NOW()
+        WHERE id = $2 AND club_id = $3
+        RETURNING id, nombre, precio_mensual
+        `,
+        [precioNum, id, clubId]
+      );
+
+      return res.json({
+        ok: true,
+        actividad: rAct.rows[0],
+        sociosActualizados: 0
+      });
+    }
+
+    const nuevoNombre = (nombre ?? '').trim();
+    if (!nuevoNombre) {
+      return res.status(400).json({ ok: false, error: 'Falta nombre' });
+    }
+
+    if (nuevoNombre === GRUPO_FAMILIAR_NOMBRE) {
+      return res.status(400).json({
+        ok: false,
+        error: 'La actividad Grupo Familiar se administra únicamente con el check correspondiente'
+      });
+    }
+
     await db.query('BEGIN');
 
     const rAct = await db.query(
@@ -325,7 +360,6 @@ router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, as
       [nuevoNombre, precioNum, id, clubId]
     );
 
-    // 3) Propagar cambio a socios
     const rSocios = await db.query(
       `
       UPDATE socios
@@ -356,9 +390,30 @@ router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, as
   }
 });
 
+
+
 router.delete('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
+
   try {
+    const rPrev = await db.query(
+      `SELECT nombre FROM actividades WHERE id = $1 AND club_id = $2 LIMIT 1`,
+      [id, clubId]
+    );
+
+    if (!rPrev.rowCount) {
+      return res.status(404).json({ ok: false, error: 'No encontrada' });
+    }
+
+    const nombreActividad = String(rPrev.rows[0].nombre ?? '').trim();
+
+    if (nombreActividad === GRUPO_FAMILIAR_NOMBRE) {
+      return res.status(400).json({
+        ok: false,
+        error: 'La actividad Grupo Familiar no se elimina manualmente. Usá el check correspondiente.'
+      });
+    }
+
     const r = await db.query(
       `
       UPDATE actividades
@@ -367,15 +422,91 @@ router.delete('/:clubId/config/actividades/:id', requireAuth, requireClubAccess,
       `,
       [id, clubId]
     );
-    if (!r.rowCount) return res.status(404).json({ ok: false, error: 'No encontrada' });
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'No encontrada' });
+    }
 
     res.json({ ok: true });
+
   } catch (e) {
     if (isMissingRelation(e)) {
       return res.status(500).json({ ok: false, error: 'Falta tabla actividades en la DB' });
     }
     console.error('❌ delete actividad', e);
     res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/:clubId/config/grupo-familiar', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { enabled } = req.body ?? {};
+
+  try {
+    if (enabled) {
+      const rExiste = await db.query(
+        `
+        SELECT id
+        FROM actividades
+        WHERE club_id = $1
+          AND nombre = $2
+        LIMIT 1
+        `,
+        [clubId, GRUPO_FAMILIAR_NOMBRE]
+      );
+
+      if (rExiste.rowCount) {
+        await db.query(
+          `
+          UPDATE actividades
+          SET activo = true,
+              updated_at = NOW()
+          WHERE club_id = $1
+            AND nombre = $2
+          `,
+          [clubId, GRUPO_FAMILIAR_NOMBRE]
+        );
+      } else {
+        await db.query(
+          `
+          INSERT INTO actividades (
+            id,
+            club_id,
+            nombre,
+            precio_mensual,
+            activo,
+            updated_at
+          )
+          VALUES (
+            gen_random_uuid(),
+            $1,
+            $2,
+            0,
+            true,
+            NOW()
+          )
+          `,
+          [clubId, GRUPO_FAMILIAR_NOMBRE]
+        );
+      }
+    } else {
+      await db.query(
+        `
+        UPDATE actividades
+        SET activo = false,
+            updated_at = NOW()
+        WHERE club_id = $1
+          AND nombre = $2
+        `,
+        [clubId, GRUPO_FAMILIAR_NOMBRE]
+      );
+    }
+
+    return res.json({ ok: true });
+
+  } catch (e) {
+    console.error('❌ grupo familiar toggle', e);
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
 
