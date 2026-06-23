@@ -313,7 +313,6 @@ END AS tipo_grupo_familiar,
 
 DATE_PART('year', AGE(s.fecha_nacimiento))::int AS edad,
         EXTRACT(YEAR FROM s.fecha_nacimiento)::int AS anio_nacimiento,
-        CASE
           CASE
   WHEN s.becado = true THEN true
   ELSE
