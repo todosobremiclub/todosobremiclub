@@ -3652,45 +3652,59 @@ router.get(
       // 2) Si no había snapshot o el mes no cerró, calcular en vivo
       if (!esperado && !socios) {
         const q = `
-          SELECT
-  s.becado,
-  s.es_jefe_plan_familiar,
-  s.es_miembro_plan_familiar,
+  SELECT
+    s.becado,
 
-  ec.monto AS excepcion_monto,
+    EXISTS (
+      SELECT 1
+      FROM grupos_familiares gf
+      WHERE gf.club_id = s.club_id
+        AND gf.jefe_socio_id = s.id
+        AND gf.activo = true
+    ) AS es_jefe_plan_familiar,
 
-  a.precio_mensual AS actividad_monto,
-  agf.precio_mensual AS grupo_familiar_monto
+    EXISTS (
+      SELECT 1
+      FROM grupos_familiares gf
+      JOIN grupos_familiares_miembros gfm
+        ON gfm.grupo_familiar_id = gf.id
+      WHERE gf.club_id = s.club_id
+        AND gfm.socio_id = s.id
+        AND gf.activo = true
+    ) AS es_miembro_plan_familiar,
 
-FROM socios s
+    ec.monto AS excepcion_monto,
+    a.precio_mensual AS actividad_monto,
+    agf.precio_mensual AS grupo_familiar_monto
 
-LEFT JOIN excepciones_cuota ec
-  ON ec.id = s.excepcion_cuota_id
-  AND ec.club_id = s.club_id
-  AND ec.activo = true
+  FROM socios s
 
-LEFT JOIN actividades a
-  ON a.nombre = s.actividad
-  AND a.club_id = s.club_id
-  AND a.activo = true
+  LEFT JOIN excepciones_cuota ec
+    ON ec.id = s.excepcion_cuota_id
+    AND ec.club_id = s.club_id
+    AND ec.activo = true
 
--- 👇 NUEVO JOIN
-LEFT JOIN actividades agf
-  ON agf.nombre = 'Grupo Familiar'
-  AND agf.club_id = s.club_id
-  AND agf.activo = true
+  LEFT JOIN actividades a
+    ON a.nombre = s.actividad
+    AND a.club_id = s.club_id
+    AND a.activo = true
 
-WHERE s.club_id = $1
-  AND s.activo = true
-  AND (
-    s.fecha_ingreso IS NULL
-    OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
-    OR (
-      EXTRACT(YEAR FROM s.fecha_ingreso) = $2
-      AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+  LEFT JOIN actividades agf
+    ON agf.nombre = 'Grupo Familiar'
+    AND agf.club_id = s.club_id
+    AND agf.activo = true
+
+  WHERE s.club_id = $1
+    AND s.activo = true
+    AND (
+      s.fecha_ingreso IS NULL
+      OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+      OR (
+        EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+        AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+      )
     )
-  )
-        `;
+`;
 
         const r = await db.query(q, [clubId, anio, mes]);
 
