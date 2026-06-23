@@ -300,18 +300,18 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
         s.foto_url,
         s.created_at,
         s.updated_at,
-        gf_jefe.id AS grupo_familiar_id,
+
+COALESCE(gf_jefe.id, gf_miembro.id) AS grupo_familiar_id,
 CASE WHEN gf_jefe.id IS NOT NULL THEN true ELSE false END AS es_jefe_plan_familiar,
+CASE WHEN gf_miembro.id IS NOT NULL THEN true ELSE false END AS es_miembro_plan_familiar,
+gf_miembro.jefe_socio_id AS grupo_familiar_jefe_id,
 CASE
   WHEN gf_jefe.id IS NOT NULL THEN 'jefe'
   WHEN gf_miembro.id IS NOT NULL THEN 'miembro'
   ELSE 'ninguno'
 END AS tipo_grupo_familiar,
-gf_miembro.id AS grupo_familiar_id,
-CASE WHEN gf_miembro.id IS NOT NULL THEN true ELSE false END AS es_miembro_plan_familiar,
-gf_miembro.jefe_socio_id AS grupo_familiar_jefe_id,
 
-        DATE_PART('year', AGE(s.fecha_nacimiento))::int AS edad,
+DATE_PART('year', AGE(s.fecha_nacimiento))::int AS edad,
         EXTRACT(YEAR FROM s.fecha_nacimiento)::int AS anio_nacimiento,
         CASE
           WHEN s.becado = true THEN true
