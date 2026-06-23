@@ -274,7 +274,7 @@ if (checkGF) {
 
 }
 
-ffunction renderActividades(items) {
+function renderActividades(items) {
   const tbody = document.getElementById('actividadesTableBody');
   if (!tbody) return;
 
