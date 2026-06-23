@@ -269,15 +269,18 @@ const rClub = await db.query(
 // ============================================================
 // POST /club/:clubId/pagos
 // body: {
-//   socio_id,
-//   anio,
-//   meses: [1..12],
-//   fecha_pago: "YYYY-MM-DD",
+//   socio_id?: uuid,
+//   socioId?: uuid,
+//   anio: number,
+//   meses?: [1..12],
+//   mes?: 1..12,
+//   fecha_pago?: "YYYY-MM-DD",
 //   es_parcial?: boolean,
 //   monto_parcial?: number,
 //   cuenta?: string,
 //   cuenta_id?: uuid
 // }
+
 // ============================================================
 router.post(
   '/:clubId/pagos',
@@ -287,20 +290,32 @@ router.post(
     try {
       const { clubId } = req.params;
       const {
-        socio_id,
-        anio,
-        meses,
-        fecha_pago,
-        es_parcial = false,
-        monto_parcial = null,
-        cuenta = null,
-        cuenta_id = null,
-      } = req.body ?? {};
+  socio_id,
+  socioId,
+  anio,
+  meses,
+  mes,
+  fecha_pago,
+  es_parcial = false,
+  monto_parcial = null,
+  cuenta = null,
+  cuenta_id = null,
+} = req.body ?? {};
+
+const socioIdFinal = socio_id || socioId;
+
+const mesesFinal =
+  Array.isArray(meses) && meses.length
+    ? meses
+    : (mes ? [Number(mes)] : []);
+
+const fechaPagoFinal = fecha_pago || new Date().toISOString().slice(0, 10);
+
 
       // Validación básica
-      if (!socio_id || !anio || !Array.isArray(meses) || meses.length === 0 || !fecha_pago) {
-        return res.status(400).json({ ok: false, error: 'Datos incompletos' });
-      }
+if (!socioIdFinal || !anio || mesesFinal.length === 0 || !fechaPagoFinal) {
+  return res.status(400).json({ ok: false, error: 'Datos incompletos' });
+}
 
       // Validación específica de pago parcial
       const esParcialBool = es_parcial === true || es_parcial === 'true';
@@ -319,7 +334,7 @@ router.post(
       }
 
       // Validar fecha
-      if (!isISODate(fecha_pago)) {
+      if (!isISODate(fechaPagoFinal)) {
         return res.status(400).json({
           ok: false,
           error: 'fecha_pago inválida (use YYYY-MM-DD)',
@@ -328,10 +343,11 @@ router.post(
 
       // Año y meses
       const anioNum = Number(anio);
-      const mesesNum = meses.map(Number).filter((m) => m >= 1 && m <= 12);
-      if (!anioNum || mesesNum.length === 0) {
-        return res.status(400).json({ ok: false, error: 'Año o meses inválidos' });
-      }
+const mesesNum = mesesFinal.map(Number).filter((m) => m >= 1 && m <= 12);
+
+if (!anioNum || mesesNum.length === 0) {
+  return res.status(400).json({ ok: false, error: 'Año o meses inválidos' });
+}
 
       // ------------------------------
       // Resolver nombre de cuenta
@@ -361,116 +377,234 @@ router.post(
       // Lógica actividad + precio (actividad o excepción)
       // ------------------------------
       const socioRes = await db.query(
-        `
-        SELECT actividad, excepcion_cuota_id, nombre, apellido, numero_socio
-        FROM socios
-        WHERE id = $1 AND club_id = $2
-        LIMIT 1
-        `,
-        [socio_id, clubId]
-      );
+  `
+  SELECT
+    s.actividad,
+    s.excepcion_cuota_id,
+    s.nombre,
+    s.apellido,
+    s.numero_socio,
+    EXISTS (
+      SELECT 1
+      FROM grupos_familiares gf
+      WHERE gf.club_id = s.club_id
+        AND gf.jefe_socio_id = s.id
+        AND gf.activo = true
+    ) AS es_jefe_plan_familiar,
+    (
+      SELECT gf.jefe_socio_id
+      FROM grupos_familiares gf
+      JOIN grupos_familiares_miembros gfm
+        ON gfm.grupo_familiar_id = gf.id
+      WHERE gf.club_id = s.club_id
+        AND gfm.socio_id = s.id
+        AND gf.activo = true
+      LIMIT 1
+    ) AS grupo_familiar_jefe_id
+  FROM socios s
+  WHERE s.id = $1
+    AND s.club_id = $2
+  LIMIT 1
+  `,
+  [socioIdFinal, clubId]
+);
+
 
       if (!socioRes.rowCount) {
         return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
       }
 
       const actividadSocio = socioRes.rows[0].actividad;
-      const excepcionCuotaId = socioRes.rows[0].excepcion_cuota_id;
+const excepcionCuotaId = socioRes.rows[0].excepcion_cuota_id;
 
-      const socioNombre = socioRes.rows[0].nombre;
-      const socioApellido = socioRes.rows[0].apellido;
-      const socioNumero = socioRes.rows[0].numero_socio;
+const socioNombre = socioRes.rows[0].nombre;
+const socioApellido = socioRes.rows[0].apellido;
+const socioNumero = socioRes.rows[0].numero_socio;
 
-      // Si NO es pago parcial, debe existir actividad o excepción
-      if (!actividadSocio && !excepcionCuotaId && !esParcialBool) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            'El socio no tiene actividad ni excepción asignada. Configurá la actividad o la excepción antes de registrar el pago.',
-        });
-      }
+const esJefePlanFamiliar = socioRes.rows[0].es_jefe_plan_familiar === true;
+const grupoFamiliarJefeId = socioRes.rows[0].grupo_familiar_jefe_id || null;
+
+if (grupoFamiliarJefeId && !esJefePlanFamiliar) {
+  return res.status(400).json({
+    ok: false,
+    error: 'No se puede registrar un pago para este socio porque pertenece a un Grupo Familiar. El pago debe registrarse al jefe/a del grupo.'
+  });
+}
+
+      // Si NO es pago parcial, debe existir actividad o excepción,
+// excepto si el socio es jefe/a de Grupo Familiar
+if (!actividadSocio && !excepcionCuotaId && !esParcialBool && !esJefePlanFamiliar) {
+  return res.status(400).json({
+    ok: false,
+    error:
+      'El socio no tiene actividad ni excepción asignada. Configurá la actividad o la excepción antes de registrar el pago.',
+  });
+}
+
 
       let montoPorMes = 0;
 
-      if (esParcialBool) {
-        // Pago parcial: el monto viene del front, se aplica por cada mes
-        montoPorMes = Number(monto_parcial);
-      } else {
-        // Pago normal: monto por excepción (si aplica) o por actividad
-        if (excepcionCuotaId) {
-          const rExc = await db.query(
-            `
-            SELECT monto
-            FROM excepciones_cuota
-            WHERE club_id = $1
-              AND id = $2
-              AND activo = true
-            LIMIT 1
-            `,
-            [clubId, excepcionCuotaId]
-          );
+if (esParcialBool) {
+  // Pago parcial: el monto viene del front
+  montoPorMes = Number(monto_parcial);
+} else {
+  if (esJefePlanFamiliar) {
+  // 🔥 si es jefe/a, cobra la actividad Grupo Familiar
+  const rGFPrecio = await db.query(
+    `
+    SELECT precio_mensual
+    FROM actividades
+    WHERE club_id = $1
+      AND nombre = 'Grupo Familiar'
+      AND activo = true
+    LIMIT 1
+    `,
+    [clubId]
+  );
 
-          montoPorMes = rExc.rowCount ? (Number(rExc.rows[0].monto) || 0) : 0;
-        } else {
-          const rPrecio = await db.query(
-            `
-            SELECT precio_mensual
-            FROM actividades
-            WHERE club_id = $1
-              AND nombre = $2
-              AND activo = true
-            LIMIT 1
-            `,
-            [clubId, actividadSocio]
-          );
+  if (!rGFPrecio.rowCount) {
+    return res.status(400).json({
+      ok: false,
+      error: 'El club no tiene configurada la actividad Grupo Familiar. Activala en Configuración antes de registrar el pago.'
+    });
+  }
 
-          montoPorMes = rPrecio.rowCount ? (Number(rPrecio.rows[0].precio_mensual) || 0) : 0;
-        }
-      }
+  montoPorMes = Number(rGFPrecio.rows[0].precio_mensual) || 0;
+}
+
+
+else if (excepcionCuotaId) {
+    // excepción de cuota
+    const rExc = await db.query(
+      `
+      SELECT monto
+      FROM excepciones_cuota
+      WHERE club_id = $1
+        AND id = $2
+        AND activo = true
+      LIMIT 1
+      `,
+      [clubId, excepcionCuotaId]
+    );
+
+    montoPorMes = rExc.rowCount ? (Number(rExc.rows[0].monto) || 0) : 0;
+  } else {
+    // actividad normal
+    const rPrecio = await db.query(
+      `
+      SELECT precio_mensual
+      FROM actividades
+      WHERE club_id = $1
+        AND nombre = $2
+        AND activo = true
+      LIMIT 1
+      `,
+      [clubId, actividadSocio]
+    );
+
+    montoPorMes = rPrecio.rowCount ? (Number(rPrecio.rows[0].precio_mensual) || 0) : 0;
+  }
+}
 
       // ------------------------------
       // Insertar pagos mensuales
       // ------------------------------
+
+// ------------------------------
+// Resolver a quiénes pagar
+// ------------------------------
+let sociosAPagar = [
+  {
+    socio_id: socioIdFinal,
+    nombre: socioNombre ?? null,
+    apellido: socioApellido ?? null,
+    numero_socio: socioNumero ?? null,
+    monto: montoPorMes
+  }
+];
+
+if (esJefePlanFamiliar) {
+  const rMiembros = await db.query(
+    `
+    SELECT
+      s.id AS socio_id,
+      s.nombre,
+      s.apellido,
+      s.numero_socio
+    FROM grupos_familiares gf
+    JOIN grupos_familiares_miembros gfm
+      ON gfm.grupo_familiar_id = gf.id
+    JOIN socios s
+      ON s.id = gfm.socio_id
+    WHERE gf.club_id = $1
+      AND gf.jefe_socio_id = $2
+      AND gf.activo = true
+    ORDER BY s.apellido ASC, s.nombre ASC
+    `,
+    [clubId, socioIdFinal]
+  );
+
+  // al jefe/a se le guarda el monto real; a integrantes, monto 0
+  sociosAPagar = [
+    {
+      socio_id: socioIdFinal,
+      nombre: socioNombre ?? null,
+      apellido: socioApellido ?? null,
+      numero_socio: socioNumero ?? null,
+      monto: montoPorMes
+    },
+    ...rMiembros.rows.map((m) => ({
+      socio_id: m.socio_id,
+      nombre: m.nombre ?? null,
+      apellido: m.apellido ?? null,
+      numero_socio: m.numero_socio ?? null,
+      monto: 0
+    }))
+  ];
+}
       await db.query('BEGIN');
       const inserted = [];
 
-      for (const mes of mesesNum) {
-        const rIns = await db.query(
-          `
-          INSERT INTO pagos_mensuales
-          (
-            club_id,
-            socio_id,
-            socio_nombre,
-            socio_apellido,
-            socio_numero,
-            anio,
-            mes,
-            monto,
-            fecha_pago,
-            cuenta
-          )
-          VALUES
-          ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-          ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING
-          RETURNING id, anio, mes, monto, fecha_pago, cuenta
-          `,
-          [
-            clubId,
-            socio_id,
-            socioNombre ?? null,
-            socioApellido ?? null,
-            socioNumero ?? null,
-            anioNum,
-            mes,
-            montoPorMes,
-            fecha_pago,
-            cuentaFinal ?? null,
-          ]
-        );
+      for (const socioPago of sociosAPagar) {
+  for (const mes of mesesNum) {
+    const rIns = await db.query(
+      `
+      INSERT INTO pagos_mensuales
+      (
+        club_id,
+        socio_id,
+        socio_nombre,
+        socio_apellido,
+        socio_numero,
+        anio,
+        mes,
+        monto,
+        fecha_pago,
+        cuenta
+      )
+      VALUES
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING
+      RETURNING id, anio, mes, monto, fecha_pago, cuenta
+      `,
+      [
+        clubId,
+        socioPago.socio_id,
+        socioPago.nombre,
+        socioPago.apellido,
+        socioPago.numero_socio,
+        anioNum,
+        mes,
+        socioPago.monto,
+        fechaPagoFinal,
+        cuentaFinal ?? null,
+      ]
+    );
 
-        if (rIns.rowCount) inserted.push(rIns.rows[0]);
-      }
+    if (rIns.rowCount) inserted.push(rIns.rows[0]);
+  }
+}
+
 
       await db.query('COMMIT');
 
