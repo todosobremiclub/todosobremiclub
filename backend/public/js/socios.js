@@ -474,9 +474,13 @@ function syncGrupoFamiliarUI() {
   renderGrupoFamiliarResumen();
 }
 
-function openGrupoFamiliarModal() {
+async function openGrupoFamiliarModal() {
   const modal = $('modalGrupoFamiliar');
   if (!modal) return;
+
+  if (!sociosGrupoFamiliarCache.length) {
+    await loadSociosGrupoFamiliarCache();
+  }
 
   grupoFamiliarSeleccionadosDraft = [...grupoFamiliarSeleccionados];
 
@@ -486,7 +490,6 @@ function openGrupoFamiliarModal() {
   renderGrupoFamiliarLista('');
   modal.classList.remove('hidden');
 }
-
 function closeGrupoFamiliarModal() {
   $('modalGrupoFamiliar')?.classList.add('hidden');
 }
@@ -533,7 +536,8 @@ function renderGrupoFamiliarLista(query = '') {
     return;
   }
 
-  let results = sociosCache.filter(s => socioPuedeSerIntegrante(s));
+  let results = sociosGrupoFamiliarCache.filter(s => socioPuedeSerIntegrante(s));
+
 
   results = results.filter(s =>
   String(s.apellido || '').toLowerCase().includes(q) ||
@@ -647,6 +651,7 @@ renderGrupoFamiliarResumen(); // ✅ NUEVA LÍNEA
   // =============================
   let editingId = null;
 let sociosCache = [];
+let sociosGrupoFamiliarCache = [];
 let draftPhoto = null;
 
 let grupoFamiliarSeleccionados = [];
@@ -1786,6 +1791,22 @@ if (countEl) {
   return q.toString();
 }
 
+async function loadSociosGrupoFamiliarCache() {
+  const clubId = getActiveClubId();
+
+  const res = await fetchAuth(`/club/${clubId}/socios?activo=1&limit=5000&offset=0`);
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    console.warn('No se pudieron cargar socios para Grupo Familiar:', data.error);
+    sociosGrupoFamiliarCache = [];
+    return;
+  }
+
+  sociosGrupoFamiliarCache = data.socios || [];
+}
+
+
   async function loadSocios() {
     const clubId = getActiveClubId();
     const qs = buildQueryParams(currentPage);
@@ -2006,10 +2027,10 @@ $('socioEsJefePlanFamiliar')?.addEventListener('change', () => {
   syncGrupoFamiliarUI();
 });
 
-$('btnSeleccionarGrupoFamiliar')?.addEventListener('click', () => {
+$('btnSeleccionarGrupoFamiliar')?.addEventListener('click', async () => {
   const chk = $('socioEsJefePlanFamiliar');
   if (!chk?.checked) return;
-  openGrupoFamiliarModal();
+  await openGrupoFamiliarModal();
 });
 
 $('btnGrupoFamiliarClose')?.addEventListener('click', closeGrupoFamiliarModal);
@@ -2399,13 +2420,13 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
   }
 
   async function initSociosSection() {
-    bindOnce();
-    await loadCategoriasConfig().catch(() => {});
-    await loadActividadesConfig().catch(() => {});
-await loadExcepcionesCuotaConfig().catch(() => {});
-
-    await loadSocios();
-  }
+  bindOnce();
+  await loadCategoriasConfig().catch(() => {});
+  await loadActividadesConfig().catch(() => {});
+  await loadExcepcionesCuotaConfig().catch(() => {});
+  await loadSociosGrupoFamiliarCache().catch(() => {});
+  await loadSocios();
+}
 
   window.initSociosSection = initSociosSection;
 
