@@ -323,6 +323,53 @@ function ensureExcepcionOption(value, labelHint) {
     }
   }
 
+async function fetchGrupoFamiliar(socioId) {
+  const clubId = getActiveClubId();
+  const res = await fetchAuth(`/club/${clubId}/grupo-familiar/${socioId}`);
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error cargando grupo familiar');
+  }
+
+  return data;
+}
+
+async function saveGrupoFamiliar(jefeSocioId, miembros) {
+  const clubId = getActiveClubId();
+  const res = await fetchAuth(`/club/${clubId}/grupo-familiar`, {
+    method: 'POST',
+    json: true,
+    body: JSON.stringify({
+      jefeSocioId,
+      miembros
+    })
+  });
+
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error guardando grupo familiar');
+  }
+
+  return data;
+}
+
+async function deleteGrupoFamiliar(jefeSocioId) {
+  const clubId = getActiveClubId();
+  const res = await fetchAuth(`/club/${clubId}/grupo-familiar/${jefeSocioId}`, {
+    method: 'DELETE'
+  });
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error eliminando grupo familiar');
+  }
+
+  return data;
+}
+
+
   // =============================
   // Helpers texto / formato
   // =============================
@@ -362,6 +409,134 @@ function fmtDMYShort(iso) {
   function onlyDigits(v) {
     return String(v ?? '').replace(/\D+/g, '');
   }
+
+function resetGrupoFamiliarState() {
+  grupoFamiliarSeleccionados = [];
+  grupoFamiliarSeleccionadosDraft = [];
+  grupoFamiliarOriginalEraJefe = false;
+
+  const chk = $('socioEsJefePlanFamiliar');
+  const wrap = $('socioPlanFamiliarWrap');
+  const info = $('socioPlanFamiliarInfo');
+  const resumen = $('socioPlanFamiliarResumen');
+
+  if (chk) chk.checked = false;
+  if (wrap) wrap.classList.add('hidden');
+  if (info) info.style.display = 'none';
+  if (resumen) resumen.textContent = 'No hay integrantes seleccionados.';
+}
+
+function renderGrupoFamiliarResumen() {
+  const resumen = $('socioPlanFamiliarResumen');
+  if (!resumen) return;
+
+  if (!grupoFamiliarSeleccionados.length) {
+    resumen.textContent = 'No hay integrantes seleccionados.';
+    return;
+  }
+
+  const nombres = grupoFamiliarSeleccionados
+    .map(id => sociosCache.find(s => String(s.id) === String(id)))
+    .filter(Boolean)
+    .map(s => `${s.apellido} ${s.nombre}`);
+
+  resumen.textContent = `${grupoFamiliarSeleccionados.length} integrante/s: ${nombres.join(', ')}`;
+}
+
+function syncGrupoFamiliarUI() {
+  const chk = $('socioEsJefePlanFamiliar');
+  const wrap = $('socioPlanFamiliarWrap');
+  const info = $('socioPlanFamiliarInfo');
+
+  const activo = !!chk?.checked;
+
+  if (wrap) wrap.classList.toggle('hidden', !activo);
+  if (info) info.style.display = activo ? 'block' : 'none';
+
+  renderGrupoFamiliarResumen();
+}
+
+function openGrupoFamiliarModal() {
+  const modal = $('modalGrupoFamiliar');
+  if (!modal) return;
+
+  grupoFamiliarSeleccionadosDraft = [...grupoFamiliarSeleccionados];
+
+  const search = $('grupoFamiliarSearch');
+  if (search) search.value = '';
+
+  renderGrupoFamiliarLista('');
+  modal.classList.remove('hidden');
+}
+
+function closeGrupoFamiliarModal() {
+  $('modalGrupoFamiliar')?.classList.add('hidden');
+}
+
+function socioPuedeSerIntegrante(socio) {
+  if (!socio) return false;
+  if (!editingId) return true;
+  if (String(socio.id) === String(editingId)) return false;
+
+  // si ya pertenece a ESTE jefe en edición, sí lo dejamos
+  if (
+    socio.es_miembro_plan_familiar === true &&
+    String(socio.grupo_familiar_jefe_id || '') === String(editingId)
+  ) {
+    return true;
+  }
+
+  // si es miembro de otro grupo, no
+  if (socio.es_miembro_plan_familiar === true) {
+    return false;
+  }
+
+  // si es jefe de otro grupo, no
+  if (socio.es_jefe_plan_familiar === true) {
+    return false;
+  }
+
+  return true;
+}
+
+function renderGrupoFamiliarLista(query = '') {
+  const cont = $('grupoFamiliarLista');
+  if (!cont) return;
+
+  const q = String(query || '').trim().toLowerCase();
+
+  let rows = sociosCache.filter(s => socioPuedeSerIntegrante(s));
+
+  if (q) {
+    rows = rows.filter(s =>
+      String(s.nombre || '').toLowerCase().includes(q) ||
+      String(s.apellido || '').toLowerCase().includes(q) ||
+      String(s.dni || '').includes(q)
+    );
+  }
+
+  cont.innerHTML = '';
+
+  if (!rows.length) {
+    cont.innerHTML = `<div class="muted small">No hay socios disponibles para agregar.</div>`;
+    return;
+  }
+
+  rows.forEach(s => {
+    const checked = grupoFamiliarSeleccionadosDraft.includes(String(s.id));
+
+    const row = document.createElement('label');
+    row.className = 'gf-item';
+    row.innerHTML = `
+      <input type="checkbox" data-gf-socio-id="${s.id}" ${checked ? 'checked' : ''} />
+      <div>
+        <div><strong>${escapeHtml(s.apellido || '')} ${escapeHtml(s.nombre || '')}</strong></div>
+        <div class="muted small">N° ${escapeHtml(String(s.numero_socio || ''))} · DNI ${escapeHtml(String(s.dni || ''))}</div>
+      </div>
+    `;
+    cont.appendChild(row);
+  });
+}
 
   function fmtDni(dni) {
     const d = onlyDigits(dni);
@@ -417,6 +592,10 @@ function fmtDMYShort(iso) {
   let editingId = null;
 let sociosCache = [];
 let draftPhoto = null;
+
+let grupoFamiliarSeleccionados = [];
+let grupoFamiliarSeleccionadosDraft = [];
+let grupoFamiliarOriginalEraJefe = false;
 
 
   // Estados de adjuntos/comentarios por socio
@@ -945,6 +1124,11 @@ function setExcepcionUI(usa) {
   editingId = null;
   setDraftPhoto(null);
 
+resetGrupoFamiliarState();
+
+  const chkJefe = $('socioEsJefePlanFamiliar');
+  if (chkJefe) chkJefe.disabled = false;
+
   // asegurar combos cargados
   if (!categoriasConfigCache.length) loadCategoriasConfig().catch(() => {});
   if (!actividadesConfigCache.length) loadActividadesConfig().catch(() => {});
@@ -1004,60 +1188,102 @@ function toggleTutorField(forceValue) {
 }
 
 
-  function openModalEdit(socio) {
-    editingId = socio.id;
-    setDraftPhoto(null);
+  async function openModalEdit(socio) {
+  editingId = socio.id;
+  setDraftPhoto(null);
 
-// ✅ reset excepción ANTES de cargar datos (evita “contagio”)
-$('socioUsaExcepcion').checked = false;
-$('socioExcepcionCuota').value = '';
-setExcepcionUI(false);
+  resetGrupoFamiliarState();
 
-    if (!categoriasConfigCache.length) loadCategoriasConfig().catch(() => {});
+  // ✅ reset excepción ANTES de cargar datos
+  $('socioUsaExcepcion').checked = false;
+  $('socioExcepcionCuota').value = '';
+  setExcepcionUI(false);
 
-    $('modalSocioTitle').textContent = 'Editar socio';
-    $('socioNumero').value = socio.numero_socio ?? '';
-    $('socioDni').value = socio.dni ?? '';
-    $('socioNombre').value = socio.nombre ?? '';
-    $('socioApellido').value = socio.apellido ?? '';
+  if (!categoriasConfigCache.length) loadCategoriasConfig().catch(() => {});
+  if (!actividadesConfigCache.length) loadActividadesConfig().catch(() => {});
+  if (!excepcionesCuotaCache.length) loadExcepcionesCuotaConfig().catch(() => {});
 
-    $('socioActividad').value = socio.actividad ?? '';
-    ensureActividadOption(socio.actividad);
-    $('socioDireccion').value = socio.direccion ?? '';
-$('socioEmail').value = socio.email ?? '';
+  $('modalSocioTitle').textContent = 'Editar socio';
+  $('socioNumero').value = socio.numero_socio ?? '';
+  $('socioDni').value = socio.dni ?? '';
+  $('socioNombre').value = socio.nombre ?? '';
+  $('socioApellido').value = socio.apellido ?? '';
 
-    const catSel = $('socioCategoria');
-    if (catSel) catSel.dataset.pendingValue = (socio.categoria ?? '').toString();
-    $('socioCategoria').value = socio.categoria ?? '';
-    ensureCategoriaOption(socio.categoria);
+  $('socioActividad').value = socio.actividad ?? '';
+  ensureActividadOption(socio.actividad);
 
-    $('socioTelefono').value = socio.telefono ?? '';
-    $('socioNacimiento').value = (socio.fecha_nacimiento || '').slice(0, 10);
-    $('socioIngreso').value = (socio.fecha_ingreso || '').slice(0, 10);
-    $('socioActivo').checked = !!socio.activo;
-    $('socioBecado').checked = !!socio.becado;
+  $('socioDireccion').value = socio.direccion ?? '';
+  $('socioEmail').value = socio.email ?? '';
 
-$('socioMenor').checked = !!socio.es_menor;
-$('socioTutorNombre').value = socio.tutor_nombre ?? '';
-toggleTutorField(!!socio.es_menor);
+  const catSel = $('socioCategoria');
+  if (catSel) catSel.dataset.pendingValue = (socio.categoria ?? '').toString();
+  $('socioCategoria').value = socio.categoria ?? '';
+  ensureCategoriaOption(socio.categoria);
 
-// ✅ precargar excepción del socio (si existe)
-const exId = socio.excepcion_cuota_id ?? null;
-const exNombre = socio.excepcion_cuota_nombre ?? '';
+  $('socioTelefono').value = socio.telefono ?? '';
+  $('socioNacimiento').value = (socio.fecha_nacimiento || '').slice(0, 10);
+  $('socioIngreso').value = (socio.fecha_ingreso || '').slice(0, 10);
+  $('socioActivo').checked = !!socio.activo;
+  $('socioBecado').checked = !!socio.becado;
 
-setExcepcionUI(!!exId);
+  $('socioMenor').checked = !!socio.es_menor;
+  $('socioTutorNombre').value = socio.tutor_nombre ?? '';
+  toggleTutorField(!!socio.es_menor);
 
-if (exId) {
-  $('socioUsaExcepcion').checked = true;
-  ensureExcepcionOption(exId, exNombre || 'Excepción asignada');
-  $('socioExcepcionCuota').value = String(exId);
-}
+  // ✅ precargar excepción del socio
+  const exId = socio.excepcion_cuota_id ?? null;
+  const exNombre = socio.excepcion_cuota_nombre ?? '';
 
+  setExcepcionUI(!!exId);
 
-    $('modalSocio').classList.remove('hidden');
-
-    
+  if (exId) {
+    $('socioUsaExcepcion').checked = true;
+    ensureExcepcionOption(exId, exNombre || 'Excepción asignada');
+    $('socioExcepcionCuota').value = String(exId);
   }
+
+  // =========================
+  // GRUPO FAMILIAR
+  // =========================
+  const chkJefe = $('socioEsJefePlanFamiliar');
+  const infoGF = $('socioPlanFamiliarInfo');
+
+  grupoFamiliarOriginalEraJefe = socio.es_jefe_plan_familiar === true;
+
+  if (chkJefe) {
+    chkJefe.checked = socio.es_jefe_plan_familiar === true;
+    chkJefe.disabled = false;
+  }
+
+  if (infoGF) {
+    infoGF.textContent = 'Este socio puede pagar por todo el grupo familiar.';
+    infoGF.style.display = 'none';
+  }
+
+  // Si el socio YA es miembro de otro grupo, no puede ser jefe
+  if (socio.es_miembro_plan_familiar === true) {
+    if (chkJefe) chkJefe.disabled = true;
+    if (infoGF) {
+      infoGF.textContent = 'Este socio ya pertenece al Grupo Familiar de otro jefe/a y no puede ser jefe/a.';
+      infoGF.style.display = 'block';
+    }
+  }
+
+  // Si el socio ya es jefe, traer integrantes actuales
+  if (socio.es_jefe_plan_familiar === true) {
+    try {
+      const dataGF = await fetchGrupoFamiliar(socio.id);
+      grupoFamiliarSeleccionados = (dataGF.miembros || []).map(x => String(x.id));
+    } catch (e) {
+      console.error('Error cargando miembros del grupo familiar', e);
+      grupoFamiliarSeleccionados = [];
+    }
+  }
+
+  syncGrupoFamiliarUI();
+
+  $('modalSocio').classList.remove('hidden');
+}
 
   function closeModalSocio() {
     $('modalSocio')?.classList.add('hidden');
@@ -1608,14 +1834,30 @@ if (payload.es_menor && !payload.tutor_nombre) {
       }
 
       const socioId = creating ? data.socio?.id || data.id : editingId;
+
       if (draftPhoto && socioId) {
         await uploadSocioFotoById(socioId, draftPhoto);
+      }
+
+      // =========================
+      // GRUPO FAMILIAR
+      // =========================
+      const chkJefe = $('socioEsJefePlanFamiliar');
+      const quiereSerJefe = chkJefe?.checked === true;
+
+      if (quiereSerJefe && socioId) {
+        await saveGrupoFamiliar(socioId, grupoFamiliarSeleccionados);
+      }
+
+      if (!quiereSerJefe && grupoFamiliarOriginalEraJefe && socioId) {
+        await deleteGrupoFamiliar(socioId);
       }
 
       setDraftPhoto(null);
       closeModalSocio();
       await loadSocios();
       alert(creating ? '✅ Socio creado' : '✅ Socio actualizado');
+
     } catch (e) {
       console.error(e);
       alert(e.message || 'Error guardando socio');
@@ -1696,6 +1938,45 @@ if (payload.es_menor && !payload.tutor_nombre) {
     $('socioMenor')?.addEventListener('change', () => toggleTutorField());
 $('socioUsaExcepcion')?.addEventListener('change', () => {
   setExcepcionUI($('socioUsaExcepcion').checked);
+});
+
+$('socioEsJefePlanFamiliar')?.addEventListener('change', () => {
+  syncGrupoFamiliarUI();
+});
+
+$('btnSeleccionarGrupoFamiliar')?.addEventListener('click', () => {
+  const chk = $('socioEsJefePlanFamiliar');
+  if (!chk?.checked) return;
+  openGrupoFamiliarModal();
+});
+
+$('btnGrupoFamiliarClose')?.addEventListener('click', closeGrupoFamiliarModal);
+$('btnGrupoFamiliarCancel')?.addEventListener('click', closeGrupoFamiliarModal);
+
+$('grupoFamiliarSearch')?.addEventListener('input', (e) => {
+  renderGrupoFamiliarLista(e.target.value);
+});
+
+$('grupoFamiliarLista')?.addEventListener('change', (e) => {
+  const chk = e.target.closest('input[data-gf-socio-id]');
+  if (!chk) return;
+
+  const socioId = String(chk.dataset.gfSocioId);
+
+  if (chk.checked) {
+    if (!grupoFamiliarSeleccionadosDraft.includes(socioId)) {
+      grupoFamiliarSeleccionadosDraft.push(socioId);
+    }
+  } else {
+    grupoFamiliarSeleccionadosDraft =
+      grupoFamiliarSeleccionadosDraft.filter(x => String(x) !== socioId);
+  }
+});
+
+$('btnGrupoFamiliarAceptar')?.addEventListener('click', () => {
+  grupoFamiliarSeleccionados = [...grupoFamiliarSeleccionadosDraft];
+  renderGrupoFamiliarResumen();
+  closeGrupoFamiliarModal();
 });
 
 
@@ -1867,7 +2148,7 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
 
   if (act === 'edit') {
     const socio = sociosCache.find((x) => String(x.id) === String(id));
-    if (socio) openModalEdit(socio);
+    if (socio) await openModalEdit(socio);
     return;
   }
 

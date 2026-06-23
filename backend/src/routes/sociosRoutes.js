@@ -19,6 +19,26 @@ const uploadAdjunto = multer({
 
 const router = express.Router();
 
+// ======================================
+// GRUPO FAMILIAR HELPERS
+// ======================================
+
+async function getGrupoByJefe({ clubId, jefeSocioId }) {
+  const r = await db.query(
+    `
+    SELECT id
+    FROM grupos_familiares
+    WHERE club_id = $1
+      AND jefe_socio_id = $2
+      AND activo = true
+    LIMIT 1
+    `,
+    [clubId, jefeSocioId]
+  );
+  return r.rows[0] ?? null;
+}
+
+
 // ===============================
 // Helper: validar acceso al club
 // ===============================
@@ -82,6 +102,128 @@ async function deleteFirebaseObjectByUrl(url) {
   const bucket = admin.storage().bucket();
   await bucket.file(objectPath).delete({ ignoreNotFound: true });
 }
+
+// ======================================
+// GET grupo familiar de un socio (jefe)
+// ======================================
+router.get('/:clubId/grupo-familiar/:socioId', requireAuth, requireClubAccess, async (req, res) => {
+  try {
+    const { clubId, socioId } = req.params;
+
+    const rGrupo = await db.query(
+      `
+      SELECT id, jefe_socio_id
+      FROM grupos_familiares
+      WHERE club_id = $1
+        AND jefe_socio_id = $2
+        AND activo = true
+      LIMIT 1
+      `,
+      [clubId, socioId]
+    );
+
+    if (!rGrupo.rowCount) {
+      return res.json({ ok: true, grupo: null, miembros: [] });
+    }
+
+    const grupoId = rGrupo.rows[0].id;
+
+    const rMiembros = await db.query(
+      `
+      SELECT s.id, s.nombre, s.apellido, s.numero_socio
+      FROM grupos_familiares_miembros gm
+      JOIN socios s ON s.id = gm.socio_id
+      WHERE gm.grupo_familiar_id = $1
+      `,
+      [grupoId]
+    );
+
+    res.json({
+      ok: true,
+      grupo: rGrupo.rows[0],
+      miembros: rMiembros.rows
+    });
+
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ======================================
+// CREAR / ACTUALIZAR GRUPO FAMILIAR
+// ======================================
+router.post('/:clubId/grupo-familiar', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { jefeSocioId, miembros } = req.body;
+
+  try {
+    // 1. buscar grupo existente
+    let grupo = await getGrupoByJefe({ clubId, jefeSocioId });
+
+    // 2. crear si no existe
+    if (!grupo) {
+      const rNew = await db.query(
+        `
+        INSERT INTO grupos_familiares (id, club_id, jefe_socio_id, activo, created_at, updated_at)
+        VALUES (gen_random_uuid(), $1, $2, true, NOW(), NOW())
+        RETURNING id
+        `,
+        [clubId, jefeSocioId]
+      );
+      grupo = rNew.rows[0];
+    }
+
+    const grupoId = grupo.id;
+
+    // 3. limpiar miembros anteriores
+    await db.query(
+      `DELETE FROM grupos_familiares_miembros WHERE grupo_familiar_id = $1`,
+      [grupoId]
+    );
+
+    // 4. insertar nuevos miembros
+    for (const socioId of (miembros || [])) {
+      if (socioId === jefeSocioId) continue;
+
+      await db.query(
+        `
+        INSERT INTO grupos_familiares_miembros (id, grupo_familiar_id, socio_id, created_at)
+        VALUES (gen_random_uuid(), $1, $2, NOW())
+        `,
+        [grupoId, socioId]
+      );
+    }
+
+    res.json({ ok: true });
+
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ======================================
+// ELIMINAR GRUPO FAMILIAR
+// ======================================
+router.delete('/:clubId/grupo-familiar/:jefeSocioId', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, jefeSocioId } = req.params;
+
+  try {
+    await db.query(`
+      UPDATE grupos_familiares
+      SET activo = false, updated_at = NOW()
+      WHERE club_id = $1
+        AND jefe_socio_id = $2
+    `, [clubId, jefeSocioId]);
+
+    res.json({ ok: true });
+
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
 
 // ===============================
 // LISTAR / BUSCAR / FILTRAR (+ pago_al_dia)
@@ -158,6 +300,17 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
         s.foto_url,
         s.created_at,
         s.updated_at,
+        gf_jefe.id AS grupo_familiar_id,
+CASE WHEN gf_jefe.id IS NOT NULL THEN true ELSE false END AS es_jefe_plan_familiar,
+CASE
+  WHEN gf_jefe.id IS NOT NULL THEN 'jefe'
+  WHEN gf_miembro.id IS NOT NULL THEN 'miembro'
+  ELSE 'ninguno'
+END AS tipo_grupo_familiar,
+gf_miembro.id AS grupo_familiar_id,
+CASE WHEN gf_miembro.id IS NOT NULL THEN true ELSE false END AS es_miembro_plan_familiar,
+gf_miembro.jefe_socio_id AS grupo_familiar_jefe_id,
+
         DATE_PART('year', AGE(s.fecha_nacimiento))::int AS edad,
         EXTRACT(YEAR FROM s.fecha_nacimiento)::int AS anio_nacimiento,
         CASE
@@ -171,7 +324,7 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
             ), 0) >=
             CASE
               WHEN EXTRACT(DAY FROM CURRENT_DATE)::int <= COALESCE(c.payment_due_day, 31)
-              THEN
+              THENgf_miembro.jefe_socio_id AS grupo_familiar_jefe_id,
                 CASE
                   WHEN EXTRACT(MONTH FROM CURRENT_DATE)::int = 1
                   THEN ((EXTRACT(YEAR FROM CURRENT_DATE)::int - 1) * 100) + 12
@@ -187,6 +340,18 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
        AND ec.club_id = s.club_id
       LEFT JOIN clubs c
         ON c.id = s.club_id
+LEFT JOIN grupos_familiares gf_jefe
+  ON gf_jefe.club_id = s.club_id
+ AND gf_jefe.jefe_socio_id = s.id
+ AND gf_jefe.activo = true
+
+LEFT JOIN grupos_familiares_miembros gfm
+  ON gfm.socio_id = s.id
+
+LEFT JOIN grupos_familiares gf_miembro
+  ON gf_miembro.id = gfm.grupo_familiar_id
+ AND gf_miembro.club_id = s.club_id
+ AND gf_miembro.activo = true
       WHERE ${where.join(' AND ')}
       ORDER BY s.numero_socio ASC
       LIMIT $${p++} OFFSET $${p++}

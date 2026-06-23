@@ -122,6 +122,16 @@
             </label>
           </div>
 
+<div class="col-span-2">
+  <label class="checkbox-inline" style="display:flex; align-items:center; gap:10px; margin-top:20px;">
+    <input type="checkbox" id="socioEsJefePlanFamiliar">
+    Jefe/a Plan Familiar
+  </label>
+  <div id="socioPlanFamiliarInfo" class="muted small" style="margin-top:6px; display:none;">
+    Este socio puede pagar por todo el grupo familiar.
+  </div>
+</div>
+
           <!-- Excepción de cuota (solo si usa excepción) -->
           <div id="socioExcepcionWrap" class="hidden col-span-2">
             <label>Excepción de cuota *</label>
@@ -130,6 +140,23 @@
             </select>
             <div class="muted small">*Las excepciones se administran en Configuración.</div>
           </div>
+
+<div id="socioPlanFamiliarWrap" class="hidden col-span-4">
+  <label>Integrantes del Plan Familiar</label>
+
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <button type="button" id="btnSeleccionarGrupoFamiliar" class="btn btn-secondary">
+      Seleccionar integrantes
+    </button>
+    <span id="socioPlanFamiliarResumen" class="muted small">
+      No hay integrantes seleccionados.
+    </span>
+  </div>
+
+  <div class="muted small" style="margin-top:6px;">
+    Seleccioná los socios que forman parte del grupo familiar de este jefe/a.
+  </div>
+</div>
 
           <!-- Categoría -->
           <div class="col-span-2">
@@ -265,6 +292,28 @@
       </div>
     </div>
   </div>
+
+<!-- ================= MODAL GRUPO FAMILIAR ================= -->
+<div id="modalGrupoFamiliar" class="modal hidden">
+  <div class="modal-content" style="max-width:720px;">
+    <div class="modal-header-row">
+      <h3>Seleccionar integrantes del Grupo Familiar</h3>
+      <button id="btnGrupoFamiliarClose" class="btn btn-secondary" type="button">✕</button>
+    </div>
+
+    <div class="modal-block">
+      <label>Buscar socio</label>
+      <input id="grupoFamiliarSearch" type="text" placeholder="Buscar por apellido, nombre o DNI" />
+    </div>
+
+    <div id="grupoFamiliarLista" class="modal-socio-list" style="margin-top:10px; max-height:320px;"></div>
+
+    <div class="modal-actions" style="margin-top:14px;">
+      <button id="btnGrupoFamiliarCancel" class="btn btn-secondary" type="button">Cancelar</button>
+      <button id="btnGrupoFamiliarAceptar" class="btn btn-primary" type="button">Aceptar</button>
+    </div>
+  </div>
+</div>
 </section>
 
 <!-- ================= ESTILOS ================= -->
@@ -459,6 +508,29 @@
   .carnet-main { flex-direction: column; align-items: flex-start; }
   .carnet-foto { width: 96px; height: 96px; }
   .carnet-label { min-width: 120px; }
+}
+
+#grupoFamiliarLista .gf-item {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 6px;
+  border-bottom:1px solid #eee;
+}
+
+#grupoFamiliarLista .gf-item:last-child {
+  border-bottom:none;
+}
+
+#grupoFamiliarLista .gf-item input[type="checkbox"] {
+  transform: scale(1.1);
+}
+
+#socioPlanFamiliarWrap {
+  border:1px dashed #d1d5db;
+  border-radius:10px;
+  padding:10px 12px;
+  background:#fafafa;
 }
 
 .socio-flags {
