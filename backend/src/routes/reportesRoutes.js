@@ -3653,43 +3653,71 @@ router.get(
       if (!esperado && !socios) {
         const q = `
           SELECT
-            s.becado,
-            ec.monto AS excepcion_monto,
-            a.precio_mensual
-          FROM socios s
-          LEFT JOIN excepciones_cuota ec
-            ON ec.id = s.excepcion_cuota_id
-            AND ec.club_id = s.club_id
-            AND ec.activo = true
-          LEFT JOIN actividades a
-            ON a.nombre = s.actividad
-            AND a.club_id = s.club_id
-            AND a.activo = true
-          WHERE s.club_id = $1
-            AND s.activo = true
-            AND (
-              s.fecha_ingreso IS NULL
-              OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
-              OR (
-                EXTRACT(YEAR FROM s.fecha_ingreso) = $2
-                AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
-              )
-            )
+  s.becado,
+  s.es_jefe_plan_familiar,
+  s.es_miembro_plan_familiar,
+
+  ec.monto AS excepcion_monto,
+
+  a.precio_mensual AS actividad_monto,
+  agf.precio_mensual AS grupo_familiar_monto
+
+FROM socios s
+
+LEFT JOIN excepciones_cuota ec
+  ON ec.id = s.excepcion_cuota_id
+  AND ec.club_id = s.club_id
+  AND ec.activo = true
+
+LEFT JOIN actividades a
+  ON a.nombre = s.actividad
+  AND a.club_id = s.club_id
+  AND a.activo = true
+
+-- 👇 NUEVO JOIN
+LEFT JOIN actividades agf
+  ON agf.nombre = 'Grupo Familiar'
+  AND agf.club_id = s.club_id
+  AND agf.activo = true
+
+WHERE s.club_id = $1
+  AND s.activo = true
+  AND (
+    s.fecha_ingreso IS NULL
+    OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+    OR (
+      EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+      AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+    )
+  )
         `;
 
         const r = await db.query(q, [clubId, anio, mes]);
 
         for (const s of r.rows) {
-          if (s.becado) continue;
+  if (s.becado) continue;
 
-          const monto =
-            s.excepcion_monto !== null && s.excepcion_monto !== undefined
-              ? Number(s.excepcion_monto) || 0
-              : Number(s.precio_mensual) || 0;
+  // 🚫 miembro de GF → NO suma
+  if (s.es_miembro_plan_familiar) continue;
 
-          esperado += monto;
-          socios++;
-        }
+  let monto = 0;
+
+  // ✅ excepción tiene prioridad
+  if (s.excepcion_monto !== null && s.excepcion_monto !== undefined) {
+    monto = Number(s.excepcion_monto) || 0;
+  }
+  // 👑 jefe GF → usar precio GF
+  else if (s.es_jefe_plan_familiar) {
+    monto = Number(s.grupo_familiar_monto) || 0;
+  }
+  // ✅ socio normal
+  else {
+    monto = Number(s.actividad_monto) || 0;
+  }
+
+  esperado += monto;
+  socios++;
+}
 
         // Guardar snapshot SOLO si el mes cerró
         if (closedMonth) {
