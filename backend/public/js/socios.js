@@ -1710,17 +1710,6 @@ const pageRows = ordered;             // ✅ ya viene paginado desde el backend
         <td>${s.becado ? 'Sí' : 'No'}</td>
         <td>${fotoHtml}</td>
         <td style="white-space:nowrap;">
-<button
-  title="${
-    s.es_miembro_plan_familiar
-      ? 'El pago debe registrarse al jefe/a del grupo'
-      : 'Registrar pago'
-  }"
-  class="btn-ico"
-  data-act="pagar"
-  data-id="${s.id}"
-  ${s.es_miembro_plan_familiar ? 'style="opacity:.45;"' : ''}
->💰</button>
   <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
   <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
   ${
@@ -1938,27 +1927,6 @@ if (payload.es_menor && !payload.tutor_nombre) {
     }
   }
 
-async function registrarPago(socioId, anio, mes) {
-  const clubId = getActiveClubId();
-
-  const res = await fetchAuth(`/club/${clubId}/pagos`, {
-    method: 'POST',
-    json: true,
-    body: JSON.stringify({
-      socioId,
-      anio,
-      mes
-    })
-  });
-
-  const data = await safeJson(res);
-
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || 'Error registrando pago');
-  }
-
-  return data;
-}
 
   async function deleteSocio(id) {
     const clubId = getActiveClubId();
@@ -2232,40 +2200,6 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
   const id = btn.dataset.id;
   if (!id) return;
 
-if (act === 'pagar') {
-  const socio = sociosCache.find(x => String(x.id) === String(id));
-  if (!socio) return;
-
-  // 🚫 bloquear miembros
-  if (socio.es_miembro_plan_familiar === true) {
-    alert('Este socio pertenece a un Grupo Familiar. El pago debe registrarse al jefe/a del grupo.');
-    return;
-  }
-
-  const hoy = new Date();
-  const anio = hoy.getFullYear();
-  const mes = hoy.getMonth() + 1;
-
-  const nombre = `${socio.apellido} ${socio.nombre}`;
-
-  const msg = socio.es_jefe_plan_familiar
-    ? `${nombre}\n\nRegistrar pago GRUPO FAMILIAR (${mes}/${anio})?`
-    : `${nombre}\n\nRegistrar pago (${mes}/${anio})?`;
-
-  if (!confirm(msg)) return;
-
-  await registrarPago(socio.id, anio, mes);
-
-  await loadSocios();
-
-  alert(
-    socio.es_jefe_plan_familiar
-      ? '✅ Pago registrado para todo el Grupo Familiar'
-      : '✅ Pago registrado correctamente'
-  );
-
-  return;
-}
 
   if (act === 'edit') {
     const socio = sociosCache.find((x) => String(x.id) === String(id));

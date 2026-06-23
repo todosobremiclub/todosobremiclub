@@ -120,16 +120,52 @@ function ensureIngresosUI() {
 function getSocioTarifa(socio) {
   if (!socio) return null;
 
+  // 🚫 Miembro de Grupo Familiar: no debería pagarse desde acá
+  if (socio.es_miembro_plan_familiar === true) {
+    return {
+      tipo: 'grupo_familiar_miembro',
+      nombre: 'Pertenece a Grupo Familiar',
+      monto: 0,
+      fuente: 'grupo_familiar_miembro'
+    };
+  }
+
+  // 👑 Jefe/a de Grupo Familiar: usar siempre la actividad "Grupo Familiar"
+  if (socio.es_jefe_plan_familiar === true) {
+    const nombre = 'Grupo Familiar';
+    const monto = Number(actividadesPrecioMap.get('Grupo Familiar') ?? 0) || 0;
+
+    return {
+      tipo: 'grupo_familiar',
+      nombre,
+      monto,
+      fuente: 'grupo_familiar'
+    };
+  }
+
+  // Excepción de cuota
   const exId = socio.excepcion_cuota_id ? socio.excepcion_cuota_id : null;
   if (exId) {
     const nombre = socio.excepcion_cuota_nombre || 'Excepción';
     const monto = Number(socio.excepcion_cuota_monto ?? 0) || 0;
-    return { tipo: 'excepcion', nombre, monto, fuente: 'excepcion' };
+    return {
+      tipo: 'excepcion',
+      nombre,
+      monto,
+      fuente: 'excepcion'
+    };
   }
 
+  // Actividad normal
   const act = String(socio.actividad || '').trim();
-  const monto = actividadesPrecioMap.get(act) ?? 0;
-  return { tipo: 'actividad', nombre: act || 'Sin actividad', monto: Number(monto) || 0, fuente: 'actividad' };
+  const monto = Number(actividadesPrecioMap.get(act) ?? 0) || 0;
+
+  return {
+    tipo: 'actividad',
+    nombre: act || 'Sin actividad',
+    monto,
+    fuente: 'actividad'
+  };
 }
 
 function renderTarifaInfo() {
@@ -142,13 +178,42 @@ function renderTarifaInfo() {
   }
 
   const t = selectedSocioTarifa;
-  const tag = t.tipo === 'excepcion' ? 'Excepción' : 'Actividad';
-  el.textContent = `${tag}: ${t.nombre} — ${moneyARS(t.monto)} por mes`;
-}
 
+  if (t.tipo === 'grupo_familiar_miembro') {
+    el.textContent = 'Este socio pertenece a un Grupo Familiar. El pago debe registrarse al jefe/a del grupo.';
+    return;
+  }
+
+  if (t.tipo === 'grupo_familiar') {
+    el.textContent = `Grupo Familiar: ${t.nombre} — ${moneyARS(t.monto)} por mes`;
+    return;
+  }
+
+  if (t.tipo === 'excepcion') {
+    el.textContent = `Excepción: ${t.nombre} — ${moneyARS(t.monto)} por mes`;
+    return;
+  }
+
+  el.textContent = `Actividad: ${t.nombre} — ${moneyARS(t.monto)} por mes`;
+}
 async function selectSocio(s) {
-  selectedSocioId = s.id;
   selectedSocioTarifa = getSocioTarifa(s);
+
+  // 🚫 bloquear miembro de Grupo Familiar desde UI
+  if (selectedSocioTarifa?.tipo === 'grupo_familiar_miembro') {
+    selectedSocioId = null;
+
+    const inp = $('socioSeleccionadoNombre');
+    if (inp) inp.value = '';
+
+    renderTarifaInfo();
+    $('modalElegirSocio')?.classList.add('hidden');
+
+    alert('Este socio pertenece a un Grupo Familiar. El pago debe registrarse al jefe/a del grupo.');
+    return;
+  }
+
+  selectedSocioId = s.id;
 
   const inp = $('socioSeleccionadoNombre');
   if (inp) inp.value = `${s.apellido} ${s.nombre} - ${s.dni}`;
@@ -159,7 +224,6 @@ async function selectSocio(s) {
   await refreshMesesPagados();
   renderMesesGrid();
 }
-
 
   /* =============================
    * Cargas (socios/pagos)
@@ -442,9 +506,18 @@ function renderMontoHint() {
 
   const montoPorMes = Number(selectedSocioTarifa.monto ?? 0) || 0;
   const total = montoPorMes * mesesSeleccionados.size;
-  const tag = selectedSocioTarifa.tipo === 'excepcion' ? 'Excepción' : 'Actividad';
+  let tag = 'Actividad';
 
-  el.textContent = `Total estimado: ${moneyARS(total)} (${mesesSeleccionados.size} mes/es x ${moneyARS(montoPorMes)}) — ${tag}: ${selectedSocioTarifa.nombre}`;
+if (selectedSocioTarifa.tipo === 'excepcion') {
+  tag = 'Excepción';
+} else if (selectedSocioTarifa.tipo === 'grupo_familiar') {
+  tag = 'Grupo Familiar';
+}
+
+el.textContent =
+  `Total estimado: ${moneyARS(total)} ` +
+  `(${mesesSeleccionados.size} mes/es x ${moneyARS(montoPorMes)}) — ` +
+  `${tag}: ${selectedSocioTarifa.nombre}`;
 }
 
 
