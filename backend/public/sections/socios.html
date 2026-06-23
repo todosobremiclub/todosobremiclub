@@ -115,22 +115,29 @@
           </div>
 
           <!-- Check usar excepción -->
-          <div class="col-span-2">
-            <label class="checkbox-inline" style="display:flex; align-items:center; gap:10px; margin-top:20px;">
-              <input type="checkbox" id="socioUsaExcepcion">
-              Usar excepción de cuota
-            </label>
-          </div>
+          <div class="col-span-4">
+  <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
 
-<div class="col-span-2">
-  <label class="checkbox-inline" style="display:flex; align-items:center; gap:10px; margin-top:20px;">
-    <input type="checkbox" id="socioEsJefePlanFamiliar">
-    Jefe/a Plan Familiar
-  </label>
-  <div id="socioPlanFamiliarInfo" class="muted small" style="margin-top:6px; display:none;">
+    <label class="checkbox-inline" style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" id="socioUsaExcepcion">
+      Usar excepción de cuota
+    </label>
+
+    <label class="checkbox-inline" style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" id="socioEsJefePlanFamiliar">
+      Jefe/a Plan Familiar
+    </label>
+
+  </div>
+
+  <div id="socioPlanFamiliarInfo"
+       class="muted small"
+       style="margin-top:6px; display:none;">
     Este socio puede pagar por todo el grupo familiar.
   </div>
 </div>
+
+
 
           <!-- Excepción de cuota (solo si usa excepción) -->
           <div id="socioExcepcionWrap" class="hidden col-span-2">
@@ -142,22 +149,48 @@
           </div>
 
 <div id="socioPlanFamiliarWrap" class="hidden col-span-4">
-  <label>Integrantes del Plan Familiar</label>
 
-  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-    <button type="button" id="btnSeleccionarGrupoFamiliar" class="btn btn-secondary">
-      Seleccionar integrantes
-    </button>
-    <span id="socioPlanFamiliarResumen" class="muted small">
-      No hay integrantes seleccionados.
-    </span>
-  </div>
+  <div style="display:flex; gap:20px; align-items:flex-start;">
 
-  <div class="muted small" style="margin-top:6px;">
-    Seleccioná los socios que forman parte del grupo familiar de este jefe/a.
+    <!-- IZQUIERDA -->
+    <div>
+      <label>Integrantes del Plan Familiar</label>
+
+      <button type="button"
+              id="btnSeleccionarGrupoFamiliar"
+              class="btn btn-secondary"
+              style="margin-top:6px;">
+        Seleccionar integrantes
+      </button>
+
+      <div class="muted small" style="margin-top:6px;">
+        Buscá y agregá socios al grupo.
+      </div>
+    </div>
+
+    <!-- DERECHA -->
+    <div class="gf-col-derecha">
+      <label>
+  Integrantes seleccionados
+  <span id="gfCantidad" class="muted small" style="margin-left:6px;"></span>
+</label>
+
+      <div id="socioPlanFamiliarListaVisual"
+           style="
+             margin-top:6px;
+             border:1px solid #e5e7eb;
+             border-radius:8px;
+             padding:8px;
+             background:#fafafa;
+             max-height:140px;
+             overflow-y:auto;
+           ">
+        <div class="muted small">Sin integrantes</div>
+      </div>
+    </div>
+
   </div>
 </div>
-
           <!-- Categoría -->
           <div class="col-span-2">
             <label>Categoría *</label>
@@ -303,10 +336,22 @@
 
     <div class="modal-block">
       <label>Buscar socio</label>
-      <input id="grupoFamiliarSearch" type="text" placeholder="Buscar por apellido, nombre o DNI" />
+      <input id="grupoFamiliarSearch"
+       type="text"
+       placeholder="Buscar por apellido o N° de socio" />
+
     </div>
 
-    <div id="grupoFamiliarLista" class="modal-socio-list" style="margin-top:10px; max-height:320px;"></div>
+    <div id="grupoFamiliarLista"
+     class="modal-socio-list"
+     style="margin-top:10px; max-height:320px;">
+
+  <div class="muted small">
+    Escribí para buscar socios (apellido o N°).
+  </div>
+
+</div>
+
 
     <div class="modal-actions" style="margin-top:14px;">
       <button id="btnGrupoFamiliarCancel" class="btn btn-secondary" type="button">Cancelar</button>
@@ -666,5 +711,19 @@
 .card-soft h4{
   margin: 0 0 6px;
   font-size: 14px;
+}
+
+.gf-col-derecha {
+  min-width: 260px;
+  max-width: 320px;
+  flex: 1;
+}
+
+@media (max-width: 900px) {
+  .gf-col-derecha {
+    min-width: 100%;
+    max-width: 100%;
+    margin-top: 10px;
+  }
 }
 </style>
