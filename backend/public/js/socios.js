@@ -418,29 +418,47 @@ function resetGrupoFamiliarState() {
   const chk = $('socioEsJefePlanFamiliar');
   const wrap = $('socioPlanFamiliarWrap');
   const info = $('socioPlanFamiliarInfo');
-  const resumen = $('socioPlanFamiliarResumen');
+  const resumen = $('socioPlanFamiliarListaVisual');
 
   if (chk) chk.checked = false;
   if (wrap) wrap.classList.add('hidden');
   if (info) info.style.display = 'none';
-  if (resumen) resumen.textContent = 'No hay integrantes seleccionados.';
+
+  if (resumen) {
+    resumen.innerHTML = '<div class="muted small">Sin integrantes</div>';
+  }
 }
 
 function renderGrupoFamiliarResumen() {
-  const resumen = $('socioPlanFamiliarResumen');
-  if (!resumen) return;
+  const cont = $('socioPlanFamiliarListaVisual');
+  if (!cont) return;
 
   if (!grupoFamiliarSeleccionados.length) {
-    resumen.textContent = 'No hay integrantes seleccionados.';
+    cont.innerHTML = `<div class="muted small">Sin integrantes</div>`;
     return;
   }
 
-  const nombres = grupoFamiliarSeleccionados
+  const rows = grupoFamiliarSeleccionados
     .map(id => sociosCache.find(s => String(s.id) === String(id)))
-    .filter(Boolean)
-    .map(s => `${s.apellido} ${s.nombre}`);
+    .filter(Boolean);
 
-  resumen.textContent = `${grupoFamiliarSeleccionados.length} integrante/s: ${nombres.join(', ')}`;
+  if (!rows.length) {
+    cont.innerHTML = `<div class="muted small">Sin integrantes</div>`;
+    return;
+  }
+
+  cont.innerHTML = rows.map(s => `
+    <div style="
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:6px 8px;
+      border-bottom:1px solid #eee;
+    ">
+      <span>${escapeHtml(s.apellido || '')} ${escapeHtml(s.nombre || '')}</span>
+      <small class="muted">N° ${escapeHtml(String(s.numero_socio || ''))}</small>
+    </div>
+  `).join('');
 }
 
 function syncGrupoFamiliarUI() {
@@ -505,39 +523,77 @@ function renderGrupoFamiliarLista(query = '') {
 
   const q = String(query || '').trim().toLowerCase();
 
-  let rows = sociosCache.filter(s => socioPuedeSerIntegrante(s));
-
-  if (q) {
-    rows = rows.filter(s =>
-      String(s.nombre || '').toLowerCase().includes(q) ||
-      String(s.apellido || '').toLowerCase().includes(q) ||
-      String(s.dni || '').includes(q)
-    );
-  }
-
-  cont.innerHTML = '';
-
-  if (!rows.length) {
-    cont.innerHTML = `<div class="muted small">No hay socios disponibles para agregar.</div>`;
+  // 🔥 NO mostrar nada si no escriben
+  if (!q) {
+    cont.innerHTML = `
+      <div class="muted small">
+        Escribí para buscar (apellido o N° de socio)
+      </div>
+    `;
     return;
   }
 
-  rows.forEach(s => {
+  let results = sociosCache.filter(s => socioPuedeSerIntegrante(s));
+
+  results = results.filter(s =>
+  String(s.apellido || '').toLowerCase().includes(q) ||
+  String(s.nombre || '').toLowerCase().includes(q) ||
+  String(s.numero_socio || '').includes(q) ||
+  String(s.dni || '').includes(q)
+);
+
+
+  cont.innerHTML = '';
+
+  if (!results.length) {
+    cont.innerHTML = `<div class="muted small">Sin resultados</div>`;
+    return;
+  }
+
+  results.slice(0, 10).forEach(s => {
     const checked = grupoFamiliarSeleccionadosDraft.includes(String(s.id));
 
-    const row = document.createElement('label');
-    row.className = 'gf-item';
+const bg = checked ? '#e0f2fe' : '#fff';
+const border = checked ? '1px solid #38bdf8' : '1px solid transparent';
+
+    const row = document.createElement('div');
+    row.className = 'gf-autocomplete-item';
+    row.style = `
+  padding:6px 8px;
+  border-bottom:1px solid #eee;
+  cursor:pointer;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:${bg};
+  border:${border};
+  border-radius:6px;
+  margin-bottom:4px;
+`;
+
     row.innerHTML = `
-      <input type="checkbox" data-gf-socio-id="${s.id}" ${checked ? 'checked' : ''} />
-      <div>
-        <div><strong>${escapeHtml(s.apellido || '')} ${escapeHtml(s.nombre || '')}</strong></div>
-        <div class="muted small">N° ${escapeHtml(String(s.numero_socio || ''))} · DNI ${escapeHtml(String(s.dni || ''))}</div>
-      </div>
+      <span><b>${escapeHtml(s.apellido)} ${escapeHtml(s.nombre)}</b></span>
+      <small class="muted">N° ${escapeHtml(String(s.numero_socio || ''))}</small>
     `;
+
+    row.addEventListener('click', () => {
+      const id = String(s.id);
+
+if (grupoFamiliarSeleccionadosDraft.some(x => String(x) === id)) {
+  grupoFamiliarSeleccionadosDraft =
+    grupoFamiliarSeleccionadosDraft.filter(x => String(x) !== id);
+} else {
+  grupoFamiliarSeleccionadosDraft.push(id);
+}
+
+      renderGrupoFamiliarLista(q);
+renderGrupoFamiliarResumen(); // ✅ NUEVA LÍNEA
+
+    });
+
     cont.appendChild(row);
   });
 }
-
   function fmtDni(dni) {
     const d = onlyDigits(dni);
     if (d.length === 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}`;
@@ -1281,6 +1337,7 @@ function toggleTutorField(forceValue) {
   }
 
   syncGrupoFamiliarUI();
+  renderGrupoFamiliarResumen();
 
   $('modalSocio').classList.remove('hidden');
 }
@@ -1957,25 +2014,15 @@ $('grupoFamiliarSearch')?.addEventListener('input', (e) => {
   renderGrupoFamiliarLista(e.target.value);
 });
 
-$('grupoFamiliarLista')?.addEventListener('change', (e) => {
-  const chk = e.target.closest('input[data-gf-socio-id]');
-  if (!chk) return;
-
-  const socioId = String(chk.dataset.gfSocioId);
-
-  if (chk.checked) {
-    if (!grupoFamiliarSeleccionadosDraft.includes(socioId)) {
-      grupoFamiliarSeleccionadosDraft.push(socioId);
-    }
-  } else {
-    grupoFamiliarSeleccionadosDraft =
-      grupoFamiliarSeleccionadosDraft.filter(x => String(x) !== socioId);
-  }
-});
 
 $('btnGrupoFamiliarAceptar')?.addEventListener('click', () => {
   grupoFamiliarSeleccionados = [...grupoFamiliarSeleccionadosDraft];
+
   renderGrupoFamiliarResumen();
+
+  const cont = $('grupoFamiliarLista');
+  if (cont) cont.innerHTML = ''; // ✅ LIMPIA LISTA
+
   closeGrupoFamiliarModal();
 });
 
