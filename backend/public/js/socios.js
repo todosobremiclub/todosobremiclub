@@ -580,20 +580,22 @@ const border = checked ? '1px solid #38bdf8' : '1px solid transparent';
       <small class="muted">N° ${escapeHtml(String(s.numero_socio || ''))}</small>
     `;
 
-    row.addEventListener('click', () => {
-      const id = String(s.id);
+   row.addEventListener('click', () => {
+  const id = String(s.id);
 
-if (grupoFamiliarSeleccionadosDraft.some(x => String(x) === id)) {
-  grupoFamiliarSeleccionadosDraft =
-    grupoFamiliarSeleccionadosDraft.filter(x => String(x) !== id);
-} else {
-  grupoFamiliarSeleccionadosDraft.push(id);
-}
+  if (grupoFamiliarSeleccionadosDraft.includes(id)) {
+    grupoFamiliarSeleccionadosDraft =
+      grupoFamiliarSeleccionadosDraft.filter(x => x !== id);
+  } else {
+    grupoFamiliarSeleccionadosDraft = [
+      ...grupoFamiliarSeleccionadosDraft,
+      id
+    ];
+  }
 
-      renderGrupoFamiliarLista(q);
-renderGrupoFamiliarResumen(); // ✅ NUEVA LÍNEA
-
-    });
+  renderGrupoFamiliarLista(q);
+  renderGrupoFamiliarResumen();
+});
 
     cont.appendChild(row);
   });
@@ -2042,7 +2044,7 @@ $('grupoFamiliarSearch')?.addEventListener('input', (e) => {
 
 
 $('btnGrupoFamiliarAceptar')?.addEventListener('click', async () => {
-  grupoFamiliarSeleccionados = [...grupoFamiliarSeleccionadosDraft];
+  grupoFamiliarSeleccionados = grupoFamiliarSeleccionadosDraft.map(x => String(x));
   renderGrupoFamiliarResumen();
   closeGrupoFamiliarModal();
 
