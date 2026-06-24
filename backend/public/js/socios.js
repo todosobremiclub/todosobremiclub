@@ -431,19 +431,25 @@ function resetGrupoFamiliarState() {
 
 function renderGrupoFamiliarResumen() {
   const cont = $('socioPlanFamiliarListaVisual');
+  const cant = $('gfCantidad');
   if (!cont) return;
 
   if (!grupoFamiliarSeleccionados.length) {
     cont.innerHTML = `<div class="muted small">Sin integrantes</div>`;
+    if (cant) cant.textContent = '';
     return;
   }
 
+  // ✅ usar el cache completo del modal, no la grilla paginada
+  const fuente = sociosGrupoFamiliarCache || [];
+
   const rows = grupoFamiliarSeleccionados
-    .map(id => sociosCache.find(s => String(s.id) === String(id)))
+    .map(id => fuente.find(s => String(s.id) === String(id)))
     .filter(Boolean);
 
   if (!rows.length) {
     cont.innerHTML = `<div class="muted small">Sin integrantes</div>`;
+    if (cant) cant.textContent = `(${grupoFamiliarSeleccionados.length})`;
     return;
   }
 
@@ -459,6 +465,8 @@ function renderGrupoFamiliarResumen() {
       <small class="muted">N° ${escapeHtml(String(s.numero_socio || ''))}</small>
     </div>
   `).join('');
+
+  if (cant) cant.textContent = `(${rows.length})`;
 }
 
 function syncGrupoFamiliarUI() {
