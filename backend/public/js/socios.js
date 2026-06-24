@@ -2041,19 +2041,23 @@ $('grupoFamiliarSearch')?.addEventListener('input', (e) => {
 });
 
 
-$('btnGrupoFamiliarAceptar')?.addEventListener('click', () => {
+$('btnGrupoFamiliarAceptar')?.addEventListener('click', async () => {
   grupoFamiliarSeleccionados = [...grupoFamiliarSeleccionadosDraft];
-
   renderGrupoFamiliarResumen();
-
-  const cont = $('grupoFamiliarLista');
-  if (cont) cont.innerHTML = '';
-
-  const search = $('grupoFamiliarSearch');
-  if (search) search.value = '';
-
   closeGrupoFamiliarModal();
+
+  // 🔥 Guardado automático si ya existe el socio
+  if (editingId && $('socioEsJefePlanFamiliar')?.checked) {
+    try {
+      await saveGrupoFamiliar(editingId, grupoFamiliarSeleccionados);
+      console.log('✅ Grupo familiar guardado automáticamente');
+    } catch (e) {
+      console.error('Error guardando grupo familiar', e);
+      alert('Error guardando grupo familiar');
+    }
+  }
 });
+
 
     $('btnBuscarSocios')?.addEventListener('click', loadSocios);
 
