@@ -43,7 +43,10 @@ function closeForgotPasswordModal() {
 async function sendResetEmail() {
   const email = document.getElementById('forgotEmail').value.trim();
   const msg = document.getElementById('forgotMsg');
-  const btn = document.querySelector('#forgotModal .login-btn');
+
+  const btnSend = document.getElementById('btnSend');
+  const btnCancel = document.getElementById('btnCancel');
+  const btnOk = document.getElementById('btnOk');
 
   msg.style.display = 'none';
 
@@ -66,14 +69,12 @@ async function sendResetEmail() {
     msg.style.color = '#166534';
     msg.textContent = 'Si el email existe, se enviaron instrucciones.';
 
-    // ✅ desactivar botón y borrar botón cancelar
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Enviado ✅';
-    }
+    // ✅ ocultar botones viejos
+    if (btnSend) btnSend.style.display = 'none';
+    if (btnCancel) btnCancel.style.display = 'none';
 
-    const cancelBtn = document.querySelector('#forgotModal button:nth-child(2)');
-    if (cancelBtn) cancelBtn.style.display = 'none';
+    // ✅ mostrar botón OK
+    if (btnOk) btnOk.style.display = 'block';
 
   } catch (e) {
     msg.style.display = 'block';

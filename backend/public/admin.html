@@ -269,19 +269,31 @@
 
     <div id="forgotMsg" class="error" style="display:none;"></div>
 
-    <div style="display:flex; gap:10px; margin-top:14px;">
-      <button class="login-btn" onclick="sendResetEmail()">
-        Enviar
-      </button>
+    <div id="forgotActions" style="display:flex; gap:10px; margin-top:14px;">
+  <button id="btnSend" class="login-btn" onclick="sendResetEmail()">
+    Enviar
+  </button>
 
-      <button
-        class="login-btn"
-        style="background:#e5e7eb;color:#111;"
-        onclick="closeForgotPasswordModal()"
-      >
-        Cancelar
-      </button>
-    </div>
+  <button
+    id="btnCancel"
+    class="login-btn"
+    style="background:#e5e7eb;color:#111;"
+    onclick="closeForgotPasswordModal()"
+  >
+    Cancelar
+  </button>
+</div>
+
+<!-- BOTON OK (inicio oculto) -->
+<button
+  id="btnOk"
+  class="login-btn"
+  style="display:none; margin-top:14px; background:#16a34a;"
+  onclick="closeForgotPasswordModal()"
+>
+  OK
+</button>
+
   </div>
 </div>
 
