@@ -1,19 +1,31 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  function qs(){
+  function qs() {
     const p = new URLSearchParams(location.search);
-    return { clubId: p.get('clubId'), t: p.get('t') };
+    return {
+      clubId: p.get('clubId'),
+      t: p.get('t')
+    };
   }
 
-  function onlyDigits(v){
-    return String(v ?? '').replace(/\D+/g,'');
+  function onlyDigits(v) {
+    return String(v ?? '').replace(/\D+/g, '');
   }
 
-  async function loadOptions(){
+  async function loadOptions() {
     const { clubId, t } = qs();
-    const res = await fetch(`/public/club/${clubId}/apply/options?t=${encodeURIComponent(t)}`);
-    const data = await res.json().catch(() => ({ ok:false }));
+
+    if (!clubId || !t) {
+      throw new Error('QR inválido o incompleto.');
+    }
+
+    const res = await fetch(
+      `/public/club/${clubId}/apply/options?t=${encodeURIComponent(t)}`
+    );
+
+    const data = await res.json().catch(() => ({ ok: false }));
+
     if (!res.ok || !data.ok) {
       throw new Error(data.error || 'No autorizado');
     }
@@ -21,48 +33,55 @@
     const act = $('actividad');
     const cat = $('categoria');
 
+    if (!act || !cat) {
+      throw new Error('No se encontraron los selects de actividad/categoría');
+    }
+
     act.innerHTML =
       '<option value="">Seleccionar...</option>' +
-      data.actividades.map(x => `<option>${x}</option>`).join('');
+      (data.actividades || []).map(x => `<option>${x}</option>`).join('');
 
     cat.innerHTML =
       '<option value="">Seleccionar...</option>' +
-      data.categorias.map(x => `<option>${x}</option>`).join('');
+      (data.categorias || []).map(x => `<option>${x}</option>`).join('');
   }
 
-  function showMsg(text, ok){
+  function showMsg(text, ok) {
     const box = $('msg');
+    if (!box) return;
     box.className = ok ? 'ok' : 'err';
     box.textContent = text;
   }
 
-  function readFileAsBase64(file){
+  function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
       const r = new FileReader();
+
       r.onload = () => {
         const dataUrl = String(r.result || '');
         const i = dataUrl.indexOf(',');
+
         if (i < 0) {
           return reject(new Error('No se pudo leer la imagen'));
         }
+
         resolve({
           base64: dataUrl.slice(i + 1),
           mimetype: file.type || 'image/jpeg'
         });
       };
+
       r.onerror = () => reject(new Error('Error leyendo archivo'));
       r.readAsDataURL(file);
     });
   }
 
-  
-  async function submit(){
+  async function submit() {
     const { clubId, t } = qs();
+
     if (!clubId || !t) {
       return showMsg('QR inválido (faltan parámetros).', false);
     }
-
-    const modo = 'alta';
 
     const payload = {
       tipo: 'alta',
@@ -77,46 +96,47 @@
     };
 
     // ================= VALIDACIONES =================
-         if (
-        !payload.nombre ||
-        !payload.apellido ||
-        !payload.dni ||
-        !payload.actividad ||
-        !payload.categoria ||
-        !payload.fecha_nacimiento
-      ){
-        return showMsg(
-          'Completá Nombre, Apellido, DNI, Actividad, Categoría y Fecha de nacimiento.',
-          false
-        );
-      }
+    if (
+      !payload.nombre ||
+      !payload.apellido ||
+      !payload.dni ||
+      !payload.actividad ||
+      !payload.categoria ||
+      !payload.fecha_nacimiento
+    ) {
+      return showMsg(
+        'Completá Nombre, Apellido, DNI, Actividad, Categoría y Fecha de nacimiento.',
+        false
+      );
     }
 
     // ================= FOTO =================
     const file = $('foto')?.files && $('foto').files[0];
-    if (file){
+
+    if (file) {
       const img = await readFileAsBase64(file);
       payload.foto_base64 = img.base64;
       payload.foto_mimetype = img.mimetype;
     }
 
-    const res = await fetch(`/public/club/${clubId}/apply?t=${encodeURIComponent(t)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    const res = await fetch(
+      `/public/club/${clubId}/apply?t=${encodeURIComponent(t)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }
+    );
 
     const data = await res.json().catch(() => ({
-      ok:false,
-      error:'Respuesta inválida'
+      ok: false,
+      error: 'Respuesta inválida'
     }));
 
-    if (!res.ok || !data.ok){
+    if (!res.ok || !data.ok) {
       return showMsg(data.error || 'Error enviando postulación', false);
     }
 
-    // ✅ OK → redirigir
-    console.log('REDIRECT OK -> postulacion-enviada.html');
     window.location.replace('/postulacion-enviada.html');
   }
 
@@ -124,6 +144,7 @@
   $('foto')?.addEventListener('change', () => {
     const file = $('foto').files && $('foto').files[0];
     if (!file) return;
+
     $('preview').style.display = 'flex';
     $('previewImg').src = URL.createObjectURL(file);
     $('previewMeta').textContent =
@@ -131,13 +152,10 @@
   });
 
   // ================= EVENTS =================
-  
   $('enviar')?.addEventListener('click', () =>
     submit().catch(e => showMsg(e.message, false))
   );
 
   // ================= INIT =================
-  
- 
-
+  loadOptions().catch(e => showMsg(e.message, false));
 })();
