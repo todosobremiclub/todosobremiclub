@@ -55,24 +55,17 @@
     });
   }
 
-  function syncModoUI(){
-    const modo = ($('modo')?.value || 'alta').trim();
-    const formAlta = $('formAlta');
-    if (formAlta) {
-      formAlta.style.display = (modo === 'foto') ? 'none' : 'block';
-    }
-  }
-
+  
   async function submit(){
     const { clubId, t } = qs();
     if (!clubId || !t) {
       return showMsg('QR inválido (faltan parámetros).', false);
     }
 
-    const modo = ($('modo')?.value || 'alta').trim();
+    const modo = 'alta';
 
     const payload = {
-      tipo: (modo === 'foto' ? 'foto' : 'alta'),
+      tipo: 'alta',
       nombre: $('nombre')?.value?.trim() || '',
       apellido: $('apellido')?.value?.trim() || '',
       dni: onlyDigits($('dni')?.value),
@@ -84,16 +77,7 @@
     };
 
     // ================= VALIDACIONES =================
-    if (modo === 'foto') {
-      if (!payload.dni) {
-        return showMsg('Ingresá tu DNI.', false);
-      }
-      const file = $('foto')?.files && $('foto').files[0];
-      if (!file) {
-        return showMsg('Adjuntá una foto para actualizar.', false);
-      }
-    } else {
-      if (
+         if (
         !payload.nombre ||
         !payload.apellido ||
         !payload.dni ||
@@ -147,14 +131,13 @@
   });
 
   // ================= EVENTS =================
-  $('modo')?.addEventListener('change', syncModoUI);
-
+  
   $('enviar')?.addEventListener('click', () =>
     submit().catch(e => showMsg(e.message, false))
   );
 
   // ================= INIT =================
-  syncModoUI();
-  loadOptions().catch(e => showMsg(e.message, false));
+  
+ 
 
 })();
