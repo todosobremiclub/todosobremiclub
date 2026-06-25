@@ -43,30 +43,41 @@ function closeForgotPasswordModal() {
 async function sendResetEmail() {
   const email = document.getElementById('forgotEmail').value.trim();
   const msg = document.getElementById('forgotMsg');
+  const btn = document.querySelector('#forgotModal .login-btn');
 
   msg.style.display = 'none';
 
   if (!email) {
     msg.style.display = 'block';
+    msg.style.color = '#dc2626';
     msg.textContent = 'Ingresá un email válido';
     return;
   }
 
   try {
-    const res = await fetch('/auth/password-reset/request', {
+    await fetch('/auth/password-reset/request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     });
 
+    // ✅ mensaje OK
     msg.style.display = 'block';
     msg.style.color = '#166534';
-    msg.textContent =
-      'Si el email existe, se enviaron instrucciones.';
+    msg.textContent = 'Si el email existe, se enviaron instrucciones.';
+
+    // ✅ desactivar botón y borrar botón cancelar
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Enviado ✅';
+    }
+
+    const cancelBtn = document.querySelector('#forgotModal button:nth-child(2)');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+
   } catch (e) {
     msg.style.display = 'block';
     msg.style.color = '#dc2626';
     msg.textContent = 'Error enviando el mail';
   }
 }
-
