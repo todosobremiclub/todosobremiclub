@@ -31,3 +31,42 @@ async function login() {
   }
 }
 
+function openForgotPasswordModal() {
+  document.getElementById('forgotModal').classList.remove('hidden');
+  document.getElementById('forgotMsg').style.display = 'none';
+}
+
+function closeForgotPasswordModal() {
+  document.getElementById('forgotModal').classList.add('hidden');
+}
+
+async function sendResetEmail() {
+  const email = document.getElementById('forgotEmail').value.trim();
+  const msg = document.getElementById('forgotMsg');
+
+  msg.style.display = 'none';
+
+  if (!email) {
+    msg.style.display = 'block';
+    msg.textContent = 'Ingresá un email válido';
+    return;
+  }
+
+  try {
+    const res = await fetch('/auth/password-reset/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+
+    msg.style.display = 'block';
+    msg.style.color = '#166534';
+    msg.textContent =
+      'Si el email existe, se enviaron instrucciones.';
+  } catch (e) {
+    msg.style.display = 'block';
+    msg.style.color = '#dc2626';
+    msg.textContent = 'Error enviando el mail';
+  }
+}
+

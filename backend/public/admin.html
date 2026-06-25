@@ -154,6 +154,27 @@
   border-radius:18px;
 }
 
+.modal.hidden { display:none; }
+
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+}
+
+.modal-content{
+  background:#fff;
+  padding:20px;
+  border-radius:16px;
+  width:100%;
+  max-width:420px;
+}
+
+
   </style>
 </head>
 
@@ -183,6 +204,15 @@
     <button class="login-btn" id="loginBtn" onclick="doLogin()">
       Ingresar
     </button>
+
+<button
+  type="button"
+  class="login-btn"
+  style="margin-top:10px;background:#fff;color:#2563eb;border:1px solid #2563eb;"
+  onclick="openForgotPasswordModal()"
+>
+  Cambiar o recuperar contraseña
+</button>
 
     <div class="error" id="loginError">
       Usuario o contraseña incorrectos
@@ -223,6 +253,38 @@
       }
     });
   </script>
+
+<div id="forgotModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Recuperar contraseña</h3>
+
+    <p style="font-size:14px;color:#64748b;">
+      Ingresá tu email y recibirás un correo para cambiar la contraseña.
+    </p>
+
+    <div class="field">
+      <label>Email</label>
+      <input id="forgotEmail" type="email"/>
+    </div>
+
+    <div id="forgotMsg" class="error" style="display:none;"></div>
+
+    <div style="display:flex; gap:10px; margin-top:14px;">
+      <button class="login-btn" onclick="sendResetEmail()">
+        Enviar
+      </button>
+
+      <button
+        class="login-btn"
+        style="background:#e5e7eb;color:#111;"
+        onclick="closeForgotPasswordModal()"
+      >
+        Cancelar
+      </button>
+    </div>
+  </div>
+</div>
+
 
 </body>
 </html>
