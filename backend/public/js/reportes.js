@@ -2548,32 +2548,39 @@ bindIGDiaToggle();
   bindIGDiaClicks();
 
   // =============================
-  // BLOQUE FINAL – ESPERADO VS RECAUDADO
-  // =============================
-  const btnEVRPrev = $('btnEVRMesPrev');
-  const btnEVRNext = $('btnEVRMesNext');
+// BLOQUE FINAL – ESPERADO VS RECAUDADO
+// =============================
+const btnEVRPrev = $('btnEVRMesPrev');
+const btnEVRNext = $('btnEVRMesNext');
 
-  if (btnEVRPrev) {
-    btnEVRPrev.addEventListener('click', async () => {
-      if (evrState.mes === 1) {
-        evrState.mes = 12;
-        evrState.anio -= 1;
-      } else {
-        evrState.mes -= 1;
-      }
-      await loadEsperadoVsRecaudado();
-    });
-  }
+if (btnEVRPrev) {
+  btnEVRPrev.addEventListener('click', async () => {
+    if (evrState.mes === 1) {
+      evrState.mes = 12;
+      evrState.anio -= 1;
+    } else {
+      evrState.mes -= 1;
+    }
+    await loadEsperadoVsRecaudado();
+  });
+}
 
-  if (btnEVRNext) {
-    btnEVRNext.addEventListener('click', async () => {
-      if (evrState.mes === 12) {
-        evrState.mes = 1;
-        evrState.anio += 1;
-      } else {
-        evrState.mes += 1;
-      }
-      await loadEsperadoVsRecaudado();
+if (btnEVRNext) {
+  btnEVRNext.addEventListener('click', async () => {
+    if (evrState.mes === 12) {
+      evrState.mes = 1;
+      evrState.anio += 1;
+    } else {
+      evrState.mes += 1;
+    }
+    await loadEsperadoVsRecaudado();
+  });
+}
+
+// ✅ ESTA LÍNEA TE FALTA
+bindEVRToggle();
+
+await loadEsperadoVsRecaudado();
     });
   }
 
