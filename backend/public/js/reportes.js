@@ -2577,14 +2577,12 @@ if (btnEVRNext) {
   });
 }
 
-// ✅ ESTA LÍNEA TE FALTA
+// ✅ activar el toggle (la flecha)
 bindEVRToggle();
 
+// ✅ cargar resumen inicial
 await loadEsperadoVsRecaudado();
-    });
-  }
 
-  await loadEsperadoVsRecaudado();
 }
 
 window.initReportesSection = initReportesSection;
