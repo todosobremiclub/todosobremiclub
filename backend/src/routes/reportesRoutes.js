@@ -3796,18 +3796,6 @@ router.get(
 
     try {
       const qEsperado = `
-const qRecaudado = `
-SELECT
-  COALESCE(TRIM(s.actividad),'Sin actividad') AS actividad,
-  SUM(pm.monto) AS recaudado
-FROM pagos_mensuales pm
-JOIN socios s ON s.id = pm.socio_id
-WHERE pm.club_id = $1
-  AND pm.anio = $2
-  AND pm.mes = $3
-GROUP BY actividad
-`;
-
 SELECT
   COALESCE(TRIM(s.actividad),'Sin actividad') AS actividad,
   SUM(
@@ -3864,31 +3852,42 @@ WHERE s.club_id = $1
 GROUP BY actividad
 `;
 
+const qRecaudado = `
+SELECT
+  COALESCE(TRIM(s.actividad),'Sin actividad') AS actividad,
+  SUM(pm.monto) AS recaudado
+FROM pagos_mensuales pm
+JOIN socios s ON s.id = pm.socio_id
+WHERE pm.club_id = $1
+  AND pm.anio = $2
+  AND pm.mes = $3
+GROUP BY actividad
+`;
 
-      const [rEsp, rRec] = await Promise.all([
-        db.query(qEsperado, [clubId, anio, mes]),
-        db.query(qRecaudado, [clubId, anio, mes])
-      ]);
+const [rEsp, rRec] = await Promise.all([
+  db.query(qEsperado, [clubId, anio, mes]),
+  db.query(qRecaudado, [clubId, anio, mes])
+]);
 
-      const map = new Map();
+const map = new Map();
 
-      rEsp.rows.forEach(r => {
-        map.set(r.actividad, {
-          actividad: r.actividad,
-          esperado: Number(r.esperado || 0),
-          recaudado: 0
-        });
-      });
+rEsp.rows.forEach(r => {
+  map.set(r.actividad, {
+    actividad: r.actividad,
+    esperado: Number(r.esperado || 0),
+    recaudado: 0
+  });
+});
 
-      rRec.rows.forEach(r => {
-        const a = r.actividad || 'Sin actividad';
-        if (!map.has(a)) {
-          map.set(a, { actividad: a, esperado: 0, recaudado: 0 });
-        }
-        map.get(a).recaudado = Number(r.recaudado || 0);
-      });
+rRec.rows.forEach(r => {
+  const a = r.actividad || 'Sin actividad';
+  if (!map.has(a)) {
+    map.set(a, { actividad: a, esperado: 0, recaudado: 0 });
+  }
+  map.get(a).recaudado = Number(r.recaudado || 0);
+});
 
-      const rows = Array.from(map.values())
+const rows = Array.from(map.values())
   .sort((a, b) => b.esperado - a.esperado);
 
 return res.json({
