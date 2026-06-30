@@ -3448,7 +3448,7 @@ router.get(
     const anio = Number(req.query.anio);
     const mes = Number(req.query.mes);
 
-    if (!anio || !mes) {
+    if (Number.isNaN(anio) || Number.isNaN(mes) || mes < 1 || mes > 12) {
       return res.status(400).json({
         ok: false,
         error: 'anio y mes son obligatorios'
@@ -3776,6 +3776,129 @@ router.get(
     } catch (e) {
       console.error('❌ esperado-vs-recaudado:', e);
       return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+router.get(
+  '/:clubId/reportes/esperado-vs-recaudado/detalle',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+
+    const { clubId } = req.params;
+    const anio = Number(req.query.anio);
+    const mes = Number(req.query.mes);
+
+    if (!anio || !mes) {
+      return res.status(400).json({ ok: false, error: 'anio y mes son obligatorios' });
+    }
+
+    try {
+      const qEsperado = `
+const qRecaudado = `
+SELECT
+  COALESCE(TRIM(s.actividad),'Sin actividad') AS actividad,
+  SUM(pm.monto) AS recaudado
+FROM pagos_mensuales pm
+JOIN socios s ON s.id = pm.socio_id
+WHERE pm.club_id = $1
+  AND pm.anio = $2
+  AND pm.mes = $3
+GROUP BY actividad
+`;
+
+SELECT
+  COALESCE(TRIM(s.actividad),'Sin actividad') AS actividad,
+  SUM(
+    CASE
+      WHEN s.becado THEN 0
+
+      -- miembro grupo familiar: NO paga
+      WHEN EXISTS (
+        SELECT 1
+        FROM grupos_familiares gf
+        JOIN grupos_familiares_miembros gfm
+          ON gfm.grupo_familiar_id = gf.id
+        WHERE gfm.socio_id = s.id
+          AND gf.activo = true
+      ) THEN 0
+
+      -- excepción manda
+      WHEN ec.monto IS NOT NULL THEN ec.monto
+
+      -- jefe grupo familiar
+      WHEN EXISTS (
+        SELECT 1
+        FROM grupos_familiares gf
+        WHERE gf.jefe_socio_id = s.id
+          AND gf.activo = true
+      ) THEN COALESCE(agf.precio_mensual,0)
+
+      -- normal
+      ELSE COALESCE(a.precio_mensual,0)
+    END
+  ) AS esperado
+FROM socios s
+LEFT JOIN excepciones_cuota ec
+  ON ec.id = s.excepcion_cuota_id
+  AND ec.activo = true
+LEFT JOIN actividades a
+  ON a.nombre = s.actividad
+  AND a.club_id = s.club_id
+  AND a.activo = true
+LEFT JOIN actividades agf
+  ON agf.nombre = 'Grupo Familiar'
+  AND agf.club_id = s.club_id
+  AND agf.activo = true
+WHERE s.club_id = $1
+  AND s.activo = true
+  AND (
+    s.fecha_ingreso IS NULL
+    OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+    OR (
+      EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+      AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+    )
+  )
+GROUP BY actividad
+`;
+
+
+      const [rEsp, rRec] = await Promise.all([
+        db.query(qEsperado, [clubId, anio, mes]),
+        db.query(qRecaudado, [clubId, anio, mes])
+      ]);
+
+      const map = new Map();
+
+      rEsp.rows.forEach(r => {
+        map.set(r.actividad, {
+          actividad: r.actividad,
+          esperado: Number(r.esperado || 0),
+          recaudado: 0
+        });
+      });
+
+      rRec.rows.forEach(r => {
+        const a = r.actividad || 'Sin actividad';
+        if (!map.has(a)) {
+          map.set(a, { actividad: a, esperado: 0, recaudado: 0 });
+        }
+        map.get(a).recaudado = Number(r.recaudado || 0);
+      });
+
+      const rows = Array.from(map.values())
+  .sort((a, b) => b.esperado - a.esperado);
+
+return res.json({
+  ok: true,
+  rows
+});
+
+    } catch (e) {
+      console.error('❌ EVR detalle', e);
+      res.status(500).json({ ok:false, error:e.message });
     }
   }
 );

@@ -291,7 +291,14 @@
 
   <!-- BLOQUE – ESPERADO VS RECAUDADO -->
   <div class="detail-card report-finanzas" id="card-esperado-final" style="grid-column: 1 / -1;">
-    <h3 class="detail-title">Esperado vs Recaudado</h3>
+    <h3
+  class="detail-title" 
+  id="toggleEVR" 
+  style="display:flex; align-items:center; gap:8px; cursor:pointer;"
+>
+  <span id="evrArrow">▶</span>
+  Esperado vs Recaudado
+</h3>
 
     <div class="ranking-toolbar" style="margin-bottom:12px;">
       <button id="btnEVRMesPrev" class="btn-nav-sm">◀</button>
@@ -314,6 +321,14 @@
         <span class="ig-label">Diferencia</span>
         <span id="evrDiferencia" class="ig-value">–</span>
       </div>
+
+<div id="evrContainer" style="display:none;">
+  <div id="evrDetalle" class="detail-body">
+    <div class="muted small">Cargando detalle…</div>
+  </div>
+</div>
+
+
     </div>
   </div>
 

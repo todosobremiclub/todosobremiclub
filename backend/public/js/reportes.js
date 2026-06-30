@@ -2028,6 +2028,71 @@ async function loadEsperadoVsRecaudado() {
   }
 }
 
+async function loadEVRDetalle() {
+  const body = $('evrDetalle');
+  if (!body) return;
+
+  showLoading(body, 'Cargando detalle por actividad...');
+
+  try {
+    const clubId = getActiveClubId();
+    const { anio, mes } = evrState;
+
+    const { data } = await fetchAuth(
+      `/club/${clubId}/reportes/esperado-vs-recaudado/detalle?anio=${anio}&mes=${mes}`
+    );
+
+    if (!data.ok) {
+      showError(body, data.error || 'Error cargando detalle');
+      return;
+    }
+
+    if (!data.rows || !data.rows.length) {
+      body.innerHTML = `<div class="muted small">Sin datos.</div>`;
+      return;
+    }
+
+    const html = `
+      <div class="small-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Actividad</th>
+              <th style="text-align:right;">Esperado</th>
+              <th style="text-align:right;">Recaudado</th>
+              <th style="text-align:right;">Diferencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.rows.map(r => {
+              const diff = r.recaudado - r.esperado;
+              const color = diff < 0 ? '#b91c1c' : '#16a34a';
+
+              return `
+                <tr>
+                  <td>${r.actividad}</td>
+                  <td style="text-align:right;">${moneyARS.format(r.esperado)}</td>
+                  <td style="text-align:right;">${moneyARS.format(r.recaudado)}</td>
+                  <td style="text-align:right; font-weight:600; color:${color};">
+                    ${moneyARS.format(diff)}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    body.innerHTML = html;
+
+  } catch (e) {
+    console.error(e);
+    showError(body, 'Error inesperado');
+  }
+}
+``
+
 async function loadIngresosGastosDia() {
   const body = $('igDiaBody');
   const label = $('igDiaMesLabel');
@@ -2189,6 +2254,35 @@ function bindIGDiaToggle() {
     if (open) {
       container.style.display = '';
       arrow.textContent = '▼';
+    } else {
+      container.style.display = 'none';
+      arrow.textContent = '▶';
+    }
+  });
+}
+
+function bindEVRToggle() {
+  const header = $('toggleEVR');
+  const container = $('evrContainer');
+  const arrow = $('evrArrow');
+
+  if (!header || !container || !arrow) return;
+  if (header.dataset.bound === '1') return;
+
+  header.dataset.bound = '1';
+
+  let open = false;
+
+  container.style.display = 'none';
+  arrow.textContent = '▶';
+
+  header.addEventListener('click', async () => {
+    open = !open;
+
+    if (open) {
+      container.style.display = '';
+      arrow.textContent = '▼';
+      await loadEVRDetalle();
     } else {
       container.style.display = 'none';
       arrow.textContent = '▶';
