@@ -221,6 +221,11 @@
       color:#991b1b;
     }
 
+.status-baja{
+  background:#ffffff;
+  color:#9ca3af;
+  border:1px solid #e5e7eb;
+}
     /* =========================
        MODAL CLUB
     ========================= */
@@ -273,13 +278,16 @@
           style="max-width:320px;"
         >
 
-        <select id="clubStatusFilter" style="max-width:220px;">
-          <option value="">Todos los estados</option>
-          <option value="productivo">Productivo</option>
-          <option value="pendiente">Pendiente</option>
-          <option value="avanzado">Avanzado</option>
-          <option value="sin_respuesta">Sin respuesta</option>
-        </select>
+        
+<select id="clubStatusFilter" style="max-width:220px;">
+  <option value="">Todos los estados</option>
+  <option value="productivo">Productivo</option>
+  <option value="pendiente">Pendiente</option>
+  <option value="avanzado">Avanzado</option>
+  <option value="sin_respuesta">Sin respuesta</option>
+  <option value="baja">Bajo</option>
+</select>
+
       </div>
 
       <!-- FORM CLUB -->
@@ -374,11 +382,12 @@
                   <div>
                     <label>Estado</label>
                     <select id="club_estado">
-                      <option value="productivo">Productivo</option>
-                      <option value="avanzado">Avanzado</option>
-                      <option value="pendiente" selected>Pendiente</option>
-                      <option value="sin_respuesta">Sin respuesta</option>
-                    </select>
+  <option value="productivo">Productivo</option>
+  <option value="avanzado">Avanzado</option>
+  <option value="pendiente" selected>Pendiente</option>
+  <option value="sin_respuesta">Sin respuesta</option>
+  <option value="bajo">Baja</option>
+</select>
                   </div>
 
                   <div></div>
