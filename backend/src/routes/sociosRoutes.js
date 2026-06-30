@@ -1381,10 +1381,19 @@ router.post(
 );
 
 // ===============================
-// EXPORT CSV
+// EXPORT EXCEL (.xlsx)
 // ===============================
-router.get('/:clubId/socios/export.csv', requireAuth, requireClubAccess, async (req, res) => {
+router.get('/:clubId/socios/export.xlsx', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
+
+  function fmtDateDDMMYYYY(value) {
+    if (!value) return '';
+    const s = String(value).slice(0, 10); // YYYY-MM-DD
+    const [y, m, d] = s.split('-');
+    if (!y || !m || !d) return '';
+    return `${d}/${m}/${y}`;
+  }
+
   try {
     const r = await db.query(
       `
@@ -1396,9 +1405,9 @@ router.get('/:clubId/socios/export.csv', requireAuth, requireClubAccess, async (
         categoria,
         actividad,
         telefono,
-direccion,
-email,
-fecha_nacimiento,
+        direccion,
+        email,
+        fecha_nacimiento,
         fecha_ingreso,
         activo,
         becado,
@@ -1410,39 +1419,63 @@ fecha_nacimiento,
       [clubId]
     );
 
-    const header = [
-      'numero_socio',
-      'dni',
-      'nombre',
-      'apellido',
-      'categoria',
-      'actividad',
-      'telefono',
-      'direccion',
-      'fecha_nacimiento',
-      'fecha_ingreso',
-      'activo',
-      'becado',
-      'foto_url'
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Todo Sobre mi Club';
+
+    const ws = wb.addWorksheet('Socios');
+
+    ws.columns = [
+      { header: 'N° socio', key: 'numero_socio', width: 12 },
+      { header: 'DNI', key: 'dni', width: 14 },
+      { header: 'Nombre', key: 'nombre', width: 18 },
+      { header: 'Apellido', key: 'apellido', width: 18 },
+      { header: 'Categoría', key: 'categoria', width: 18 },
+      { header: 'Actividad', key: 'actividad', width: 22 },
+      { header: 'Teléfono', key: 'telefono', width: 16 },
+      { header: 'Dirección', key: 'direccion', width: 28 },
+      { header: 'Email', key: 'email', width: 28 },
+      { header: 'Fecha nacimiento', key: 'fecha_nacimiento', width: 16 },
+      { header: 'Fecha ingreso', key: 'fecha_ingreso', width: 16 },
+      { header: 'Activo', key: 'activo', width: 10 },
+      { header: 'Becado', key: 'becado', width: 10 },
+      { header: 'Foto URL', key: 'foto_url', width: 45 }
     ];
 
-    const lines = [header.join(',')].concat(
-      r.rows.map(row =>
-        header
-          .map(h => {
-            const v = row[h];
-            const s = v == null ? '' : String(v);
-            return `"${s.replace(/"/g, '""')}"`;
-          })
-          .join(',')
-      )
+    ws.getRow(1).font = { bold: true };
+    ws.autoFilter = { from: 'A1', to: 'N1' };
+
+    for (const row of r.rows) {
+      ws.addRow({
+        numero_socio: row.numero_socio ?? '',
+        dni: row.dni ?? '',
+        nombre: row.nombre ?? '',
+        apellido: row.apellido ?? '',
+        categoria: row.categoria ?? '',
+        actividad: row.actividad ?? '',
+        telefono: row.telefono ?? '',
+        direccion: row.direccion ?? '',
+        email: row.email ?? '',
+        fecha_nacimiento: fmtDateDDMMYYYY(row.fecha_nacimiento),
+        fecha_ingreso: fmtDateDDMMYYYY(row.fecha_ingreso),
+        activo: row.activo ? 'Sí' : 'No',
+        becado: row.becado ? 'Sí' : 'No',
+        foto_url: row.foto_url ?? ''
+      });
+    }
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="socios_${clubId}.xlsx"`
     );
 
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="socios.csv"');
-    res.send(lines.join('\n'));
+    await wb.xlsx.write(res);
+    res.end();
   } catch (e) {
-    console.error('❌ export socios', e);
+    console.error('❌ export socios xlsx', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });

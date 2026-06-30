@@ -1719,6 +1719,7 @@ const pageRows = ordered;             // ✅ ya viene paginado desde el backend
               : ''
           }
         </td>
+        <td>${escapeHtml(s.email ?? '')}</td>
         <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
         <td>${fmtDMY(s.fecha_ingreso)}</td>
         <td>${s.activo ? 'Sí' : 'No'}</td>
@@ -1975,9 +1976,9 @@ if (payload.es_menor && !payload.tutor_nombre) {
     const clubId = getActiveClubId();
 
     try {
-      const res = await fetch(`/club/${clubId}/socios/export.csv`, {
-        headers: { Authorization: 'Bearer ' + getToken() }
-      });
+      const res = await fetch(`/club/${clubId}/socios/export.xlsx`, {
+  headers: { Authorization: 'Bearer ' + getToken() }
+});
 
       if (res.status === 401) {
         localStorage.removeItem('token');
@@ -1998,7 +1999,7 @@ if (payload.es_menor && !payload.tutor_nombre) {
 
       const a = document.createElement('a');
       a.href = url;
-      a.download = `socios_${clubId}.csv`;
+      a.download = `socios_${clubId}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
