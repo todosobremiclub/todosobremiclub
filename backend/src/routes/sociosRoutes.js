@@ -1386,13 +1386,19 @@ router.post(
 router.get('/:clubId/socios/export.xlsx', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
 
-  function fmtDateDDMMYYYY(value) {
-    if (!value) return '';
-    const s = String(value).slice(0, 10); // YYYY-MM-DD
-    const [y, m, d] = s.split('-');
-    if (!y || !m || !d) return '';
-    return `${d}/${m}/${y}`;
-  }
+ function fmtDateDDMMYYYY(value) {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return '';
+
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+
+  return `${d}/${m}/${y}`;
+}
+
 
   try {
     const r = await db.query(
@@ -1425,24 +1431,24 @@ router.get('/:clubId/socios/export.xlsx', requireAuth, requireClubAccess, async 
     const ws = wb.addWorksheet('Socios');
 
     ws.columns = [
-      { header: 'N° socio', key: 'numero_socio', width: 12 },
-      { header: 'DNI', key: 'dni', width: 14 },
-      { header: 'Nombre', key: 'nombre', width: 18 },
-      { header: 'Apellido', key: 'apellido', width: 18 },
-      { header: 'Categoría', key: 'categoria', width: 18 },
-      { header: 'Actividad', key: 'actividad', width: 22 },
-      { header: 'Teléfono', key: 'telefono', width: 16 },
-      { header: 'Dirección', key: 'direccion', width: 28 },
-      { header: 'Email', key: 'email', width: 28 },
-      { header: 'Fecha nacimiento', key: 'fecha_nacimiento', width: 16 },
-      { header: 'Fecha ingreso', key: 'fecha_ingreso', width: 16 },
-      { header: 'Activo', key: 'activo', width: 10 },
-      { header: 'Becado', key: 'becado', width: 10 },
-      { header: 'Foto URL', key: 'foto_url', width: 45 }
-    ];
+  { header: 'N° socio', key: 'numero_socio', width: 12 },
+  { header: 'DNI', key: 'dni', width: 14 },
+  { header: 'Nombre', key: 'nombre', width: 18 },
+  { header: 'Apellido', key: 'apellido', width: 18 },
+  { header: 'Categoría', key: 'categoria', width: 18 },
+  { header: 'Actividad', key: 'actividad', width: 22 },
+  { header: 'Teléfono', key: 'telefono', width: 16 },
+  { header: 'Dirección', key: 'direccion', width: 28 },
+  { header: 'Email', key: 'email', width: 28 },
+  { header: 'Fecha nacimiento', key: 'fecha_nacimiento', width: 16 },
+  { header: 'Fecha ingreso', key: 'fecha_ingreso', width: 16 },
+  { header: 'Activo', key: 'activo', width: 10 },
+  { header: 'Becado', key: 'becado', width: 10 }
+];
+
 
     ws.getRow(1).font = { bold: true };
-    ws.autoFilter = { from: 'A1', to: 'N1' };
+    ws.autoFilter = { from: 'A1', to: 'M1' };
 
     for (const row of r.rows) {
       ws.addRow({
@@ -1458,8 +1464,8 @@ router.get('/:clubId/socios/export.xlsx', requireAuth, requireClubAccess, async 
         fecha_nacimiento: fmtDateDDMMYYYY(row.fecha_nacimiento),
         fecha_ingreso: fmtDateDDMMYYYY(row.fecha_ingreso),
         activo: row.activo ? 'Sí' : 'No',
-        becado: row.becado ? 'Sí' : 'No',
-        foto_url: row.foto_url ?? ''
+        becado: row.becado ? 'Sí' : 'No'
+        
       });
     }
 
