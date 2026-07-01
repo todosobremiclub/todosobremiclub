@@ -49,11 +49,38 @@ router.get('/club/:clubId/apply/options', async (req, res) => {
       db.query(`SELECT nombre FROM categorias_deportivas WHERE club_id=$1 AND activo=true ORDER BY nombre ASC`, [clubId])
     ]);
 
+const rClub = await db.query(
+  `
+  SELECT
+    id,
+    name,
+    logo_url,
+    color_primary,
+    color_secondary,
+    color_accent
+  FROM clubs
+  WHERE id = $1
+  LIMIT 1
+  `,
+  [clubId]
+);
+
+const club = rClub.rowCount ? rClub.rows[0] : null;
+`
+
     return res.json({
-      ok: true,
-      actividades: (rActs.rows || []).map(x => x.nombre).filter(Boolean),
-      categorias: (rCats.rows || []).map(x => x.nombre).filter(Boolean),
-    });
+  ok: true,
+  club: club ? {
+    id: club.id,
+    name: club.name,
+    logo_url: club.logo_url,
+    color_primary: club.color_primary,
+    color_secondary: club.color_secondary,
+    color_accent: club.color_accent
+  } : null,
+  actividades: (rActs.rows || []).map(x => x.nombre).filter(Boolean),
+  categorias: (rCats.rows || []).map(x => x.nombre).filter(Boolean),
+});
   } catch (e) {
     console.error('❌ options apply', e);
     return res.status(500).json({ ok: false, error: e.message });
@@ -72,11 +99,11 @@ router.post('/club/:clubId/apply', async (req, res) => {
     if (!ok) return res.status(403).json({ ok: false, error: 'Token inválido' });
 
     const {
-      nombre, apellido, dni, actividad, categoria,
-      telefono, direccion, fecha_nacimiento,
-      foto_base64, foto_mimetype,
-      tipo
-    } = req.body ?? {};
+  nombre, apellido, dni, actividad, categoria,
+  telefono, email, direccion, fecha_nacimiento,
+  foto_base64, foto_mimetype,
+  tipo
+} = req.body ?? {};
 
     // ✅ tipoFinal SIEMPRE al principio (evita "Cannot access before initialization")
     const tipoFinal =
@@ -102,6 +129,13 @@ router.post('/club/:clubId/apply', async (req, res) => {
         return res.status(400).json({ ok: false, error: 'Faltan campos obligatorios' });
       }
     }
+
+if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+  return res.status(400).json({
+    ok: false,
+    error: 'Mail inválido'
+  });
+}
 
     // =========================
     // Fecha nacimiento SOLO para alta
@@ -203,24 +237,25 @@ router.post('/club/:clubId/apply', async (req, res) => {
     const r = await db.query(
       `
       INSERT INTO socios_pendientes
-        (club_id, nombre, apellido, dni, actividad, categoria, telefono, direccion, fecha_nacimiento, foto_url, tipo, estado, created_at, updated_at)
-      VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pendiente', now(), now())
+  (club_id, nombre, apellido, dni, actividad, categoria, telefono, email, direccion, fecha_nacimiento, foto_url, tipo, estado, created_at, updated_at)
+VALUES
+  ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pendiente', now(), now())
       RETURNING id
       `,
       [
-        clubId,
-        nombreFinal,
-        apellidoFinal,
-        dniNorm,
-        actividadFinal,
-        categoriaFinal,
-        telefonoFinal,
-        direccionFinal,
-        fechaNacFinal,
-        foto_url,
-        tipoFinal
-      ]
+  clubId,
+  nombreFinal,
+  apellidoFinal,
+  dniNorm,
+  actividadFinal,
+  categoriaFinal,
+  telefonoFinal,
+  email ? norm(email) : null,
+  direccionFinal,
+  fechaNacFinal,
+  foto_url,
+  tipoFinal
+]
     );
 
     return res.json({ ok: true, id: r.rows[0].id });

@@ -3,110 +3,170 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Postulación</title>
+  <title>Bienvenido a tu club</title>
 
-  <style>
-    :root{
-      --color-primary:#2563eb;
-      --color-secondary:#1e40af;
-    }
+ <style>
+  :root{
+    --color-primary:#2563eb;
+    --color-secondary:#1e40af;
+    --color-accent:#f59e0b;
+    --color-bg:#f3f4f6;
+    --color-card:#ffffff;
+    --color-text:#0f172a;
+    --color-muted:#64748b;
+    --color-border:#e5e7eb;
+  }
 
-    body{
-      margin:0;
-      font-family:system-ui, Segoe UI, Arial;
-      background:#f3f4f6;
-      padding:16px;
-    }
+  *{ box-sizing:border-box; }
 
-    .card{
-      max-width:720px;
-      margin:0 auto;
-      background:#fff;
-      border-radius:14px;
-      padding:16px;
-      border:1px solid #e5e7eb;
-    }
+  body{
+    margin:0;
+    font-family:system-ui, Segoe UI, Arial, sans-serif;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 10%, #ffffff), #f8fafc 45%, #eef2f7 100%);
+    color:var(--color-text);
+    padding:16px;
+  }
 
-    h2{
-      margin:0 0 12px 0;
-    }
+  .card{
+    max-width:760px;
+    margin:0 auto;
+    background:var(--color-card);
+    border-radius:18px;
+    padding:22px;
+    border:1px solid var(--color-border);
+    box-shadow:0 18px 40px rgba(15,23,42,.10);
+  }
 
-    label{
-      font-size:13px;
-      font-weight:700;
-      display:block;
-      margin-top:10px;
-    }
+  .club-header{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:10px;
+    padding-bottom:14px;
+    border-bottom:1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+  }
 
-    input, select{
-      width:100%;
-      padding:10px;
-      border-radius:10px;
-      border:1px solid #cbd5e1;
-      font-size:14px;
-    }
+  .club-logo{
+    width:72px;
+    height:72px;
+    border-radius:16px;
+    object-fit:contain;
+    border:1px solid color-mix(in srgb, var(--color-primary) 26%, #d1d5db);
+    background:#fff;
+    padding:6px;
+    display:none;
+  }
 
-    .row{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
-    }
+  .club-title-wrap{
+    min-width:0;
+  }
 
-    @media(max-width:700px){
-      .row{ grid-template-columns:1fr; }
-    }
+  h2{
+    margin:0;
+    font-size:28px;
+    line-height:1.1;
+    color:var(--color-primary);
+  }
 
-    .btn{
-      margin-top:14px;
-      width:100%;
-      padding:12px;
-      border:0;
-      border-radius:12px;
-      background:var(--color-primary);
-      color:#fff;
-      font-weight:800;
-      cursor:pointer;
-    }
+  .muted{
+    color:var(--color-muted);
+    font-size:13px;
+    margin-top:6px;
+  }
 
-    .muted{
-      color:#64748b;
-      font-size:12px;
-      margin-top:8px;
-    }
+  label{
+    font-size:13px;
+    font-weight:700;
+    display:block;
+    margin-top:12px;
+    color:var(--color-text);
+  }
 
-    .preview{
-      margin-top:10px;
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
+  input, select{
+    width:100%;
+    padding:11px 12px;
+    border-radius:12px;
+    border:1px solid #cbd5e1;
+    font-size:14px;
+    background:#fff;
+  }
 
-    .preview img{
-      width:64px;
-      height:64px;
-      border-radius:12px;
-      object-fit:cover;
-      border:2px solid var(--color-primary);
-    }
+  input:focus, select:focus{
+    outline:none;
+    border-color:var(--color-primary);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  }
 
-    .err{
-      color:#b91c1c;
-      font-weight:700;
-      margin-top:10px;
-    }
+  .row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
 
-    .ok{
-      color:#15803d;
-      font-weight:700;
-      margin-top:10px;
-    }
-  </style>
+  .btn{
+    margin-top:16px;
+    width:100%;
+    padding:13px;
+    border:0;
+    border-radius:14px;
+    background:linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+    color:#fff;
+    font-weight:800;
+    cursor:pointer;
+    box-shadow:0 10px 25px color-mix(in srgb, var(--color-primary) 22%, transparent);
+  }
+
+  .btn:hover{
+    filter:brightness(.98);
+  }
+
+  .preview{
+    margin-top:10px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+  }
+
+  .preview img{
+    width:64px;
+    height:64px;
+    border-radius:12px;
+    object-fit:cover;
+    border:2px solid var(--color-primary);
+  }
+
+  .err{
+    color:#b91c1c;
+    font-weight:700;
+    margin-top:10px;
+  }
+
+  .ok{
+    color:#15803d;
+    font-weight:700;
+    margin-top:10px;
+  }
+
+  @media(max-width:700px){
+    .row{ grid-template-columns:1fr; }
+    .club-header{ align-items:flex-start; }
+    h2{ font-size:24px; }
+  }
+</style>
+
 </head>
 
 <body>
   <div class="card">
-    <h2>Postulación al club</h2>
-    <div class="muted">Completá tus datos.</div>
+  <div class="club-header">
+    <img id="clubLogo" class="club-logo" alt="Logo del club"/>
+    <div class="club-title-wrap">
+      <h2 id="clubWelcomeTitle">Bienvenido a tu club</h2>
+      <div class="muted" id="clubSubtitle">Completá tus datos.</div>
+    </div>
+  </div>
+
 
    
     <!-- ================= FORM ALTA ================= -->
@@ -133,11 +193,16 @@
   </div>
 
   <div class="row">
-    <div>
-      <label>Teléfono</label>
-      <input id="telefono"/>
-    </div>
+  <div>
+    <label>Teléfono</label>
+    <input id="telefono" type="tel" autocomplete="tel"/>
   </div>
+
+  <div>
+    <label>Mail</label>
+    <input id="email" type="email" autocomplete="email" placeholder="ej: socio@correo.com"/>
+  </div>
+</div>
 
   <label>Actividad</label>
   <select id="actividad"></select>
@@ -169,6 +234,6 @@
 
   </div>
 
-  <script src="/js/postularse.js?v=2"></script>
+  <script src="/js/postularse.js?v=3"></script>
 </body>
 </html>

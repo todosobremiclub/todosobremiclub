@@ -183,10 +183,10 @@ const numero = candidate;
       rIns = await db.query(
         `INSERT INTO socios (
           club_id, numero_socio, dni, nombre, apellido,
-          telefono, direccion, fecha_nacimiento,
+          telefono, direccion, email, fecha_nacimiento,
           activo, becado, categoria, actividad
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,true,false,$9,$10
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,true,false,$10,$11
         )
         RETURNING id`,
         [
@@ -197,6 +197,7 @@ const numero = candidate;
           p.apellido,
           p.telefono ?? null,
           p.direccion ?? null,
+          p.email ?? null,
           p.fecha_nacimiento,
           p.categoria,
           p.actividad

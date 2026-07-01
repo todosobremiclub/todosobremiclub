@@ -13,6 +13,29 @@
     return String(v ?? '').replace(/\D+/g, '');
   }
 
+function applyClubBranding(club) {
+    if (!club) return;
+
+    const root = document.documentElement;
+
+    root.style.setProperty('--color-primary', club.color_primary || '#2563eb');
+    root.style.setProperty('--color-secondary', club.color_secondary || '#1e40af');
+    root.style.setProperty('--color-accent', club.color_accent || '#f59e0b');
+
+    const title = $('clubWelcomeTitle');
+    if (title) {
+      title.textContent = `Bienvenido a ${club.name || 'tu club'}`;
+    }
+
+    document.title = `Bienvenido a ${club.name || 'tu club'}`;
+
+    const logo = $('clubLogo');
+    if (logo && club.logo_url) {
+      logo.src = club.logo_url;
+      logo.style.display = 'block';
+    }
+  }
+
   async function loadOptions() {
     const { clubId, t } = qs();
 
@@ -29,6 +52,8 @@
     if (!res.ok || !data.ok) {
       throw new Error(data.error || 'No autorizado');
     }
+
+applyClubBranding(data.club || null);
 
     const act = $('actividad');
     const cat = $('categoria');
@@ -91,6 +116,7 @@
       actividad: $('actividad')?.value?.trim() || '',
       categoria: $('categoria')?.value?.trim() || '',
       telefono: $('telefono')?.value?.trim() || '',
+      email: $('email')?.value?.trim() || '',
       direccion: $('direccion')?.value?.trim() || '',
       fecha_nacimiento: $('fecha_nacimiento')?.value?.trim() || ''
     };
