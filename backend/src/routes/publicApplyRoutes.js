@@ -66,7 +66,6 @@ const rClub = await db.query(
 );
 
 const club = rClub.rowCount ? rClub.rows[0] : null;
-`
 
     return res.json({
   ok: true,
