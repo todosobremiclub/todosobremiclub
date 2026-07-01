@@ -1222,11 +1222,10 @@ $('detTableBody')?.addEventListener('click', async (ev) => {
   await loadResumen();
 
   // Ingresos (debajo)
-  await loadTiposIngreso().catch(() => {});   // no bloquear si aún no hay tipos
-  await loadIngresos().catch(() => {});
+await loadTiposIngreso().catch(() => {});   // no bloquear si aún no hay tipos
+await loadIngresos().catch(() => {});
 
-
-/ Si venimos desde doble click en el ícono de pago de Socios,
+// Si venimos desde doble click en el ícono de pago de Socios,
 // abrimos automáticamente el modal con ese socio seleccionado.
 const pendingSocioId = localStorage.getItem('pendingOpenPagoSocioId');
 
@@ -1234,13 +1233,13 @@ if (pendingSocioId) {
   localStorage.removeItem('pendingOpenPagoSocioId');
   await openPagoForSocioId(pendingSocioId);
 }
+}
 
+window.initPagosSection = initPagosSection;
 
-  window.initPagosSection = initPagosSection;
-
-  document.addEventListener('DOMContentLoaded', () => {
-    if (document.querySelector('.section-pagos')) {
-      initPagosSection();
-    }
-  });
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.section-pagos')) {
+    initPagosSection();
+  }
+});
 })();
