@@ -41,23 +41,33 @@
   // Estado del club (UI badges)
   // =============================
   function normalizeEstado(v) {
-    const s = String(v ?? '').trim().toLowerCase();
-    if (!s) return 'pendiente';
-    if (s === 'sin respuesta') return 'sin_respuesta';
-    if (['productivo', 'avanzado', 'pendiente', 'sin_respuesta'].includes(s)) {
-      return s;
-    }
-    return 'pendiente';
+  const s = String(v ?? '').trim().toLowerCase();
+
+  if (!s) return 'pendiente';
+
+  if (s === 'sin respuesta') return 'sin_respuesta';
+
+  // Aceptamos ambos textos por seguridad, pero internamente usamos "bajo"
+  if (s === 'baja') return 'bajo';
+  if (s === 'bajo') return 'bajo';
+
+  if (['productivo', 'avanzado', 'pendiente', 'sin_respuesta', 'bajo'].includes(s)) {
+    return s;
   }
 
+  return 'pendiente';
+}
+
   function estadoLabel(key) {
-    switch (key) {
-      case 'productivo': return 'Productivo';
-      case 'avanzado': return 'Avanzado';
-      case 'sin_respuesta': return 'Sin respuesta';
-      default: return 'Pendiente';
-    }
+  switch (key) {
+    case 'productivo': return 'Productivo';
+    case 'avanzado': return 'Avanzado';
+    case 'pendiente': return 'Pendiente';
+    case 'sin_respuesta': return 'Sin respuesta';
+    case 'bajo': return 'Baja';
+    default: return 'Pendiente';
   }
+}
 
   function renderEstadoBadge(v) {
     const k = normalizeEstado(v);
@@ -480,7 +490,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     if ($('club_socios_cantidad')) $('club_socios_cantidad').value = c.socios_cantidad ?? '';
     if ($('club_valor_mensual')) $('club_valor_mensual').value = c.valor_mensual ?? '';
     if ($('club_payment_due_day')) $('club_payment_due_day').value = c.payment_due_day ?? 31;
-    if ($('club_estado')) $('club_estado').value = c.estado ?? 'pendiente';
+    if ($('club_estado')) $('club_estado').value = normalize 'pendiente';
     if ($('club_socios_activos')) $('club_socios_activos').value = c.socios_activos ?? '';
 
     const p = c.color_primary ?? '#2563eb';
