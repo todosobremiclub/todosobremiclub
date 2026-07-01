@@ -250,11 +250,11 @@ try {
 currentClub = club; // ✅ guardamos para el QR
 // ===== HERO HEADER (logo + nombre) =====
 
-const logo = document.getElementById('clubHeroLogo');
+const heroLogo = document.getElementById('clubHeroLogo');
 const title = document.getElementById('clubHeroName');
 
-if (logo && club.logo_url) {
-  logo.src = club.logo_url;
+if (heroLogo && club.logo_url) {
+  heroLogo.src = club.logo_url;
 }
 
 if (title && club.name) {
@@ -269,7 +269,7 @@ bindQROnce(); // (puede quedar, no molesta)
     // ===============================
     const titleEl = document.getElementById('clubTitle');
     if (titleEl) titleEl.textContent = club.name || 'Panel del Club';
-    document.title = club.name ? `Club • ${club.name}` : 'Panel del Club';
+    document.title = club.name ? `${club.name} | Panel de gestión` : 'Panel del Club';
 
     const infoEl = document.getElementById('clubInfo');
     if (infoEl) {
@@ -279,11 +279,11 @@ bindQROnce(); // (puede quedar, no molesta)
     // ===============================
     // Logo
     // ===============================
-    const logo = document.getElementById('clubLogo');
-    if (logo) {
-      if (club.logo_url) logo.src = club.logo_url;
-      else logo.removeAttribute('src');
-    }
+    const headerLogo = document.getElementById('clubLogo');
+    if (headerLogo) {
+  if (club.logo_url) headerLogo.src = club.logo_url;
+  else headerLogo.removeAttribute('src');
+}
 
     // ===============================
     // Fondo
