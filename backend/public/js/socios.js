@@ -650,11 +650,23 @@ const border = checked ? '1px solid #38bdf8' : '1px solid transparent';
   }
 
   function renderPagoPill(s) {
-    const est = pagoEstado(s);
-    const cls = est.ok ? 'pay-ok' : 'pay-bad';
-    const txt = est.ok ? '🟢' : '🔴';
-    return `<span class="pay-pill ${cls}" title="${escapeHtml(est.label)}">${txt}</span>`;
-  }
+  const est = pagoEstado(s);
+  const cls = est.ok ? 'pay-ok' : 'pay-bad';
+  const txt = est.ok ? '🟢' : '🔴';
+
+  return `
+    <span
+      class="pay-pill ${cls}"
+      title="${escapeHtml(est.label)} - Doble click para registrar pago"
+      data-act="open-payment"
+      data-socio-id="${escapeHtml(s.id)}"
+      style="cursor:pointer;"
+    >
+      ${txt}
+    </span>
+  `;
+}
+
 
   // =============================
   // Estado
@@ -2417,17 +2429,42 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
       });
     }
 
-    // Doble click fila -> abrir Carnet (pero NO si fue WA o Acciones)
-    root.addEventListener('dblclick', (ev) => {
-      if (ev.target.closest('.wa-action')) return;
-      if (ev.target.closest('button[data-act]')) return;
+    // Doble click fila -> abrir Carnet
+// Doble click en ícono de pago -> abrir formulario de pago para ese socio
+root.addEventListener('dblclick', (ev) => {
+  const payIcon = ev.target.closest('.pay-pill[data-act="open-payment"]');
 
-      const tr = ev.target.closest('#sociosTableBody tr');
-      if (!tr || !tr.dataset.id) return;
+  if (payIcon) {
+    ev.preventDefault();
+    ev.stopPropagation();
 
-      const socio = sociosCache.find((x) => String(x.id) === String(tr.dataset.id));
-      if (socio) window.openCarnet(socio);
-    });
+    const socioId = payIcon.dataset.socioId;
+    if (!socioId) return;
+
+    // Guardamos el socio para que Pagos lo tome al cargar
+    localStorage.setItem('pendingOpenPagoSocioId', String(socioId));
+
+    // Cambiamos a la sección Pagos usando el botón del menú
+    const btnPagos = document.querySelector('[data-section="pagos"]');
+
+    if (btnPagos) {
+      btnPagos.click();
+    } else {
+      alert('No se encontró la sección Pagos.');
+    }
+
+    return;
+  }
+
+  if (ev.target.closest('.wa-action')) return;
+  if (ev.target.closest('button[data-act]')) return;
+
+  const tr = ev.target.closest('#sociosTableBody tr');
+  if (!tr || !tr.dataset.id) return;
+
+  const socio = sociosCache.find((x) => String(x.id) === String(tr.dataset.id));
+  if (socio) window.openCarnet(socio);
+});
 
     $('modalSocio')?.addEventListener('click', (ev) => {
       if (ev.target && ev.target.id === 'modalSocio') closeModalSocio();

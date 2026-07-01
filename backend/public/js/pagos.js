@@ -225,6 +225,34 @@ async function selectSocio(s) {
   renderMesesGrid();
 }
 
+async function openPagoForSocioId(socioId) {
+  if (!socioId) return;
+
+  // Asegura que haya socios cargados
+  if (!sociosCache || sociosCache.length === 0) {
+    await loadSociosAll();
+  }
+
+  // Asegura cuentas cargadas
+  await loadResponsables();
+  fillCuentasSelects();
+
+  const socio = sociosCache.find((s) =>
+    String(s.id) === String(socioId) ||
+    String(s.socio_id) === String(socioId)
+  );
+
+  if (!socio) {
+    alert('No se encontró el socio seleccionado para registrar el pago.');
+    return;
+  }
+
+  openModal();
+  await selectSocio(socio);
+}
+
+window.openPagoForSocioId = openPagoForSocioId;
+
   /* =============================
    * Cargas (socios/pagos)
    * ============================= */
@@ -1196,7 +1224,17 @@ $('detTableBody')?.addEventListener('click', async (ev) => {
   // Ingresos (debajo)
   await loadTiposIngreso().catch(() => {});   // no bloquear si aún no hay tipos
   await loadIngresos().catch(() => {});
+
+
+/ Si venimos desde doble click en el ícono de pago de Socios,
+// abrimos automáticamente el modal con ese socio seleccionado.
+const pendingSocioId = localStorage.getItem('pendingOpenPagoSocioId');
+
+if (pendingSocioId) {
+  localStorage.removeItem('pendingOpenPagoSocioId');
+  await openPagoForSocioId(pendingSocioId);
 }
+
 
   window.initPagosSection = initPagosSection;
 
