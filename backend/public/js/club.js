@@ -248,18 +248,6 @@ try {
 }
 
 currentClub = club; // ✅ guardamos para el QR
-// ===== HERO HEADER (logo + nombre) =====
-
-const heroLogo = document.getElementById('clubHeroLogo');
-const title = document.getElementById('clubHeroName');
-
-if (heroLogo && club.logo_url) {
-  heroLogo.src = club.logo_url;
-}
-
-if (title && club.name) {
-  title.textContent = club.name;
-}
 window.currentClub = club; // ✅ para el onclick global
 bindQROnce(); // (puede quedar, no molesta)
 
@@ -290,6 +278,8 @@ bindQROnce(); // (puede quedar, no molesta)
     // ===============================
     if (club.background_url) {
       document.body.style.backgroundImage = `url('${club.background_url}')`;
+      document.body.style.backgroundColor = 'rgba(255,255,255,0.65)';
+document.body.style.backgroundBlendMode = 'overlay';
       document.body.style.backgroundSize = 'cover';
       document.body.style.backgroundPosition = 'center';
       document.body.style.backgroundAttachment = 'fixed';

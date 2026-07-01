@@ -5,622 +5,226 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Panel del Club</title>
 
-  <style>
-    :root {
-      --color-primary: #2563eb;
-      --color-secondary: #1e40af;
-      --color-accent: #facc15;
-    }
-
-    /* =========================
-       RESET + BASE
-    ========================= */
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-    }
-
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      background: #f3f4f6;
-      font-family: Arial, sans-serif;
-    }
-
-    /* =========================
-       LAYOUT
-    ========================= */
-    .layout {
-      display:flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    .content {
-      width: 100%;
-      max-width: 1280px; /* 💡 Ideal para pantallas de 14" */
-      margin: 0 auto;
-      padding: 12px 14px 18px;
-    }
-
-/* ===============================
-IDENTIDAD DEL CLUB – SECCIONES
-=============================== */
-
-/* Todas las secciones principales */
-section[class^="section-"],
-section.section{
-  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, #d1d5db);
-  border-left: 4px solid var(--color-primary);
-  border-radius: 14px;
-  padding: 14px;
-  background: #ffffff;
-  margin-bottom: 16px;
+<style>
+:root {
+  --color-primary: #2563eb;
+  --color-secondary: #1e40af;
+  --color-accent: #facc15;
 }
 
-    /* =========================
-       BOTONES
-    ========================= */
-    .navbtn {
-      text-align:left;
-      padding:10px 12px;
-      border:0;
-      border-radius:10px;
-      cursor:pointer;
-      background: var(--color-primary);
-      color:#fff;
-      font-size:14px;
-      white-space: nowrap;
-    }
-    .navbtn:hover { background: var(--color-secondary); }
+*,
+*::before,
+*::after { box-sizing: border-box; }
 
-    .navbtn--top {
-      padding:8px 12px;
-      font-size:13px;
-    }
-
-    .navbtn--logout {
-      background:#ef4444;
-    }
-    .navbtn--logout:hover {
-      background:#dc2626;
-    }
-
-    /* =========================
-       HEADER
-    ========================= */
-    .topbar {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:16px;
-      padding: 12px 14px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-      border: 1px solid rgba(255,255,255,0.18);
-      color:#fff;
-    }
-
-    .topbar-left {
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-
-    .logo {
-      height: 52px;
-      width: 52px;
-      object-fit: contain;
-      border-radius: 10px;
-      border:1px solid rgba(255,255,255,0.35);
-      background: #fff;
-      padding: 2px;
-    }
-
-    .topbar-titles {
-      display:flex;
-      flex-direction:column;
-      line-height:1.15;
-    }
-    .club-name {
-      font-size:18px;
-      font-weight:700;
-      color:#fff;
-    }
-    .club-user {
-      font-size:13px;
-      color:rgba(255,255,255,0.9);
-    }
-
-    .topbar-right {
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-
-    .club-select {
-      padding:4px 6px;
-      font-size:12px;
-      border-radius:6px;
-      border:1px solid #ddd;
-    }
-
-    .badge {
-      display:inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: var(--color-accent);
-      font-size: 12px;
-      color:#111827;
-      font-weight:700;
-    }
-
-    /* =========================
-       MENÚ SUPERIOR
-    ========================= */
-    .topnav {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .topnav__center {
-      flex:1;
-      display:flex;
-      justify-content:center;
-      gap:8px;
-      overflow-x:auto;
-      padding: 4px 0;
-    }
-
-    /* =========================
-       CARDS / TABLAS
-    ========================= */
-    .card {
-      border:1px solid #ddd;
-      border-radius:12px;
-      padding:14px;
-      margin-top:14px;
-      background:#fff;
-    }
-
-    .table-wrapper {
-      overflow:auto;
-      border:1px solid #ddd;
-      border-radius:10px;
-      background:#fff;
-    }
-
-    table {
-      width:100%;
-      border-collapse:collapse;
-    }
-
-    th, td {
-      border-bottom:1px solid #eee;
-      padding:8px;
-      font-size:14px;
-      white-space: nowrap;
-    }
-
-    th {
-      background:#f7f7f7;
-      text-align:left;
-    }
-
-    /* =========================
-       FORMULARIOS
-    ========================= */
-    .row {
-      display:flex;
-      gap:12px;
-      align-items:center;
-      flex-wrap: wrap;
-    }
-
-    label {
-      display:block;
-      font-size: 0.85rem;
-      color:#444;
-      margin-bottom:6px;
-    }
-
-    input, select, button {
-      padding: 8px;
-      border-radius:6px;
-      border:1px solid #ccc;
-      font-size:14px;
-    }
-
-    .muted {
-      color:#6b7280;
-      font-size:13px;
-    }
-
-/* ===============================
-BOTONES – COLOR DEL CLUB
-=============================== */
-
-button,
-.btn{
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, #d1d5db);
-  background: #ffffff;
-  color: #111827;
-  transition: all .15s ease;
+html, body {
+  margin: 0;
+  background: #f3f4f6;
+  font-family: Arial, sans-serif;
 }
 
-button:hover,
-.btn:hover{
-  border-color: var(--color-primary);
+.layout { display:flex; flex-direction: column; min-height: 100vh; }
+
+.content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 12px 14px 18px;
 }
 
-/* Botón principal */
-.btn-primary{
+/* ===== HEADER NUEVO ===== */
+.topbar {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:10px 14px;
+  border-radius:14px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  color:#fff;
+  box-shadow:0 10px 25px rgba(0,0,0,.15);
+}
+
+.topbar-left {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.logo {
+  width:44px;
+  height:44px;
+  object-fit:contain;
+  border-radius:10px;
+  background:#fff;
+  padding:4px;
+}
+
+.club-name { font-size:16px; font-weight:700; }
+.club-user { font-size:12px; opacity:.85; }
+
+.topbar-right { display:flex; align-items:center; gap:8px; }
+
+.club-select { padding:4px; border-radius:6px; }
+
+/* ===== BOTONES ===== */
+.navbtn {
+  padding:8px 12px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
   background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #ffffff;
+  color:#fff;
 }
 
-.btn-primary:hover{
-  background: var(--color-secondary);
-  border-color: var(--color-secondary);
+.navbtn:hover { background: var(--color-secondary); }
+
+.navbtn--logout { background:#ef4444; }
+.navbtn--logout:hover { background:#dc2626; }
+
+.badge {
+  background: var(--color-accent);
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:12px;
 }
 
-    /* =========================
-       MODAL
-    ========================= */
-    .modal.hidden { display:none; }
-
-    .modal {
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,0.45);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      z-index:999;
-    }
-
-    .modal-content {
-      width:min(780px, 95vw);
-      background:#fff;
-      border-radius:12px;
-      padding:16px;
-    }
-
-    /* =========================
-       RESPONSIVE
-    ========================= */
-    @media (max-width: 768px) {
-      .topbar {
-        flex-direction: column;
-        align-items:flex-start;
-        padding: 12px;
-      }
-
-      .topbar-right {
-        align-self: stretch;
-        justify-content: flex-start;
-      }
-
-      .topnav {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .topnav__center {
-        flex-wrap: wrap;
-        justify-content: flex-start;
-      }
-
-      .content {
-        padding: 10px;
-      }
-
-      .navbtn--top {
-        font-size:12px;
-        padding:6px 8px;
-      }
-
-      table {
-        font-size:12px;
-      }
-
-      th, td {
-        padding:6px;
-      }
-
-      .modal-content {
-        width: 100%;
-        max-width: 95vw;
-        padding:12px;
-      }
-
-      .row {
-        flex-direction: column;
-        align-items: stretch;
-      }
-    }
-
-/* ===============================
-FOCUS – COLOR DEL CLUB
-=============================== */
-
-input:focus,
-select:focus,
-textarea:focus{
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+/* ===== BANNER ===== */
+.impersonation-banner {
+  display:none;
+  margin-bottom:10px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:#fff7ed;
+  border:1px solid #fed7aa;
+  color:#9a3412;
+  font-size:13px;
+  align-items:center;
+  gap:10px;
 }
 
-/* ===== HERO CLUB ===== */
-
-.club-hero {
-  padding: 20px 24px;
-  border-radius: 16px;
-  margin-bottom: 18px;
-
-  background: linear-gradient(
-    135deg,
-    var(--color-primary, #1e3a8a),
-    var(--color-secondary, #2563eb)
-  );
-
-  color: white;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+/* ===== NAV ===== */
+.topnav {
+  display:flex;
+  justify-content:space-between;
+  margin-top:12px;
 }
 
-.club-hero-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.topnav__center {
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
 }
 
-.club-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+/* ===== CARD ===== */
+.card {
+  background:#fff;
+  padding:14px;
+  border-radius:12px;
+  margin-top:14px;
 }
 
-.club-hero-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  background: white;
-  object-fit: contain;
-  padding: 6px;
+/* ===== MODAL ===== */
+.modal.hidden { display:none; }
+
+.modal {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.45);
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
-.club-title {
-  font-size: 20px;
-  font-weight: 800;
+.modal-content {
+  background:#fff;
+  border-radius:12px;
+  padding:16px;
 }
+</style>
 
-.club-subtitle {
-  font-size: 13px;
-  opacity: 0.85;
-}
-
-/* ===== BOTONES HERO ===== */
-
-.btn {
-  border: none;
-  padding: 8px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.btn.ghost {
-  background: rgba(255,255,255,0.15);
-  color: white;
-}
-
-.btn.ghost:hover {
-  background: rgba(255,255,255,0.25);
-}
-
-.btn.danger {
-  background: #dc2626;
-  color: white;
-}
-
-/* responsive */
-@media (max-width: 700px) {
-  .club-hero-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-}
-
-  </style>
-
-  <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 </head>
 
-<!-- MODAL VER QR -->
+<!-- MODAL QR -->
 <div id="modalQR" class="modal hidden">
-  <div class="modal-content" style="max-width:420px; text-align:center;">
+  <div class="modal-content" style="max-width:420px;text-align:center;">
     <h3>📱 Postulación de Socios</h3>
-
-    <div id="qrContainer" style="margin:16px auto;"></div>
-
-    <input
-      id="qrLink"
-      type="text"
-      readonly
-      style="width:100%; padding:8px; margin-top:8px;"
-    />
-
-    <div style="margin-top:12px; display:flex; gap:10px; justify-content:center;">
-      <button id="btnCopyQR" class="navbtn navbtn--top">📋 Copiar link</button>
-      <button id="btnCloseQR" class="navbtn navbtn--top">Cerrar</button>
+    <div id="qrContainer"></div>
+    <input id="qrLink" style="width:100%;margin-top:8px"/>
+    <div style="margin-top:10px;">
+      <button id="btnCopyQR" class="navbtn">Copiar</button>
+      <button id="btnCloseQR" class="navbtn">Cerrar</button>
     </div>
   </div>
 </div>
 
 <body>
-  <div class="layout">
-    <main class="content">
 
-      <!-- HEADER -->
-      <div class="club-hero">
-  <div class="club-hero-content">
+<div class="layout">
+<main class="content">
 
-    <div class="club-left">
-      <img id="clubHeroLogo" class="club-hero-logo" />
-      <div>
-        <div class="club-title" id="clubHeroName">Nombre del club</div>
-        <div class="club-subtitle">Panel de gestión</div>
-      </div>
+<!-- BANNER -->
+<div id="impersonationBanner" class="impersonation-banner">
+  👁️ Modo SOLO LECTURA
+  <span id="impersonationClubName"></span>
+  <button id="btnExitImpersonation" class="navbtn">Salir</button>
+</div>
+
+<!-- HEADER CORRECTO -->
+<div class="topbar">
+
+  <div class="topbar-left">
+    <img id="clubLogo" class="logo"/>
+    <div>
+      <div id="clubTitle" class="club-name">Panel del Club</div>
+      <div id="meLabel" class="club-user"></div>
     </div>
-
-    <div class="club-right">
-      <button class="btn ghost" id="btnQr">Ver QR</button>
-      <button class="btn ghost">Configuración</button>
-      <button class="btn danger">Cerrar sesión</button>
-    </div>
-
-  </div>
-</div>
-    👁️ Estás viendo este club en <span style="text-decoration:underline;">modo SOLO LECTURA</span> (Super Admin)
-    <span id="impersonationClubName" style="font-weight:800;"></span>
-  </div>
-  <button id="btnExitImpersonation" class="navbtn navbtn--top" type="button">Salir</button>
-</div>
-        <div class="topbar-left">
-          <img id="clubLogo" class="logo" alt="Logo club" />
-          <div class="topbar-titles">
-            <div class="club-name" id="clubTitle">Panel del Club</div>
-            <div class="club-user" id="meLabel"></div>
-          </div>
-        </div>
-
-        <div class="topbar-right">
-  <button id="btnVerQR" class="navbtn navbtn--top" onclick="openClubQR()">📱 Ver QR</button>
-<button id="btnControlAcceso" class="navbtn navbtn--top" data-section="acceso">🚪 Control acceso</button>
-
-  <select id="clubSelect" class="club-select"></select>
-  <span class="badge" id="roleBadge">Rol: —</span>
-</div>
-      </div>
-
-      <!-- MENÚ -->
-      <nav class="topnav">
-        <div class="topnav__center">
-          <button class="navbtn navbtn--top" data-section="socios">👤 Socios</button>
-          <button class="navbtn navbtn--top" data-section="pendientes">🕒 Pendientes</button>
-          <button class="navbtn navbtn--top" data-section="pagos">💰 Ingresos</button>
-          <button class="navbtn navbtn--top" data-section="gastos">🧾 Gastos</button>
-          <button class="navbtn navbtn--top" data-section="noticias">📣 Noticias</button>
-          <button class="navbtn navbtn--top" data-section="notificaciones">🔔 Notificaciones</button>
-          <button class="navbtn navbtn--top" data-section="cumples">📅 Agenda</button>
-          <button class="navbtn navbtn--top" data-section="configuracion">⚙️ Configuración</button>
-          <button class="navbtn navbtn--top" data-section="reportes">📊 Reportes</button>
-        </div>
-
-        <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
-      </nav>
-
-      <!-- CONTENIDO -->
-      <div class="card" id="sectionContainer"></div>
-
-    </main>
   </div>
 
-  <script>
-  function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('activeClubId');
-    window.location.href = '/admin.html';
-  }
+  <div class="topbar-right">
+    <button id="btnVerQR" class="navbtn">📱 Ver QR</button>
+    <button class="navbtn" data-section="acceso">🚪 Control acceso</button>
 
-  // ✅ QR Global (blindado): usa el club activo que guarda club.js en localStorage
-  async function openClubQR() {
-    try {
-      const clubId = localStorage.getItem('activeClubId');
-      if (!clubId) return alert('No hay club activo seleccionado.');
+    <select id="clubSelect" class="club-select"></select>
+    <span class="badge" id="roleBadge">Rol</span>
 
-      const token = localStorage.getItem('token');
-      if (!token) return alert('Sesión inválida o expirada.');
+    <button class="navbtn navbtn--logout" onclick="logout()">Cerrar sesión</button>
+  </div>
 
-      // Traer club para obtener apply_token
-      const res = await fetch(`/club/${clubId}`, {
-        headers: { Authorization: 'Bearer ' + token }
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) return alert(data.error || 'No se pudo cargar el club');
+</div>
 
-      const club = data.club;
-      if (!club?.apply_token) return alert('Este club no tiene apply_token (no se puede generar QR).');
+<!-- MENÚ -->
+<nav class="topnav">
+  <div class="topnav__center">
+    <button class="navbtn" data-section="socios">Socios</button>
+    <button class="navbtn" data-section="pendientes">Pendientes</button>
+    <button class="navbtn" data-section="pagos">Ingresos</button>
+    <button class="navbtn" data-section="gastos">Gastos</button>
+    <button class="navbtn" data-section="noticias">Noticias</button>
+    <button class="navbtn" data-section="notificaciones">Notificaciones</button>
+    <button class="navbtn" data-section="cumples">Agenda</button>
+    <button class="navbtn" data-section="configuracion">Configuración</button>
+    <button class="navbtn" data-section="reportes">Reportes</button>
+  </div>
+</nav>
 
-      const link = `${window.location.origin}/postularse.html?clubId=${encodeURIComponent(club.id)}&t=${encodeURIComponent(club.apply_token)}`;
+<div class="card" id="sectionContainer"></div>
 
-      const modal = document.getElementById('modalQR');
-      const qrContainer = document.getElementById('qrContainer');
-      const qrLink = document.getElementById('qrLink');
+</main>
+</div>
 
-      if (!modal || !qrContainer || !qrLink) {
-        return alert('Falta el modal del QR en club.html (modalQR/qrContainer/qrLink).');
-      }
-
-      qrLink.value = link;
-      qrContainer.innerHTML = '';
-
-      const img = document.createElement('img');
-      img.alt = 'QR Postulación';
-      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(link)}`;
-      img.style.width = '250px';
-      img.style.height = '250px';
-      img.style.borderRadius = '12px';
-      img.style.border = '2px solid var(--color-primary)';
-      img.style.background = '#fff';
-
-      qrContainer.appendChild(img);
-      modal.classList.remove('hidden');
-
-      // Botones modal (si existen)
-      document.getElementById('btnCloseQR')?.addEventListener('click', () => modal.classList.add('hidden'));
-      document.getElementById('btnCopyQR')?.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(link);
-          alert('✅ Link copiado');
-        } catch {
-          alert('No se pudo copiar el link');
-        }
-      });
-
-      modal.addEventListener('click', (ev) => {
-        if (ev.target === modal) modal.classList.add('hidden');
-      });
-    } catch (e) {
-      console.error(e);
-      alert('Error al generar el QR.');
-    }
-  }
-</script>
-
-  <script src="/js/club.js"></script>
-  <script src="/js/socios.js"></script>
-  <script src="/js/vendor/zxing-browser.min.js?v=20260331"></script>
+<!-- SCRIPTS ORIGINALES (NO TOCADOS) -->
+<script src="/js/club.js"></script>
+<script src="/js/socios.js"></script>
+<script src="/js/vendor/zxing-browser.min.js?v=20260331"></script>
 <script src="/js/acceso.js?v=20260331"></script>
-  <script src="/js/configuracion.js"></script>
-  <script src="/js/gastos.js"></script>
-  <script src="/js/pagos.js"></script>
-  <script defer src="/js/cumples.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="/js/reportes.js"></script>
-  <script src="/js/noticias.js"></script>
-  <script src="/js/notificaciones.js?v=20260331-1"></script>
-  <script src="/js/pendientes.js"></script>
-
+<script src="/js/configuracion.js"></script>
+<script src="/js/gastos.js"></script>
+<script src="/js/pagos.js"></script>
+<script defer src="/js/cumples.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="/js/reportes.js"></script>
+<script src="/js/noticias.js"></script>
+<script src="/js/notificaciones.js?v=20260331-1"></script>
+<script src="/js/pendientes.js"></script>
 
 </body>
 </html>
