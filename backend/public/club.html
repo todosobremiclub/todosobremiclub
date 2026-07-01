@@ -359,6 +359,87 @@ textarea:focus{
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
+/* ===== HERO CLUB ===== */
+
+.club-hero {
+  padding: 20px 24px;
+  border-radius: 16px;
+  margin-bottom: 18px;
+
+  background: linear-gradient(
+    135deg,
+    var(--color-primary, #1e3a8a),
+    var(--color-secondary, #2563eb)
+  );
+
+  color: white;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+}
+
+.club-hero-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.club-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.club-hero-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: white;
+  object-fit: contain;
+  padding: 6px;
+}
+
+.club-title {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.club-subtitle {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+/* ===== BOTONES HERO ===== */
+
+.btn {
+  border: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn.ghost {
+  background: rgba(255,255,255,0.15);
+  color: white;
+}
+
+.btn.ghost:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+.btn.danger {
+  background: #dc2626;
+  color: white;
+}
+
+/* responsive */
+@media (max-width: 700px) {
+  .club-hero-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
   </style>
 
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
@@ -390,9 +471,25 @@ textarea:focus{
     <main class="content">
 
       <!-- HEADER -->
-      <div class="topbar">
-<div id="impersonationBanner" style="display:none; width:100%; margin-bottom:10px; padding:10px 12px; border-radius:12px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:10px;">
-  <div>
+      <div class="club-hero">
+  <div class="club-hero-content">
+
+    <div class="club-left">
+      <img id="clubHeroLogo" class="club-hero-logo" />
+      <div>
+        <div class="club-title" id="clubHeroName">Nombre del club</div>
+        <div class="club-subtitle">Panel de gestión</div>
+      </div>
+    </div>
+
+    <div class="club-right">
+      <button class="btn ghost" id="btnQr">Ver QR</button>
+      <button class="btn ghost">Configuración</button>
+      <button class="btn danger">Cerrar sesión</button>
+    </div>
+
+  </div>
+</div>
     👁️ Estás viendo este club en <span style="text-decoration:underline;">modo SOLO LECTURA</span> (Super Admin)
     <span id="impersonationClubName" style="font-weight:800;"></span>
   </div>

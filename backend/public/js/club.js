@@ -248,6 +248,18 @@ try {
 }
 
 currentClub = club; // ✅ guardamos para el QR
+// ===== HERO HEADER (logo + nombre) =====
+
+const logo = document.getElementById('clubHeroLogo');
+const title = document.getElementById('clubHeroName');
+
+if (logo && club.logo_url) {
+  logo.src = club.logo_url;
+}
+
+if (title && club.name) {
+  title.textContent = club.name;
+}
 window.currentClub = club; // ✅ para el onclick global
 bindQROnce(); // (puede quedar, no molesta)
 
