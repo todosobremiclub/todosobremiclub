@@ -26,12 +26,13 @@ function signImpersonationToken(payload) {
 // =============================
 // Estado del club (Super Admin)
 // =============================
-const CLUB_ESTADOS = ['productivo', 'avanzado', 'pendiente', 'sin_respuesta'];
+const CLUB_ESTADOS = ['productivo', 'avanzado', 'pendiente', 'sin_respuesta', 'baja'];
 
 function normalizeClubEstado(v) {
   const s = String(v ?? '').trim().toLowerCase();
   if (!s) return 'pendiente';
   if (s === 'sin respuesta') return 'sin_respuesta';
+  if (s === 'bajo') return 'baja';
   if (CLUB_ESTADOS.includes(s)) return s;
   return 'pendiente';
 }
