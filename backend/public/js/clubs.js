@@ -490,7 +490,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     if ($('club_socios_cantidad')) $('club_socios_cantidad').value = c.socios_cantidad ?? '';
     if ($('club_valor_mensual')) $('club_valor_mensual').value = c.valor_mensual ?? '';
     if ($('club_payment_due_day')) $('club_payment_due_day').value = c.payment_due_day ?? 31;
-    if ($('club_estado')) $('club_estado').value = normalize 'pendiente';
+    if ($('club_estado')) $('club_estado').value = normalizeEstado(c.estado);
     if ($('club_socios_activos')) $('club_socios_activos').value = c.socios_activos ?? '';
 
     const p = c.color_primary ?? '#2563eb';
