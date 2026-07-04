@@ -367,18 +367,15 @@ textarea:focus{
 }
 
 .header-wrapper{
-  background: linear-gradient(
-    180deg,
-    rgba(15, 23, 42, 0.95),
-    rgba(15, 23, 42, 0.88)
-  );
-
-  padding: 12px;
-  border-radius: 16px;
-
-  box-shadow: 0 20px 40px rgba(0,0,0,.2);
-
-  backdrop-filter: blur(6px);
+  position: relative;
+  overflow: hidden;
+}
+.header-wrapper::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: radial-gradient(circle at 80% 0%, rgba(255,255,255,0.15), transparent 60%);
+  pointer-events:none;
 }
 
 .navbtn.active{
@@ -480,7 +477,7 @@ textarea:focus{
           <button class="navbtn navbtn--top" data-section="reportes">📊 Reportes</button>
         </div>
 
-        <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
+        
       </nav>
 </div>
 
