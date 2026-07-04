@@ -697,19 +697,21 @@ function renderBoolBadge(value) {
     : '<span class="badge-bool badge-bool--no">No</span>';
 }
 
-function actividadIcono(nombre) {
-  const n = String(nombre || '').toLowerCase();
+function formatNombreTabla(s) {
+  const apellido = String(s?.apellido ?? '').trim();
+  const nombre = String(s?.nombre ?? '').trim();
 
-  if (n.includes('fut')) return '⚽';
-  if (n.includes('pat')) return '⛸️';
-  if (n.includes('bas')) return '🏀';
-  if (n.includes('voley') || n.includes('vóley')) return '🏐';
-  if (n.includes('tenis')) return '🎾';
+  let full = '';
+  if (apellido && nombre) full = `${apellido}, ${nombre}`;
+  else if (apellido) full = apellido;
+  else full = nombre;
 
-  return '•';
+  if (full.length > 30) {
+    return full.slice(0, 30).trimEnd() + '…';
+  }
+
+  return full;
 }
-``
-
 
   // =============================
   // Estado
@@ -1748,12 +1750,8 @@ const pageRows = ordered;             // ✅ ya viene paginado desde el backend
       const waUrl = buildWaUrl(s.telefono);
       const telTxt = (s.telefono ?? '').toString();
       const iconosEstado = getEstadoIconosForSocio(s.id);
-
-const estVisual = getEstadoVisual(s);
-const nombreCompleto = `${s.nombre ?? ''} ${s.apellido ?? ''}`.trim();
-const iconoActividad = actividadIcono(s.actividad);
-
-      const tr = document.createElement('tr');
+const nombreCompleto = formatNombreTabla(s);
+const tr = document.createElement('tr');
       tr.dataset.id = s.id;
 
       tr.innerHTML = `
@@ -1763,16 +1761,13 @@ const iconoActividad = actividadIcono(s.actividad);
 
   <td>${escapeHtml(fmtDni(s.dni))}</td>
 
-  <td class="socio-nombre-completo">
+  <td class="socio-nombre-completo" title="${escapeHtml(`${String(s.apellido ?? '').trim()}, ${String(s.nombre ?? '').trim()}`)}">
     ${escapeHtml(nombreCompleto)}
     ${s.es_jefe_plan_familiar ? ' 👑' : ''}
     ${s.es_miembro_plan_familiar ? ' 👨‍👩‍👧' : ''}
   </td>
 
-  <td>
-    <span class="socio-actividad-icono">${iconoActividad}</span>
-    ${escapeHtml(s.actividad ?? '')}
-  </td>
+  <td>${escapeHtml(s.actividad ?? '')}</td>
 
   <td>${escapeHtml(s.categoria ?? '')}</td>
 
@@ -1791,11 +1786,7 @@ const iconoActividad = actividadIcono(s.actividad);
 
   <td>${fmtDMY(s.fecha_ingreso)}</td>
 
-  <td>
-    <span class="badge-estado ${estVisual.badgeClass}">
-      ${estVisual.label}
-    </span>
-  </td>
+  <td>${s.activo ? 'Sí' : 'No'}</td>
 
   <td>${renderBoolBadge(!!s.becado)}</td>
 
@@ -1811,6 +1802,7 @@ const iconoActividad = actividadIcono(s.actividad);
     }
   </td>
 `;
+
 
       tbody.appendChild(tr);
     });
