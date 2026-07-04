@@ -494,10 +494,19 @@ setupImpersonationBanner();
     await applySelected(user.roles, user);
 
     document.querySelectorAll('[data-section]').forEach(btn => {
-      btn.addEventListener('click', () =>
-        loadSection(btn.dataset.section)
-      );
+  btn.addEventListener('click', () => {
+
+    // quitar activo de todos
+    document.querySelectorAll('[data-section]').forEach(b=>{
+      b.classList.remove('active');
     });
+
+    // poner activo
+    btn.classList.add('active');
+
+    loadSection(btn.dataset.section);
+  });
+});
 
     loadSection(pickDefaultSection(window.__clubPerms || buildPermissions('admin')));
   } catch (e) {

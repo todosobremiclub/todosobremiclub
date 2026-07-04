@@ -64,17 +64,23 @@ section.section{
        BOTONES
     ========================= */
     .navbtn {
-      text-align:left;
-      padding:10px 12px;
-      border:0;
-      border-radius:10px;
-      cursor:pointer;
-      background: var(--color-primary);
-      color:#fff;
-      font-size:14px;
-      white-space: nowrap;
-    }
-    .navbtn:hover { background: var(--color-secondary); }
+  padding:8px 14px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,0.25);
+
+  background: rgba(255,255,255,0.06);
+  color:white;
+
+  font-size:13px;
+  cursor:pointer;
+
+  transition: all .2s ease;
+}
+
+.navbtn:hover{
+  background: rgba(255,255,255,0.18);
+}
+
 
     .navbtn--top {
       padding:8px 12px;
@@ -161,12 +167,13 @@ section.section{
        MENÚ SUPERIOR
     ========================= */
     .topnav {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-top:12px;
-    }
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:10px;
+}
+
 
     .topnav__center {
       flex:1;
@@ -359,6 +366,30 @@ textarea:focus{
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
+.header-wrapper{
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.95),
+    rgba(15, 23, 42, 0.88)
+  );
+
+  padding: 12px;
+  border-radius: 16px;
+
+  box-shadow: 0 20px 40px rgba(0,0,0,.2);
+
+  backdrop-filter: blur(6px);
+}
+
+.navbtn.active{
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-secondary)
+  );
+  border: none;
+}
+
 
   </style>
 
@@ -398,6 +429,8 @@ textarea:focus{
 </div>
 
 <!-- HEADER CORREGIDO -->
+
+<div class="header-wrapper">
 
 <div id="impersonationBanner" style="display:none;">
   👁️ Estás viendo este club en modo SOLO LECTURA
@@ -449,6 +482,7 @@ textarea:focus{
 
         <button class="navbtn navbtn--top navbtn--logout" onclick="logout()">Cerrar sesión</button>
       </nav>
+</div>
 
       <!-- CONTENIDO -->
       <div class="card" id="sectionContainer"></div>
