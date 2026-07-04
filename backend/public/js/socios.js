@@ -667,6 +667,49 @@ const border = checked ? '1px solid #38bdf8' : '1px solid transparent';
   `;
 }
 
+function getEstadoVisual(s) {
+  if (s.activo === true) {
+    return {
+      dotClass: 'estado-dot--ok',
+      badgeClass: 'badge-estado--ok',
+      label: 'Activo'
+    };
+  }
+
+  if (s.activo === false) {
+    return {
+      dotClass: 'estado-dot--bad',
+      badgeClass: 'badge-estado--bad',
+      label: 'Inactivo'
+    };
+  }
+
+  return {
+    dotClass: 'estado-dot--warn',
+    badgeClass: 'badge-estado--warn',
+    label: 'Deuda'
+  };
+}
+
+function renderBoolBadge(value) {
+  return value
+    ? '<span class="badge-bool badge-bool--yes">Sí</span>'
+    : '<span class="badge-bool badge-bool--no">No</span>';
+}
+
+function actividadIcono(nombre) {
+  const n = String(nombre || '').toLowerCase();
+
+  if (n.includes('fut')) return '⚽';
+  if (n.includes('pat')) return '⛸️';
+  if (n.includes('bas')) return '🏀';
+  if (n.includes('voley') || n.includes('vóley')) return '🏐';
+  if (n.includes('tenis')) return '🎾';
+
+  return '•';
+}
+``
+
 
   // =============================
   // Estado
@@ -1706,47 +1749,68 @@ const pageRows = ordered;             // ✅ ya viene paginado desde el backend
       const telTxt = (s.telefono ?? '').toString();
       const iconosEstado = getEstadoIconosForSocio(s.id);
 
+const estVisual = getEstadoVisual(s);
+const nombreCompleto = `${s.nombre ?? ''} ${s.apellido ?? ''}`.trim();
+const iconoActividad = actividadIcono(s.actividad);
+
       const tr = document.createElement('tr');
       tr.dataset.id = s.id;
 
       tr.innerHTML = `
-        <td>${renderPagoPill(s)}</td>
-        <td>${fmtSocioNumero(s.numero_socio)}</td>
-        <td>${escapeHtml(fmtDni(s.dni))}</td>
-        <td>${escapeHtml(s.nombre ?? '')}</td>
-        <td>
-  ${escapeHtml(s.apellido ?? '')}
-  ${s.es_jefe_plan_familiar ? ' 👑' : ''}
-  ${s.es_miembro_plan_familiar ? ' 👨‍👩‍👧' : ''}
-</td>
-        <td>${escapeHtml(s.actividad ?? '')}</td>
-        <td>${escapeHtml(s.categoria ?? '')}</td>
-        <td>
-          <span class="wa-phone wa-action" data-phone="${escapeHtml(telTxt)}">
-            ${escapeHtml(telTxt)}
-          </span>
-          ${
-            waUrl
-              ? `<a class="wa-link wa-action" href="${waUrl}" target="_blank" rel="noopener" title="WhatsApp Web">${WA_SVG}</a>`
-              : ''
-          }
-        </td>
-        <td>${escapeHtml(s.email ?? '')}</td>
-        <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
-        <td>${fmtDMY(s.fecha_ingreso)}</td>
-        <td>${s.activo ? 'Sí' : 'No'}</td>
-        <td>${s.becado ? 'Sí' : 'No'}</td>
-        <td>${fotoHtml}</td>
-        <td style="white-space:nowrap;">
-  <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
-  <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
-  ${
-    iconosEstado
-      ? `<span class="socio-flags" title="Adjuntos / comentarios" style="margin-left:6px;">${iconosEstado}</span>`
-      : ''
-  }
-</td>
-      `;
+  <td>${renderPagoPill(s)}</td>
+
+  <td>${fmtSocioNumero(s.numero_socio)}</td>
+
+  <td>${escapeHtml(fmtDni(s.dni))}</td>
+
+  <td class="socio-nombre-completo">
+    ${escapeHtml(nombreCompleto)}
+    ${s.es_jefe_plan_familiar ? ' 👑' : ''}
+    ${s.es_miembro_plan_familiar ? ' 👨‍👩‍👧' : ''}
+  </td>
+
+  <td>
+    <span class="socio-actividad-icono">${iconoActividad}</span>
+    ${escapeHtml(s.actividad ?? '')}
+  </td>
+
+  <td>${escapeHtml(s.categoria ?? '')}</td>
+
+  <td>
+    <span class="wa-phone wa-action" data-phone="${escapeHtml(telTxt)}">
+      ${escapeHtml(telTxt)}
+    </span>
+    ${
+      waUrl
+        ? `<a class="wa-link wa-action" href="${waUrl}" target="_blank" rel="noopener" title="WhatsApp Web">${WA_SVG}</a>`
+        : ''
+    }
+  </td>
+
+  <td>${s.anio_nacimiento ?? yearFromISO(s.fecha_nacimiento)}</td>
+
+  <td>${fmtDMY(s.fecha_ingreso)}</td>
+
+  <td>
+    <span class="badge-estado ${estVisual.badgeClass}">
+      ${estVisual.label}
+    </span>
+  </td>
+
+  <td>${renderBoolBadge(!!s.becado)}</td>
+
+  <td>${fotoHtml}</td>
+
+  <td style="white-space:nowrap;">
+    <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
+    <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
+    ${
+      iconosEstado
+        ? `<span class="socio-flags" title="Adjuntos / comentarios" style="margin-left:6px;">${iconosEstado}</span>`
+        : ''
+    }
+  </td>
+`;
 
       tbody.appendChild(tr);
     });
