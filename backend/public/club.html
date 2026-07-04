@@ -64,22 +64,26 @@ section.section{
        BOTONES
     ========================= */
     .navbtn {
-  padding:8px 14px;
+  padding:7px 14px;
   border-radius:999px;
-  border:1px solid rgba(255,255,255,0.25);
 
-  background: rgba(255,255,255,0.06);
-  color:white;
+  border: 1px solid rgba(255,255,255,0.35);
+
+  background: rgba(255,255,255,0.12);
+  color: white;
 
   font-size:13px;
   cursor:pointer;
+
+  backdrop-filter: blur(4px);
 
   transition: all .2s ease;
 }
 
 .navbtn:hover{
-  background: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.25);
 }
+
 
 
     .navbtn--top {
@@ -171,7 +175,10 @@ section.section{
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  margin-top:10px;
+
+  margin-top:6px; /* 👈 antes era más grande */
+
+  padding: 6px 4px 4px;
 }
 
 
@@ -367,15 +374,20 @@ textarea:focus{
 }
 
 .header-wrapper{
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-secondary)
+  );
+
+  padding: 12px 12px 6px 12px; /* 👈 IMPORTANTE */
+
+  border-radius: 16px;
+
+  box-shadow: 0 20px 40px rgba(0,0,0,.2);
+
   position: relative;
   overflow: hidden;
-}
-.header-wrapper::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  background: radial-gradient(circle at 80% 0%, rgba(255,255,255,0.15), transparent 60%);
-  pointer-events:none;
 }
 
 .navbtn.active{
@@ -385,6 +397,15 @@ textarea:focus{
     var(--color-secondary)
   );
   border: none;
+}
+
+.navbtn.active{
+  background: white;
+  color: #111;
+
+  border: none;
+
+  box-shadow: 0 4px 10px rgba(0,0,0,.2);
 }
 
 
