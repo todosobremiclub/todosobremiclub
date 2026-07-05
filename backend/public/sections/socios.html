@@ -2,6 +2,7 @@
   <!-- ================= TOOLBAR ================= -->
   <div class="socios-sticky-head">
 <div class="socios-sticky-head">
+<div class="socios-sticky-head">
   <div class="socios-toolbar">
     <div class="socios-filters-inline">
       <input id="sociosSearch" type="text" placeholder="Buscar por Nombre, Apellido o DNI">
@@ -26,10 +27,10 @@
     </div>
   </div>
 
-  <!-- ================= INFO ================= -->
   <div class="socios-info">
     <span id="sociosActivosCount">Socios activos: 0</span>
   </div>
+</div>
 </div>
 </div>
 
@@ -366,7 +367,27 @@
 
 <!-- ================= ESTILOS ================= -->
 <style>
-/* ================= TOOLBAR (RESPONSIVE) ================= */
+/* ================= TOOLBAR + STICKY (RESPONSIVE) ================= */
+.socios-sticky-head {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+
+  margin-bottom: 10px;
+  padding: 10px 12px 8px;
+  border-radius: 18px;
+
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-primary) 6%, #ffffff),
+    color-mix(in srgb, var(--color-secondary) 3%, #ffffff)
+  );
+
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, #dbe3ef);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
+}
+
 .socios-toolbar {
   display: flex;
   justify-content: space-between;
@@ -374,19 +395,6 @@
   flex-wrap: nowrap;
   gap: 10px;
   width: 100%;
-
-  padding: 10px 12px;
-  border-radius: 16px;
-
-  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, #dbe3ef);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-primary) 6%, #ffffff),
-    color-mix(in srgb, var(--color-secondary) 3%, #ffffff)
-  );
-
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
-  overflow-x: auto;
 }
 
 .socios-filters-inline {
@@ -397,6 +405,7 @@
   flex: 1 1 auto;
   min-width: 0;
 }
+
 .socios-filters-inline input,
 .socios-filters-inline select {
   height: 38px;
@@ -417,8 +426,8 @@
 #filtroActividad,
 #filtroCategoria,
 #filtroAnio {
-  width: 200px;
-  flex: 0 0 200px;
+  width: 190px;
+  flex: 0 0 190px;
 }
 
 .socios-filters-inline .checkbox {
@@ -436,6 +445,7 @@
   height: 16px;
   margin: 0;
 }
+
 .socios-actions-inline {
   display: flex;
   gap: 8px;
@@ -462,73 +472,22 @@
   background: color-mix(in srgb, var(--color-primary) 10%, #ffffff);
 }
 
-/* ================= STICKY HEAD – FILTROS + INFO ================= */
-.socios-sticky-head {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-
-  margin-bottom: 10px;
-  padding: 10px 12px 8px;
-  border-radius: 18px;
-
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-primary) 6%, #ffffff),
-    color-mix(in srgb, var(--color-secondary) 3%, #ffffff)
-  );
-
-  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, #dbe3ef);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-
-  backdrop-filter: blur(8px);
-}
-
-.socios-sticky-head .socios-toolbar {
-  margin: 0;
-}
-
-.socios-sticky-head .socios-info {
+.socios-info {
   margin-top: 6px;
   display: flex;
   justify-content: flex-end;
 }
 
-/* ================= STICKY HEAD ================= */
-.socios-sticky-head {
-  position: sticky;
-  top: 10px;
-  z-index: 30;
-
-  margin-bottom: 10px;
-  padding: 10px 12px 8px;
-  border-radius: 18px;
-
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-primary) 6%, #ffffff),
-    color-mix(in srgb, var(--color-secondary) 3%, #ffffff)
-  );
-
-  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, #dbe3ef);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-
-  backdrop-filter: blur(8px);
-}
-
-.socios-sticky-head .socios-toolbar {
-  padding: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  border-radius: 0;
-  overflow-x: visible;
-}
-
-.socios-sticky-head .socios-info {
-  margin-top: 6px;
-  display: flex;
-  justify-content: flex-end;
+#sociosActivosCount {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 8%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, #dbe3ef);
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* ================= FONDO TENUE CLUB – VISTA SOCIOS ================= */
@@ -548,27 +507,9 @@
   margin-top: 10px;
   border: 1px solid color-mix(in srgb, var(--color-primary) 14%, #dbe3ef);
   border-radius: 16px;
-  overflow: hidden;
+  overflow: visible;
   background: rgba(255,255,255,0.82);
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
-}
-
-.socios-info {
-  margin-top: 0;
-  display: flex;
-  justify-content: flex-end;
-}
-
-#sociosActivosCount {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-primary) 8%, #ffffff);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, #dbe3ef);
-  color: #0f172a;
-  font-size: 12px;
-  font-weight: 700;
 }
 
 /* ================= TABLA SOCIOS – COMPACTA ================= */
@@ -589,10 +530,9 @@
   background: color-mix(in srgb, var(--color-primary) 5%, #f8fafc);
   border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 14%, #e5e7eb);
   white-space: nowrap;
-
   position: sticky;
-  top: 86px; /* altura del bloque sticky superior */
-  z-index: 30;
+  top: 84px;
+  z-index: 50;
 }
 
 .socios-table tbody td {
@@ -715,6 +655,65 @@
 
 .socios-table .btn-ico + .btn-ico {
   margin-left: 6px;
+}
+
+@media (max-width: 1180px) {
+  .socios-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .socios-filters-inline {
+    flex-wrap: wrap;
+  }
+
+  #sociosSearch,
+  #filtroActividad,
+  #filtroCategoria,
+  #filtroAnio {
+    width: auto;
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+@media (max-width: 700px) {
+  .socios-sticky-head {
+    top: 8px;
+    padding: 10px;
+  }
+
+  .socios-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .socios-filters-inline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .socios-actions-inline {
+    justify-content: flex-end;
+  }
+
+  #sociosSearch,
+  #filtroActividad,
+  #filtroCategoria,
+  #filtroAnio {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .socios-filters-inline .checkbox {
+    width: 100%;
+  }
+
+  .socios-info {
+    justify-content: flex-start;
+  }
+
+  .socios-table thead th {
+    top: 128px;
+  }
 }
 
 /* ================= BOTTOM BAR ================= */
