@@ -1,5 +1,6 @@
 <section id="socios-section" class="section-socios">
   <!-- ================= TOOLBAR ================= -->
+  <div class="socios-sticky-head">
   <div class="socios-toolbar">
     <div class="socios-filters-inline">
       <input id="sociosSearch" type="text" placeholder="Buscar por Nombre, Apellido o DNI">
@@ -28,6 +29,7 @@
   <div class="socios-info">
     <span id="sociosActivosCount">Socios activos: 0</span>
   </div>
+</div>
 
   <!-- ================= TABLA ================= -->
   <div class="table-wrapper">
@@ -458,6 +460,43 @@
   background: color-mix(in srgb, var(--color-primary) 10%, #ffffff);
 }
 
+/* ================= STICKY HEAD ================= */
+.socios-sticky-head {
+  position: sticky;
+  top: 10px;
+  z-index: 30;
+
+  margin-bottom: 10px;
+  padding: 10px 12px 8px;
+  border-radius: 18px;
+
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-primary) 6%, #ffffff),
+    color-mix(in srgb, var(--color-secondary) 3%, #ffffff)
+  );
+
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, #dbe3ef);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+
+  backdrop-filter: blur(8px);
+}
+
+.socios-sticky-head .socios-toolbar {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow-x: visible;
+}
+
+.socios-sticky-head .socios-info {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* ================= FONDO TENUE CLUB – VISTA SOCIOS ================= */
 .section-socios {
   padding: 14px;
@@ -481,7 +520,7 @@
 }
 
 .socios-info {
-  margin-top: 8px;
+  margin-top: 0;
   display: flex;
   justify-content: flex-end;
 }
@@ -689,6 +728,11 @@
 }
 
 @media (max-width: 700px) {
+  .socios-sticky-head {
+    top: 8px;
+    padding: 10px;
+  }
+
   .socios-toolbar {
     flex-direction: column;
     align-items: stretch;
