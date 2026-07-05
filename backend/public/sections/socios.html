@@ -1,7 +1,5 @@
 <section id="socios-section" class="section-socios">
   <!-- ================= TOOLBAR ================= -->
-  <div class="socios-sticky-head">
-<div class="socios-sticky-head">
 <div class="socios-sticky-head">
   <div class="socios-toolbar">
     <div class="socios-filters-inline">
@@ -30,8 +28,6 @@
   <div class="socios-info">
     <span id="sociosActivosCount">Socios activos: 0</span>
   </div>
-</div>
-</div>
 </div>
 
   <!-- ================= TABLA ================= -->
@@ -373,9 +369,9 @@
   top: 0;
   z-index: 60;
 
-  margin-bottom: 10px;
-  padding: 10px 12px 8px;
-  border-radius: 18px;
+  margin-bottom: 0;
+  padding: 12px 14px 10px;
+  border-radius: 18px 18px 0 0;
 
   background: linear-gradient(
     180deg,
@@ -384,6 +380,8 @@
   );
 
   border: 1px solid color-mix(in srgb, var(--color-primary) 16%, #dbe3ef);
+  border-bottom: none;
+
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(8px);
 }
@@ -473,7 +471,7 @@
 }
 
 .socios-info {
-  margin-top: 6px;
+  margin-top: 8px;
   display: flex;
   justify-content: flex-end;
 }
@@ -504,9 +502,10 @@
 }
 
 .section-socios .table-wrapper {
-  margin-top: 10px;
+  margin-top: 0;
   border: 1px solid color-mix(in srgb, var(--color-primary) 14%, #dbe3ef);
-  border-radius: 16px;
+  border-top: none;
+  border-radius: 0 0 16px 16px;
   overflow: visible;
   background: rgba(255,255,255,0.82);
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
@@ -518,7 +517,7 @@
   border-collapse: separate;
   border-spacing: 0;
   background: rgba(255,255,255,0.88);
-  border-radius: 14px;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -531,8 +530,8 @@
   border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 14%, #e5e7eb);
   white-space: nowrap;
   position: sticky;
-  top: 84px;
-  z-index: 50;
+  top: 104px;
+  z-index: 55;
 }
 
 .socios-table tbody td {
@@ -679,6 +678,7 @@
   .socios-sticky-head {
     top: 8px;
     padding: 10px;
+    border-radius: 16px 16px 0 0;
   }
 
   .socios-toolbar {
@@ -712,7 +712,7 @@
   }
 
   .socios-table thead th {
-    top: 128px;
+    top: 154px;
   }
 }
 
@@ -746,51 +746,7 @@
 }
 
 /* ================= RESPONSIVE BREAKPOINTS ================= */
-@media (max-width: 1180px) {
-  .socios-toolbar {
-    flex-wrap: wrap;
-  }
 
-  .socios-filters-inline {
-    flex-wrap: wrap;
-  }
-
-  #sociosSearch,
-  #filtroActividad,
-  #filtroCategoria,
-  #filtroAnio {
-    width: auto;
-    flex: 1 1 calc(50% - 8px);
-  }
-}
-
-@media (max-width: 700px) {
-  .socios-sticky-head {
-    top: 8px;
-    padding: 10px;
-  }
-
-  .socios-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .socios-filters-inline {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .socios-actions-inline {
-    justify-content: flex-end;
-  }
-
-  #sociosSearch,
-  #filtroActividad,
-  #filtroCategoria,
-  #filtroAnio {
-    width: 100%;
-    flex: 1 1 100%;
-  }
 
   .socios-filters-inline .checkbox {
     width: 100%;
@@ -805,22 +761,6 @@
   }
 }
 
-@media (max-width: 640px) {
-  .socios-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .socios-actions-inline {
-    align-self: flex-end;
-  }
-  .socios-filters-inline input,
-  .socios-filters-inline select {
-    flex: 1 1 100%;
-  }
-  .checkbox {
-    width: 100%;
-  }
-}
 
 /* ================= CARNET DIGITAL (ORIGINAL) ================= */
 .carnet-content {
