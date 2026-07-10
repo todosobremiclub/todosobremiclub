@@ -2,7 +2,14 @@
   const $ = (id) => document.getElementById(id);
 
 // Roles soportados (club)
-const CLUB_ROLE_OPTIONS = ['admin','solo_lectura','comunicacion','finanzas','staff'];
+const CLUB_ROLE_OPTIONS = [
+  'admin',
+  'solo_lectura',
+  'comunicacion',
+  'finanzas',
+  'staff',
+  'profesor' // ✅ NUEVO ROL
+];
 
 
   // =============================

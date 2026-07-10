@@ -1793,6 +1793,7 @@ const tr = document.createElement('tr');
   <td>${fotoHtml}</td>
 
   <td style="white-space:nowrap;">
+     ${window.__clubRole !== 'profesor' ? `
     <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
     <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
     ${
@@ -1928,6 +1929,11 @@ renderPagination(totalSociosCache);
   }
 
   async function saveSocio() {
+if (window.__clubPerms && !window.__clubPerms.canWrite('socios')) {
+  alert('No tenés permisos para modificar socios');
+  return;
+}
+
     const clubId = getActiveClubId();
 
     const numeroRaw = $('socioNumero').value.trim();
@@ -2095,6 +2101,10 @@ if (payload.es_menor && !payload.tutor_nombre) {
 
     $('filtroActividad')?.addEventListener('change', loadSocios);
     $('btnNuevoSocio')?.addEventListener('click', openModalNew);
+    if (window.__clubRole === 'profesor') {
+  const btn = $('btnNuevoSocio');
+  if (btn) btn.style.display = 'none';
+}
     $('btnCancelarSocio')?.addEventListener('click', closeModalSocio);
     $('btnGuardarSocio')?.addEventListener('click', saveSocio);
     $('socioMenor')?.addEventListener('change', () => toggleTutorField());
@@ -2306,15 +2316,14 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
 
 
   if (act === 'edit') {
-    const socio = sociosCache.find((x) => String(x.id) === String(id));
-    if (socio) await openModalEdit(socio);
+  if (window.__clubPerms && !window.__clubPerms.canWrite('socios')) {
+    alert('No tenés permisos para editar socios');
     return;
   }
 
   if (act === 'del') {
-    if (confirm('¿Eliminar socio definitivamente?')) {
-      await deleteSocio(id);
-    }
+  if (window.__clubPerms && !window.__clubPerms.canWrite('socios')) {
+    alert('No tenés permisos para eliminar socios');
     return;
   }
 });

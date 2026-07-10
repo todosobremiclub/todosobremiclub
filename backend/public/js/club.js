@@ -330,6 +330,7 @@ function buildPermissions(role){
     // Acceso a secciones (qué puede ver)
     canAccess(section){
       if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
+      if (r === 'profesor') return ['socios','noticias'].includes(section);
       return ALL_SECTIONS.includes(section);
     },
     // Escritura / ejecutar acciones (mutaciones)
@@ -337,6 +338,7 @@ function buildPermissions(role){
       if (r === 'admin') return true;
       if (r === 'finanzas') return ['pagos','gastos','reportes'].includes(section);
       if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
+      if (r === 'profesor') return ['noticias'].includes(section);
       return false; // solo_lectura u otros
     }
   };
