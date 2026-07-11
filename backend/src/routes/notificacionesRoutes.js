@@ -27,18 +27,37 @@ function requireClubAccess(req, res, next) {
   const { clubId } = req.params;
   const roles = req.user?.roles ?? [];
   const allowed = roles.some(
-    (r) => String(r.club_id) === String(clubId) || r.role === 'superadmin'
-  );
+  (r) =>
+    String(r.club_id) === String(clubId) ||
+    r.role === 'superadmin'
+);
+
   if (!allowed) {
     return res.status(403).json({ ok: false, error: 'No autorizado para este club' });
   }
+
+const canWrite = roles.some(
+  (r) =>
+    r.role === 'admin' ||
+    r.role === 'staff' ||
+    r.role === 'superadmin' ||
+    r.role === 'profesor' // ✅ CLAVE
+);
+
+if (!canWrite) {
+  return res.status(403).json({ ok: false, error: 'No autorizado' });
+}
   next();
 }
 
 function isAdminToken(req) {
   const roles = req.user?.roles ?? [];
   return roles.some(
-    (r) => r.role === 'admin' || r.role === 'staff' || r.role === 'superadmin'
+    (r) =>
+      r.role === 'admin' ||
+      r.role === 'staff' ||
+      r.role === 'superadmin' ||
+      r.role === 'profesor' // ✅ NUEVO
   );
 }
 
