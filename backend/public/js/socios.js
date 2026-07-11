@@ -2279,7 +2279,7 @@ $('btnSubirComentario')?.addEventListener('click', async () => {
 });
 
 
-         // CLICK en tabla: foto / editar / eliminar / WhatsApp / flags
+// CLICK en tabla: foto / editar / eliminar / WhatsApp / flags
 $('sociosTableBody')?.addEventListener('click', async (ev) => {
   // Ver foto grande
   const img = ev.target.closest('[data-act="viewphoto"]');
@@ -2294,7 +2294,7 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
     return;
   }
 
-  // click en iconos de adjuntos/comentarios (📎 / 💬)
+  // Click en iconos de adjuntos/comentarios (📎 / 💬)
   const flagsEl = ev.target.closest('.socio-flags');
   if (flagsEl) {
     const tr = flagsEl.closest('tr');
@@ -2325,31 +2325,31 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
   const id = btn.dataset.id;
   if (!id) return;
 
-
   if (act === 'edit') {
-  if (window.__clubPerms && !window.__clubPerms.canWrite('socios')) {
-    alert('No tenés permisos para editar socios');
+    if (window.__clubPerms && !window.__clubPerms.canWrite('socios')) {
+      alert('No tenés permisos para editar socios');
+      return;
+    }
+
+    const socio = sociosCache.find((x) => String(x.id) === String(id));
+    if (socio) {
+      await openModalEdit(socio);
+    }
     return;
   }
 
-  const socio = sociosCache.find(x => String(x.id) === String(id));
-  if (socio) {
-    openModalEdit(socio);
-  }
-  return;
-}
+  if (act === 'del') {
+    if (window.__clubPerms && !window.__clubPerms.canWrite('socios')) {
+      alert('No tenés permisos para eliminar socios');
+      return;
+    }
 
-if (act === 'del') {
-  if (window.__clubPerms && !window.__clubPerms.canWrite('socios')) {
-    alert('No tenés permisos para eliminar socios');
+    if (confirm('¿Eliminar socio?')) {
+      await deleteSocio(id);
+    }
     return;
   }
-
-  if (confirm('¿Eliminar socio?')) {
-    deleteSocio(id);
-  }
-  return;
-}
+});
 
 
 
