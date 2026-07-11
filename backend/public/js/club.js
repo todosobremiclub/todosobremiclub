@@ -349,8 +349,19 @@ function applyNavVisibility(perms){
   document.querySelectorAll('[data-section]').forEach(btn => {
     const sec = btn.dataset.section;
     if (!sec) return;
-    btn.style.display = perms.canAccess(sec) ? '' : 'none';
+
+    if (perms.canAccess(sec)) {
+      btn.style.display = '';
+    } else {
+      btn.style.display = 'none';
+    }
   });
+
+  // 🔥 FIX adicional: ocultar botones fuera del menú estándar
+  const btnAcceso = document.getElementById('btnControlAcceso');
+  if (btnAcceso && !perms.canAccess('acceso')) {
+    btnAcceso.style.display = 'none';
+  }
 }
 
 // Sección inicial según rol
@@ -372,7 +383,12 @@ function pickDefaultSection(perms){
       const isSameOrigin = !/^https?:\/\//i.test(url) || url.startsWith(window.location.origin);
 
       if (isSameOrigin && method !== 'GET' && method !== 'HEAD'){
-        const sec = window.currentSection || 'socios';
+        const urlStr = String(url || '');
+let sec = window.currentSection;
+
+if (urlStr.includes('/noticias')) {
+  sec = 'noticias';
+}
         const p = window.__clubPerms;
         if (p && !p.canWrite(sec)){
           const body = JSON.stringify({ ok:false, error:'No autorizado para modificar en esta sección.'});
