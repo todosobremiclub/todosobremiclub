@@ -2321,12 +2321,25 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
     return;
   }
 
-  if (act === 'del') {
+  const socio = sociosCache.find(x => String(x.id) === String(id));
+  if (socio) {
+    openModalEdit(socio);
+  }
+  return;
+}
+
+if (act === 'del') {
   if (window.__clubPerms && !window.__clubPerms.canWrite('socios')) {
     alert('No tenés permisos para eliminar socios');
     return;
   }
-});
+
+  if (confirm('¿Eliminar socio?')) {
+    deleteSocio(id);
+  }
+  return;
+}
+
 
 
     // DOBLE CLICK WhatsApp – abrir WA
