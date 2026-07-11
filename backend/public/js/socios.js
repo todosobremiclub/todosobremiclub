@@ -1754,7 +1754,7 @@ const nombreCompleto = formatNombreTabla(s);
 const tr = document.createElement('tr');
       tr.dataset.id = s.id;
 
-      tr.innerHTML = `
+tr.innerHTML = `
   <td>${renderPagoPill(s)}</td>
 
   <td>${fmtSocioNumero(s.numero_socio)}</td>
@@ -1793,13 +1793,24 @@ const tr = document.createElement('tr');
   <td>${fotoHtml}</td>
 
   <td style="white-space:nowrap;">
-     ${window.__clubRole !== 'profesor' ? `
-    <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
-    <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
     ${
-      iconosEstado
-        ? `<span class="socio-flags" title="Adjuntos / comentarios" style="margin-left:6px;">${iconosEstado}</span>`
-        : ''
+      window.__clubRole !== 'profesor'
+        ? `
+          <button title="Editar" class="btn-ico" data-act="edit" data-id="${s.id}">✏️</button>
+          <button title="Eliminar" class="btn-ico" data-act="del" data-id="${s.id}">🗑️</button>
+          ${
+            iconosEstado
+              ? `<span class="socio-flags" title="Adjuntos / comentarios" style="margin-left:6px;">${iconosEstado}</span>`
+              : ''
+          }
+        `
+        : `
+          ${
+            iconosEstado
+              ? `<span class="socio-flags" title="Adjuntos / comentarios" style="margin-left:6px;">${iconosEstado}</span>`
+              : ''
+          }
+        `
     }
   </td>
 `;
