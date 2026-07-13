@@ -208,15 +208,15 @@ function buildConceptosParaSocio(socio) {
 
   const conceptos = [];
 
-  // Base (actividad / excepción / grupo familiar)
-  if (selectedSocioTarifa) {
-    conceptos.push({
-      tipo: 'base',
-      nombre: selectedSocioTarifa.nombre,
-      monto: Number(selectedSocioTarifa.monto ?? 0) || 0,
-      seleccionado: true
-    });
-  }
+// ✅ Base SOLO si no es miembro de grupo familiar
+if (selectedSocioTarifa && selectedSocioTarifa.tipo !== 'grupo_familiar_miembro') {
+  conceptos.push({
+    tipo: 'base',
+    nombre: selectedSocioTarifa.nombre,
+    monto: Number(selectedSocioTarifa.monto ?? 0) || 0,
+    seleccionado: true
+  });
+}
 
   // Actividades adicionales guardadas en el socio
   let adicionales = [];
@@ -276,19 +276,28 @@ async function selectSocio(s) {
   selectedSocioTarifa = getSocioTarifa(s);
 
   // 🚫 bloquear miembro de Grupo Familiar desde UI
-  if (selectedSocioTarifa?.tipo === 'grupo_familiar_miembro') {
-    selectedSocioId = null;
+// ✅ miembro de grupo familiar NO tiene tarifa base
+if (selectedSocioTarifa?.tipo === 'grupo_familiar_miembro') {
+  selectedSocioId = s.id;
 
-    const inp = $('socioSeleccionadoNombre');
-    if (inp) inp.value = `${s.apellido} ${s.nombre} - ${s.dni}`;
+  const inp = $('socioSeleccionadoNombre');
+  if (inp) inp.value = `${s.apellido} ${s.nombre} - ${s.dni}`;
 
-    renderTarifaInfo();
-    renderConceptosPago([]);
-    $('modalElegirSocio')?.classList.add('hidden');
-    await refreshMesesPagados();
-    renderMesesGrid();
-    return;
-  }
+  renderTarifaInfo();
+
+  await loadActividadesAdicionales();
+
+  const conceptos = buildConceptosParaSocio(s);
+  conceptosBaseSocio = conceptos.map(c => ({ ...c }));
+
+  renderConceptosPago(conceptosBaseSocio);
+
+  $('modalElegirSocio')?.classList.add('hidden');
+  await refreshMesesPagados();
+  renderMesesGrid();
+
+  return;
+}
 
   selectedSocioId = s.id;
 
