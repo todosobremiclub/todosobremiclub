@@ -66,9 +66,10 @@ let conceptosSeleccionados = [];
 
 
 
-  let selectedYear = new Date().getFullYear();
-  let mesesPagados = new Set();
-  let mesesSeleccionados = new Set();
+let selectedYear = new Date().getFullYear();
+let mesesPagados = new Set();      // meses completos
+let mesesParciales = new Set();    // meses con conceptos pendientes
+let mesesSeleccionados = new Set();
 
   // Ingresos generales
   let tiposIngresoCache = [];
@@ -527,52 +528,83 @@ function renderSociosMini(query) {
 // 🔼 FIN DE LA FUNCIÓN NUEVA 🔼
 
 
-  async function refreshMesesPagados() {
-    mesesPagados.clear();
-    mesesSeleccionados.clear();
-    if (!selectedSocioId) return;
+async function refreshMesesPagados() {
+  mesesPagados.clear();
+  mesesParciales.clear();
+  mesesSeleccionados.clear();
 
-    const clubId = getActiveClubId();
-    const { res, data } = await fetchAuth(`/club/${clubId}/pagos/${selectedSocioId}?anio=${selectedYear}`);
-    if (!res.ok || !data.ok) {
-      console.error(data.error || 'Error cargando pagos del socio');
-      return;
-    }
-    (data.mesesPagados || []).forEach(m => mesesPagados.add(Number(m)));
+  if (!selectedSocioId) return;
+
+  const clubId = getActiveClubId();
+  const { res, data } = await fetchAuth(`/club/${clubId}/pagos/${selectedSocioId}?anio=${selectedYear}`);
+
+  if (!res.ok || !data?.ok) {
+    console.warn('No se pudieron cargar los pagos del socio');
+    return;
   }
 
-  function renderMesesGrid() {
-    const grid = $('mesesGrid');
-    if (!grid) return;
+  const pagos = data.pagos ?? [];
 
-    grid.innerHTML = '';
-    MESES.forEach(m => {
-      const paid = mesesPagados.has(m.n);
-      const selected = mesesSeleccionados.has(m.n);
+  pagos.forEach((p) => {
+    const mes = Number(p.mes);
+    if (!mes) return;
 
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'btn btn-secondary';
-      b.style.padding = '12px 10px';
-      b.style.borderRadius = '10px';
-      b.style.fontWeight = '700';
-      b.style.background = paid ? '#d1d5db' : (selected ? '#16a34a' : '#e5e7eb');
-      b.style.color = paid ? '#6b7280' : (selected ? '#fff' : '#111827');
-      b.disabled = paid || !selectedSocioId;
-      b.innerHTML = paid ? `${m.label} ✅` : m.label;
+    if (p.pago_completo === false) {
+      mesesParciales.add(mes);
+    } else if (!p.pendiente) {
+      mesesPagados.add(mes);
+    }
+  });
+}
 
-      b.addEventListener('click', () => {
-        if (mesesSeleccionados.has(m.n)) mesesSeleccionados.delete(m.n);
-        else mesesSeleccionados.add(m.n);
-        renderMesesGrid();
-        renderMontoHint();
-      });
+function renderMesesGrid() {
+  const grid = $('mesesGrid');
+  if (!grid) return;
 
-      grid.appendChild(b);
+  grid.innerHTML = '';
+
+  MESES.forEach((m) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = m.label;
+
+    const esCompleto = mesesPagados.has(m.n);
+    const esParcial = mesesParciales.has(m.n);
+    const estaSeleccionado = mesesSeleccionados.has(m.n);
+
+    if (esCompleto) {
+      btn.classList.add('mes-completo');
+      btn.innerHTML = `${m.label} ✅`;
+      btn.disabled = true; // completo => ya no se toca más
+    } else if (esParcial) {
+      btn.classList.add('mes-parcial');
+      btn.innerHTML = `${m.label} 🟧`;
+      // parcial => SÍ se puede volver a seleccionar para completar conceptos
+    }
+
+    if (estaSeleccionado) {
+      btn.style.outline = '3px solid #111827';
+      btn.style.outlineOffset = '-3px';
+    }
+
+    btn.addEventListener('click', () => {
+      if (esCompleto) return;
+
+      if (mesesSeleccionados.has(m.n)) {
+        mesesSeleccionados.delete(m.n);
+      } else {
+        mesesSeleccionados.add(m.n);
+      }
+
+      renderMesesGrid();
+      renderMontoHint();
     });
 
-    renderMontoHint();
-  }
+    grid.appendChild(btn);
+  });
+
+  renderMontoHint();
+}
 
 function renderConceptosPago(conceptos) {
   const cont = $('conceptosPagoLista');
@@ -664,12 +696,9 @@ function renderMontoHint() {
   // Pago parcial
   const { esParcial, montoNum } = getPagoParcialState();
 
-  if (esParcial) {
-    if (Number.isNaN(montoNum) || montoNum < 0) {
-      el.textContent = 'Ingresá un monto parcial válido (>= 0).';
-      return;
-    }
-
+if (esParcial) {
+  body.monto_parcial = Number(montoNum);
+}
     const totalParcial = montoNum * mesesSeleccionados.size;
 
     el.textContent =
@@ -704,12 +733,37 @@ function renderMontoHint() {
   }
 
   const clubId = getActiveClubId();
+const detallePago = conceptosSeleccionados.map((c) => ({
+  tipo: c.tipo,
+  nombre: c.nombre,
+  monto: Number(c.monto || 0),
+  seleccionado: c.seleccionado === true
+}));
+
+const montoTotalTeorico = conceptosSeleccionados.reduce(
+  (acc, c) => acc + Number(c.monto || 0),
+  0
+);
+
+const montoSeleccionadoConceptos = conceptosSeleccionados.reduce(
+  (acc, c) => acc + (c.seleccionado ? Number(c.monto || 0) : 0),
+  0
+);
+
+const pagoCompletoPorConceptos =
+  conceptosSeleccionados.length > 0 &&
+  conceptosSeleccionados.every((c) => c.seleccionado === true);
+
 const body = {
   socio_id: selectedSocioId,
   anio: selectedYear,
   meses: Array.from(mesesSeleccionados),
   fecha_pago: fecha,
-  es_parcial: esParcial
+  es_parcial: esParcial,
+  detalle_pago: detallePago,
+  monto_total_teorico: montoTotalTeorico,
+  monto_pagado: esParcial ? Number(montoNum) : montoSeleccionadoConceptos,
+  pago_completo: esParcial ? false : pagoCompletoPorConceptos
 };
 
 // Cuenta / responsable

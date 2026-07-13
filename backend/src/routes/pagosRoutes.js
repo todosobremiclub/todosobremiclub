@@ -105,11 +105,19 @@ router.get('/:clubId/pagos/:socioId', requireAuth, async (req, res) => {
   const [rAdmin, rClub] = await Promise.all([
     db.query(
       `
-      SELECT id, mes, monto, fecha_pago, cuenta
-      FROM pagos_mensuales
-      WHERE club_id = $1 AND socio_id = $2 AND anio = $3
-      ORDER BY mes ASC
-      `,
+SELECT
+  id,
+  mes,
+  monto,
+  fecha_pago,
+  cuenta,
+  detalle_pago,
+  monto_total_teorico,
+  monto_pagado,
+  pago_completo
+FROM pagos_mensuales
+WHERE club_id = $1 AND socio_id = $2 AND anio = $3
+ORDER BY mes ASC      `,
       [clubId, socioId, anio]
     ),
     db.query(
@@ -178,13 +186,17 @@ const rClub = await db.query(
 
     const rSocio = await db.query(
       `
-      SELECT
-        pm.id,
-        pm.mes,
-        pm.monto,
-        pm.fecha_pago,
-        pm.cuenta,
-        tp.estado_transferencia
+SELECT
+  pm.id,
+  pm.mes,
+  pm.monto,
+  pm.fecha_pago,
+  pm.cuenta,
+  pm.detalle_pago,
+  pm.monto_total_teorico,
+  pm.monto_pagado,
+  pm.pago_completo,
+  tp.estado_transferencia
       FROM pagos_mensuales pm
       LEFT JOIN LATERAL (
         SELECT
@@ -289,7 +301,7 @@ router.post(
   async (req, res) => {
     try {
       const { clubId } = req.params;
-      const {
+const {
   socio_id,
   socioId,
   anio,
@@ -300,8 +312,11 @@ router.post(
   monto_parcial = null,
   cuenta = null,
   cuenta_id = null,
+  detalle_pago = [],
+  monto_total_teorico = null,
+  monto_pagado = null,
+  pago_completo = true,
 } = req.body ?? {};
-
 const socioIdFinal = socio_id || socioId;
 
 const mesesFinal =
@@ -562,51 +577,160 @@ if (esJefePlanFamiliar) {
     }))
   ];
 }
-      await db.query('BEGIN');
-      const inserted = [];
+await db.query('BEGIN');
+const inserted = [];
 
-      for (const socioPago of sociosAPagar) {
+for (const socioPago of sociosAPagar) {
   for (const mes of mesesNum) {
-    const rIns = await db.query(
+    const rPrev = await db.query(
       `
-      INSERT INTO pagos_mensuales
-      (
-        club_id,
-        socio_id,
-        socio_nombre,
-        socio_apellido,
-        socio_numero,
-        anio,
-        mes,
-        monto,
-        fecha_pago,
-        cuenta
-      )
-      VALUES
-      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-      ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING
-      RETURNING id, anio, mes, monto, fecha_pago, cuenta
+      SELECT
+        id,
+        detalle_pago,
+        monto_total_teorico,
+        monto_pagado,
+        pago_completo
+      FROM pagos_mensuales
+      WHERE club_id = $1
+        AND socio_id = $2
+        AND anio = $3
+        AND mes = $4
+      LIMIT 1
+      `,
+      [clubId, socioPago.socio_id, anioNum, mes]
+    );
+
+    const detalleBase = Array.isArray(detalle_pago) ? detalle_pago : [];
+    const totalTeoricoBase = Number(monto_total_teorico ?? socioPago.monto ?? 0) || 0;
+    const montoPagadoBase = Number(monto_pagado ?? socioPago.monto ?? 0) || 0;
+    const pagoCompletoBase = pago_completo === true;
+
+    if (!rPrev.rowCount) {
+      const rIns = await db.query(
+        `
+        INSERT INTO pagos_mensuales
+        (
+          club_id,
+          socio_id,
+          socio_nombre,
+          socio_apellido,
+          socio_numero,
+          anio,
+          mes,
+          monto,
+          fecha_pago,
+          cuenta,
+          detalle_pago,
+          monto_total_teorico,
+          monto_pagado,
+          pago_completo
+        )
+        VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        RETURNING id, anio, mes, monto, fecha_pago, cuenta, pago_completo
+        `,
+        [
+          clubId,
+          socioPago.socio_id,
+          socioPago.nombre,
+          socioPago.apellido,
+          socioPago.numero_socio,
+          anioNum,
+          mes,
+          montoPagadoBase,
+          fechaPagoFinal,
+          cuentaFinal ?? null,
+          JSON.stringify(detalleBase),
+          totalTeoricoBase,
+          montoPagadoBase,
+          pagoCompletoBase
+        ]
+      );
+      if (rIns.rowCount) inserted.push(rIns.rows[0]);
+      continue;
+    }
+
+    const prev = rPrev.rows[0];
+
+    // Si ya está completo, no se vuelve a tocar
+    if (prev.pago_completo === true) {
+      continue;
+    }
+
+    const prevDetalle = Array.isArray(prev.detalle_pago) ? prev.detalle_pago : [];
+    const mergedMap = new Map();
+
+    prevDetalle.forEach((d) => {
+      mergedMap.set(`${d.tipo}__${d.nombre}`, {
+        tipo: d.tipo,
+        nombre: d.nombre,
+        monto: Number(d.monto || 0),
+        seleccionado: d.seleccionado === true
+      });
+    });
+
+    detalleBase.forEach((d) => {
+      const key = `${d.tipo}__${d.nombre}`;
+      const prevItem = mergedMap.get(key);
+
+      if (!prevItem) {
+        mergedMap.set(key, {
+          tipo: d.tipo,
+          nombre: d.nombre,
+          monto: Number(d.monto || 0),
+          seleccionado: d.seleccionado === true
+        });
+      } else {
+        mergedMap.set(key, {
+          tipo: d.tipo,
+          nombre: d.nombre,
+          monto: Number(d.monto || prevItem.monto || 0),
+          seleccionado: prevItem.seleccionado === true || d.seleccionado === true
+        });
+      }
+    });
+
+    const mergedDetalle = Array.from(mergedMap.values());
+    const mergedTeorico = Number(prev.monto_total_teorico ?? totalTeoricoBase ?? 0) || 0;
+    const mergedPagado = mergedDetalle
+      .filter((d) => d.seleccionado === true)
+      .reduce((acc, d) => acc + Number(d.monto || 0), 0);
+
+    const mergedCompleto =
+      mergedDetalle.length > 0 &&
+      mergedDetalle.every((d) => d.seleccionado === true);
+
+    const rUpd = await db.query(
+      `
+      UPDATE pagos_mensuales
+      SET
+        monto = $1,
+        fecha_pago = $2,
+        cuenta = $3,
+        detalle_pago = $4,
+        monto_total_teorico = $5,
+        monto_pagado = $6,
+        pago_completo = $7
+      WHERE id = $8
+      RETURNING id, anio, mes, monto, fecha_pago, cuenta, pago_completo
       `,
       [
-        clubId,
-        socioPago.socio_id,
-        socioPago.nombre,
-        socioPago.apellido,
-        socioPago.numero_socio,
-        anioNum,
-        mes,
-        socioPago.monto,
+        mergedPagado,
         fechaPagoFinal,
         cuentaFinal ?? null,
+        JSON.stringify(mergedDetalle),
+        mergedTeorico,
+        mergedPagado,
+        mergedCompleto,
+        prev.id
       ]
     );
 
-    if (rIns.rowCount) inserted.push(rIns.rows[0]);
+    if (rUpd.rowCount) inserted.push(rUpd.rows[0]);
   }
 }
 
-
-      await db.query('COMMIT');
+await db.query('COMMIT');
 
       return res.json({
         ok: true,
