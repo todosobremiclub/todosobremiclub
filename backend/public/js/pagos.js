@@ -1408,62 +1408,49 @@ $('ingresosTableBody')?.addEventListener('click', (ev) => {
   const group = header.dataset.group;
   const isOpen = header.dataset.open === "1";
 
-  // alternar estado
-  // cerrar todos primero
-document.querySelectorAll('tr[data-group-header]').forEach(h => {
-  h.dataset.open = "0";
-  const a = h.querySelector('.ing-group-arrow');
-  if (a) a.textContent = '▶';
-});
-document.querySelectorAll('tr.ingreso-detalle').forEach(tr => {
-  tr.classList.add('hidden');
-});
+  // 🔴 cerrar todos
+  document.querySelectorAll('tr[data-group-header]').forEach(h => {
+    h.dataset.open = "0";
+    const a = h.querySelector('.ing-group-arrow');
+    if (a) a.textContent = '▶';
+  });
 
-// abrir el actual
-header.dataset.open = "1";
-const arrow = header.querySelector('.ing-group-arrow');
-if (arrow) arrow.textContent = '▼';
+  document.querySelectorAll('tr.ingreso-detalle').forEach(tr => {
+    tr.classList.add('hidden');
+  });
 
-document.querySelectorAll(`tr.ingreso-detalle[data-group="${group}"]`)
-  .forEach(tr => tr.classList.remove('hidden'));
-``
+  // ✅ si ya estaba abierto → no abrir nada
+  if (isOpen) return;
 
-  // cambiar flecha
+  // ✅ abrir el actual
+  header.dataset.open = "1";
+
   const arrow = header.querySelector('.ing-group-arrow');
-  if (arrow) {
-    arrow.textContent = isOpen ? '▶' : '▼';
-  }
+  if (arrow) arrow.textContent = '▼';
 
-  // mostrar / ocultar filas
   document.querySelectorAll(`tr.ingreso-detalle[data-group="${group}"]`)
-    .forEach(tr => {
-      if (isOpen) {
-        tr.classList.add('hidden');
-      } else {
-        tr.classList.remove('hidden');
-      }
-    });
+    .forEach(tr => tr.classList.remove('hidden'));
 });
 
+// ✅ resto del bind (NO tocar)
+const chkParcial = $('pagoParcialChk');
+const inpParcial = $('pagoParcialMonto');
 
-  const chkParcial = $('pagoParcialChk');
-  const inpParcial = $('pagoParcialMonto');
+if (chkParcial) {
+  chkParcial.addEventListener('change', () => {
+    if (inpParcial) {
+      inpParcial.disabled = !chkParcial.checked;
+      if (!chkParcial.checked) inpParcial.value = '';
+    }
+    renderMontoHint();
+  });
+}
 
-  if (chkParcial) {
-    chkParcial.addEventListener('change', () => {
-      if (inpParcial) {
-        inpParcial.disabled = !chkParcial.checked;
-        if (!chkParcial.checked) inpParcial.value = '';
-      }
-      renderMontoHint();
-    });
-  }
-
-  if (inpParcial) {
-    inpParcial.addEventListener('input', () => {
-      renderMontoHint();
-    });
-  }
+if (inpParcial) {
+  inpParcial.addEventListener('input', () => {
+    renderMontoHint();
+  });
+}
 
 $('detTableBody')?.addEventListener('click', async (ev) => {
   const btn = ev.target.closest('button[data-act="del-pago"]');
@@ -1485,7 +1472,8 @@ $('btnDetOk')?.addEventListener('click', () => {
 $('modalPagoDetalles')?.addEventListener('click', (ev) => {
   if (ev.target?.id === 'modalPagoDetalles') closeDetallesUI();
 });
-}
+
+
   async function initPagosSection() {
   // Bind de eventos
   bindOnce();
