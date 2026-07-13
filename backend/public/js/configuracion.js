@@ -1361,7 +1361,7 @@ if (checkGF && !checkGF.dataset.bound) {
   // ✅ NUEVO: Excepciones de cuota
   await loadExcepcionesCuota();
 
-  bindEvents();
+  setTimeout(() => bindEvents(), 200);
 }
 
 window.initConfiguracionSection = initConfiguracionSection;

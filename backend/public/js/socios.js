@@ -1350,6 +1350,15 @@ $('socioAdicionalesWrap')?.classList.add('hidden');
 await loadActividadesAdicionalesConfig();
 setActividadesAdicionalesSeleccionadas([]);
 
+$('socioTieneAdicionales').checked = false;
+
+const wrap = $('socioAdicionalesWrap');
+if (wrap) {
+  wrap.style.display = "none";
+}
+
+setActividadesAdicionalesSeleccionadas([]);
+
 
   $('modalSocio').classList.remove('hidden');
 }
@@ -2210,18 +2219,16 @@ $('socioUsaExcepcion')?.addEventListener('change', () => {
   setExcepcionUI($('socioUsaExcepcion').checked);
 });
 
-$('socioTieneAdicionales')?.addEventListener('change', () => {
+$('socioTieneAdicionales')?.addEventListener('change', function () {
   const wrap = $('socioAdicionalesWrap');
   if (!wrap) return;
 
-  if ($('socioTieneAdicionales').checked) {
-    wrap.classList.remove('hidden');
+  if (this.checked) {
+    wrap.style.display = "block";
   } else {
-    wrap.classList.add('hidden');
-    setActividadesAdicionalesSeleccionadas([]);
+    wrap.style.display = "none";
   }
 });
-
 
 $('socioEsJefePlanFamiliar')?.addEventListener('change', () => {
   syncGrupoFamiliarUI();
