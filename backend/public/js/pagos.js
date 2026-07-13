@@ -482,37 +482,31 @@ pageRows.forEach(s => {
 function openModal() {
   const modal = $('modalPago');
   if (!modal) return;
+
   selectedSocioId = null;
   mesesPagados.clear();
+  mesesParciales.clear();
   mesesSeleccionados.clear();
 
-selectedSocioTarifa = null;
-renderTarifaInfo();
+  selectedSocioTarifa = null;
+  renderTarifaInfo();
 
-conceptosBaseSocio = [];
+  conceptosBaseSocio = [];
+  conceptosSeleccionados = [];
 
+  const conceptosLista = $('conceptosPagoLista');
+  if (conceptosLista) {
+    conceptosLista.innerHTML = '<div class="muted">Seleccioná un socio para ver los conceptos.</div>';
+  }
 
-conceptosSeleccionados = [];
-const conceptosLista = $('conceptosPagoLista');
-if (conceptosLista) {
-  conceptosLista.innerHTML = '<div class="muted">Seleccioná un socio para ver los conceptos.</div>';
-}
-const conceptosResumen = $('conceptosPagoResumen');
-if (conceptosResumen) {
-  conceptosResumen.textContent = 'Total teórico: $ 0.00 — Total seleccionado: $ 0.00';
-}
+  const conceptosResumen = $('conceptosPagoResumen');
+  if (conceptosResumen) {
+    conceptosResumen.textContent = 'Total teórico: $ 0.00 — Total seleccionado: $ 0.00';
+  }
 
   if ($('modalSocioSearch')) $('modalSocioSearch').value = '';
   if ($('modalFechaPago')) $('modalFechaPago').value = todayISO();
   if ($('modalAnioLabel')) $('modalAnioLabel').textContent = String(selectedYear);
-
-
-    const socioId = btn.dataset.id;
-    if (!socioId) return;
-
-    await openDetallesModal(socioId);
-  });
-
 
   // Reset estado de pago parcial
   const chkParcial = $('pagoParcialChk');
