@@ -61,6 +61,10 @@
   
 let selectedSocioTarifa = null; // { tipo, nombre, monto, fuente }
 let actividadesPrecioMap = new Map(); // nombreActividad -> precio_mensual
+let actividadesAdicionalesCache = [];
+let conceptosSeleccionados = [];
+
+
 
   let selectedYear = new Date().getFullYear();
   let mesesPagados = new Set();
@@ -196,6 +200,46 @@ function renderTarifaInfo() {
 
   el.textContent = `Actividad: ${t.nombre} — ${moneyARS(t.monto)} por mes`;
 }
+
+function buildConceptosParaSocio(socio) {
+  if (!socio) return [];
+
+  const conceptos = [];
+
+  // ✅ BASE (actividad / excepción / grupo familiar)
+  if (selectedSocioTarifa) {
+    conceptos.push({
+      tipo: 'base',
+      nombre: selectedSocioTarifa.nombre,
+      monto: Number(selectedSocioTarifa.monto ?? 0),
+      seleccionado: true
+    });
+  }
+
+  // ✅ ADICIONALES desde socio
+  let adicionales = [];
+  try {
+    adicionales = socio.actividades_adicionales
+      ? JSON.parse(socio.actividades_adicionales)
+      : [];
+  } catch {
+    adicionales = [];
+  }
+
+  adicionales.forEach(nombre => {
+    const item = actividadesAdicionalesCache.find(a => a.nombre === nombre);
+
+    conceptos.push({
+      tipo: 'adicional',
+      nombre,
+      monto: Number(item?.precio_mensual ?? 0),
+      seleccionado: true
+    });
+  });
+
+  return conceptos;
+}
+
 async function selectSocio(s) {
   selectedSocioTarifa = getSocioTarifa(s);
 
@@ -207,6 +251,10 @@ async function selectSocio(s) {
     if (inp) inp.value = '';
 
     renderTarifaInfo();
+await loadActividadesAdicionales();
+
+const conceptos = buildConceptosParaSocio(s);
+renderConceptosPago(conceptos);
     $('modalElegirSocio')?.classList.add('hidden');
 
     alert('Este socio pertenece a un Grupo Familiar. El pago debe registrarse al jefe/a del grupo.');
@@ -285,6 +333,20 @@ async function loadActividadesConfig() {
       Number(a.precio_mensual ?? 0) || 0
     ])
   );
+}
+
+async function loadActividadesAdicionales() {
+  const clubId = getActiveClubId();
+
+  const { res, data } = await fetchAuth(`/club/${clubId}/config/actividades-adicionales`);
+
+  if (!res.ok || !data?.ok) {
+    console.warn("Error cargando adicionales");
+    actividadesAdicionalesCache = [];
+    return;
+  }
+
+  actividadesAdicionalesCache = data.actividades ?? [];
 }
 
 
@@ -499,6 +561,66 @@ function renderSociosMini(query) {
 
     renderMontoHint();
   }
+
+function renderConceptosPago(conceptos) {
+  const cont = $('conceptosPagoLista');
+  const resumen = $('conceptosPagoResumen');
+
+  if (!cont || !resumen) return;
+
+  cont.innerHTML = '';
+
+  if (!conceptos.length) {
+    cont.innerHTML = '<div class="muted">Sin conceptos</div>';
+    return;
+  }
+
+  conceptosSeleccionados = conceptos;
+
+  conceptos.forEach((c, i) => {
+    const row = document.createElement('div');
+
+    row.innerHTML = `
+      <label style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:4px 0;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" data-idx="${i}" ${c.seleccionado ? 'checked' : ''}>
+          <span>${c.nombre}</span>
+        </div>
+        <span>${moneyARS(c.monto)}</span>
+      </label>
+    `;
+
+    cont.appendChild(row);
+  });
+
+  calcularTotalesConceptos();
+
+  cont.querySelectorAll('input[type="checkbox"]').forEach(chk => {
+    chk.addEventListener('change', () => {
+      const idx = Number(chk.dataset.idx);
+      conceptosSeleccionados[idx].seleccionado = chk.checked;
+      calcularTotalesConceptos();
+    });
+  });
+}
+
+function calcularTotalesConceptos() {
+  const resumen = $('conceptosPagoResumen');
+  if (!resumen) return;
+
+  let totalTeorico = 0;
+  let totalSeleccionado = 0;
+
+  conceptosSeleccionados.forEach(c => {
+    totalTeorico += c.monto;
+    if (c.seleccionado) {
+      totalSeleccionado += c.monto;
+    }
+  });
+
+  resumen.textContent =
+    `Total teórico: ${moneyARS(totalTeorico)} — Total seleccionado: ${moneyARS(totalSeleccionado)}`;
+}
 
   
 function renderMontoHint() {
