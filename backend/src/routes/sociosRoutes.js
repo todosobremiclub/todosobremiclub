@@ -315,7 +315,25 @@ END AS tipo_grupo_familiar,
 
 DATE_PART('year', AGE(s.fecha_nacimiento))::int AS edad,
         EXTRACT(YEAR FROM s.fecha_nacimiento)::int AS anio_nacimiento,
-          CASE
+-- ✅ Detecta si TODOS los pagos son completos
+(
+  SELECT BOOL_AND(pm.pago_completo)
+  FROM pagos_mensuales pm
+  WHERE pm.socio_id = s.id
+    AND pm.club_id = s.club_id
+) AS pago_completo,
+
+-- ✅ Detecta si HAY pagos parciales
+(
+  SELECT COUNT(*) > 0
+  FROM pagos_mensuales pm
+  WHERE pm.socio_id = s.id
+    AND pm.club_id = s.club_id
+    AND pm.pago_completo = false
+) AS tiene_pagos_parciales,
+
+-- ✅ Mantener lógica actual de "al día"
+CASE
   WHEN s.becado = true THEN true
   ELSE
     COALESCE((
@@ -323,18 +341,7 @@ DATE_PART('year', AGE(s.fecha_nacimiento))::int AS edad,
       FROM pagos_mensuales pm
       WHERE pm.club_id = s.club_id
         AND pm.socio_id = s.id
-    ), 0) >=
-    CASE
-      WHEN EXTRACT(DAY FROM CURRENT_DATE)::int <= COALESCE(c.payment_due_day, 31)
-      THEN
-        CASE
-          WHEN EXTRACT(MONTH FROM CURRENT_DATE)::int = 1
-          THEN ((EXTRACT(YEAR FROM CURRENT_DATE)::int - 1) * 100) + 12
-          ELSE (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + (EXTRACT(MONTH FROM CURRENT_DATE)::int - 1)
-        END
-      ELSE
-        (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + EXTRACT(MONTH FROM CURRENT_DATE)::int
-    END
+    ), 0) > 0
 END AS pago_al_dia
 
       FROM socios s
