@@ -712,21 +712,24 @@ function pagoEstado(s) {
   return { ok: false, tipo: 'impago', label: 'Impago' };
 }
 
-  function renderPagoPill(s) {
+function renderPagoPill(s) {
   const est = pagoEstado(s);
-let cls = 'pay-bad';
 
-if (est.tipo === 'completo' || est.tipo === 'becado') {
-  cls = 'pay-ok';
-} else if (est.tipo === 'parcial') {
-  cls = 'pay-partial'; // 🔥 NUEVO
-let txt = '🔴';
+  let cls = 'pay-bad';
 
-if (est.tipo === 'completo' || est.tipo === 'becado') {
-  txt = '🟢';
-} else if (est.tipo === 'parcial') {
-  txt = '🟧';
-}
+  if (est.tipo === 'completo' || est.tipo === 'becado') {
+    cls = 'pay-ok';
+  } else if (est.tipo === 'parcial') {
+    cls = 'pay-partial';
+  }
+
+  let txt = '🔴';
+
+  if (est.tipo === 'completo' || est.tipo === 'becado') {
+    txt = '🟢';
+  } else if (est.tipo === 'parcial') {
+    txt = '🟧';
+  }
 
   return `
     <span
