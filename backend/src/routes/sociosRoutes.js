@@ -416,10 +416,10 @@ if (diaHoy <= paymentDueDay) {
 
 // 2. traer pagos del mes exigible
 const rPagos = await db.query(`
-  SELECT socio_id, detalle_pago, pago_completo
+  SELECT socio_id, mes, anio, detalle_pago, pago_completo
   FROM pagos_mensuales
-  WHERE club_id = $1 AND anio = $2 AND mes = $3
-`, [clubId, anioExigible, mesExigible]);
+  WHERE club_id = $1 AND anio = $2
+`, [clubId, anioExigible]);
 
 const pagosMap = new Map();
 
@@ -475,16 +475,37 @@ const sociosFinal = socios.map(s => {
   let pagoAlDia = false;
   let esParcial = false;
 
-  if (!baseCubierta) {
-    pagoAlDia = false;
-    esParcial = false;
-  } else if (faltanAdicionales) {
-    pagoAlDia = false;
-    esParcial = true;
-  } else {
-    pagoAlDia = true;
-    esParcial = false;
-  }
+// detectar pagos
+const pagoMesExigible = pagosPropios.some(
+  (p) => Number(p.mes) === mesExigible
+);
+
+const pagoMesActual = pagosPropios.some(
+  (p) => Number(p.mes) === mesActual && Number(p.anio) === anioActual
+);
+
+if (!baseCubierta) {
+  pagoAlDia = false;
+  esParcial = false;
+}
+else if (faltanAdicionales) {
+  pagoAlDia = false;
+  esParcial = true;
+}
+else if (pagoMesActual) {
+  // ✅ si pagó el mes actual → siempre verde
+  pagoAlDia = true;
+  esParcial = false;
+}
+else if (diaHoy <= paymentDueDay && pagoMesExigible) {
+  // ✅ antes del vencimiento → alcanza con mes anterior
+  pagoAlDia = true;
+  esParcial = false;
+}
+else {
+  pagoAlDia = false;
+  esParcial = false;
+}
 
   return {
     ...s,
