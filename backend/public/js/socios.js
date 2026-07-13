@@ -699,12 +699,31 @@ function pagoEstado(s) {
     return { ok: true, tipo: 'becado', label: 'Becado' };
   }
 
-  // 🔴 CLAVE: detectar parcial PRIMERO
+  const hoy = new Date();
+  const diaHoy = hoy.getDate();
+  const mesActual = hoy.getMonth() + 1; // 1-12
+  const anioActual = hoy.getFullYear();
+
+  const diaLimite = Number(localStorage.getItem('diaLimitePago') || 10);
+
+  // 🔥 Último pago del socio
+  const ultimoAnio = Number(s.ultimo_pago_anio || 0);
+  const ultimoMes = Number(s.ultimo_pago_mes || 0);
+
+  // 🔴 REGLA NUEVA
+  // Si ya pasó el día límite → tiene que haber pagado el mes actual
+  if (diaHoy > diaLimite) {
+    if (!(ultimoAnio === anioActual && ultimoMes === mesActual)) {
+      return { ok: false, tipo: 'impago', label: 'Impago' };
+    }
+  }
+
+  // 🟧 Parcial (mantener)
   if (s.tiene_pagos_parciales === true || s.pago_completo === false) {
     return { ok: false, tipo: 'parcial', label: 'Parcial' };
   }
 
-  // 🟢 SOLO si es realmente completo
+  // 🟢 Completo
   if (s.pago_al_dia === true) {
     return { ok: true, tipo: 'completo', label: 'Al día' };
   }
