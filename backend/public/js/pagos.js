@@ -63,13 +63,15 @@ let selectedSocioTarifa = null; // { tipo, nombre, monto, fuente }
 let actividadesPrecioMap = new Map(); // nombreActividad -> precio_mensual
 let actividadesAdicionalesCache = [];
 let conceptosSeleccionados = [];
-
+let conceptosBaseSocio = []; // copia completa de conceptos del socio seleccionado
 
 
 let selectedYear = new Date().getFullYear();
 let mesesPagados = new Set();      // meses completos
 let mesesParciales = new Set();    // meses con conceptos pendientes
 let mesesSeleccionados = new Set();
+let detallePagosPorMes = new Map(); // 🔥 CLAVE
+
 
   // Ingresos generales
   let tiposIngresoCache = [];
@@ -242,6 +244,34 @@ function buildConceptosParaSocio(socio) {
   return conceptos;
 }
 
+function getConceptosPendientesDelMes(mesNum) {
+  const detalle = detallePagosPorMes.get(Number(mesNum)) || [];
+
+  if (!detalle.length) {
+    return conceptosBaseSocio.map(c => ({ ...c }));
+  }
+
+  const pendientes = conceptosBaseSocio.filter((conceptoBase) => {
+    const itemPrevio = detalle.find(
+      (d) =>
+        String(d.tipo) === String(conceptoBase.tipo) &&
+        String(d.nombre).trim() === String(conceptoBase.nombre).trim()
+    );
+
+    // Si no existe en detalle previo, se considera pendiente
+    if (!itemPrevio) return true;
+
+    // Si existe pero estaba seleccionado=false, sigue pendiente
+    return itemPrevio.seleccionado === false;
+  });
+
+  return pendientes.map((c) => ({
+    ...c,
+    seleccionado: true
+  }));
+}
+
+
 async function selectSocio(s) {
   selectedSocioTarifa = getSocioTarifa(s);
 
@@ -268,8 +298,10 @@ async function selectSocio(s) {
   renderTarifaInfo();
 
   await loadActividadesAdicionales();
+
   const conceptos = buildConceptosParaSocio(s);
-  renderConceptosPago(conceptos);
+  conceptosBaseSocio = conceptos.map(c => ({ ...c })); // ✅ guardar copia base completa
+  renderConceptosPago(conceptosBaseSocio);
 
   $('modalElegirSocio')?.classList.add('hidden');
   await refreshMesesPagados();
@@ -455,6 +487,9 @@ function openModal() {
 selectedSocioTarifa = null;
 renderTarifaInfo();
 
+conceptosBaseSocio = [];
+
+
 conceptosSeleccionados = [];
 const conceptosLista = $('conceptosPagoLista');
 if (conceptosLista) {
@@ -468,6 +503,18 @@ if (conceptosResumen) {
   if ($('modalSocioSearch')) $('modalSocioSearch').value = '';
   if ($('modalFechaPago')) $('modalFechaPago').value = todayISO();
   if ($('modalAnioLabel')) $('modalAnioLabel').textContent = String(selectedYear);
+
+
+  $('pagosTableBody')?.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-act="details"]');
+    if (!btn) return;
+
+    const socioId = btn.dataset.id;
+    if (!socioId) return;
+
+    await openDetallesModal(socioId);
+  });
+
 
   // Reset estado de pago parcial
   const chkParcial = $('pagoParcialChk');
@@ -545,6 +592,24 @@ async function refreshMesesPagados() {
 
   const pagos = data.pagos ?? [];
 
+detallePagosPorMes.clear();
+
+pagos.forEach(p => {
+  if (!p.mes) return;
+
+  if (p.detalle_pago) {
+    try {
+      const parsed = Array.isArray(p.detalle_pago)
+        ? p.detalle_pago
+        : JSON.parse(p.detalle_pago);
+
+      detallePagosPorMes.set(Number(p.mes), parsed);
+    } catch {
+      detallePagosPorMes.set(Number(p.mes), []);
+    }
+  }
+});
+
   pagos.forEach((p) => {
     const mes = Number(p.mes);
     if (!mes) return;
@@ -579,6 +644,18 @@ function renderMesesGrid() {
     } else if (esParcial) {
       btn.classList.add('mes-parcial');
       btn.innerHTML = `${m.label} 🟧`;
+
+      // ✅ tooltip con faltantes del mes
+      const detalle = detallePagosPorMes.get(m.n) || [];
+      const faltantes = detalle
+        .filter((d) => d.seleccionado === false)
+        .map((d) => `${d.nombre} (${moneyARS(d.monto)})`);
+
+      if (faltantes.length) {
+        btn.title = `Falta pagar:\n${faltantes.join('\n')}`;
+      } else {
+        btn.title = 'Pago parcial con conceptos pendientes';
+      }
     }
 
     if (estaSeleccionado) {
@@ -588,6 +665,15 @@ function renderMesesGrid() {
 
     btn.addEventListener('click', () => {
       if (esCompleto) return;
+
+      // ✅ Si el mes es parcial, mostrar SOLO los conceptos pendientes de ese mes
+      if (esParcial) {
+        const pendientes = getConceptosPendientesDelMes(m.n);
+        renderConceptosPago(pendientes);
+      } else {
+        // ✅ Si el mes no es parcial, volver a mostrar todos los conceptos base del socio
+        renderConceptosPago(conceptosBaseSocio.map(c => ({ ...c })));
+      }
 
       if (mesesSeleccionados.has(m.n)) {
         mesesSeleccionados.delete(m.n);
@@ -604,6 +690,8 @@ function renderMesesGrid() {
 
   renderMontoHint();
 }
+
+
 
 function renderConceptosPago(conceptos) {
   const cont = $('conceptosPagoLista');
@@ -826,20 +914,20 @@ async function savePago() {
 
     $('detTitle').textContent = `Pagos de ${nombreSocio}`;
     $('detSub').textContent = `Año: ${selectedYear}`;
-    $('detTableBody').innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
+    $('detTableBody').innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
     $('detTotal').textContent = '';
 
     openDetallesUI();
 
     const { res, data } = await fetchAuth(`/club/${clubId}/pagos/${socioId}?anio=${selectedYear}`);
     if (!res.ok || !data.ok) {
-      $('detTableBody').innerHTML = `<tr><td colspan="3">Error: ${data.error || 'No se pudo cargar'}</td></tr>`;
+      $('detTableBody').innerHTML = `<tr><td colspan="5">Error: ${data.error || 'No se pudo cargar'}</td></tr>`;
       return;
     }
 
     const pagos = data.pagos || [];
     if (!pagos.length) {
-      $('detTableBody').innerHTML = '<tr><td colspan="3">No hay pagos registrados para este año.</td></tr>';
+      $('detTableBody').innerHTML = '<tr><td colspan="5">No hay pagos registrados para este año.</td></tr>';
       $('detTotal').textContent = 'Total: $ 0.00';
       return;
     }
