@@ -317,6 +317,23 @@ const {
   monto_pagado = null,
   pago_completo = true,
 } = req.body ?? {};
+
+const detallePagoArray = Array.isArray(detalle_pago) ? detalle_pago : [];
+
+const conceptosSeleccionados = detallePagoArray.filter(
+  (d) => d && d.seleccionado === true
+);
+
+const conceptosBaseSeleccionados = conceptosSeleccionados.filter(
+  (d) => String(d.tipo || '') === 'base'
+);
+
+const conceptosNoBaseSeleccionados = conceptosSeleccionados.filter(
+  (d) => String(d.tipo || '') !== 'base'
+);
+
+const intentaPagarBase = conceptosBaseSeleccionados.length > 0;
+
 const socioIdFinal = socio_id || socioId;
 
 const mesesFinal =
@@ -439,10 +456,10 @@ const socioNumero = socioRes.rows[0].numero_socio;
 const esJefePlanFamiliar = socioRes.rows[0].es_jefe_plan_familiar === true;
 const grupoFamiliarJefeId = socioRes.rows[0].grupo_familiar_jefe_id || null;
 
-if (grupoFamiliarJefeId && !esJefePlanFamiliar) {
+if (grupoFamiliarJefeId && !esJefePlanFamiliar && intentaPagarBase) {
   return res.status(400).json({
     ok: false,
-    error: 'No se puede registrar un pago para este socio porque pertenece a un Grupo Familiar. El pago debe registrarse al jefe/a del grupo.'
+    error: 'No se puede registrar la cuota base para este socio porque pertenece a un Grupo Familiar. Solo puede registrar actividades adicionales.'
   });
 }
 
@@ -534,11 +551,13 @@ let sociosAPagar = [
     nombre: socioNombre ?? null,
     apellido: socioApellido ?? null,
     numero_socio: socioNumero ?? null,
-    monto: montoPorMes
+    monto: montoPorMes,
+    detalle: detallePagoArray
   }
 ];
 
-if (esJefePlanFamiliar) {
+// ✅ Solo propagar al grupo si el jefe está pagando la BASE
+if (esJefePlanFamiliar && intentaPagarBase) {
   const rMiembros = await db.query(
     `
     SELECT
@@ -559,24 +578,26 @@ if (esJefePlanFamiliar) {
     [clubId, socioIdFinal]
   );
 
-  // al jefe/a se le guarda el monto real; a integrantes, monto 0
   sociosAPagar = [
     {
       socio_id: socioIdFinal,
       nombre: socioNombre ?? null,
       apellido: socioApellido ?? null,
       numero_socio: socioNumero ?? null,
-      monto: montoPorMes
+      monto: montoPorMes,
+      detalle: detallePagoArray
     },
     ...rMiembros.rows.map((m) => ({
       socio_id: m.socio_id,
       nombre: m.nombre ?? null,
       apellido: m.apellido ?? null,
       numero_socio: m.numero_socio ?? null,
-      monto: 0
+      monto: 0,
+      detalle: []
     }))
   ];
 }
+
 await db.query('BEGIN');
 const inserted = [];
 
@@ -600,7 +621,7 @@ for (const socioPago of sociosAPagar) {
       [clubId, socioPago.socio_id, anioNum, mes]
     );
 
-    const detalleBase = Array.isArray(detalle_pago) ? detalle_pago : [];
+    const detalleBase = Array.isArray(socioPago.detalle) ? socioPago.detalle : [];
     const totalTeoricoBase = Number(monto_total_teorico ?? socioPago.monto ?? 0) || 0;
     const montoPagadoBase = Number(monto_pagado ?? socioPago.monto ?? 0) || 0;
     const pagoCompletoBase = pago_completo === true;
