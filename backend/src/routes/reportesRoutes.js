@@ -742,48 +742,51 @@ router.get(
 
     try {
       const q = `
-        WITH meses AS (
-          SELECT generate_series(1,12)::int AS mes_num
-        ),
-        socios_activos AS (
+WITH meses AS (
+  SELECT generate_series(1,12)::int AS mes_num
+),
+socios_activos AS (
   SELECT id, fecha_ingreso
   FROM socios
   WHERE club_id = $1
-  AND activo = true
-  AND becado = false
+    AND activo = true
+    AND becado = false
 ),
-
-        base AS (
-          -- Para cada socio activo y cada mes del año, determinamos si debería pagar
-          SELECT
-            m.mes_num,
-            s.id AS socio_id
-          FROM meses m
-          CROSS JOIN socios_activos s
-          WHERE
-            s.fecha_ingreso IS NULL
-            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
-            OR (
-              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
-              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
-            )
-        ),
-        pagos AS (
-          SELECT socio_id, mes AS mes_num
-          FROM pagos_mensuales
-          WHERE club_id = $1
-            AND anio = $2
-        )
-        SELECT
-          b.mes_num,
-          COUNT(*) AS cantidad
-        FROM base b
-        LEFT JOIN pagos p
-          ON p.socio_id = b.socio_id
-         AND p.mes_num = b.mes_num
-        WHERE p.socio_id IS NULL
-        GROUP BY b.mes_num
-        ORDER BY b.mes_num;
+base AS (
+  SELECT
+    m.mes_num,
+    s.id AS socio_id
+  FROM meses m
+  CROSS JOIN socios_activos s
+  WHERE
+    s.fecha_ingreso IS NULL
+    OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+    OR (
+      EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+      AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
+    )
+),
+pagos AS (
+  SELECT
+    socio_id,
+    mes AS mes_num,
+    BOOL_AND(COALESCE(pago_completo, true)) AS pago_completo_total
+  FROM pagos_mensuales
+  WHERE club_id = $1
+    AND anio = $2
+  GROUP BY socio_id, mes
+)
+SELECT
+  b.mes_num,
+  COUNT(1) AS cantidad
+FROM base b
+LEFT JOIN pagos p
+  ON p.socio_id = b.socio_id
+ AND p.mes_num = b.mes_num
+WHERE p.socio_id IS NULL
+   OR p.pago_completo_total = false
+GROUP BY b.mes_num
+ORDER BY b.mes_num;
       `;
 
       const r = await db.query(q, [clubId, anio]);
@@ -846,59 +849,84 @@ router.get(
 
     try {
       const qDetalle = `
-        SELECT
-          s.id,
-          s.numero_socio,
-          s.dni,
-          s.nombre,
-          s.apellido,
-          s.actividad,
-          s.categoria,
-          s.telefono,
-          s.fecha_ingreso
-        FROM socios s
-        LEFT JOIN pagos_mensuales pm
-          ON pm.socio_id = s.id
-         AND pm.club_id = $1
-         AND pm.anio = $2
-         AND pm.mes = $3
-        WHERE s.club_id = $1
-AND s.activo = true
-AND s.becado = false
-          -- No contar meses anteriores a la fecha de ingreso
-          AND (
-            s.fecha_ingreso IS NULL
-            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
-            OR (
-              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
-              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
-            )
-          )
-          AND pm.id IS NULL
-        ORDER BY s.numero_socio ASC
-        LIMIT $4 OFFSET $5;
+SELECT
+  s.id,
+  s.numero_socio,
+  s.dni,
+  s.nombre,
+  s.apellido,
+  s.actividad,
+  s.categoria,
+  s.telefono,
+  s.fecha_ingreso,
+  CASE
+    WHEN pm.socio_id IS NULL THEN 'Sin pago'
+    ELSE 'Parcial'
+  END AS estado_pago
+FROM socios s
+LEFT JOIN (
+  SELECT
+    socio_id,
+    mes,
+    BOOL_AND(COALESCE(pago_completo, true)) AS pago_completo_total
+  FROM pagos_mensuales
+  WHERE club_id = $1
+    AND anio = $2
+    AND mes = $3
+  GROUP BY socio_id, mes
+) pm
+  ON pm.socio_id = s.id
+ AND pm.mes = $3
+WHERE s.club_id = $1
+  AND s.activo = true
+  AND s.becado = false
+  AND (
+    s.fecha_ingreso IS NULL
+    OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+    OR (
+      EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+      AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+    )
+  )
+  AND (
+    pm.socio_id IS NULL
+    OR pm.pago_completo_total = false
+  )
+ORDER BY s.numero_socio ASC
+LIMIT $4 OFFSET $5;
       `;
 
       const qCount = `
-        SELECT COUNT(*) AS total
-        FROM socios s
-        LEFT JOIN pagos_mensuales pm
-          ON pm.socio_id = s.id
-         AND pm.club_id = $1
-         AND pm.anio = $2
-         AND pm.mes = $3
-        WHERE s.club_id = $1
-          AND s.activo = true
-AND s.becado = false
-          AND (
-            s.fecha_ingreso IS NULL
-            OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
-            OR (
-              EXTRACT(YEAR FROM s.fecha_ingreso) = $2
-              AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
-            )
-          )
-          AND pm.id IS NULL;
+SELECT COUNT(1) AS total
+FROM socios s
+LEFT JOIN (
+  SELECT
+    socio_id,
+    mes,
+    BOOL_AND(COALESCE(pago_completo, true)) AS pago_completo_total
+  FROM pagos_mensuales
+  WHERE club_id = $1
+    AND anio = $2
+    AND mes = $3
+  GROUP BY socio_id, mes
+) pm
+  ON pm.socio_id = s.id
+ AND pm.mes = $3
+WHERE s.club_id = $1
+  AND s.activo = true
+  AND s.becado = false
+  AND (
+    s.fecha_ingreso IS NULL
+    OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+    OR (
+      EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+      AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+    )
+  )
+  AND (
+    pm.socio_id IS NULL
+    OR pm.pago_completo_total = false
+  );
       `;
 
       const [rDetalle, rCount] = await Promise.all([
@@ -3651,10 +3679,9 @@ router.get(
 
       // 2) Si no había snapshot o el mes no cerró, calcular en vivo
       if (!esperado && !socios) {
-        const q = `
+const q = `
   SELECT
     s.becado,
-
     EXISTS (
       SELECT 1
       FROM grupos_familiares gf
@@ -3662,7 +3689,6 @@ router.get(
         AND gf.jefe_socio_id = s.id
         AND gf.activo = true
     ) AS es_jefe_plan_familiar,
-
     EXISTS (
       SELECT 1
       FROM grupos_familiares gf
@@ -3672,28 +3698,33 @@ router.get(
         AND gfm.socio_id = s.id
         AND gf.activo = true
     ) AS es_miembro_plan_familiar,
-
     ec.monto AS excepcion_monto,
     a.precio_mensual AS actividad_monto,
-    agf.precio_mensual AS grupo_familiar_monto
-
+    agf.precio_mensual AS grupo_familiar_monto,
+    COALESCE(adic.adicionales_monto, 0) AS adicionales_monto
   FROM socios s
-
   LEFT JOIN excepciones_cuota ec
     ON ec.id = s.excepcion_cuota_id
     AND ec.club_id = s.club_id
     AND ec.activo = true
-
   LEFT JOIN actividades a
     ON a.nombre = s.actividad
     AND a.club_id = s.club_id
     AND a.activo = true
-
   LEFT JOIN actividades agf
     ON agf.nombre = 'Grupo Familiar'
     AND agf.club_id = s.club_id
     AND agf.activo = true
-
+  LEFT JOIN LATERAL (
+    SELECT COALESCE(SUM(aa.precio_mensual), 0) AS adicionales_monto
+    FROM jsonb_array_elements_text(
+      COALESCE(NULLIF(s.actividades_adicionales, ''), '[]')::jsonb
+    ) ad(nombre)
+    LEFT JOIN actividades_adicionales aa
+      ON aa.club_id = s.club_id
+     AND aa.activo = true
+     AND TRIM(aa.nombre) = TRIM(ad.nombre)
+  ) adic ON true
   WHERE s.club_id = $1
     AND s.activo = true
     AND (
@@ -3708,28 +3739,24 @@ router.get(
 
         const r = await db.query(q, [clubId, anio, mes]);
 
-        for (const s of r.rows) {
+for (const s of r.rows) {
   if (s.becado) continue;
 
-  // 🚫 miembro de GF → NO suma
   if (s.es_miembro_plan_familiar) continue;
 
-  let monto = 0;
+  let montoBase = 0;
 
-  // ✅ excepción tiene prioridad
   if (s.excepcion_monto !== null && s.excepcion_monto !== undefined) {
-    monto = Number(s.excepcion_monto) || 0;
-  }
-  // 👑 jefe GF → usar precio GF
-  else if (s.es_jefe_plan_familiar) {
-    monto = Number(s.grupo_familiar_monto) || 0;
-  }
-  // ✅ socio normal
-  else {
-    monto = Number(s.actividad_monto) || 0;
+    montoBase = Number(s.excepcion_monto) || 0;
+  } else if (s.es_jefe_plan_familiar) {
+    montoBase = Number(s.grupo_familiar_monto) || 0;
+  } else {
+    montoBase = Number(s.actividad_monto) || 0;
   }
 
-  esperado += monto;
+  const montoAdicionales = Number(s.adicionales_monto || 0);
+
+  esperado += montoBase + montoAdicionales;
   socios++;
 }
 
@@ -3795,14 +3822,30 @@ router.get(
     }
 
     try {
-      const qEsperado = `
-SELECT
-  COALESCE(TRIM(s.actividad),'Sin actividad') AS actividad,
-  SUM(
+const qEsperado = `
+WITH base_conceptos AS (
+  SELECT
+    CASE
+      WHEN s.becado THEN NULL
+      WHEN EXISTS (
+        SELECT 1
+        FROM grupos_familiares gf
+        JOIN grupos_familiares_miembros gfm
+          ON gfm.grupo_familiar_id = gf.id
+        WHERE gfm.socio_id = s.id
+          AND gf.activo = true
+      ) THEN NULL
+      WHEN ec.monto IS NOT NULL THEN 'Excepción: ' || COALESCE(ec.nombre, 'Excepción')
+      WHEN EXISTS (
+        SELECT 1
+        FROM grupos_familiares gf
+        WHERE gf.jefe_socio_id = s.id
+          AND gf.activo = true
+      ) THEN 'Grupo Familiar'
+      ELSE COALESCE(TRIM(s.actividad), 'Sin actividad')
+    END AS actividad,
     CASE
       WHEN s.becado THEN 0
-
-      -- miembro grupo familiar: NO paga
       WHEN EXISTS (
         SELECT 1
         FROM grupos_familiares gf
@@ -3811,56 +3854,137 @@ SELECT
         WHERE gfm.socio_id = s.id
           AND gf.activo = true
       ) THEN 0
-
-      -- excepción manda
-      WHEN ec.monto IS NOT NULL THEN ec.monto
-
-      -- jefe grupo familiar
+      WHEN ec.monto IS NOT NULL THEN COALESCE(ec.monto, 0)
       WHEN EXISTS (
         SELECT 1
         FROM grupos_familiares gf
         WHERE gf.jefe_socio_id = s.id
           AND gf.activo = true
-      ) THEN COALESCE(agf.precio_mensual,0)
-
-      -- normal
-      ELSE COALESCE(a.precio_mensual,0)
-    END
-  ) AS esperado
-FROM socios s
-LEFT JOIN excepciones_cuota ec
-  ON ec.id = s.excepcion_cuota_id
-  AND ec.activo = true
-LEFT JOIN actividades a
-  ON a.nombre = s.actividad
-  AND a.club_id = s.club_id
-  AND a.activo = true
-LEFT JOIN actividades agf
-  ON agf.nombre = 'Grupo Familiar'
-  AND agf.club_id = s.club_id
-  AND agf.activo = true
-WHERE s.club_id = $1
-  AND s.activo = true
-  AND (
-    s.fecha_ingreso IS NULL
-    OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
-    OR (
-      EXTRACT(YEAR FROM s.fecha_ingreso) = $2
-      AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+      ) THEN COALESCE(agf.precio_mensual, 0)
+      ELSE COALESCE(a.precio_mensual, 0)
+    END AS esperado
+  FROM socios s
+  LEFT JOIN excepciones_cuota ec
+    ON ec.id = s.excepcion_cuota_id
+   AND ec.club_id = s.club_id
+   AND ec.activo = true
+  LEFT JOIN actividades a
+    ON a.nombre = s.actividad
+   AND a.club_id = s.club_id
+   AND a.activo = true
+  LEFT JOIN actividades agf
+    ON agf.nombre = 'Grupo Familiar'
+   AND agf.club_id = s.club_id
+   AND agf.activo = true
+  WHERE s.club_id = $1
+    AND s.activo = true
+    AND (
+      s.fecha_ingreso IS NULL
+      OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+      OR (
+        EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+        AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+      )
     )
-  )
+),
+adicionales_conceptos AS (
+  SELECT
+    'Adicional: ' || TRIM(ad.nombre) AS actividad,
+    COALESCE(aa.precio_mensual, 0) AS esperado
+  FROM socios s
+  CROSS JOIN LATERAL jsonb_array_elements_text(
+    COALESCE(NULLIF(s.actividades_adicionales, ''), '[]')::jsonb
+  ) ad(nombre)
+  LEFT JOIN actividades_adicionales aa
+    ON aa.club_id = s.club_id
+   AND aa.activo = true
+   AND TRIM(aa.nombre) = TRIM(ad.nombre)
+  WHERE s.club_id = $1
+    AND s.activo = true
+    AND s.becado = false
+    AND NOT EXISTS (
+      SELECT 1
+      FROM grupos_familiares gf
+      JOIN grupos_familiares_miembros gfm
+        ON gfm.grupo_familiar_id = gf.id
+      WHERE gfm.socio_id = s.id
+        AND gf.activo = true
+    )
+    AND (
+      s.fecha_ingreso IS NULL
+      OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+      OR (
+        EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+        AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+      )
+    )
+)
+SELECT
+  actividad,
+  SUM(esperado) AS esperado
+FROM (
+  SELECT actividad, esperado FROM base_conceptos
+  UNION ALL
+  SELECT actividad, esperado FROM adicionales_conceptos
+) t
+WHERE actividad IS NOT NULL
 GROUP BY actividad
 `;
 
 const qRecaudado = `
+WITH rec_detalle AS (
+  SELECT
+    CASE
+      WHEN COALESCE(d.elem->>'tipo', '') = 'adicional'
+        THEN 'Adicional: ' || COALESCE(TRIM(d.elem->>'nombre'), 'Sin nombre')
+      ELSE COALESCE(TRIM(d.elem->>'nombre'), 'Sin actividad')
+    END AS actividad,
+    CASE
+      WHEN COALESCE((d.elem->>'seleccionado')::boolean, false)
+        THEN COALESCE((d.elem->>'monto')::numeric, 0)
+      ELSE 0
+    END AS monto
+  FROM pagos_mensuales pm
+  CROSS JOIN LATERAL jsonb_array_elements(
+    COALESCE(pm.detalle_pago::jsonb, '[]'::jsonb)
+  ) d(elem)
+  WHERE pm.club_id = $1
+    AND pm.anio = $2
+    AND pm.mes = $3
+),
+rec_fallback AS (
+  SELECT
+    CASE
+      WHEN EXISTS (
+        SELECT 1
+        FROM grupos_familiares gf
+        WHERE gf.jefe_socio_id = s.id
+          AND gf.activo = true
+      ) THEN 'Grupo Familiar'
+      WHEN ec.nombre IS NOT NULL THEN 'Excepción: ' || ec.nombre
+      ELSE COALESCE(TRIM(s.actividad), 'Sin actividad')
+    END AS actividad,
+    SUM(pm.monto) AS monto
+  FROM pagos_mensuales pm
+  JOIN socios s ON s.id = pm.socio_id
+  LEFT JOIN excepciones_cuota ec
+    ON ec.id = s.excepcion_cuota_id
+   AND ec.club_id = s.club_id
+   AND ec.activo = true
+  WHERE pm.club_id = $1
+    AND pm.anio = $2
+    AND pm.mes = $3
+    AND (pm.detalle_pago IS NULL OR pm.detalle_pago::text = '' OR pm.detalle_pago::text = 'null')
+  GROUP BY actividad
+)
 SELECT
-  COALESCE(TRIM(s.actividad),'Sin actividad') AS actividad,
-  SUM(pm.monto) AS recaudado
-FROM pagos_mensuales pm
-JOIN socios s ON s.id = pm.socio_id
-WHERE pm.club_id = $1
-  AND pm.anio = $2
-  AND pm.mes = $3
+  actividad,
+  SUM(monto) AS recaudado
+FROM (
+  SELECT actividad, monto FROM rec_detalle
+  UNION ALL
+  SELECT actividad, monto FROM rec_fallback
+) t
 GROUP BY actividad
 `;
 
