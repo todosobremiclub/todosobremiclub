@@ -529,7 +529,6 @@ function renderSociosMini(query) {
 
 
 async function refreshMesesPagados() {
-async function refreshMesesPagados() {
   mesesPagados.clear();
   mesesParciales.clear();
   mesesSeleccionados.clear();
@@ -687,7 +686,9 @@ function renderMontoHint() {
 
   let totalConceptos = 0;
   conceptosSeleccionados.forEach((c) => {
-    if (c.seleccionado) totalConceptos += Number(c.monto || 0);
+    if (c.seleccionado) {
+      totalConceptos += Number(c.monto || 0);
+    }
   });
 
   const { esParcial, montoNum } = getPagoParcialState();
@@ -710,6 +711,7 @@ function renderMontoHint() {
     `Total estimado: ${moneyARS(total)} ` +
     `(${mesesSeleccionados.size} mes/es x ${moneyARS(totalConceptos)})`;
 }
+
 async function savePago() {
   if (!selectedSocioId) return alert('Seleccioná un socio');
   if (!mesesSeleccionados.size) return alert('Seleccioná al menos un mes');
