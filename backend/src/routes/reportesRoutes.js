@@ -784,7 +784,6 @@ LEFT JOIN pagos p
   ON p.socio_id = b.socio_id
  AND p.mes_num = b.mes_num
 WHERE p.socio_id IS NULL
-   OR p.pago_completo_total = false
 GROUP BY b.mes_num
 ORDER BY b.mes_num;
       `;
@@ -859,10 +858,10 @@ SELECT
   s.categoria,
   s.telefono,
   s.fecha_ingreso,
-  CASE
-    WHEN pm.socio_id IS NULL THEN 'Sin pago'
-    ELSE 'Parcial'
-  END AS estado_pago
+CASE  
+  WHEN pm.socio_id IS NULL THEN 'Sin pago'  
+END
+AS estado_pago
 FROM socios s
 LEFT JOIN (
   SELECT
@@ -888,10 +887,7 @@ WHERE s.club_id = $1
       AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
     )
   )
-  AND (
-    pm.socio_id IS NULL
-    OR pm.pago_completo_total = false
-  )
+AND pm.socio_id IS NULL
 ORDER BY s.numero_socio ASC
 LIMIT $4 OFFSET $5;
       `;
