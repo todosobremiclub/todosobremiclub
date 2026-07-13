@@ -392,9 +392,111 @@ LEFT JOIN grupos_familiares gf_miembro
 
     const r = await db.query(q, params);
 
+
+const socios = r.rows || [];
+
+// 1. calcular mes exigible (MISMA lógica que SQL)
+const now = new Date();
+const diaHoy = now.getDate();
+const mesActual = now.getMonth() + 1;
+const anioActual = now.getFullYear();
+const paymentDueDay = Number(socios[0]?.payment_due_day ?? 31);
+
+let mesExigible = mesActual;
+let anioExigible = anioActual;
+
+if (diaHoy <= paymentDueDay) {
+  if (mesActual === 1) {
+    mesExigible = 12;
+    anioExigible = anioActual - 1;
+  } else {
+    mesExigible = mesActual - 1;
+  }
+}
+
+// 2. traer pagos del mes exigible
+const rPagos = await db.query(`
+  SELECT socio_id, detalle_pago, pago_completo
+  FROM pagos_mensuales
+  WHERE club_id = $1 AND anio = $2 AND mes = $3
+`, [clubId, anioExigible, mesExigible]);
+
+const pagosMap = new Map();
+
+for (const p of rPagos.rows) {
+  const key = String(p.socio_id);
+  if (!pagosMap.has(key)) pagosMap.set(key, []);
+  pagosMap.get(key).push(p);
+}
+
+function parseDetalle(d) {
+  try {
+    return Array.isArray(d) ? d : JSON.parse(d || '[]');
+  } catch {
+    return [];
+  }
+}
+
+// 3. recalcular estado
+const sociosFinal = socios.map(s => {
+
+  const pagosPropios = pagosMap.get(String(s.id)) || [];
+  const detallePropio = pagosPropios.flatMap(x => parseDetalle(x.detalle_pago));
+
+  const jefeId = s.grupo_familiar_jefe_id;
+  const esMiembro = s.es_miembro_plan_familiar === true;
+
+  let baseCubierta = false;
+
+  if (s.becado) {
+    baseCubierta = true;
+  } else if (esMiembro && jefeId) {
+    const pagosJefe = pagosMap.get(String(jefeId)) || [];
+    const detalleJefe = pagosJefe.flatMap(x => parseDetalle(x.detalle_pago));
+
+    baseCubierta = detalleJefe.some(d => d.tipo === 'base' && d.seleccionado === true);
+  } else {
+    baseCubierta = detallePropio.some(d => d.tipo === 'base' && d.seleccionado === true);
+  }
+
+  let adicionalesConfig = [];
+  try {
+    adicionalesConfig = JSON.parse(s.actividades_adicionales || '[]');
+  } catch {}
+
+  const adicionalesPagados = new Set(
+    detallePropio
+      .filter(d => d.tipo === 'adicional' && d.seleccionado === true)
+      .map(d => String(d.nombre).trim())
+  );
+
+  const faltanAdicionales = adicionalesConfig.some(x => !adicionalesPagados.has(String(x).trim()));
+
+  let pagoAlDia = false;
+  let esParcial = false;
+
+  if (!baseCubierta) {
+    pagoAlDia = false;
+    esParcial = false;
+  } else if (faltanAdicionales) {
+    pagoAlDia = false;
+    esParcial = true;
+  } else {
+    pagoAlDia = true;
+    esParcial = false;
+  }
+
+  return {
+    ...s,
+    pago_al_dia: pagoAlDia,
+    tiene_pagos_parciales: esParcial,
+    pago_completo: pagoAlDia && !esParcial
+  };
+});
+
     res.json({
       ok: true,
-      socios: r.rows,
+      socios: sociosFinal,
       total,
       limit: Number(limit),
       offset: Number(offset)
