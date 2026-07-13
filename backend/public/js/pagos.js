@@ -1473,8 +1473,9 @@ $('modalPagoDetalles')?.addEventListener('click', (ev) => {
   if (ev.target?.id === 'modalPagoDetalles') closeDetallesUI();
 });
 
+}
 
-  async function initPagosSection() {
+async function initPagosSection() {
   // Bind de eventos
   bindOnce();
   bindAccordion(); // acordeones (Pagos / Otros ingresos)
@@ -1487,31 +1488,31 @@ $('modalPagoDetalles')?.addEventListener('click', (ev) => {
   });
 
   // Resto de la inicialización (igual que antes)
-fillAnios();
-await Promise.all([
-  loadSociosAll(),
-  loadCuotas(),
-  loadActividadesConfig(),
-  loadActividadesAdicionales(),   // 🔥 CLAVE
-  loadResponsables()              // ✅ cargar cuentas
-]);
+  fillAnios();
+  await Promise.all([
+    loadSociosAll(),
+    loadCuotas(),
+    loadActividadesConfig(),
+    loadActividadesAdicionales(),   // 🔥 CLAVE
+    loadResponsables()              // ✅ cargar cuentas
+  ]);
 
-fillCuentasSelects();             // ✅ llenar #pagoCuenta y #ingresoCuenta
+  fillCuentasSelects();             // ✅ llenar #pagoCuenta y #ingresoCuenta
 
-await loadResumen();
+  await loadResumen();
 
   // Ingresos (debajo)
-await loadTiposIngreso().catch(() => {});   // no bloquear si aún no hay tipos
-await loadIngresos().catch(() => {});
+  await loadTiposIngreso().catch(() => {});   // no bloquear si aún no hay tipos
+  await loadIngresos().catch(() => {});
 
-// Si venimos desde doble click en el ícono de pago de Socios,
-// abrimos automáticamente el modal con ese socio seleccionado.
-const pendingSocioId = localStorage.getItem('pendingOpenPagoSocioId');
+  // Si venimos desde doble click en el ícono de pago de Socios,
+  // abrimos automáticamente el modal con ese socio seleccionado.
+  const pendingSocioId = localStorage.getItem('pendingOpenPagoSocioId');
 
-if (pendingSocioId) {
-  localStorage.removeItem('pendingOpenPagoSocioId');
-  await openPagoForSocioId(pendingSocioId);
-}
+  if (pendingSocioId) {
+    localStorage.removeItem('pendingOpenPagoSocioId');
+    await openPagoForSocioId(pendingSocioId);
+  }
 }
 
 window.initPagosSection = initPagosSection;
