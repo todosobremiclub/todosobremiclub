@@ -652,7 +652,16 @@ function renderMontoHint() {
     return;
   }
 
-  // Estado de pago parcial
+  // ✅ NUEVO: usar conceptos seleccionados
+  let totalConceptos = 0;
+
+  conceptosSeleccionados.forEach(c => {
+    if (c.seleccionado) {
+      totalConceptos += Number(c.monto || 0);
+    }
+  });
+
+  // ✅ Pago parcial sigue igual
   const { esParcial, montoNum } = getPagoParcialState();
 
   if (esParcial) {
@@ -660,11 +669,23 @@ function renderMontoHint() {
       el.textContent = 'Ingresá un monto parcial válido (>= 0).';
       return;
     }
+
     const totalParcial = montoNum * mesesSeleccionados.size;
-    el.textContent = `Total estimado parcial: ${moneyARS(totalParcial)} (${mesesSeleccionados.size} mes/es x ${moneyARS(montoNum)})`;
+
+    el.textContent =
+      `Total estimado parcial: ${moneyARS(totalParcial)} ` +
+      `(${mesesSeleccionados.size} mes/es x ${moneyARS(montoNum)})`;
+
     return;
   }
 
+  // ✅ TOTAL REAL con adicionales
+  const total = totalConceptos * mesesSeleccionados.size;
+
+  el.textContent =
+    `Total estimado: ${moneyARS(total)} ` +
+    `(${mesesSeleccionados.size} mes/es x ${moneyARS(totalConceptos)})`;
+}
   // Modo normal: usa tarifa por mes (actividad o excepción)
   if (!selectedSocioTarifa) {
     el.textContent = 'No se pudo determinar el monto del socio (actividad/excepción).';
