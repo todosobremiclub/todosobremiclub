@@ -160,8 +160,12 @@ const socioEstado = rSocioEstado.rows[0] || null;
 
 let adicionalesConfig = [];
 try {
-  adicionalesConfig = socioEstado?.actividades_adicionales
+  const arr = socioEstado?.actividades_adicionales
     ? JSON.parse(socioEstado.actividades_adicionales)
+    : [];
+
+  adicionalesConfig = Array.isArray(arr)
+    ? arr.map((x) => String(x || '').trim()).filter(Boolean)
     : [];
 } catch {
   adicionalesConfig = [];
@@ -702,8 +706,12 @@ sociosAPagar = [
   ...rMiembros.rows.map((m) => {
     let adicionales = [];
     try {
-      adicionales = m.actividades_adicionales
+      const arr = m.actividades_adicionales
         ? JSON.parse(m.actividades_adicionales)
+        : [];
+
+      adicionales = Array.isArray(arr)
+        ? arr.map((x) => String(x || '').trim()).filter(Boolean)
         : [];
     } catch {
       adicionales = [];
