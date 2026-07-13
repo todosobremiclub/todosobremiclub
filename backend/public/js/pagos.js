@@ -1400,6 +1400,52 @@ $('pagosTableBody')?.addEventListener('click', async (ev) => {
   await openDetallesModal(socioId);
 });
 
+// ✅ CLICK EN GRUPOS DE INGRESOS (expandir / colapsar)
+$('ingresosTableBody')?.addEventListener('click', (ev) => {
+  const header = ev.target.closest('tr[data-group-header]');
+  if (!header) return;
+
+  const group = header.dataset.group;
+  const isOpen = header.dataset.open === "1";
+
+  // alternar estado
+  // cerrar todos primero
+document.querySelectorAll('tr[data-group-header]').forEach(h => {
+  h.dataset.open = "0";
+  const a = h.querySelector('.ing-group-arrow');
+  if (a) a.textContent = '▶';
+});
+document.querySelectorAll('tr.ingreso-detalle').forEach(tr => {
+  tr.classList.add('hidden');
+});
+
+// abrir el actual
+header.dataset.open = "1";
+const arrow = header.querySelector('.ing-group-arrow');
+if (arrow) arrow.textContent = '▼';
+
+document.querySelectorAll(`tr.ingreso-detalle[data-group="${group}"]`)
+  .forEach(tr => tr.classList.remove('hidden'));
+``
+
+  // cambiar flecha
+  const arrow = header.querySelector('.ing-group-arrow');
+  if (arrow) {
+    arrow.textContent = isOpen ? '▶' : '▼';
+  }
+
+  // mostrar / ocultar filas
+  document.querySelectorAll(`tr.ingreso-detalle[data-group="${group}"]`)
+    .forEach(tr => {
+      if (isOpen) {
+        tr.classList.add('hidden');
+      } else {
+        tr.classList.remove('hidden');
+      }
+    });
+});
+
+
   const chkParcial = $('pagoParcialChk');
   const inpParcial = $('pagoParcialMonto');
 
