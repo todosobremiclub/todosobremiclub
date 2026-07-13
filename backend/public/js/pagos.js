@@ -436,19 +436,21 @@ function renderTablaPage() {
   const end = start + PAGOS_PAGE_SIZE;
   const pageRows = pagosRowsAll.slice(start, end);
 
-  pageRows.forEach(s => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
+pageRows.forEach(s => {
+  const tr = document.createElement('tr');
+  const socioId = s.socio_id ?? s.id ?? '';
+
+  tr.innerHTML = `
       <td>${s.numero_socio ?? ''}</td>
       <td>${s.nombre ?? ''} ${s.apellido ?? ''}</td>
       <td>
-        <button class="btn btn-secondary" data-act="details" data-id="${s.socio_id}">
+        <button class="btn btn-secondary" data-act="details" data-id="${socioId}">
           Ver detalles
         </button>
       </td>
     `;
-    tbody.appendChild(tr);
-  });
+  tbody.appendChild(tr);
+});
 
   // Render controles de paginación
   pagDiv.innerHTML = '';
@@ -504,10 +506,6 @@ if (conceptosResumen) {
   if ($('modalFechaPago')) $('modalFechaPago').value = todayISO();
   if ($('modalAnioLabel')) $('modalAnioLabel').textContent = String(selectedYear);
 
-
-  $('pagosTableBody')?.addEventListener('click', async (ev) => {
-    const btn = ev.target.closest('button[data-act="details"]');
-    if (!btn) return;
 
     const socioId = btn.dataset.id;
     if (!socioId) return;
@@ -1318,6 +1316,16 @@ function bindOnce() {
   $('btnPagoCancel')?.addEventListener('click', closeModal);
   $('btnPagoSave')?.addEventListener('click', savePago);
 
+$('btnIngresoAdd')?.addEventListener('click', openIngresoModal);
+$('btnIngresoClose')?.addEventListener('click', closeIngresoModal);
+$('btnIngresoCancel')?.addEventListener('click', closeIngresoModal);
+
+$('formIngreso')?.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  await saveIngreso();
+});
+
+
   $('btnAbrirSelectorSocios')?.addEventListener('click', () => {
     $('modalElegirSocio')?.classList.remove('hidden');
     if ($('buscarSocioMini')) $('buscarSocioMini').value = '';
@@ -1380,6 +1388,16 @@ function bindOnce() {
     }
   });
 
+$('pagosTableBody')?.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button[data-act="details"]');
+  if (!btn) return;
+
+  const socioId = btn.dataset.id;
+  if (!socioId) return;
+
+  await openDetallesModal(socioId);
+});
+
   const chkParcial = $('pagoParcialChk');
   const inpParcial = $('pagoParcialMonto');
 
@@ -1399,17 +1417,26 @@ function bindOnce() {
     });
   }
 
-  $('detTableBody')?.addEventListener('click', async (ev) => {
-    const btn = ev.target.closest('button[data-act="del-pago"]');
-    if (!btn) return;
-    const pagoId = btn.dataset.pagoId;
-    const socioId = btn.dataset.socioId;
-    await deletePagoMensual(pagoId, socioId);
-  });
+$('detTableBody')?.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button[data-act="del-pago"]');
+  if (!btn) return;
 
-  $('modalPagoDetalles')?.addEventListener('click', (ev) => {
-    if (ev.target?.id === 'modalPagoDetalles') closeDetallesUI();
-  });
+  const pagoId = btn.dataset.pagoId;
+  const socioId = btn.dataset.socioId;
+  await deletePagoMensual(pagoId, socioId);
+});
+
+$('btnDetClose')?.addEventListener('click', () => {
+  closeDetallesUI();
+});
+
+$('btnDetOk')?.addEventListener('click', () => {
+  closeDetallesUI();
+});
+
+$('modalPagoDetalles')?.addEventListener('click', (ev) => {
+  if (ev.target?.id === 'modalPagoDetalles') closeDetallesUI();
+});
 }
   async function initPagosSection() {
   // Bind de eventos
