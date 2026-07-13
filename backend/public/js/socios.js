@@ -1345,12 +1345,6 @@ $('socioEmail').value = '';
   setExcepcionUI(false);
 
 $('socioTieneAdicionales').checked = false;
-$('socioAdicionalesWrap')?.classList.add('hidden');
-
-await loadActividadesAdicionalesConfig();
-setActividadesAdicionalesSeleccionadas([]);
-
-$('socioTieneAdicionales').checked = false;
 
 const wrap = $('socioAdicionalesWrap');
 if (wrap) {
@@ -1358,7 +1352,6 @@ if (wrap) {
 }
 
 setActividadesAdicionalesSeleccionadas([]);
-
 
   $('modalSocio').classList.remove('hidden');
 }
@@ -1450,10 +1443,9 @@ try {
 
 $('socioTieneAdicionales').checked = adicionales.length > 0;
 
-if (adicionales.length > 0) {
-  $('socioAdicionalesWrap')?.classList.remove('hidden');
-} else {
-  $('socioAdicionalesWrap')?.classList.add('hidden');
+const wrapAdic = $('socioAdicionalesWrap');
+if (wrapAdic) {
+  wrapAdic.style.display = adicionales.length > 0 ? 'block' : 'none';
 }
 
 setActividadesAdicionalesSeleccionadas(adicionales);
@@ -2219,14 +2211,16 @@ $('socioUsaExcepcion')?.addEventListener('change', () => {
   setExcepcionUI($('socioUsaExcepcion').checked);
 });
 
-$('socioTieneAdicionales')?.addEventListener('change', function () {
+$('socioTieneAdicionales')?.addEventListener('change', async function () {
   const wrap = $('socioAdicionalesWrap');
   if (!wrap) return;
 
   if (this.checked) {
-    wrap.style.display = "block";
+    await loadActividadesAdicionalesConfig();
+    wrap.style.display = 'block';
   } else {
-    wrap.style.display = "none";
+    wrap.style.display = 'none';
+    setActividadesAdicionalesSeleccionadas([]);
   }
 });
 
