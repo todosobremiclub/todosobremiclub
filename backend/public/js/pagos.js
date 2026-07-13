@@ -902,6 +902,34 @@ async function savePago() {
     $('modalPagoDetalles')?.classList.add('hidden');
   }
 
+  function renderDetalleConceptosHTML(detallePago) {
+    let detalle = [];
+
+    try {
+      detalle = Array.isArray(detallePago)
+        ? detallePago
+        : JSON.parse(detallePago || '[]');
+    } catch {
+      detalle = [];
+    }
+
+    if (!detalle.length) {
+      return '<span class="muted">Sin detalle</span>';
+    }
+
+    return `
+      <div class="det-conceptos-list">
+        ${detalle.map((d) => `
+          <div class="det-concepto ${d.seleccionado === true ? 'ok' : 'pending'}">
+            <span>${d.seleccionado === true ? '✅' : '⛔'}</span>
+            <span class="det-name">${d.nombre}</span>
+            <span class="det-amount">${moneyARS(d.monto)}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
   async function openDetallesModal(socioId) {
     const clubId = getActiveClubId();
     const socio = sociosCache.find(
@@ -914,20 +942,20 @@ async function savePago() {
 
     $('detTitle').textContent = `Pagos de ${nombreSocio}`;
     $('detSub').textContent = `Año: ${selectedYear}`;
-    $('detTableBody').innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
+    $('detTableBody').innerHTML = '<tr><td colspan="7">Cargando...</td></tr>';
     $('detTotal').textContent = '';
 
     openDetallesUI();
 
     const { res, data } = await fetchAuth(`/club/${clubId}/pagos/${socioId}?anio=${selectedYear}`);
     if (!res.ok || !data.ok) {
-      $('detTableBody').innerHTML = `<tr><td colspan="5">Error: ${data.error || 'No se pudo cargar'}</td></tr>`;
+      $('detTableBody').innerHTML = `<tr><td colspan="7">Error: ${data.error || 'No se pudo cargar'}</td></tr>`;
       return;
     }
 
     const pagos = data.pagos || [];
     if (!pagos.length) {
-      $('detTableBody').innerHTML = '<tr><td colspan="5">No hay pagos registrados para este año.</td></tr>';
+      $('detTableBody').innerHTML = '<tr><td colspan="7">No hay pagos registrados para este año.</td></tr>';
       $('detTotal').textContent = 'Total: $ 0.00';
       return;
     }
@@ -941,20 +969,28 @@ async function savePago() {
       const tr = document.createElement('tr');
       const cuenta = (p.cuenta || '—');
 
-tr.innerHTML = `
-  <td><strong>${mesLabel(p.mes)}</strong></td>
-  <td>$ ${Number(p.monto || 0).toFixed(2)}</td>
-  <td>${fecha || '—'}</td>
-  <td>${cuenta}</td>
-  <td style="text-align:right;">
-    <button class="btn btn-secondary btn-sm"
-            data-act="del-pago"
-            data-pago-id="${p.id}"
-            data-socio-id="${socioId}">
-      🗑️
-    </button>
-  </td>
-`;
+      const estadoHtml = p.pago_completo === true
+        ? '<span class="det-estado ok">Completo</span>'
+        : '<span class="det-estado partial">Parcial</span>';
+
+      const detalleHtml = renderDetalleConceptosHTML(p.detalle_pago);
+
+      tr.innerHTML = `
+        <td><strong>${mesLabel(p.mes)}</strong></td>
+        <td>${estadoHtml}</td>
+        <td>${moneyARS(p.monto || 0)}</td>
+        <td>${fecha || '—'}</td>
+        <td>${cuenta}</td>
+        <td>${detalleHtml}</td>
+        <td style="text-align:right;">
+          <button class="btn btn-secondary btn-sm"
+                  data-act="del-pago"
+                  data-pago-id="${p.id}"
+                  data-socio-id="${socioId}">
+            🗑️
+          </button>
+        </td>
+      `;
       $('detTableBody').appendChild(tr);
     });
 
