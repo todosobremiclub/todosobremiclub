@@ -652,7 +652,7 @@ function renderMontoHint() {
     return;
   }
 
-  // ✅ NUEVO: usar conceptos seleccionados
+  // ✅ usar conceptos seleccionados (incluye adicionales)
   let totalConceptos = 0;
 
   conceptosSeleccionados.forEach(c => {
@@ -661,7 +661,7 @@ function renderMontoHint() {
     }
   });
 
-  // ✅ Pago parcial sigue igual
+  // Pago parcial
   const { esParcial, montoNum } = getPagoParcialState();
 
   if (esParcial) {
@@ -679,35 +679,13 @@ function renderMontoHint() {
     return;
   }
 
-  // ✅ TOTAL REAL con adicionales
+  // ✅ TOTAL REAL CON ADICIONALES
   const total = totalConceptos * mesesSeleccionados.size;
 
   el.textContent =
     `Total estimado: ${moneyARS(total)} ` +
     `(${mesesSeleccionados.size} mes/es x ${moneyARS(totalConceptos)})`;
 }
-  // Modo normal: usa tarifa por mes (actividad o excepción)
-  if (!selectedSocioTarifa) {
-    el.textContent = 'No se pudo determinar el monto del socio (actividad/excepción).';
-    return;
-  }
-
-  const montoPorMes = Number(selectedSocioTarifa.monto ?? 0) || 0;
-  const total = montoPorMes * mesesSeleccionados.size;
-  let tag = 'Actividad';
-
-if (selectedSocioTarifa.tipo === 'excepcion') {
-  tag = 'Excepción';
-} else if (selectedSocioTarifa.tipo === 'grupo_familiar') {
-  tag = 'Grupo Familiar';
-}
-
-el.textContent =
-  `Total estimado: ${moneyARS(total)} ` +
-  `(${mesesSeleccionados.size} mes/es x ${moneyARS(montoPorMes)}) — ` +
-  `${tag}: ${selectedSocioTarifa.nombre}`;
-}
-
 
   async function savePago() {
   if (!selectedSocioId) return alert('Seleccioná un socio');
