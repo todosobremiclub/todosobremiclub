@@ -695,16 +695,16 @@ const border = checked ? '1px solid #38bdf8' : '1px solid transparent';
   // Estado pago (usa backend pago_al_dia)
   // =============================
 function pagoEstado(s) {
-  if (s.becado) return { ok: true, tipo: 'becado', label: 'Becado' };
+  if (s.becado) {
+    return { ok: true, tipo: 'becado', label: 'Becado' };
+  }
 
-  // 🔥 fallback inteligente si backend falla
-  if (
-    s.tiene_pagos_parciales === true ||
-    (s.pago_al_dia === true && s.deuda_monto > 0)
-  ) {
+  // 🔴 CLAVE: detectar parcial PRIMERO
+  if (s.tiene_pagos_parciales === true || s.pago_completo === false) {
     return { ok: false, tipo: 'parcial', label: 'Parcial' };
   }
 
+  // 🟢 SOLO si es realmente completo
   if (s.pago_al_dia === true) {
     return { ok: true, tipo: 'completo', label: 'Al día' };
   }
