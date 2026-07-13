@@ -138,7 +138,6 @@ function getSocioTarifa(socio) {
   if (socio.es_jefe_plan_familiar === true) {
     const nombre = 'Grupo Familiar';
     const monto = Number(actividadesPrecioMap.get('Grupo Familiar') ?? 0) || 0;
-
     return {
       tipo: 'grupo_familiar',
       nombre,
@@ -206,17 +205,17 @@ function buildConceptosParaSocio(socio) {
 
   const conceptos = [];
 
-  // ✅ BASE (actividad / excepción / grupo familiar)
+  // Base (actividad / excepción / grupo familiar)
   if (selectedSocioTarifa) {
     conceptos.push({
       tipo: 'base',
       nombre: selectedSocioTarifa.nombre,
-      monto: Number(selectedSocioTarifa.monto ?? 0),
+      monto: Number(selectedSocioTarifa.monto ?? 0) || 0,
       seleccionado: true
     });
   }
 
-  // ✅ ADICIONALES desde socio
+  // Actividades adicionales guardadas en el socio
   let adicionales = [];
   try {
     adicionales = socio.actividades_adicionales
@@ -226,13 +225,15 @@ function buildConceptosParaSocio(socio) {
     adicionales = [];
   }
 
-  adicionales.forEach(nombre => {
-    const item = actividadesAdicionalesCache.find(a => a.nombre === nombre);
+  adicionales.forEach((nombre) => {
+    const item = actividadesAdicionalesCache.find(
+      (a) => String(a.nombre).trim() === String(nombre).trim()
+    );
 
     conceptos.push({
       tipo: 'adicional',
-      nombre,
-      monto: Number(item?.precio_mensual ?? 0),
+      nombre: String(nombre),
+      monto: Number(item?.precio_mensual ?? 0) || 0,
       seleccionado: true
     });
   });
@@ -248,21 +249,13 @@ async function selectSocio(s) {
     selectedSocioId = null;
 
     const inp = $('socioSeleccionadoNombre');
-    if (inp) inp.value = '';
+    if (inp) inp.value = `${s.apellido} ${s.nombre} - ${s.dni}`;
 
-renderTarifaInfo();
-
-// 🔥 CARGAR ADICIONALES + RENDER SIEMPRE
-await loadActividadesAdicionales();
-
-const conceptos = buildConceptosParaSocio(s);
-
-console.log("CONCEPTOS:", conceptos);
-
-renderConceptosPago(conceptos);
+    renderTarifaInfo();
+    renderConceptosPago([]);
     $('modalElegirSocio')?.classList.add('hidden');
-
-    alert('Este socio pertenece a un Grupo Familiar. El pago debe registrarse al jefe/a del grupo.');
+    await refreshMesesPagados();
+    renderMesesGrid();
     return;
   }
 
@@ -272,6 +265,10 @@ renderConceptosPago(conceptos);
   if (inp) inp.value = `${s.apellido} ${s.nombre} - ${s.dni}`;
 
   renderTarifaInfo();
+
+  await loadActividadesAdicionales();
+  const conceptos = buildConceptosParaSocio(s);
+  renderConceptosPago(conceptos);
 
   $('modalElegirSocio')?.classList.add('hidden');
   await refreshMesesPagados();
@@ -457,6 +454,16 @@ function openModal() {
 selectedSocioTarifa = null;
 renderTarifaInfo();
 
+conceptosSeleccionados = [];
+const conceptosLista = $('conceptosPagoLista');
+if (conceptosLista) {
+  conceptosLista.innerHTML = '<div class="muted">Seleccioná un socio para ver los conceptos.</div>';
+}
+const conceptosResumen = $('conceptosPagoResumen');
+if (conceptosResumen) {
+  conceptosResumen.textContent = 'Total teórico: $ 0.00 — Total seleccionado: $ 0.00';
+}
+
   if ($('modalSocioSearch')) $('modalSocioSearch').value = '';
   if ($('modalFechaPago')) $('modalFechaPago').value = todayISO();
   if ($('modalAnioLabel')) $('modalAnioLabel').textContent = String(selectedYear);
@@ -575,38 +582,43 @@ function renderConceptosPago(conceptos) {
 
   cont.innerHTML = '';
 
-  if (!conceptos.length) {
+  if (!conceptos || conceptos.length === 0) {
     cont.innerHTML = '<div class="muted">Sin conceptos</div>';
+    resumen.textContent = 'Total teórico: $ 0.00 — Total seleccionado: $ 0.00';
+    conceptosSeleccionados = [];
     return;
   }
 
-  conceptosSeleccionados = conceptos;
+  conceptosSeleccionados = conceptos.map((c) => ({ ...c }));
 
-  conceptos.forEach((c, i) => {
+  conceptosSeleccionados.forEach((c, i) => {
     const row = document.createElement('div');
+    row.style.padding = '6px 0';
+    row.style.borderBottom = '1px solid #ececec';
 
     row.innerHTML = `
-      <label style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:4px 0;">
-        <div style="display:flex; align-items:center; gap:8px;">
+      <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;">
+        <span style="display:flex; align-items:center; gap:8px;">
           <input type="checkbox" data-idx="${i}" ${c.seleccionado ? 'checked' : ''}>
-          <span>${c.nombre}</span>
-        </div>
-        <span>${moneyARS(c.monto)}</span>
+          <span>${c.tipo === 'base' ? 'Base' : 'Adicional'}: ${c.nombre}</span>
+        </span>
+        <strong>${moneyARS(c.monto)}</strong>
       </label>
     `;
 
     cont.appendChild(row);
   });
 
-  calcularTotalesConceptos();
-
-  cont.querySelectorAll('input[type="checkbox"]').forEach(chk => {
+  cont.querySelectorAll('input[type="checkbox"]').forEach((chk) => {
     chk.addEventListener('change', () => {
       const idx = Number(chk.dataset.idx);
+      if (Number.isNaN(idx) || !conceptosSeleccionados[idx]) return;
       conceptosSeleccionados[idx].seleccionado = chk.checked;
       calcularTotalesConceptos();
     });
   });
+
+  calcularTotalesConceptos();
 }
 
 function calcularTotalesConceptos() {
