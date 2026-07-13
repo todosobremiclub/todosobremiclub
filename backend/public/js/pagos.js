@@ -529,6 +529,7 @@ function renderSociosMini(query) {
 
 
 async function refreshMesesPagados() {
+async function refreshMesesPagados() {
   mesesPagados.clear();
   mesesParciales.clear();
   mesesSeleccionados.clear();
@@ -575,11 +576,10 @@ function renderMesesGrid() {
     if (esCompleto) {
       btn.classList.add('mes-completo');
       btn.innerHTML = `${m.label} ✅`;
-      btn.disabled = true; // completo => ya no se toca más
+      btn.disabled = true;
     } else if (esParcial) {
       btn.classList.add('mes-parcial');
       btn.innerHTML = `${m.label} 🟧`;
-      // parcial => SÍ se puede volver a seleccionar para completar conceptos
     }
 
     if (estaSeleccionado) {
@@ -647,10 +647,12 @@ function renderConceptosPago(conceptos) {
       if (Number.isNaN(idx) || !conceptosSeleccionados[idx]) return;
       conceptosSeleccionados[idx].seleccionado = chk.checked;
       calcularTotalesConceptos();
+      renderMontoHint();
     });
   });
 
   calcularTotalesConceptos();
+  renderMontoHint();
 }
 
 function calcularTotalesConceptos() {
@@ -676,7 +678,6 @@ function renderMontoHint() {
   const el = $('montoHint');
   if (!el) return;
 
-  // Sin meses seleccionados
   if (!mesesSeleccionados.size) {
     el.textContent = selectedSocioId
       ? 'Seleccioná uno o más meses para ver el total.'
@@ -684,39 +685,32 @@ function renderMontoHint() {
     return;
   }
 
-  // ✅ usar conceptos seleccionados (incluye adicionales)
   let totalConceptos = 0;
-
-  conceptosSeleccionados.forEach(c => {
-    if (c.seleccionado) {
-      totalConceptos += Number(c.monto || 0);
-    }
+  conceptosSeleccionados.forEach((c) => {
+    if (c.seleccionado) totalConceptos += Number(c.monto || 0);
   });
 
-  // Pago parcial
   const { esParcial, montoNum } = getPagoParcialState();
 
-if (esParcial) {
-  body.monto_parcial = Number(montoNum);
-}
-    const totalParcial = montoNum * mesesSeleccionados.size;
+  if (esParcial) {
+    if (Number.isNaN(montoNum) || montoNum < 0) {
+      el.textContent = 'Ingresá un monto parcial válido (>= 0).';
+      return;
+    }
 
+    const totalParcial = montoNum * mesesSeleccionados.size;
     el.textContent =
       `Total estimado parcial: ${moneyARS(totalParcial)} ` +
       `(${mesesSeleccionados.size} mes/es x ${moneyARS(montoNum)})`;
-
     return;
   }
 
-  // ✅ TOTAL REAL CON ADICIONALES
   const total = totalConceptos * mesesSeleccionados.size;
-
   el.textContent =
     `Total estimado: ${moneyARS(total)} ` +
     `(${mesesSeleccionados.size} mes/es x ${moneyARS(totalConceptos)})`;
 }
-
-  async function savePago() {
+async function savePago() {
   if (!selectedSocioId) return alert('Seleccioná un socio');
   if (!mesesSeleccionados.size) return alert('Seleccioná al menos un mes');
 
@@ -733,65 +727,67 @@ if (esParcial) {
   }
 
   const clubId = getActiveClubId();
-const detallePago = conceptosSeleccionados.map((c) => ({
-  tipo: c.tipo,
-  nombre: c.nombre,
-  monto: Number(c.monto || 0),
-  seleccionado: c.seleccionado === true
-}));
 
-const montoTotalTeorico = conceptosSeleccionados.reduce(
-  (acc, c) => acc + Number(c.monto || 0),
-  0
-);
+  const detallePago = conceptosSeleccionados.map((c) => ({
+    tipo: c.tipo,
+    nombre: c.nombre,
+    monto: Number(c.monto || 0),
+    seleccionado: c.seleccionado === true
+  }));
 
-const montoSeleccionadoConceptos = conceptosSeleccionados.reduce(
-  (acc, c) => acc + (c.seleccionado ? Number(c.monto || 0) : 0),
-  0
-);
+  const montoTotalTeorico = conceptosSeleccionados.reduce(
+    (acc, c) => acc + Number(c.monto || 0),
+    0
+  );
 
-const pagoCompletoPorConceptos =
-  conceptosSeleccionados.length > 0 &&
-  conceptosSeleccionados.every((c) => c.seleccionado === true);
+  const montoSeleccionadoConceptos = conceptosSeleccionados.reduce(
+    (acc, c) => acc + (c.seleccionado ? Number(c.monto || 0) : 0),
+    0
+  );
 
-const body = {
-  socio_id: selectedSocioId,
-  anio: selectedYear,
-  meses: Array.from(mesesSeleccionados),
-  fecha_pago: fecha,
-  es_parcial: esParcial,
-  detalle_pago: detallePago,
-  monto_total_teorico: montoTotalTeorico,
-  monto_pagado: esParcial ? Number(montoNum) : montoSeleccionadoConceptos,
-  pago_completo: esParcial ? false : pagoCompletoPorConceptos
-};
+  const pagoCompletoPorConceptos =
+    conceptosSeleccionados.length > 0 &&
+    conceptosSeleccionados.every((c) => c.seleccionado === true);
 
-// Cuenta / responsable
-const cuentaId = $('pagoCuenta')?.value;
-if (!cuentaId) return alert('Seleccioná una cuenta');
+  const body = {
+    socio_id: selectedSocioId,
+    anio: selectedYear,
+    meses: Array.from(mesesSeleccionados),
+    fecha_pago: fecha,
+    es_parcial: esParcial,
+    detalle_pago: detallePago,
+    monto_total_teorico: montoTotalTeorico,
+    monto_pagado: esParcial ? Number(montoNum) : montoSeleccionadoConceptos,
+    pago_completo: esParcial ? false : pagoCompletoPorConceptos
+  };
 
-const cuentaNombre = getCuentaNombreById(cuentaId);
-if (!cuentaNombre) return alert('Cuenta inválida');
+  const cuentaId = $('pagoCuenta')?.value;
+  if (!cuentaId) return alert('Seleccioná una cuenta');
 
-body.cuenta = cuentaNombre;  // 👈 el backend guarda 'cuenta' (texto), no cuenta_id
+  const cuentaNombre = getCuentaNombreById(cuentaId);
+  if (!cuentaNombre) return alert('Cuenta inválida');
 
-if (esParcial) {
-  body.monto_parcial = montoNum;
-}
+  body.cuenta = cuentaNombre;
 
+  if (esParcial) {
+    body.monto_parcial = Number(montoNum);
+  }
 
   const btn = $('btnPagoSave');
   if (btn) btn.disabled = true;
+
   try {
     const { res, data } = await fetchAuth(`/club/${clubId}/pagos`, {
       method: 'POST',
       body: JSON.stringify(body),
       json: true
     });
-    if (!res.ok || !data.ok) {
-      alert(data.error || 'Error guardando pago');
+
+    if (!res.ok || !data?.ok) {
+      alert(data?.error || 'Error guardando pago');
       return;
     }
+
     alert(`✅ Pagos guardados: ${data.insertedCount}`);
     closeModal();
     await loadResumen();
@@ -1185,70 +1181,91 @@ function bindAccordion() {
 
 }
 
-  function bindOnce() {
-    const root = document.querySelector('.section-pagos');
-    if (!root) return;
-    if (root.dataset.bound === '1') return;
-    root.dataset.bound = '1';
+function bindOnce() {
+  const root = document.querySelector('.section-pagos');
+  if (!root) return;
+  if (root.dataset.bound === '1') return;
+  root.dataset.bound = '1';
 
-    
+  $('btnPagoAdd')?.addEventListener('click', openModal);
+  $('btnPagoClose')?.addEventListener('click', closeModal);
+  $('btnPagoCancel')?.addEventListener('click', closeModal);
+  $('btnPagoSave')?.addEventListener('click', savePago);
 
-    // Pagos socios
-    $('btnPagoAdd')?.addEventListener('click', async () => {
-  await loadResponsables();
-  fillCuentasSelects();
-  openModal();
-});
-    $('btnPagoClose')?.addEventListener('click', closeModal);
-    $('btnPagoCancel')?.addEventListener('click', closeModal);
-    $('btnPagoSave')?.addEventListener('click', savePago);
-    $('modalSocioSearch')?.addEventListener('input', renderSociosList);
-    $('btnRefreshPagos')?.addEventListener('click', async () => { await loadResumen(); await loadIngresos(); });
-    $('pagosSearch')?.addEventListener('input', loadResumen);
+  $('btnAbrirSelectorSocios')?.addEventListener('click', () => {
+    $('modalElegirSocio')?.classList.remove('hidden');
+    if ($('buscarSocioMini')) $('buscarSocioMini').value = '';
+    renderSociosMini('');
+  });
 
-// ✅ Cambio de año desde el selector (afecta Pagos + Otros ingresos)
-$('pagosAnioSelect')?.addEventListener('change', async (e) => {
-  const y = Number(e.target.value);
-  setSelectedYear(y);
-  await loadResumen();
-  await loadIngresos();
-});
+  $('btnElegirSocioClose')?.addEventListener('click', () => {
+    $('modalElegirSocio')?.classList.add('hidden');
+  });
 
-// Paginación de la tabla de pagos
-$('pagosPagination')?.addEventListener('click', (ev) => {
-  const btn = ev.target.closest('button[data-page]');
-  if (!btn) return;
+  $('buscarSocioMini')?.addEventListener('input', (e) => {
+    renderSociosMini(e.target.value);
+  });
 
-  const action = btn.dataset.page;
-  const total = pagosRowsAll.length;
-  const totalPages = Math.ceil(total / PAGOS_PAGE_SIZE);
-  if (!totalPages) return;
+  $('pagosSearch')?.addEventListener('input', loadResumen);
 
-  if (action === 'prev' && pagosPageCurrent > 1) {
-    pagosPageCurrent--;
-    renderTablaPage();
-  } else if (action === 'next' && pagosPageCurrent < totalPages) {
-    pagosPageCurrent++;
-    renderTablaPage();
-  }
-});
+  $('btnRefreshPagos')?.addEventListener('click', async () => {
+    await loadResumen();
+    await loadIngresos();
+  });
 
+  $('pagosAnioSelect')?.addEventListener('change', async (e) => {
+    const y = Number(e.target.value);
+    setSelectedYear(y);
+    await loadResumen();
+    await loadIngresos();
+  });
 
-// Pago parcial: checkbox + monto
+  $('btnAnioPrev')?.addEventListener('click', async () => {
+    setSelectedYear(selectedYear - 1);
+    await refreshMesesPagados();
+    renderMesesGrid();
+    await loadResumen();
+    await loadIngresos();
+  });
+
+  $('btnAnioNext')?.addEventListener('click', async () => {
+    setSelectedYear(selectedYear + 1);
+    await refreshMesesPagados();
+    renderMesesGrid();
+    await loadResumen();
+    await loadIngresos();
+  });
+
+  $('pagosPagination')?.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-page]');
+    if (!btn) return;
+
+    const action = btn.dataset.page;
+    const total = pagosRowsAll.length;
+    const totalPages = Math.ceil(total / PAGOS_PAGE_SIZE);
+    if (!totalPages) return;
+
+    if (action === 'prev' && pagosPageCurrent > 1) {
+      pagosPageCurrent--;
+      renderTablaPage();
+    } else if (action === 'next' && pagosPageCurrent < totalPages) {
+      pagosPageCurrent++;
+      renderTablaPage();
+    }
+  });
+
   const chkParcial = $('pagoParcialChk');
   const inpParcial = $('pagoParcialMonto');
 
   if (chkParcial) {
-  chkParcial.addEventListener('change', () => {
-    if (inpParcial) {
-      inpParcial.disabled = !chkParcial.checked;
-      if (!chkParcial.checked) {
-        inpParcial.value = '';
+    chkParcial.addEventListener('change', () => {
+      if (inpParcial) {
+        inpParcial.disabled = !chkParcial.checked;
+        if (!chkParcial.checked) inpParcial.value = '';
       }
-    }
-    renderMontoHint();
-  });
-}
+      renderMontoHint();
+    });
+  }
 
   if (inpParcial) {
     inpParcial.addEventListener('input', () => {
@@ -1256,146 +1273,18 @@ $('pagosPagination')?.addEventListener('click', (ev) => {
     });
   }
 
-    // Botón ingreso + modal ingreso
-    $('btnIngresoAdd')?.addEventListener('click', async () => {
-  await loadTiposIngreso();
-  await loadResponsables();
-  fillCuentasSelects();
-  openIngresoModal();
-});
+  $('detTableBody')?.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-act="del-pago"]');
+    if (!btn) return;
+    const pagoId = btn.dataset.pagoId;
+    const socioId = btn.dataset.socioId;
+    await deletePagoMensual(pagoId, socioId);
+  });
 
-// Abrir selector de socio (modal mini)
-$('btnAbrirSelectorSocios')?.addEventListener('click', () => {
-  $('modalElegirSocio')?.classList.remove('hidden');
-  $('buscarSocioMini').value = '';
-  renderSociosMini('');
-});
-
-// Cerrar selector socio
-$('btnElegirSocioClose')?.addEventListener('click', () => {
-  $('modalElegirSocio')?.classList.add('hidden');
-});
-
-// Buscar dentro del selector
-$('buscarSocioMini')?.addEventListener('input', (e) => {
-  renderSociosMini(e.target.value);
-});
-
-    $('btnIngresoClose')?.addEventListener('click', closeIngresoModal);
-    $('btnIngresoCancel')?.addEventListener('click', closeIngresoModal);
-    $('formIngreso')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await saveIngreso();
-    });
-
-$('ingresosTableBody')?.addEventListener('click', async (ev) => {
-  // ✅ Click en encabezado Mes/Año -> toggle detalles
-  const header = ev.target.closest('tr[data-group-header="1"]');
-  if (header && !ev.target.closest('button')) {
-    const key = header.dataset.group;
-    const open = header.dataset.open === '1';
-    const tbody = $('ingresosTableBody');
-    if (!tbody || !key) return;
-
-    // Toggle filas detalle del grupo
-    tbody.querySelectorAll(`tr.ingreso-detalle[data-group="${key}"]`).forEach(tr => {
-      tr.classList.toggle('hidden', open); // si estaba abierto, ocultar
-    });
-
-    // Toggle estado + flecha
-    header.dataset.open = open ? '0' : '1';
-    const arrow = header.querySelector('.ing-group-arrow');
-    if (arrow) arrow.textContent = open ? '▶' : '▼';
-    return;
-  }
-
-// abrir selector socio
-$('btnAbrirSelectorSocios')?.addEventListener('click', () => {
-  $('modalElegirSocio')?.classList.remove('hidden');
-  $('buscarSocioMini').value = '';
-  renderSociosMini('');
-});
-
-// cerrar selector socio
-$('btnElegirSocioClose')?.addEventListener('click', () => {
-  $('modalElegirSocio')?.classList.add('hidden');
-});
-
-// buscar socios mini
-$('buscarSocioMini')?.addEventListener('input', (e) => {
-  renderSociosMini(e.target.value);
-});
-
-  // ✅ Click en botón borrar
-  const btn = ev.target.closest('button[data-act]');
-  if (!btn) return;
-  if (btn.dataset.act === 'del-ingreso') {
-    await deleteIngreso(btn.dataset.id);
-  }
-});
-    // Año
-    $('btnAnioPrev')?.addEventListener('click', async () => {
-      setSelectedYear(selectedYear - 1);
-      await refreshMesesPagados();
-      renderMesesGrid();
-      await loadResumen();
-      await loadIngresos();
-    });
-
-    $('btnAnioNext')?.addEventListener('click', async () => {
-      setSelectedYear(selectedYear + 1);
-      await refreshMesesPagados();
-      renderMesesGrid();
-      await loadResumen();
-      await loadIngresos();
-    });
-
-    $('pagosAnioSelect')?.addEventListener('change', async (e) => {
-      setSelectedYear(e.target.value);
-      await refreshMesesPagados();
-      renderMesesGrid();
-      await loadResumen();
-      await loadIngresos();
-    });
-
-    // Detalles socios
-    $('pagosTableBody')?.addEventListener('click', (ev) => {
-      const btn = ev.target.closest('button[data-act]');
-      if (!btn) return;
-      if (btn.dataset.act === 'details') {
-        openDetallesModal(btn.dataset.id);
-      }
-    });
-
-    $('btnDetClose')?.addEventListener('click', closeDetallesUI);
-    $('btnDetOk')?.addEventListener('click', closeDetallesUI);
-// Borrar cuota/pago mensual desde el modal de detalles
-$('detTableBody')?.addEventListener('click', async (ev) => {
-  const btn = ev.target.closest('button[data-act="del-pago"]');
-  if (!btn) return;
-  const pagoId = btn.dataset.pagoId;
-  const socioId = btn.dataset.socioId;
-  await deletePagoMensual(pagoId, socioId);
-});
-    $('modalPagoDetalles')?.addEventListener('click', (ev) => {
-      if (ev.target?.id === 'modalPagoDetalles') closeDetallesUI();
-    });
-
-    // Cerrar modales con click fuera
-    $('modalIngreso')?.addEventListener('click', (ev) => {
-      if (ev.target?.id === 'modalIngreso') closeIngresoModal();
-    });
-
-    // Escape
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape') {
-        if (!$('modalPago')?.classList.contains('hidden')) closeModal();
-        if (!$('modalPagoDetalles')?.classList.contains('hidden')) closeDetallesUI();
-        if (!$('modalIngreso')?.classList.contains('hidden')) closeIngresoModal();
-      }
-    });
-  }
-
+  $('modalPagoDetalles')?.addEventListener('click', (ev) => {
+    if (ev.target?.id === 'modalPagoDetalles') closeDetallesUI();
+  });
+}
   async function initPagosSection() {
   // Bind de eventos
   bindOnce();
