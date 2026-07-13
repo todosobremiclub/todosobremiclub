@@ -845,8 +845,13 @@ const pagoCompletoBase =
       .reduce((acc, d) => acc + Number(d.monto || 0), 0);
 
     const mergedCompleto =
-      mergedDetalle.length > 0 &&
-      mergedDetalle.every((d) => d.seleccionado === true);
+      mergedDetalle.length > 0
+        ? mergedDetalle.every((d) => d.seleccionado === true)
+        : (
+            typeof socioPago.pago_completo_override === 'boolean'
+              ? socioPago.pago_completo_override
+              : false
+          );
 
     const rUpd = await db.query(
       `
