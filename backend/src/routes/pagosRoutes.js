@@ -131,18 +131,128 @@ ORDER BY mes ASC      `,
     )
   ]);
 
-  const pagosRowsAdmin = rAdmin.rows || [];
-  const transferenciaHabilitada = rClub.rowCount
-    ? rClub.rows[0].transferencia_habilitada === true
-    : false;
+const pagosRowsAdminBase = rAdmin.rows || [];
+const transferenciaHabilitada = rClub.rowCount
+  ? rClub.rows[0].transferencia_habilitada === true
+  : false;
 
-  return res.json({
-    ok: true,
-    anio,
-    transferencia_habilitada: transferenciaHabilitada,
-    pagos: pagosRowsAdmin,
-    mesesPagados: pagosRowsAdmin.map((p) => Number(p.mes)),
+const rSocioEstado = await db.query(
+  `
+  SELECT
+    s.id,
+    s.actividades_adicionales,
+    CASE WHEN gf_miembro.id IS NOT NULL THEN true ELSE false END AS es_miembro_plan_familiar,
+    gf_miembro.jefe_socio_id AS grupo_familiar_jefe_id
+  FROM socios s
+  LEFT JOIN grupos_familiares_miembros gfm
+    ON gfm.socio_id = s.id
+  LEFT JOIN grupos_familiares gf_miembro
+    ON gf_miembro.id = gfm.grupo_familiar_id
+   AND gf_miembro.activo = true
+  WHERE s.id = $1
+    AND s.club_id = $2
+  LIMIT 1
+  `,
+  [socioId, clubId]
+);
+
+const socioEstado = rSocioEstado.rows[0] || null;
+
+let adicionalesConfig = [];
+try {
+  adicionalesConfig = socioEstado?.actividades_adicionales
+    ? JSON.parse(socioEstado.actividades_adicionales)
+    : [];
+} catch {
+  adicionalesConfig = [];
+}
+
+function parseDetallePago(raw) {
+  try {
+    if (Array.isArray(raw)) return raw;
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+const pagosRowsAdmin = [];
+
+for (const p of pagosRowsAdminBase) {
+  const detalle = parseDetallePago(p.detalle_pago);
+
+  let baseCubierta = false;
+
+  if (socioEstado?.es_miembro_plan_familiar === true && socioEstado?.grupo_familiar_jefe_id) {
+    const rPagoJefe = await db.query(
+      `
+      SELECT detalle_pago, pago_completo
+      FROM pagos_mensuales
+      WHERE club_id = $1
+        AND socio_id = $2
+        AND anio = $3
+        AND mes = $4
+      ORDER BY fecha_pago DESC NULLS LAST
+      LIMIT 1
+      `,
+      [clubId, socioEstado.grupo_familiar_jefe_id, anio, p.mes]
+    );
+
+    if (rPagoJefe.rowCount) {
+      const pagoJefe = rPagoJefe.rows[0];
+      const detalleJefe = parseDetallePago(pagoJefe.detalle_pago);
+
+      baseCubierta =
+        detalleJefe.some(
+          (d) =>
+            String(d?.tipo || '') === 'base' &&
+            d?.seleccionado === true
+        ) ||
+        (pagoJefe.pago_completo === true && detalleJefe.length === 0);
+    }
+  } else {
+    baseCubierta =
+      detalle.some(
+        (d) =>
+          String(d?.tipo || '') === 'base' &&
+          d?.seleccionado === true
+      ) ||
+      (p.pago_completo === true && detalle.length === 0);
+  }
+
+  const adicionalesPagados = new Set(
+    detalle
+      .filter(
+        (d) =>
+          String(d?.tipo || '') === 'adicional' &&
+          d?.seleccionado === true
+      )
+      .map((d) => String(d?.nombre || '').trim())
+      .filter(Boolean)
+  );
+
+  const faltanAdicionales = adicionalesConfig.some(
+    (nombre) => !adicionalesPagados.has(String(nombre).trim())
+  );
+
+  const pagoCompletoAjustado = baseCubierta && !faltanAdicionales;
+
+  pagosRowsAdmin.push({
+    ...p,
+    pago_completo: pagoCompletoAjustado
   });
+}
+
+return res.json({
+  ok: true,
+  anio,
+  transferencia_habilitada: transferenciaHabilitada,
+  pagos: pagosRowsAdmin,
+  mesesPagados: pagosRowsAdmin
+    .filter((p) => p.pago_completo === true)
+    .map((p) => Number(p.mes)),
+});
 }
 
     // =========================
@@ -558,44 +668,58 @@ let sociosAPagar = [
 
 // ✅ Solo propagar al grupo si el jefe está pagando la BASE
 if (esJefePlanFamiliar && intentaPagarBase) {
-  const rMiembros = await db.query(
-    `
-    SELECT
-      s.id AS socio_id,
-      s.nombre,
-      s.apellido,
-      s.numero_socio
-    FROM grupos_familiares gf
-    JOIN grupos_familiares_miembros gfm
-      ON gfm.grupo_familiar_id = gf.id
-    JOIN socios s
-      ON s.id = gfm.socio_id
-    WHERE gf.club_id = $1
-      AND gf.jefe_socio_id = $2
-      AND gf.activo = true
-    ORDER BY s.apellido ASC, s.nombre ASC
-    `,
-    [clubId, socioIdFinal]
-  );
+const rMiembros = await db.query(
+  `
+  SELECT
+    s.id AS socio_id,
+    s.nombre,
+    s.apellido,
+    s.numero_socio,
+    s.actividades_adicionales
+  FROM grupos_familiares gf
+  JOIN grupos_familiares_miembros gfm
+    ON gfm.grupo_familiar_id = gf.id
+  JOIN socios s
+    ON s.id = gfm.socio_id
+  WHERE gf.club_id = $1
+    AND gf.jefe_socio_id = $2
+    AND gf.activo = true
+  ORDER BY s.apellido ASC, s.nombre ASC
+  `,
+  [clubId, socioIdFinal]
+);
 
-  sociosAPagar = [
-    {
-      socio_id: socioIdFinal,
-      nombre: socioNombre ?? null,
-      apellido: socioApellido ?? null,
-      numero_socio: socioNumero ?? null,
-      monto: montoPorMes,
-      detalle: detallePagoArray
-    },
-    ...rMiembros.rows.map((m) => ({
+sociosAPagar = [
+  {
+    socio_id: socioIdFinal,
+    nombre: socioNombre ?? null,
+    apellido: socioApellido ?? null,
+    numero_socio: socioNumero ?? null,
+    monto: montoPorMes,
+    detalle: detallePagoArray,
+    pago_completo_override: pago_completo === true
+  },
+  ...rMiembros.rows.map((m) => {
+    let adicionales = [];
+    try {
+      adicionales = m.actividades_adicionales
+        ? JSON.parse(m.actividades_adicionales)
+        : [];
+    } catch {
+      adicionales = [];
+    }
+
+    return {
       socio_id: m.socio_id,
       nombre: m.nombre ?? null,
       apellido: m.apellido ?? null,
       numero_socio: m.numero_socio ?? null,
       monto: 0,
-      detalle: []
-    }))
-  ];
+      detalle: [],
+      pago_completo_override: adicionales.length === 0
+    };
+  })
+];
 }
 
 await db.query('BEGIN');
@@ -624,7 +748,10 @@ for (const socioPago of sociosAPagar) {
     const detalleBase = Array.isArray(socioPago.detalle) ? socioPago.detalle : [];
     const totalTeoricoBase = Number(monto_total_teorico ?? socioPago.monto ?? 0) || 0;
     const montoPagadoBase = Number(monto_pagado ?? socioPago.monto ?? 0) || 0;
-    const pagoCompletoBase = pago_completo === true;
+const pagoCompletoBase =
+  typeof socioPago.pago_completo_override === 'boolean'
+    ? socioPago.pago_completo_override
+    : pago_completo === true;
 
     if (!rPrev.rowCount) {
       const rIns = await db.query(
@@ -673,8 +800,8 @@ for (const socioPago of sociosAPagar) {
 
     const prev = rPrev.rows[0];
 
-    // Si ya está completo, no se vuelve a tocar
-    if (prev.pago_completo === true) {
+    // Si ya está completo y no vino ningún concepto nuevo, no se vuelve a tocar
+    if (prev.pago_completo === true && detalleBase.length === 0) {
       continue;
     }
 
