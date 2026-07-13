@@ -694,16 +694,39 @@ const border = checked ? '1px solid #38bdf8' : '1px solid transparent';
   // =============================
   // Estado pago (usa backend pago_al_dia)
   // =============================
-  function pagoEstado(s) {
-    if (s.becado) return { ok: true, label: 'Becado' };
-    if (s.pago_al_dia === true) return { ok: true, label: 'Al día' };
-    return { ok: false, label: 'Impago' };
+function pagoEstado(s) {
+  if (s.becado) return { ok: true, tipo: 'becado', label: 'Becado' };
+
+  // 🔥 fallback inteligente si backend falla
+  if (
+    s.tiene_pagos_parciales === true ||
+    (s.pago_al_dia === true && s.deuda_monto > 0)
+  ) {
+    return { ok: false, tipo: 'parcial', label: 'Parcial' };
   }
+
+  if (s.pago_al_dia === true) {
+    return { ok: true, tipo: 'completo', label: 'Al día' };
+  }
+
+  return { ok: false, tipo: 'impago', label: 'Impago' };
+}
 
   function renderPagoPill(s) {
   const est = pagoEstado(s);
-  const cls = est.ok ? 'pay-ok' : 'pay-bad';
-  const txt = est.ok ? '🟢' : '🔴';
+let cls = 'pay-bad';
+
+if (est.tipo === 'completo' || est.tipo === 'becado') {
+  cls = 'pay-ok';
+} else if (est.tipo === 'parcial') {
+  cls = 'pay-partial'; // 🔥 NUEVO
+let txt = '🔴';
+
+if (est.tipo === 'completo' || est.tipo === 'becado') {
+  txt = '🟢';
+} else if (est.tipo === 'parcial') {
+  txt = '🟧';
+}
 
   return `
     <span

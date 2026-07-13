@@ -1305,12 +1305,21 @@ function bindOnce() {
   if (root.dataset.bound === '1') return;
   root.dataset.bound = '1';
 
-  $('btnPagoAdd')?.addEventListener('click', openModal);
-  $('btnPagoClose')?.addEventListener('click', closeModal);
-  $('btnPagoCancel')?.addEventListener('click', closeModal);
-  $('btnPagoSave')?.addEventListener('click', savePago);
+$('btnPagoAdd')?.addEventListener('click', async () => {
+  await loadResponsables();
+  fillCuentasSelects();
+  openModal();
+});
 
-$('btnIngresoAdd')?.addEventListener('click', openIngresoModal);
+$('btnPagoClose')?.addEventListener('click', closeModal);
+$('btnPagoCancel')?.addEventListener('click', closeModal);
+$('btnPagoSave')?.addEventListener('click', savePago);
+$('btnIngresoAdd')?.addEventListener('click', async () => {
+  await loadResponsables();
+  fillCuentasSelects();
+  openIngresoModal();
+});
+
 $('btnIngresoClose')?.addEventListener('click', closeIngresoModal);
 $('btnIngresoCancel')?.addEventListener('click', closeIngresoModal);
 
@@ -1318,7 +1327,6 @@ $('formIngreso')?.addEventListener('submit', async (ev) => {
   ev.preventDefault();
   await saveIngreso();
 });
-
 
   $('btnAbrirSelectorSocios')?.addEventListener('click', () => {
     $('modalElegirSocio')?.classList.remove('hidden');
@@ -1445,14 +1453,18 @@ $('modalPagoDetalles')?.addEventListener('click', (ev) => {
   });
 
   // Resto de la inicialización (igual que antes)
-  fillAnios();
+fillAnios();
 await Promise.all([
   loadSociosAll(),
   loadCuotas(),
   loadActividadesConfig(),
-  loadActividadesAdicionales()   // 🔥 CLAVE
+  loadActividadesAdicionales(),   // 🔥 CLAVE
+  loadResponsables()              // ✅ cargar cuentas
 ]);
-  await loadResumen();
+
+fillCuentasSelects();             // ✅ llenar #pagoCuenta y #ingresoCuenta
+
+await loadResumen();
 
   // Ingresos (debajo)
 await loadTiposIngreso().catch(() => {});   // no bloquear si aún no hay tipos
