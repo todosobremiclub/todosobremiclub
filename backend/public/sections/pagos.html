@@ -475,13 +475,13 @@
 @media (max-width: 640px) {
 
   /* El contenido del modal puede scrollear */
-  #modalPago .modal-content {
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
+#modalPago .modal-content {
+  max-width: 540px !important;
+  max-height: 85vh;        /* 🔥 limita altura */
+  overflow-y: auto;        /* 🔥 habilita scroll */
+  display: block;
+  padding: 12px 14px !important;
+}
 
 
 /* =========================================

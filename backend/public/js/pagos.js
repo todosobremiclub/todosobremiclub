@@ -250,10 +250,15 @@ async function selectSocio(s) {
     const inp = $('socioSeleccionadoNombre');
     if (inp) inp.value = '';
 
-    renderTarifaInfo();
+renderTarifaInfo();
+
+// 🔥 CARGAR ADICIONALES + RENDER SIEMPRE
 await loadActividadesAdicionales();
 
 const conceptos = buildConceptosParaSocio(s);
+
+console.log("CONCEPTOS:", conceptos);
+
 renderConceptosPago(conceptos);
     $('modalElegirSocio')?.classList.add('hidden');
 
@@ -1340,7 +1345,12 @@ $('detTableBody')?.addEventListener('click', async (ev) => {
 
   // Resto de la inicialización (igual que antes)
   fillAnios();
-  await Promise.all([loadSociosAll(), loadCuotas(), loadActividadesConfig()]);
+await Promise.all([
+  loadSociosAll(),
+  loadCuotas(),
+  loadActividadesConfig(),
+  loadActividadesAdicionales()   // 🔥 CLAVE
+]);
   await loadResumen();
 
   // Ingresos (debajo)
