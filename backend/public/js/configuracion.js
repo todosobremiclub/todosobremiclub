@@ -247,6 +247,11 @@ function actividadesUrl() {
   return `/club/${getActiveClubId()}/config/actividades`;
 }
 
+function actividadesAdicionalesUrl() {
+  return `/club/${getActiveClubId()}/config/actividades-adicionales`;
+}
+
+
 async function loadActividades() {
   const res = await fetchAuth(actividadesUrl());
   const data = await safeJson(res);
@@ -399,6 +404,148 @@ async function deleteActividad(id) {
   const res = await fetchAuth(`${actividadesUrl()}/${id}`, { method: 'DELETE' });
   const data = await safeJson(res);
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando actividad');
+}
+
+/* ============================================================
+   ACTIVIDADES ADICIONALES (con precio_mensual)
+============================================================ */
+
+async function loadActividadesAdicionales() {
+  const res = await fetchAuth(actividadesAdicionalesUrl());
+  const data = await safeJson(res);
+  const tbody = document.getElementById('actividadesAdicionalesTableBody');
+  if (!tbody) return;
+
+  if (!res.ok || !data.ok) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="muted">Error cargando actividades adicionales.</td>
+      </tr>`;
+    alert(data.error ?? 'Error cargando actividades adicionales');
+    return;
+  }
+
+  renderActividadesAdicionales(data.actividades ?? []);
+}
+
+function renderActividadesAdicionales(items) {
+  const tbody = document.getElementById('actividadesAdicionalesTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  const moneyARS = new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  items.forEach(a => {
+    const tr = document.createElement('tr');
+
+    const precio = (typeof a.precio_mensual === 'number')
+      ? a.precio_mensual
+      : (a.precio_mensual ? Number(a.precio_mensual) : 0);
+
+    const precioNum = Number.isFinite(precio) ? precio : 0;
+    const precioFmt = moneyARS.format(precioNum);
+
+    tr.innerHTML = `
+      <td>
+        <input
+          type="text"
+          id="act_adic_${a.id}"
+          value="${escapeHtml(a.nombre)}"
+        />
+      </td>
+      <td>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input
+            type="number"
+            id="act_adic_precio_${a.id}"
+            min="0"
+            step="0.01"
+            value="${precioNum}"
+            style="max-width:140px;"
+          />
+          <span
+            id="act_adic_precio_fmt_${a.id}"
+            class="muted"
+            style="font-size:12px; font-weight:700; white-space:nowrap;"
+            title="${precioFmt}"
+          >
+            ${precioFmt}
+          </span>
+        </div>
+      </td>
+      <td style="text-align:center">
+        <button class="btn-save" data-act="save-act-adic" data-id="${a.id}">💾</button>
+      </td>
+      <td style="text-align:center">
+        <button class="btn-del" data-act="del-act-adic" data-id="${a.id}">🗑️</button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+
+    const inp = document.getElementById(`act_adic_precio_${a.id}`);
+    const lbl = document.getElementById(`act_adic_precio_fmt_${a.id}`);
+
+    if (inp && lbl) {
+      const updateLabel = () => {
+        const v = Number(inp.value);
+        lbl.textContent = moneyARS.format(Number.isFinite(v) ? v : 0);
+        lbl.title = lbl.textContent;
+      };
+      inp.addEventListener('input', updateLabel);
+      inp.addEventListener('change', updateLabel);
+    }
+  });
+}
+
+async function createActividadAdicional(nombre, precio_mensual) {
+  const payload = {
+    nombre,
+    precio_mensual: (
+      precio_mensual === '' ||
+      precio_mensual == null
+    ) ? null : Number(precio_mensual)
+  };
+
+  const res = await fetchAuth(actividadesAdicionalesUrl(), {
+    method: 'POST',
+    json: true,
+    body: JSON.stringify(payload)
+  });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando actividad adicional');
+}
+
+async function updateActividadAdicional(id, nombre, precio_mensual) {
+  const payload = {
+    nombre,
+    precio_mensual: (
+      precio_mensual === '' ||
+      precio_mensual == null
+    ) ? null : Number(precio_mensual)
+  };
+
+  const res = await fetchAuth(`${actividadesAdicionalesUrl()}/${id}`, {
+    method: 'PUT',
+    json: true,
+    body: JSON.stringify(payload)
+  });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error guardando actividad adicional');
+  }
+}
+
+async function deleteActividadAdicional(id) {
+  const res = await fetchAuth(`${actividadesAdicionalesUrl()}/${id}`, { method: 'DELETE' });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando actividad adicional');
 }
 
 async function setGrupoFamiliarEnabled(enabled) {
@@ -1037,6 +1184,78 @@ function bindEvents() {
       }
     });
 
+  // ACTIVIDADES ADICIONALES: guardar / eliminar
+  document
+    .getElementById('actividadesAdicionalesTableBody')
+    ?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+
+      const act = btn.dataset.act;
+      const id = btn.dataset.id;
+
+      if (act === 'save-act-adic') {
+        const nombre = (document.getElementById(`act_adic_${id}`)?.value ?? '').trim();
+        const precioStr = document.getElementById(`act_adic_precio_${id}`)?.value ?? '';
+        const precioNum = precioStr === '' ? null : Number(precioStr);
+
+        if (!nombre) return alert('Nombre vacío');
+        if (precioStr !== '' && (Number.isNaN(precioNum) || precioNum < 0)) {
+          return alert('Ingresá un precio mensual válido (>= 0).');
+        }
+
+        btn.disabled = true;
+        try {
+          await updateActividadAdicional(id, nombre, precioStr);
+          await loadActividadesAdicionales();
+        } catch (err) {
+          alert(err.message ?? 'Error');
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      if (act === 'del-act-adic') {
+        if (!confirm('¿Eliminar actividad adicional?')) return;
+
+        btn.disabled = true;
+        try {
+          await deleteActividadAdicional(id);
+          await loadActividadesAdicionales();
+        } catch (err) {
+          alert(err.message ?? 'Error');
+        } finally {
+          btn.disabled = false;
+        }
+      }
+    });
+
+  // ACTIVIDADES ADICIONALES: Agregar
+  document
+    .getElementById('btnActividadAdicionalAdd')
+    ?.addEventListener('click', async () => {
+      const inputNombre = document.getElementById('newActividadAdicionalNombre');
+      const inputPrecio = document.getElementById('newActividadAdicionalPrecio');
+
+      const nombre = (inputNombre?.value ?? '').trim();
+      const precioStr = (inputPrecio?.value ?? '').trim();
+      const precioNum = precioStr === '' ? null : Number(precioStr);
+
+      if (!nombre) return alert('Ingresá un nombre para la actividad adicional');
+      if (precioStr !== '' && (Number.isNaN(precioNum) || precioNum < 0)) {
+        return alert('Ingresá un precio mensual válido (>= 0).');
+      }
+
+      try {
+        await createActividadAdicional(nombre, precioStr);
+        if (inputNombre) inputNombre.value = '';
+        if (inputPrecio) inputPrecio.value = '';
+        await loadActividadesAdicionales();
+      } catch (err) {
+        alert(err.message ?? 'Error creando actividad adicional');
+      }
+    });
+
   // EXCEPCIONES: guardar / eliminar
   document
     .getElementById('excepcionesTableBody')
@@ -1121,6 +1340,8 @@ async function initConfiguracionSection() {
   await loadTiposIngreso(); // importante para que se llene la tabla
   await loadResponsables();
   await loadActividades();
+  await loadActividadesAdicionales();
+
 
 const checkGF = document.getElementById('checkGrupoFamiliar');
 if (checkGF && !checkGF.dataset.bound) {

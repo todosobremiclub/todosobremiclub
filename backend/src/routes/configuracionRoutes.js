@@ -438,6 +438,171 @@ router.delete('/:clubId/config/actividades/:id', requireAuth, requireClubAccess,
   }
 });
 
+/* ============================================================
+   ACTIVIDADES ADICIONALES (por club)
+   GET/POST/PUT/DELETE /club/:clubId/config/actividades-adicionales
+============================================================ */
+router.get('/:clubId/config/actividades-adicionales', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const r = await db.query(
+      `
+      SELECT
+        id,
+        nombre,
+        precio_mensual
+      FROM actividades_adicionales
+      WHERE club_id = $1 AND activo = true
+      ORDER BY nombre ASC
+      `,
+      [clubId]
+    );
+    res.json({ ok: true, actividades: r.rows });
+  } catch (e) {
+    if (isMissingRelation(e)) return res.json({ ok: true, actividades: [] });
+    console.error('❌ get actividades adicionales', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/:clubId/config/actividades-adicionales', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { nombre, precio_mensual } = req.body ?? {};
+
+  try {
+    if (!nombre?.trim()) {
+      return res.status(400).json({ ok: false, error: 'Falta nombre' });
+    }
+
+    let precioNum = null;
+    if (precio_mensual !== undefined && precio_mensual !== null && String(precio_mensual).trim() !== '') {
+      const parsed = Number(precio_mensual);
+      if (Number.isNaN(parsed) || parsed < 0) {
+        return res.status(400).json({
+          ok: false,
+          error: 'precio_mensual inválido (debe ser número >= 0)'
+        });
+      }
+      precioNum = parsed;
+    }
+
+    const r = await db.query(
+      `
+      INSERT INTO actividades_adicionales (
+        id,
+        club_id,
+        nombre,
+        precio_mensual,
+        activo,
+        updated_at
+      )
+      VALUES (
+        gen_random_uuid(),
+        $1,
+        $2,
+        $3,
+        true,
+        NOW()
+      )
+      RETURNING
+        id,
+        nombre,
+        precio_mensual
+      `,
+      [clubId, nombre.trim(), precioNum]
+    );
+
+    res.json({ ok: true, actividad: r.rows[0] });
+  } catch (e) {
+    if (isMissingRelation(e)) {
+      return res.status(500).json({ ok: false, error: 'Falta tabla actividades_adicionales en la DB' });
+    }
+    console.error('❌ create actividad adicional', e);
+    if (e.code === '23505') {
+      return res.status(409).json({ ok: false, error: 'La actividad adicional ya existe' });
+    }
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.put('/:clubId/config/actividades-adicionales/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  const { nombre, precio_mensual } = req.body ?? {};
+
+  try {
+    const nuevoNombre = (nombre ?? '').trim();
+    if (!nuevoNombre) {
+      return res.status(400).json({ ok: false, error: 'Falta nombre' });
+    }
+
+    let precioNum = null;
+    if (precio_mensual !== undefined && precio_mensual !== null && String(precio_mensual).trim() !== '') {
+      const parsed = Number(precio_mensual);
+      if (Number.isNaN(parsed) || parsed < 0) {
+        return res.status(400).json({
+          ok: false,
+          error: 'precio_mensual inválido (debe ser número >= 0)'
+        });
+      }
+      precioNum = parsed;
+    }
+
+    const r = await db.query(
+      `
+      UPDATE actividades_adicionales
+      SET nombre = $1,
+          precio_mensual = $2,
+          updated_at = NOW()
+      WHERE id = $3 AND club_id = $4
+      RETURNING id, nombre, precio_mensual
+      `,
+      [nuevoNombre, precioNum, id, clubId]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'No encontrada' });
+    }
+
+    res.json({ ok: true, actividad: r.rows[0] });
+  } catch (e) {
+    if (isMissingRelation(e)) {
+      return res.status(500).json({ ok: false, error: 'Falta tabla actividades_adicionales en la DB' });
+    }
+    console.error('❌ update actividad adicional', e);
+    if (e.code === '23505') {
+      return res.status(409).json({ ok: false, error: 'La actividad adicional ya existe' });
+    }
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.delete('/:clubId/config/actividades-adicionales/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+
+  try {
+    const r = await db.query(
+      `
+      UPDATE actividades_adicionales
+      SET activo = false, updated_at = NOW()
+      WHERE id = $1 AND club_id = $2
+      `,
+      [id, clubId]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'No encontrada' });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    if (isMissingRelation(e)) {
+      return res.status(500).json({ ok: false, error: 'Falta tabla actividades_adicionales en la DB' });
+    }
+    console.error('❌ delete actividad adicional', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 router.post('/:clubId/config/grupo-familiar', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
   const { enabled } = req.body ?? {};

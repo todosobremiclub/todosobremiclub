@@ -294,6 +294,8 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
         s.fecha_ingreso,
         s.activo,
         s.becado,
+        s.tiene_actividades_adicionales,
+        s.actividades_adicionales,
         s.excepcion_cuota_id,
         ec.nombre AS excepcion_cuota_nombre,
         ec.monto AS excepcion_cuota_monto,
@@ -880,25 +882,26 @@ for (const s of toInsert) {
 // ===============================
 router.post('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const {
-    numero_socio,
-    dni,
-    nombre,
-    apellido,
-    telefono,
-direccion,
-email,
-fecha_nacimiento,
-    fecha_ingreso,
-    activo = true,
-    becado = false,
-    categoria,
-    actividad,
-    excepcion_cuota_id = null,
-    es_menor = false,
-    tutor_nombre = null
-
-  } = req.body ?? {};
+const {
+  numero_socio,
+  dni,
+  nombre,
+  apellido,
+  telefono,
+  direccion,
+  email,
+  fecha_nacimiento,
+  fecha_ingreso,
+  activo = true,
+  becado = false,
+  categoria,
+  actividad,
+  excepcion_cuota_id = null,
+  es_menor = false,
+  tutor_nombre = null,
+  tiene_actividades_adicionales = false,
+  actividades_adicionales = null
+} = req.body ?? {};
 
   try {
     if (!dni || !nombre || !apellido || !fecha_nacimiento || !categoria || !actividad) {
@@ -944,7 +947,7 @@ await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id }
       nro = rNum.rows[0].numero;
     }
 
-    const r = await db.query(
+const r = await db.query(
   `
   INSERT INTO socios (
     club_id,
@@ -963,10 +966,12 @@ await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id }
     actividad,
     excepcion_cuota_id,
     es_menor,
-    tutor_nombre
+    tutor_nombre,
+    tiene_actividades_adicionales,
+    actividades_adicionales
   )
   VALUES (
-    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
   )
   RETURNING *
   `,
@@ -987,10 +992,11 @@ await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id }
     String(actividad),
     (excepcion_cuota_id ?? null),
     !!es_menor,
-    (tutor_nombre ?? null)
+    (tutor_nombre ?? null),
+    !!tiene_actividades_adicionales,
+    (actividades_adicionales ?? null)
   ]
 );
-
 
     await db.query('COMMIT');
     res.json({ ok: true, socio: r.rows[0] });
@@ -1013,24 +1019,26 @@ await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id }
 // ===============================
 router.put('/:clubId/socios/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
-  const {
-    numero_socio,
-    dni,
-    nombre,
-    apellido,
-    telefono,
-direccion,
-email,
-fecha_nacimiento,
-    fecha_ingreso,
-    activo,
-    becado,
-    categoria,
-    actividad,
-excepcion_cuota_id = null,	
-    es_menor,
-    tutor_nombre
-  } = req.body ?? {};
+const {
+  numero_socio,
+  dni,
+  nombre,
+  apellido,
+  telefono,
+  direccion,
+  email,
+  fecha_nacimiento,
+  fecha_ingreso,
+  activo,
+  becado,
+  categoria,
+  actividad,
+  excepcion_cuota_id = null,
+  es_menor,
+  tutor_nombre,
+  tiene_actividades_adicionales = false,
+  actividades_adicionales = null
+} = req.body ?? {};
 
   try {
 if (es_menor && !String(tutor_nombre || '').trim()) {
@@ -1042,7 +1050,7 @@ if (es_menor && !String(tutor_nombre || '').trim()) {
 
 await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id });
 
-    const r = await db.query(
+const r = await db.query(
   `
   UPDATE socios SET
     numero_socio = $1,
@@ -1060,8 +1068,10 @@ await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id }
     actividad = $13,
     excepcion_cuota_id = $14,
     es_menor = $15,
-    tutor_nombre = $16
-  WHERE id = $17 AND club_id = $18
+    tutor_nombre = $16,
+    tiene_actividades_adicionales = $17,
+    actividades_adicionales = $18
+  WHERE id = $19 AND club_id = $20
   RETURNING *
   `,
   [
@@ -1081,6 +1091,8 @@ await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id }
     (excepcion_cuota_id ?? null),
     !!es_menor,
     (tutor_nombre ?? null),
+    !!tiene_actividades_adicionales,
+    (actividades_adicionales ?? null),
     id,
     clubId,
   ]

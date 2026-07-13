@@ -45,6 +45,36 @@
     </div>
   </div>
 
+<!-- =========================================================
+     ACTIVIDADES ADICIONALES
+========================================================== -->
+<div class="config-card config-collapsible collapsed">
+  <div class="config-header">
+    <span class="arrow">▶</span>
+    <h3 class="config-title">➕ Actividades adicionales</h3>
+  </div>
+
+  <div class="config-body">
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>Actividad</th>
+          <th>Precio mensual</th>
+          <th>Guardar</th>
+          <th>Eliminar</th>
+        </tr>
+      </thead>
+      <tbody id="actividadesAdicionalesTableBody"></tbody>
+    </table>
+
+    <div class="config-add" style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+      <input id="newActividadAdicionalNombre" type="text" placeholder="Nueva actividad adicional..." style="flex:1;" />
+      <input id="newActividadAdicionalPrecio" type="number" min="0" step="0.01" placeholder="Precio mensual" style="width:150px;" />
+      <button id="btnActividadAdicionalAdd" class="btn btn-primary">Agregar</button>
+    </div>
+  </div>
+</div>
+
   <!-- =========================================================
        EXCEPCIONES DE CUOTA
   ========================================================== -->

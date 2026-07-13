@@ -120,6 +120,7 @@
   // Actividades (config) y filtro
   // =============================
   let actividadesConfigCache = [];
+let actividadesAdicionalesConfigCache = [];
 
   async function loadActividadesConfig() {
     const clubId = getActiveClubId();
@@ -136,6 +137,56 @@
     fillActividadSelect(actividadesConfigCache);
     fillFiltroActividad(actividadesConfigCache);
   }
+
+async function loadActividadesAdicionalesConfig() {
+  const clubId = getActiveClubId();
+  const res = await fetchAuth(`/club/${clubId}/config/actividades-adicionales`);
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    console.warn('No se pudieron cargar actividades adicionales:', data.error);
+    actividadesAdicionalesConfigCache = [];
+    renderActividadesAdicionalesSocio([]);
+    return;
+  }
+
+  actividadesAdicionalesConfigCache = data.actividades ?? [];
+  renderActividadesAdicionalesSocio(actividadesAdicionalesConfigCache);
+}
+
+
+function renderActividadesAdicionalesSocio(items) {
+  const cont = $('socioAdicionalesLista');
+  if (!cont) return;
+
+  cont.innerHTML = '';
+
+  if (!items || !items.length) {
+    cont.innerHTML = '<div class="muted small">Sin actividades</div>';
+    return;
+  }
+
+  items.forEach(a => {
+    const div = document.createElement('div');
+
+    div.innerHTML = `
+      <label style="display:flex; gap:8px; align-items:center;">
+        <input type="checkbox" class="chk-adicional" value="${a.nombre}">
+        ${escapeHtml(a.nombre)} ($${a.precio_mensual || 0})
+      </label>
+    `;
+
+    cont.appendChild(div);
+  });
+}
+
+function setActividadesAdicionalesSeleccionadas(values) {
+  const seleccionadas = Array.isArray(values) ? values.map(v => String(v)) : [];
+
+  document.querySelectorAll('.chk-adicional').forEach(chk => {
+    chk.checked = seleccionadas.includes(String(chk.value));
+  });
+}
 
   function fillActividadSelect(items) {
     const sel = $('socioActividad');
@@ -1248,7 +1299,7 @@ function setExcepcionUI(usa) {
   // =============================
   // Modal socio alta/edición
   // =============================
-  function openModalNew() {
+  async function openModalNew() {
   editingId = null;
   setDraftPhoto(null);
 
@@ -1292,6 +1343,13 @@ $('socioEmail').value = '';
   $('socioUsaExcepcion').checked = false;
   $('socioExcepcionCuota').value = '';
   setExcepcionUI(false);
+
+$('socioTieneAdicionales').checked = false;
+$('socioAdicionalesWrap')?.classList.add('hidden');
+
+await loadActividadesAdicionalesConfig();
+setActividadesAdicionalesSeleccionadas([]);
+
 
   $('modalSocio').classList.remove('hidden');
 }
@@ -1369,6 +1427,27 @@ function toggleTutorField(forceValue) {
     ensureExcepcionOption(exId, exNombre || 'Excepción asignada');
     $('socioExcepcionCuota').value = String(exId);
   }
+
+await loadActividadesAdicionalesConfig();
+
+let adicionales = [];
+try {
+  adicionales = socio.actividades_adicionales
+    ? JSON.parse(socio.actividades_adicionales)
+    : [];
+} catch {
+  adicionales = [];
+}
+
+$('socioTieneAdicionales').checked = adicionales.length > 0;
+
+if (adicionales.length > 0) {
+  $('socioAdicionalesWrap')?.classList.remove('hidden');
+} else {
+  $('socioAdicionalesWrap')?.classList.add('hidden');
+}
+
+setActividadesAdicionalesSeleccionadas(adicionales);
 
   // =========================
   // GRUPO FAMILIAR
@@ -1973,6 +2052,14 @@ fecha_nacimiento: $('socioNacimiento').value,
       becado: $('socioBecado').checked
     };
 
+const adicionalesSeleccionadas = $('socioTieneAdicionales')?.checked
+  ? Array.from(document.querySelectorAll('.chk-adicional:checked')).map(el => el.value)
+  : [];
+
+payload.tiene_actividades_adicionales = !!$('socioTieneAdicionales')?.checked;
+payload.actividades_adicionales = JSON.stringify(adicionalesSeleccionadas);
+
+
     if (
       !payload.dni ||
       !payload.nombre ||
@@ -2122,6 +2209,19 @@ if (payload.es_menor && !payload.tutor_nombre) {
 $('socioUsaExcepcion')?.addEventListener('change', () => {
   setExcepcionUI($('socioUsaExcepcion').checked);
 });
+
+$('socioTieneAdicionales')?.addEventListener('change', () => {
+  const wrap = $('socioAdicionalesWrap');
+  if (!wrap) return;
+
+  if ($('socioTieneAdicionales').checked) {
+    wrap.classList.remove('hidden');
+  } else {
+    wrap.classList.add('hidden');
+    setActividadesAdicionalesSeleccionadas([]);
+  }
+});
+
 
 $('socioEsJefePlanFamiliar')?.addEventListener('change', () => {
   syncGrupoFamiliarUI();

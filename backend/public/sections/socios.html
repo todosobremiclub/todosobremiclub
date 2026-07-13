@@ -114,6 +114,34 @@
             <div class="muted small">*Las actividades se administran en Configuración.</div>
           </div>
 
+<!-- =========================
+   ACTIVIDADES ADICIONALES
+========================= -->
+
+<div class="col-span-4" style="margin-top:4px;">
+  <label class="checkbox-inline" style="display:flex; align-items:center; gap:8px;">
+    <input type="checkbox" id="socioTieneAdicionales">
+    Tiene actividades adicionales
+  </label>
+</div>
+
+<div id="socioAdicionalesWrap" class="hidden col-span-4">
+  <label>Actividades adicionales</label>
+
+  <div id="socioAdicionalesLista"
+       style="
+         margin-top:6px;
+         border:1px solid #e5e7eb;
+         border-radius:8px;
+         padding:8px;
+         background:#fafafa;
+         max-height:140px;
+         overflow-y:auto;
+       ">
+    <div class="muted small">Sin actividades</div>
+  </div>
+</div>
+
           <!-- Check usar excepción -->
           <div class="col-span-4">
   <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
