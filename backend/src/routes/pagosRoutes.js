@@ -753,14 +753,28 @@ for (const socioPago of sociosAPagar) {
       [clubId, socioPago.socio_id, anioNum, mes]
     );
 
-    const detalleBase = Array.isArray(socioPago.detalle) ? socioPago.detalle : [];
-    const totalTeoricoBase = Number(monto_total_teorico ?? socioPago.monto ?? 0) || 0;
-    const montoPagadoBase = Number(monto_pagado ?? socioPago.monto ?? 0) || 0;
+const detalleBase = Array.isArray(socioPago.detalle) ? socioPago.detalle : [];
+
+// ✅ Si es integrante de grupo familiar, socioPago.monto viene en 0.
+// No debe heredar el monto_pagado global del jefe.
+const esRegistroGrupoFamiliarSinMonto =
+  esJefePlanFamiliar &&
+  intentaPagarBase &&
+  String(socioPago.socio_id) !== String(socioIdFinal) &&
+  detalleBase.length === 0;
+
+const totalTeoricoBase = esRegistroGrupoFamiliarSinMonto
+  ? 0
+  : Number(monto_total_teorico ?? socioPago.monto ?? 0) || 0;
+
+const montoPagadoBase = esRegistroGrupoFamiliarSinMonto
+  ? 0
+  : Number(monto_pagado ?? socioPago.monto ?? 0) || 0;
+
 const pagoCompletoBase =
   typeof socioPago.pago_completo_override === 'boolean'
     ? socioPago.pago_completo_override
     : pago_completo === true;
-
     if (!rPrev.rowCount) {
       const rIns = await db.query(
         `
@@ -809,9 +823,13 @@ const pagoCompletoBase =
     const prev = rPrev.rows[0];
 
     // Si ya está completo y no vino ningún concepto nuevo, no se vuelve a tocar
-    if (prev.pago_completo === true && detalleBase.length === 0) {
-      continue;
-    }
+if (
+  !esRegistroGrupoFamiliarSinMonto &&
+  prev.pago_completo === true &&
+  detalleBase.length === 0
+) {
+  continue;
+}
 
     const prevDetalle = Array.isArray(prev.detalle_pago) ? prev.detalle_pago : [];
     const mergedMap = new Map();
@@ -847,8 +865,12 @@ const pagoCompletoBase =
     });
 
     const mergedDetalle = Array.from(mergedMap.values());
-    const mergedTeorico = Number(prev.monto_total_teorico ?? totalTeoricoBase ?? 0) || 0;
-    const mergedPagado = mergedDetalle
+    const mergedTeorico = esRegistroGrupoFamiliarSinMonto
+  ? 0
+  : Number(prev.monto_total_teorico ?? totalTeoricoBase ?? 0) || 0;
+    const mergedPagado = esRegistroGrupoFamiliarSinMonto
+  ? 0
+  : mergedDetalle
       .filter((d) => d.seleccionado === true)
       .reduce((acc, d) => acc + Number(d.monto || 0), 0);
 
