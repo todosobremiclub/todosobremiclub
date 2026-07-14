@@ -299,6 +299,7 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
         s.excepcion_cuota_id,
         ec.nombre AS excepcion_cuota_nombre,
         ec.monto AS excepcion_cuota_monto,
+        c.payment_due_day,
         s.foto_url,
         s.created_at,
         s.updated_at,
@@ -416,10 +417,23 @@ if (diaHoy <= paymentDueDay) {
 
 // 2. traer pagos del mes exigible
 const rPagos = await db.query(`
-  SELECT socio_id, mes, anio, detalle_pago, pago_completo
+  SELECT
+    socio_id,
+    mes,
+    anio,
+    detalle_pago,
+    pago_completo
   FROM pagos_mensuales
-  WHERE club_id = $1 AND anio = $2
-`, [clubId, anioExigible]);
+  WHERE club_id = $1
+    AND (
+      anio = $2
+      OR anio = $3
+    )
+`, [
+  clubId,
+  anioExigible,
+  anioActual
+]);
 
 const pagosMap = new Map();
 
@@ -440,24 +454,68 @@ function parseDetalle(d) {
 // 3. recalcular estado
 const sociosFinal = socios.map(s => {
 
-  const pagosPropios = pagosMap.get(String(s.id)) || [];
-  const detallePropio = pagosPropios.flatMap(x => parseDetalle(x.detalle_pago));
+const pagosPropios = pagosMap.get(String(s.id)) || [];
 
-  const jefeId = s.grupo_familiar_jefe_id;
-  const esMiembro = s.es_miembro_plan_familiar === true;
+const pagosPeriodo = pagosPropios.filter(p => {
 
-  let baseCubierta = false;
-
-  if (s.becado) {
-    baseCubierta = true;
-  } else if (esMiembro && jefeId) {
-    const pagosJefe = pagosMap.get(String(jefeId)) || [];
-    const detalleJefe = pagosJefe.flatMap(x => parseDetalle(x.detalle_pago));
-
-    baseCubierta = detalleJefe.some(d => d.tipo === 'base' && d.seleccionado === true);
-  } else {
-    baseCubierta = detallePropio.some(d => d.tipo === 'base' && d.seleccionado === true);
+  if (
+    Number(p.mes) === mesActual &&
+    Number(p.anio) === anioActual
+  ) {
+    return true;
   }
+
+  if (
+    diaHoy <= paymentDueDay &&
+    Number(p.mes) === mesExigible &&
+    Number(p.anio) === anioExigible
+  ) {
+    return true;
+  }
+
+  return false;
+
+});
+
+const detallePropio =
+  pagosPeriodo.flatMap(
+    p => parseDetalle(p.detalle_pago)
+  );
+
+
+const jefeId = s.grupo_familiar_jefe_id;
+const esMiembro = s.es_miembro_plan_familiar === true;
+
+const pagosBase = esMiembro && jefeId
+  ? (pagosMap.get(String(jefeId)) || [])
+  : pagosPropios;
+
+const pagoMesActualBase = pagosBase.some(
+  p =>
+    Number(p.mes) === mesActual &&
+    Number(p.anio) === anioActual
+);
+
+const pagoMesExigibleBase = pagosBase.some(
+  p =>
+    Number(p.mes) === mesExigible &&
+    Number(p.anio) === anioExigible
+);
+
+let baseCubierta = false;
+
+if (s.becado) {
+  baseCubierta = true;
+}
+else if (pagoMesActualBase) {
+  baseCubierta = true;
+}
+else if (
+  diaHoy <= paymentDueDay &&
+  pagoMesExigibleBase
+) {
+  baseCubierta = true;
+}
 
   let adicionalesConfig = [];
   try {
@@ -476,35 +534,34 @@ const sociosFinal = socios.map(s => {
   let esParcial = false;
 
 // detectar pagos
-const pagoMesExigible = pagosPropios.some(
-  (p) => Number(p.mes) === mesExigible
-);
 
 const pagoMesActual = pagosPropios.some(
   (p) => Number(p.mes) === mesActual && Number(p.anio) === anioActual
 );
 
-if (!baseCubierta) {
-  pagoAlDia = false;
+const tieneAlgunPagoAdicional =
+  adicionalesPagados.size > 0;
+
+if (baseCubierta && !faltanAdicionales) {
+
+  pagoAlDia = true;
   esParcial = false;
+
 }
-else if (faltanAdicionales) {
+else if (
+  (baseCubierta && faltanAdicionales) ||
+  (!baseCubierta && tieneAlgunPagoAdicional)
+) {
+
   pagoAlDia = false;
   esParcial = true;
-}
-else if (pagoMesActual) {
-  // ✅ si pagó el mes actual → siempre verde
-  pagoAlDia = true;
-  esParcial = false;
-}
-else if (diaHoy <= paymentDueDay && pagoMesExigible) {
-  // ✅ antes del vencimiento → alcanza con mes anterior
-  pagoAlDia = true;
-  esParcial = false;
+
 }
 else {
+
   pagoAlDia = false;
   esParcial = false;
+
 }
 
   return {
