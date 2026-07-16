@@ -3817,7 +3817,117 @@ router.get(
       return res.status(400).json({ ok: false, error: 'anio y mes son obligatorios' });
     }
 
-    try {
+try {
+
+const qEsperado = `
+WITH base_conceptos AS (
+  SELECT
+    CASE
+      WHEN s.becado THEN NULL
+      WHEN EXISTS (
+        SELECT 1
+        FROM grupos_familiares gf
+        JOIN grupos_familiares_miembros gfm
+          ON gfm.grupo_familiar_id = gf.id
+        WHERE gfm.socio_id = s.id
+          AND gf.activo = true
+      ) THEN NULL
+      WHEN ec.monto IS NOT NULL THEN 'Excepción: ' || COALESCE(ec.nombre, 'Excepción')
+      WHEN EXISTS (
+        SELECT 1
+        FROM grupos_familiares gf
+        WHERE gf.jefe_socio_id = s.id
+          AND gf.activo = true
+      ) THEN 'Grupo Familiar'
+      ELSE COALESCE(TRIM(s.actividad), 'Sin actividad')
+    END AS actividad,
+    CASE
+      WHEN s.becado THEN 0
+      WHEN EXISTS (
+        SELECT 1
+        FROM grupos_familiares gf
+        JOIN grupos_familiares_miembros gfm
+          ON gfm.grupo_familiar_id = gf.id
+        WHERE gfm.socio_id = s.id
+          AND gf.activo = true
+      ) THEN 0
+      WHEN ec.monto IS NOT NULL THEN COALESCE(ec.monto, 0)
+      WHEN EXISTS (
+        SELECT 1
+        FROM grupos_familiares gf
+        WHERE gf.jefe_socio_id = s.id
+          AND gf.activo = true
+      ) THEN COALESCE(agf.precio_mensual, 0)
+      ELSE COALESCE(a.precio_mensual, 0)
+    END AS esperado
+  FROM socios s
+  LEFT JOIN excepciones_cuota ec
+    ON ec.id = s.excepcion_cuota_id
+   AND ec.club_id = s.club_id
+   AND ec.activo = true
+  LEFT JOIN actividades a
+    ON a.nombre = s.actividad
+   AND a.club_id = s.club_id
+   AND a.activo = true
+  LEFT JOIN actividades agf
+    ON agf.nombre = 'Grupo Familiar'
+   AND agf.club_id = s.club_id
+   AND agf.activo = true
+  WHERE s.club_id = $1
+    AND s.activo = true
+    AND (
+      s.fecha_ingreso IS NULL
+      OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+      OR (
+        EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+        AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+      )
+    )
+),
+adicionales_conceptos AS (
+  SELECT
+    'Adicional: ' || TRIM(ad.nombre) AS actividad,
+    COALESCE(aa.precio_mensual, 0) AS esperado
+  FROM socios s
+  CROSS JOIN LATERAL jsonb_array_elements_text(
+    COALESCE(NULLIF(s.actividades_adicionales, ''), '[]')::jsonb
+  ) ad(nombre)
+  LEFT JOIN actividades_adicionales aa
+    ON aa.club_id = s.club_id
+   AND aa.activo = true
+   AND TRIM(aa.nombre) = TRIM(ad.nombre)
+  WHERE s.club_id = $1
+    AND s.activo = true
+    AND s.becado = false
+    AND NOT EXISTS (
+      SELECT 1
+      FROM grupos_familiares gf
+      JOIN grupos_familiares_miembros gfm
+        ON gfm.grupo_familiar_id = gf.id
+      WHERE gfm.socio_id = s.id
+        AND gf.activo = true
+    )
+    AND (
+      s.fecha_ingreso IS NULL
+      OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
+      OR (
+        EXTRACT(YEAR FROM s.fecha_ingreso) = $2
+        AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
+      )
+    )
+)
+SELECT
+  actividad,
+  SUM(esperado) AS esperado
+FROM (
+  SELECT actividad, esperado FROM base_conceptos
+  UNION ALL
+  SELECT actividad, esperado FROM adicionales_conceptos
+) t
+WHERE actividad IS NOT NULL
+GROUP BY actividad
+`;
+
 const qRecaudado = `
 WITH rec_detalle AS (
   SELECT
