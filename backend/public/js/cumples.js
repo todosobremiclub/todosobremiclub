@@ -179,8 +179,10 @@
 
 datesSet: async (info) => {
 
+  const visibleDate = calendar.getDate();
+
   const nuevoMes =
-    `${info.start.getFullYear()}-${String(info.start.getMonth() + 1).padStart(2, '0')}`;
+    `${visibleDate.getFullYear()}-${String(visibleDate.getMonth() + 1).padStart(2, '0')}`;
 
   if (nuevoMes === currentMes) {
     return;
@@ -188,13 +190,12 @@ datesSet: async (info) => {
 
   currentMes = nuevoMes;
 
-  console.log('[agenda] cargando mes', nuevoMes);
+  console.log('[agenda] cargando mes real', nuevoMes);
 
   await loadAgenda(nuevoMes, {
     onlyUpdateEvents: true
   });
 },
-
       // Click en un día: alta actividad
       dateClick: (info) => {
         if (!canWrite) return;
