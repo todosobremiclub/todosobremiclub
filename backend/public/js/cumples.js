@@ -177,6 +177,24 @@
       eventOrder: 'allDay,start,title',
       eventDisplay: 'block',
 
+datesSet: async (info) => {
+
+  const nuevoMes =
+    `${info.start.getFullYear()}-${String(info.start.getMonth() + 1).padStart(2, '0')}`;
+
+  if (nuevoMes === currentMes) {
+    return;
+  }
+
+  currentMes = nuevoMes;
+
+  console.log('[agenda] cargando mes', nuevoMes);
+
+  await loadAgenda(nuevoMes, {
+    onlyUpdateEvents: true
+  });
+},
+
       // Click en un día: alta actividad
       dateClick: (info) => {
         if (!canWrite) return;
