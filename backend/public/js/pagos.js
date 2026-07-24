@@ -1079,6 +1079,25 @@ function getCuentaNombreById(id) {
   renderIngresos(ingresosCache, data.total || 0);
 }
 
+async function deleteIngreso(id) {
+  const clubId = getActiveClubId();
+
+  if (!id) return;
+
+  if (!confirm('¿Eliminar este ingreso?')) return;
+
+  const { res, data } = await fetchAuth(`/club/${clubId}/ingresos/${id}`, {
+    method: 'DELETE'
+  });
+
+  if (!res.ok || !data?.ok) {
+    alert(data?.error || 'Error eliminando ingreso');
+    return;
+  }
+
+  await loadIngresos();
+}
+
 
   function renderIngresos(rows, total) {
   const tbody = $('ingresosTableBody');
@@ -1089,7 +1108,7 @@ function getCuentaNombreById(id) {
   tbody.innerHTML = '';
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="muted">No hay ingresos cargados para este año.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay ingresos cargados para este año.</td></tr>`;
     return;
   }
 
@@ -1130,7 +1149,7 @@ function getCuentaNombreById(id) {
     trGroup.style.cursor = "pointer";
 
     trGroup.innerHTML = `
-      <td colspan="5" style="
+      <td colspan="6" style="
         background: color-mix(in srgb, var(--color-primary) 8%, #ffffff);
         border-left: 4px solid var(--color-primary);
         font-weight: 800;
@@ -1155,7 +1174,15 @@ function getCuentaNombreById(id) {
   <td>${r.cuenta || '—'}</td>
   <td><strong>${moneyARS(r.monto)}</strong></td>
   <td style="text-align:right;">
-    <button class="btn btn-secondary" data-act="del-ingreso" data-id="${r.id}">🗑️</button>
+    <button
+  type="button"
+  class="btn btn-secondary btn-sm"
+  data-act="del-ingreso"
+  data-id="${r.id}"
+  title="Eliminar ingreso"
+>
+  🗑️
+</button>
   </td>
 `;
       tbody.appendChild(tr);
@@ -1164,23 +1191,6 @@ function getCuentaNombreById(id) {
 }
 
 
-async function deleteIngreso(id) {
-  const clubId = getActiveClubId();
-  if (!id) return;
-
-  if (!confirm('¿Eliminar este ingreso?')) return;
-
-  const { res, data } = await fetchAuth(`/club/${clubId}/ingresos/${id}`, {
-    method: 'DELETE'
-  });
-
-  if (!res.ok || !data.ok) {
-    alert(data.error || 'Error eliminando ingreso');
-    return;
-  }
-
-  await loadIngresos();
-}
 
 async function deletePagoMensual(pagoId, socioId) {
   const clubId = getActiveClubId();
@@ -1409,15 +1419,27 @@ $('pagosTableBody')?.addEventListener('click', async (ev) => {
   await openDetallesModal(socioId);
 });
 
-// ✅ CLICK EN GRUPOS DE INGRESOS (expandir / colapsar)
-$('ingresosTableBody')?.addEventListener('click', (ev) => {
+// ✅ CLICK EN OTROS INGRESOS: eliminar + expandir / colapsar grupos
+$('ingresosTableBody')?.addEventListener('click', async (ev) => {
+  // 1) Eliminar ingreso
+  const btnDelIngreso = ev.target.closest('button[data-act="del-ingreso"]');
+  if (btnDelIngreso) {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const ingresoId = btnDelIngreso.dataset.id;
+    await deleteIngreso(ingresoId);
+    return;
+  }
+
+  // 2) Expandir / colapsar grupo mensual
   const header = ev.target.closest('tr[data-group-header]');
   if (!header) return;
 
   const group = header.dataset.group;
   const isOpen = header.dataset.open === "1";
 
-  // 🔴 cerrar todos
+  // cerrar todos
   document.querySelectorAll('tr[data-group-header]').forEach(h => {
     h.dataset.open = "0";
     const a = h.querySelector('.ing-group-arrow');
@@ -1428,16 +1450,17 @@ $('ingresosTableBody')?.addEventListener('click', (ev) => {
     tr.classList.add('hidden');
   });
 
-  // ✅ si ya estaba abierto → no abrir nada
+  // si ya estaba abierto, queda cerrado
   if (isOpen) return;
 
-  // ✅ abrir el actual
+  // abrir el actual
   header.dataset.open = "1";
 
   const arrow = header.querySelector('.ing-group-arrow');
   if (arrow) arrow.textContent = '▼';
 
-  document.querySelectorAll(`tr.ingreso-detalle[data-group="${group}"]`)
+  document
+    .querySelectorAll(`tr.ingreso-detalle[data-group="${group}"]`)
     .forEach(tr => tr.classList.remove('hidden'));
 });
 
