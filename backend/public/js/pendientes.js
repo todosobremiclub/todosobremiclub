@@ -234,7 +234,8 @@ function renderSociosPendientes(items) {
           alert(`✅ Aceptado. Socio N° ${data.numero_socio}`);
         }
 
-        await loadSociosPendientes();
+await loadSociosPendientes();
+        window.actualizarBadgePendientes?.();
         return;
       }
 
@@ -256,7 +257,8 @@ function renderSociosPendientes(items) {
         }
 
         alert('✅ Rechazado');
-        await loadSociosPendientes();
+await loadSociosPendientes();
+        window.actualizarBadgePendientes?.();
         return;
       }
 

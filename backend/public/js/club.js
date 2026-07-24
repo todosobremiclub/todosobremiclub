@@ -295,7 +295,7 @@ document.body.style.backgroundBlendMode = 'overlay';
     root.style.setProperty('--color-secondary', club.color_secondary || '#1e40af');
     root.style.setProperty('--color-accent', club.color_accent || '#facc15');
 
-    // ===============================
+// ===============================
     // Recargar sección actual
     // ===============================
     if (window.currentSection) {
@@ -303,6 +303,9 @@ document.body.style.backgroundBlendMode = 'overlay';
   if (perms && perms.canAccess(window.currentSection)) loadSection(window.currentSection);
   else loadSection(pickDefaultSection(perms || buildPermissions(match.role)));
 }
+
+    // Badge de pendientes al cargar/cambiar club
+    window.actualizarBadgePendientes?.();
   }
 
 // ===============================
@@ -527,6 +530,8 @@ setupImpersonationBanner();
 });
 
     loadSection(pickDefaultSection(window.__clubPerms || buildPermissions('admin')));
+    setInterval(() => window.actualizarBadgePendientes?.(), 60_000);
+
   } catch (e) {
     console.error(e);
     localStorage.removeItem('token');
@@ -535,6 +540,44 @@ setupImpersonationBanner();
     window.location.href = '/admin.html';
   }
 })();
+
+// ===============================
+// BADGE PENDIENTES
+// ===============================
+window.actualizarBadgePendientes = async function () {
+  try {
+    const clubId = localStorage.getItem('activeClubId');
+    const token  = localStorage.getItem('token');
+    if (!clubId || !token) return;
+
+    const headers = { Authorization: 'Bearer ' + token };
+
+    const [rSocios, rTransfers] = await Promise.all([
+      fetch(`/club/${clubId}/pendientes`, { headers }),
+      fetch(`/club/${clubId}/payments/transfer/pending?estado=all`, { headers })
+    ]);
+
+    const [dSocios, dTransfers] = await Promise.all([
+      rSocios.json().catch(() => ({ items: [] })),
+      rTransfers.json().catch(() => ({ items: [] }))
+    ]);
+
+    const total = (dSocios.items?.length ?? 0) + (dTransfers.items?.length ?? 0);
+
+    const badge = document.getElementById('badgePendientes');
+    if (!badge) return;
+
+    if (total > 0) {
+      badge.textContent = total;
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch (e) {
+    console.warn('Badge pendientes:', e);
+  }
+};
+
 
 // ===============================
 // QR GLOBAL – handler directo
