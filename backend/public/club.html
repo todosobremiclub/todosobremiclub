@@ -432,6 +432,72 @@ textarea:focus{
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 </head>
 
+<!-- MODAL ASISTENCIA -->
+<div id="modalAsistencia" class="modal hidden">
+  <div class="modal-content" style="max-width:640px; max-height:85vh; overflow-y:auto;">
+    <h3>📋 Tomar asistencia</h3>
+
+    <!-- Paso A: datos del evento -->
+    <div id="asistenciaPasoDatos">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+        <div>
+          <label class="muted small">Tipo</label>
+          <select id="asistTipo" style="width:100%; padding:8px;">
+            <option value="entrenamiento">Entrenamiento</option>
+            <option value="partido">Partido</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="muted small">Fecha</label>
+          <input id="asistFecha" type="date" style="width:100%; padding:8px;" />
+        </div>
+
+        <div>
+          <label class="muted small">Actividad</label>
+          <select id="asistActividad" style="width:100%; padding:8px;">
+            <option value="">Seleccioná...</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="muted small">Actividad adicional (opcional)</label>
+          <select id="asistActividadAdicional" style="width:100%; padding:8px;">
+            <option value="">Ninguna</option>
+          </select>
+        </div>
+
+        <div style="grid-column:1 / -1;">
+          <label class="muted small">Categoría</label>
+          <select id="asistCategoria" style="width:100%; padding:8px;">
+            <option value="">Seleccioná...</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="asistDatosMsg" class="muted small" style="margin-top:8px; color:#b91c1c;"></div>
+
+      <div style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
+        <button id="btnAsistCancelarDatos" class="navbtn navbtn--top">Cancelar</button>
+        <button id="btnAsistBuscarSocios" class="navbtn navbtn--top">Buscar socios ▶</button>
+      </div>
+    </div>
+
+    <!-- Paso B: selección de convocados + invitados -->
+    <div id="asistenciaPasoSocios" style="display:none;">
+      <div id="asistResumenEvento" class="muted small" style="margin-bottom:10px;"></div>
+      <div id="asistListaConvocados"></div>
+      <div id="asistInvitadosWrap" style="margin-top:16px;"></div>
+      <div id="asistGuardarMsg" class="muted small" style="margin-top:8px;"></div>
+
+      <div style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
+        <button id="btnAsistVolverDatos" class="navbtn navbtn--top">◀ Volver</button>
+        <button id="btnAsistGuardar" class="navbtn navbtn--top">💾 Guardar asistencia</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL VER QR -->
 <div id="modalQR" class="modal hidden">
   <div class="modal-content" style="max-width:420px; text-align:center;">
@@ -484,7 +550,9 @@ textarea:focus{
     </div>
   </div>
 
-  <div class="topbar-right">
+<div class="topbar-right">
+    <button id="btnAsistencia" class="navbtn navbtn--top">📋 Asistencia</button>
+
     <button id="btnVerQR" class="navbtn navbtn--top">📱 Ver QR</button>
 
     <button id="btnControlAcceso" class="navbtn navbtn--top" data-section="acceso">
@@ -601,9 +669,10 @@ textarea:focus{
   }
 </script>
 
-  <script src="/js/club.js"></script>
-  <script src="/js/socios.js"></script>
-  <script src="/js/vendor/zxing-browser.min.js?v=20260331"></script>
+<script src="/js/club.js"></script>
+<script src="/js/socios.js"></script>
+<script src="/js/asistencia.js"></script>
+<script src="/js/vendor/zxing-browser.min.js?v=20260331"></script>
 <script src="/js/acceso.js?v=20260331"></script>
   <script src="/js/configuracion.js"></script>
   <script src="/js/gastos.js"></script>
