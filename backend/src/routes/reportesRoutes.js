@@ -4234,4 +4234,172 @@ router.get(
 );
 
 
+// ============================================================
+// REPORTE: ASISTENCIA A ENTRENAMIENTOS Y PARTIDOS
+// ============================================================
+
+// 1) Eventos del mes (para pintar el calendario), filtrados por
+//    Actividad + Categoría (+ Actividad adicional opcional).
+// GET /:clubId/reportes/asistencia/eventos-mes?anio=&mes=&actividad=&categoria=&actividadAdicional=
+router.get('/:clubId/reportes/asistencia/eventos-mes', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { anio, mes, actividad = '', categoria = '', actividadAdicional = '' } = req.query;
+
+  try {
+    if (!anio || !mes || !actividad.trim() || !categoria.trim()) {
+      return res.status(400).json({ ok: false, error: 'Faltan anio, mes, actividad y/o categoría' });
+    }
+
+    const where = [
+      'e.club_id = $1',
+      `EXTRACT(YEAR FROM e.fecha) = $2`,
+      `EXTRACT(MONTH FROM e.fecha) = $3`,
+      'e.actividad = $4',
+      'e.categoria = $5'
+    ];
+    const params = [clubId, Number(anio), Number(mes), actividad, categoria];
+    let p = 6;
+
+    if (actividadAdicional.trim()) {
+      where.push(`e.actividad_adicional = $${p++}`);
+      params.push(actividadAdicional);
+    } else {
+      where.push(`e.actividad_adicional IS NULL`);
+    }
+
+    const r = await db.query(
+      `
+      SELECT
+        e.id,
+        e.tipo,
+        e.fecha,
+        COUNT(d.id) FILTER (WHERE d.presente = true)  AS presentes,
+        COUNT(d.id) FILTER (WHERE d.presente = false) AS ausentes
+      FROM asistencia_eventos e
+      LEFT JOIN asistencia_detalle d ON d.evento_id = e.id
+      WHERE ${where.join(' AND ')}
+      GROUP BY e.id, e.tipo, e.fecha
+      ORDER BY e.fecha ASC
+      `,
+      params
+    );
+
+    res.json({ ok: true, eventos: r.rows });
+  } catch (e) {
+    console.error('❌ reporte asistencia eventos-mes', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// 2) Detalle de un evento puntual (presentes/ausentes/invitados),
+//    para mostrar al hacer click en un día del calendario.
+// GET /:clubId/reportes/asistencia/evento/:eventoId
+router.get('/:clubId/reportes/asistencia/evento/:eventoId', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, eventoId } = req.params;
+
+  try {
+    const rEvento = await db.query(
+      `SELECT id, tipo, actividad, actividad_adicional, categoria, fecha
+       FROM asistencia_eventos
+       WHERE id = $1 AND club_id = $2`,
+      [eventoId, clubId]
+    );
+
+    if (!rEvento.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Evento no encontrado' });
+    }
+
+    const rDetalle = await db.query(
+      `
+      SELECT
+        d.socio_id,
+        d.categoria_socio,
+        d.origen,
+        d.presente,
+        s.nombre,
+        s.apellido,
+        s.numero_socio
+      FROM asistencia_detalle d
+      JOIN socios s ON s.id = d.socio_id
+      WHERE d.evento_id = $1
+      ORDER BY d.origen ASC, s.apellido ASC, s.nombre ASC
+      `,
+      [eventoId]
+    );
+
+    res.json({ ok: true, evento: rEvento.rows[0], detalle: rDetalle.rows });
+  } catch (e) {
+    console.error('❌ reporte asistencia evento detalle', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// 3) Historial de asistencia de un socio puntual (buscador libre,
+//    sin depender de los filtros de Actividad/Categoría).
+// GET /:clubId/reportes/asistencia/socio?search=
+router.get('/:clubId/reportes/asistencia/socio', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { search = '' } = req.query;
+
+  try {
+    if (!search.trim()) {
+      return res.status(400).json({ ok: false, error: 'Falta término de búsqueda' });
+    }
+
+    const rSocios = await db.query(
+      `
+      SELECT id, nombre, apellido, numero_socio, categoria, actividad
+      FROM socios
+      WHERE club_id = $1
+        AND (nombre ILIKE $2 OR apellido ILIKE $2 OR dni ILIKE $2 OR numero_socio::text = $3)
+      ORDER BY apellido ASC, nombre ASC
+      LIMIT 10
+      `,
+      [clubId, `%${search.trim()}%`, search.trim()]
+    );
+
+    if (!rSocios.rowCount) {
+      return res.json({ ok: true, socios: [] });
+    }
+
+    // Si hay un solo match, ya le traemos el historial directo.
+    // Si hay varios, el front elige uno y pide el historial aparte.
+    res.json({ ok: true, socios: rSocios.rows });
+  } catch (e) {
+    console.error('❌ reporte asistencia buscar socio', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// GET /:clubId/reportes/asistencia/socio/:socioId/historial
+router.get('/:clubId/reportes/asistencia/socio/:socioId/historial', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, socioId } = req.params;
+
+  try {
+    const r = await db.query(
+      `
+      SELECT
+        e.id AS evento_id,
+        e.tipo,
+        e.actividad,
+        e.actividad_adicional,
+        e.categoria,
+        e.fecha,
+        d.origen,
+        d.presente
+      FROM asistencia_detalle d
+      JOIN asistencia_eventos e ON e.id = d.evento_id
+      WHERE e.club_id = $1 AND d.socio_id = $2
+      ORDER BY e.fecha DESC
+      `,
+      [clubId, socioId]
+    );
+
+    res.json({ ok: true, historial: r.rows });
+  } catch (e) {
+    console.error('❌ reporte asistencia historial socio', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 module.exports = router;
