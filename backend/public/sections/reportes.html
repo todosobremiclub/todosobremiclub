@@ -128,6 +128,78 @@
     </div>
   </div>
 
+  <!-- BLOQUE – ASISTENCIA A ENTRENAMIENTOS Y PARTIDOS -->
+  <div class="report-card report-socios" id="card-asistencia" style="grid-column: 1 / -1;">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Asistencia a Entrenamientos y Partidos</h3>
+        <div class="card-subtitle muted">
+          Seleccioná Actividad y Categoría para ver el calendario del mes.
+        </div>
+      </div>
+
+      <div class="ranking-toolbar">
+        <button id="btnAsistReporteMesPrev" class="btn-nav-sm">◀</button>
+        <span id="asistReporteMesLabel" class="nav-label small">Mes actual</span>
+        <button id="btnAsistReporteMesNext" class="btn-nav-sm">▶</button>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <!-- Filtros -->
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px;">
+        <div>
+          <label class="muted small">Actividad</label>
+          <select id="asistReporteActividad" style="width:100%; padding:8px;">
+            <option value="">Seleccioná...</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted small">Actividad adicional (opcional)</label>
+          <select id="asistReporteActividadAdicional" style="width:100%; padding:8px;">
+            <option value="">Ninguna</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted small">Categoría</label>
+          <select id="asistReporteCategoria" style="width:100%; padding:8px;">
+            <option value="">Seleccioná...</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="asistReporteMsg" class="muted small" style="margin-bottom:10px;"></div>
+
+      <!-- Calendario + detalle del día -->
+      <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:16px; align-items:start;">
+        <div>
+          <div style="display:flex; gap:14px; align-items:center; margin-bottom:8px;" class="muted small">
+            <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#2563eb; margin-right:4px;"></span>Entrenamiento</span>
+            <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#f97316; margin-right:4px;"></span>Partido</span>
+          </div>
+          <div id="calendarAsistencia" style="min-height:400px;"></div>
+        </div>
+
+        <div>
+          <div id="asistDetalleDia" class="card-table">
+            <div class="muted small">Hacé clic en un día con eventos para ver el detalle.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Búsqueda por socio -->
+      <div style="margin-top:22px; border-top:1px solid #e5e7eb; padding-top:14px;">
+        <h4 style="margin:0 0 8px;">Buscar historial por socio</h4>
+        <div style="display:flex; gap:8px;">
+          <input id="asistReporteBuscarSocio" type="text" placeholder="Nombre, apellido, DNI o número de socio..." style="flex:1; padding:8px;" />
+          <button id="btnAsistReporteBuscarSocio" class="navbtn navbtn--top">Buscar</button>
+        </div>
+        <div id="asistReporteResultadosSocio" class="muted small" style="margin-top:8px;"></div>
+        <div id="asistReporteHistorialSocio" style="margin-top:10px;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- =========================
        FINANZAS (TOP ROW)
        ========================= -->
