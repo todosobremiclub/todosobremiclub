@@ -2292,6 +2292,300 @@ function bindEVRToggle() {
 
 
 // =============================
+// REPORTE: ASISTENCIA A ENTRENAMIENTOS Y PARTIDOS
+// =============================
+const asistReporteState = {
+  anio: new Date().getFullYear(),
+  mes: new Date().getMonth() + 1,
+  actividad: '',
+  actividadAdicional: '',
+  categoria: '',
+  calendar: null
+};
+
+async function cargarFiltrosAsistReporte() {
+  const clubId = getActiveClubId();
+
+  const [rAct, rCat, rAdic] = await Promise.all([
+    fetchAuth(`/club/${clubId}/config/actividades`),
+    fetchAuth(`/club/${clubId}/config/categorias`),
+    fetchAuth(`/club/${clubId}/config/actividades-adicionales`)
+  ]);
+
+  const selAct = $('asistReporteActividad');
+  if (selAct) {
+    selAct.innerHTML = '<option value="">Seleccioná...</option>';
+    (rAct.data.actividades || []).forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.nombre;
+      opt.textContent = a.nombre;
+      selAct.appendChild(opt);
+    });
+  }
+
+  const selCat = $('asistReporteCategoria');
+  if (selCat) {
+    selCat.innerHTML = '<option value="">Seleccioná...</option>';
+    (rCat.data.categorias || []).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.nombre;
+      opt.textContent = c.nombre;
+      selCat.appendChild(opt);
+    });
+  }
+
+  const selAdic = $('asistReporteActividadAdicional');
+  if (selAdic) {
+    selAdic.innerHTML = '<option value="">Ninguna</option>';
+    (rAdic.data.actividades || []).forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.nombre;
+      opt.textContent = a.nombre;
+      selAdic.appendChild(opt);
+    });
+  }
+}
+
+function actualizarAsistReporteMesLabel() {
+  const el = $('asistReporteMesLabel');
+  if (el) el.textContent = `${MESES[asistReporteState.mes - 1]} ${asistReporteState.anio}`;
+}
+
+function initAsistCalendar() {
+  const el = $('calendarAsistencia');
+  if (!el || asistReporteState.calendar) return;
+
+  if (!window.FullCalendar || !window.FullCalendar.Calendar) {
+    el.innerHTML = '<div style="color:#b91c1c;">FullCalendar no disponible</div>';
+    return;
+  }
+
+  asistReporteState.calendar = new FullCalendar.Calendar(el, {
+    initialView: 'dayGridMonth',
+    headerToolbar: false,
+    height: 'auto',
+    dayMaxEvents: 3,
+    eventDisplay: 'block',
+    events: [],
+    eventClick: (info) => {
+      const eventoId = info.event.extendedProps?.eventoId;
+      if (eventoId) verDetalleEventoAsistencia(eventoId);
+    }
+  });
+
+  asistReporteState.calendar.render();
+}
+
+async function loadAsistReporteMes() {
+  actualizarAsistReporteMesLabel();
+
+  const msg = $('asistReporteMsg');
+  const { actividad, categoria } = asistReporteState;
+
+  if (!actividad || !categoria) {
+    if (msg) msg.textContent = 'Seleccioná Actividad y Categoría para ver el calendario.';
+    if (asistReporteState.calendar) asistReporteState.calendar.removeAllEvents();
+    return;
+  }
+
+  if (msg) msg.textContent = '';
+  initAsistCalendar();
+
+  const clubId = getActiveClubId();
+  const params = new URLSearchParams({
+    anio: asistReporteState.anio,
+    mes: asistReporteState.mes,
+    actividad,
+    categoria
+  });
+  if (asistReporteState.actividadAdicional) {
+    params.set('actividadAdicional', asistReporteState.actividadAdicional);
+  }
+
+  const { res, data } = await fetchAuth(`/club/${clubId}/reportes/asistencia/eventos-mes?${params.toString()}`);
+
+  if (!res.ok || !data.ok) {
+    if (msg) msg.textContent = data.error || 'Error al cargar los eventos del mes.';
+    return;
+  }
+
+  const events = (data.eventos || []).map(ev => {
+    const esPartido = ev.tipo === 'partido';
+    const presentes = Number(ev.presentes || 0);
+    const ausentes = Number(ev.ausentes || 0);
+    return {
+      title: `${esPartido ? 'Partido' : 'Entren.'} (${presentes}/${presentes + ausentes})`,
+      start: ev.fecha,
+      allDay: true,
+      backgroundColor: esPartido ? '#f97316' : '#2563eb',
+      borderColor: esPartido ? '#f97316' : '#2563eb',
+      extendedProps: { eventoId: ev.id }
+    };
+  });
+
+  asistReporteState.calendar.removeAllEvents();
+  asistReporteState.calendar.addEventSource(events);
+  asistReporteState.calendar.gotoDate(new Date(asistReporteState.anio, asistReporteState.mes - 1, 1));
+}
+
+async function verDetalleEventoAsistencia(eventoId) {
+  const cont = $('asistDetalleDia');
+  if (!cont) return;
+  cont.innerHTML = '<div class="muted small">Cargando...</div>';
+
+  const clubId = getActiveClubId();
+  const { res, data } = await fetchAuth(`/club/${clubId}/reportes/asistencia/evento/${eventoId}`);
+
+  if (!res.ok || !data.ok) {
+    cont.innerHTML = `<div class="muted small">${data.error || 'Error al cargar el detalle.'}</div>`;
+    return;
+  }
+
+  const { evento, detalle } = data;
+  const convocados = detalle.filter(d => d.origen === 'convocado');
+  const invitados = detalle.filter(d => d.origen === 'invitado');
+  const presentes = convocados.filter(d => d.presente);
+  const ausentes = convocados.filter(d => !d.presente);
+
+  const fila = (d) => `<div style="padding:3px 0;">${d.apellido}, ${d.nombre} <span class="muted small">(#${d.numero_socio ?? '-'})</span></div>`;
+
+  cont.innerHTML = `
+    <div style="margin-bottom:8px;">
+      <strong>${evento.tipo === 'partido' ? 'Partido' : 'Entrenamiento'}</strong>
+      <div class="muted small">${evento.actividad}${evento.actividad_adicional ? ' + ' + evento.actividad_adicional : ''} · ${evento.categoria} · ${evento.fecha}</div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <strong class="small" style="color:#16a34a;">✔ Presentes (${presentes.length})</strong>
+      ${presentes.map(fila).join('') || '<div class="muted small">—</div>'}
+    </div>
+    <div style="margin-bottom:10px;">
+      <strong class="small" style="color:#dc2626;">✘ Ausentes (${ausentes.length})</strong>
+      ${ausentes.map(fila).join('') || '<div class="muted small">—</div>'}
+    </div>
+    ${invitados.length ? `
+      <div>
+        <strong class="small">★ Invitados de otra categoría (${invitados.length})</strong>
+        ${invitados.map(d => `<div style="padding:3px 0;">${d.apellido}, ${d.nombre} <span class="muted small">(${d.categoria_socio})</span></div>`).join('')}
+      </div>
+    ` : ''}
+  `;
+}
+
+async function buscarSocioAsistReporte() {
+  const input = $('asistReporteBuscarSocio');
+  const cont = $('asistReporteResultadosSocio');
+  const q = (input?.value || '').trim();
+  if (!q || !cont) { if (cont) cont.textContent = ''; return; }
+
+  cont.textContent = 'Buscando...';
+  $('asistReporteHistorialSocio').innerHTML = '';
+
+  const clubId = getActiveClubId();
+  const { res, data } = await fetchAuth(`/club/${clubId}/reportes/asistencia/socio?search=${encodeURIComponent(q)}`);
+
+  if (!res.ok || !data.ok) {
+    cont.textContent = data.error || 'Error al buscar.';
+    return;
+  }
+
+  const socios = data.socios || [];
+  if (!socios.length) {
+    cont.innerHTML = '<div class="muted small">Sin resultados.</div>';
+    return;
+  }
+
+  cont.innerHTML = socios.map(s => `
+    <div class="asist-resultado-socio" data-id="${s.id}" style="cursor:pointer; padding:4px 0; text-decoration:underline;">
+      ${s.apellido}, ${s.nombre} <span class="muted small">(${s.categoria} — #${s.numero_socio ?? '-'})</span>
+    </div>
+  `).join('');
+
+  cont.querySelectorAll('.asist-resultado-socio').forEach(el => {
+    el.addEventListener('click', () => cargarHistorialSocioAsistReporte(el.dataset.id));
+  });
+}
+
+async function cargarHistorialSocioAsistReporte(socioId) {
+  const cont = $('asistReporteHistorialSocio');
+  if (!cont) return;
+  cont.innerHTML = '<div class="muted small">Cargando historial...</div>';
+
+  const clubId = getActiveClubId();
+  const { res, data } = await fetchAuth(`/club/${clubId}/reportes/asistencia/socio/${socioId}/historial`);
+
+  if (!res.ok || !data.ok) {
+    cont.innerHTML = `<div class="muted small">${data.error || 'Error al cargar historial.'}</div>`;
+    return;
+  }
+
+  const historial = data.historial || [];
+  if (!historial.length) {
+    cont.innerHTML = '<div class="muted small">Este socio no tiene asistencias registradas.</div>';
+    return;
+  }
+
+  cont.innerHTML = `
+    <div class="card-table" style="max-height:260px; overflow-y:auto;">
+      ${historial.map(h => `
+        <div style="display:flex; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px solid #f0f0f0;">
+          <span>${h.fecha} · ${h.tipo === 'partido' ? 'Partido' : 'Entren.'} · ${h.actividad} (${h.categoria})</span>
+          <span style="color:${h.presente ? '#16a34a' : '#dc2626'}; font-weight:700;">
+            ${h.presente ? '✔ Presente' : '✘ Ausente'}${h.origen === 'invitado' ? ' (invitado)' : ''}
+          </span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function bindAsistenciaReporte() {
+  cargarFiltrosAsistReporte().catch(e => console.error('❌ filtros asistencia reporte', e));
+
+  const selActividad = $('asistReporteActividad');
+  const selAdic = $('asistReporteActividadAdicional');
+  const selCategoria = $('asistReporteCategoria');
+
+  selActividad?.addEventListener('change', () => {
+    asistReporteState.actividad = selActividad.value;
+    loadAsistReporteMes().catch(e => console.error(e));
+  });
+  selAdic?.addEventListener('change', () => {
+    asistReporteState.actividadAdicional = selAdic.value;
+    loadAsistReporteMes().catch(e => console.error(e));
+  });
+  selCategoria?.addEventListener('change', () => {
+    asistReporteState.categoria = selCategoria.value;
+    loadAsistReporteMes().catch(e => console.error(e));
+  });
+
+  $('btnAsistReporteMesPrev')?.addEventListener('click', () => {
+    if (asistReporteState.mes === 1) {
+      asistReporteState.mes = 12;
+      asistReporteState.anio -= 1;
+    } else {
+      asistReporteState.mes -= 1;
+    }
+    loadAsistReporteMes().catch(e => console.error(e));
+  });
+
+  $('btnAsistReporteMesNext')?.addEventListener('click', () => {
+    if (asistReporteState.mes === 12) {
+      asistReporteState.mes = 1;
+      asistReporteState.anio += 1;
+    } else {
+      asistReporteState.mes += 1;
+    }
+    loadAsistReporteMes().catch(e => console.error(e));
+  });
+
+  $('btnAsistReporteBuscarSocio')?.addEventListener('click', () => {
+    buscarSocioAsistReporte().catch(e => console.error(e));
+  });
+
+  actualizarAsistReporteMesLabel();
+}
+
+// =============================
 // INIT DASHBOARD
 // =============================
 async function initReportesSection() {
@@ -2582,6 +2876,11 @@ bindEVRToggle();
 
 // ✅ cargar resumen inicial
 await loadEsperadoVsRecaudado();
+
+// =============================
+// REPORTE: ASISTENCIA A ENTRENAMIENTOS Y PARTIDOS
+// =============================
+bindAsistenciaReporte();
 
 }
 
