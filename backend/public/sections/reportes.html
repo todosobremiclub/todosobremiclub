@@ -170,19 +170,13 @@
 
       <div id="asistReporteMsg" class="muted small" style="margin-bottom:10px;"></div>
 
-      <!-- Calendario + detalle del día -->
+      <!-- Recuadros de eventos del mes + detalle -->
       <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:16px; align-items:start;">
-        <div>
-          <div style="display:flex; gap:14px; align-items:center; margin-bottom:8px;" class="muted small">
-            <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#2563eb; margin-right:4px;"></span>Entrenamiento</span>
-            <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#f97316; margin-right:4px;"></span>Partido</span>
-          </div>
-          <div id="calendarAsistencia" style="min-height:400px;"></div>
-        </div>
+        <div id="asistEventosMes" style="max-height:460px; overflow-y:auto;"></div>
 
         <div>
           <div id="asistDetalleDia" class="card-table">
-            <div class="muted small">Hacé clic en un día con eventos para ver el detalle.</div>
+            <div class="muted small">Hacé clic en un entrenamiento o partido para ver el detalle.</div>
           </div>
         </div>
       </div>

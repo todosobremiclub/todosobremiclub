@@ -48,6 +48,7 @@
     invitados = [];
     $('asistDatosMsg').textContent = '';
     $('asistGuardarMsg').textContent = '';
+    $('asistAnioNacimiento').value = '';
     $('asistenciaPasoSocios').style.display = 'none';
     $('asistenciaPasoDatos').style.display = 'block';
   }
@@ -108,7 +109,8 @@
       actividad: $('asistActividad').value,
       actividadAdicional: $('asistActividadAdicional').value || null,
       categoria: $('asistCategoria').value,
-      fecha: $('asistFecha').value
+      fecha: $('asistFecha').value,
+      anioNacimiento: $('asistAnioNacimiento').value || null
     };
   }
 
@@ -225,10 +227,11 @@
     $('asistDatosMsg').textContent = '';
 
     const clubId = getActiveClubId();
-    const { actividadAdicional } = getDatosEvento();
+    const { actividadAdicional, anioNacimiento } = getDatosEvento();
 
     const params = new URLSearchParams({ actividad, categoria });
     if (actividadAdicional) params.set('actividadAdicional', actividadAdicional);
+    if (anioNacimiento) params.set('anioNacimiento', anioNacimiento);
 
     const res = await fetchAuth(`/club/${clubId}/asistencia/socios-filtrados?${params.toString()}`);
     const data = await safeJson(res);
@@ -243,7 +246,7 @@
 
     const { tipo: t2 } = getDatosEvento();
     $('asistResumenEvento').textContent =
-      `${t2 === 'partido' ? 'Partido' : 'Entrenamiento'} · ${actividad}${actividadAdicional ? ' + ' + actividadAdicional : ''} · ${categoria} · ${fecha}`;
+      `${t2 === 'partido' ? 'Partido' : 'Entrenamiento'} · ${actividad}${actividadAdicional ? ' + ' + actividadAdicional : ''} · ${categoria}${anioNacimiento ? ' · Nacidos en ' + anioNacimiento : ''} · ${fecha}`;
 
     renderConvocados();
     renderInvitados();

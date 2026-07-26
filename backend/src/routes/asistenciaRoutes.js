@@ -35,7 +35,8 @@ router.get('/:clubId/asistencia/socios-filtrados', requireAuth, requireClubAcces
     const {
       actividad = '',
       categoria = '',
-      actividadAdicional = ''
+      actividadAdicional = '',
+      anioNacimiento = ''
     } = req.query;
 
     if (!actividad.trim() || !categoria.trim()) {
@@ -63,6 +64,14 @@ router.get('/:clubId/asistencia/socios-filtrados', requireAuth, requireClubAcces
       `);
       params.push(actividadAdicional);
     }
+
+    // Filtro opcional por año de nacimiento (útil cuando la categoría
+    // sola no alcanza para distinguir, p.ej. categorías por edad).
+    if (anioNacimiento && String(anioNacimiento).trim()) {
+      where.push(`EXTRACT(YEAR FROM s.fecha_nacimiento) = $${p++}`);
+      params.push(Number(anioNacimiento));
+    }
+
 
     const q = `
       SELECT

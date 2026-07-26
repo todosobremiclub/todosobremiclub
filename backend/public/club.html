@@ -473,6 +473,11 @@ textarea:focus{
             <option value="">Seleccioná...</option>
           </select>
         </div>
+
+        <div style="grid-column:1 / -1;">
+          <label class="muted small">Año de nacimiento (opcional)</label>
+          <input id="asistAnioNacimiento" type="number" min="1900" max="2100" placeholder="Ej: 2012" style="width:100%; padding:8px;" />
+        </div>
       </div>
 
       <div id="asistDatosMsg" class="muted small" style="margin-top:8px; color:#b91c1c;"></div>
@@ -483,11 +488,14 @@ textarea:focus{
       </div>
     </div>
 
-    <!-- Paso B: selección de convocados + invitados -->
+    <!-- Paso B: selección de convocados + invitados (se completa en el próximo paso) -->
     <div id="asistenciaPasoSocios" style="display:none;">
       <div id="asistResumenEvento" class="muted small" style="margin-bottom:10px;"></div>
+
       <div id="asistListaConvocados"></div>
+
       <div id="asistInvitadosWrap" style="margin-top:16px;"></div>
+
       <div id="asistGuardarMsg" class="muted small" style="margin-top:8px;"></div>
 
       <div style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
@@ -550,7 +558,7 @@ textarea:focus{
     </div>
   </div>
 
-<div class="topbar-right">
+  <div class="topbar-right">
     <button id="btnAsistencia" class="navbtn navbtn--top">📋 Asistencia</button>
 
     <button id="btnVerQR" class="navbtn navbtn--top">📱 Ver QR</button>
@@ -669,10 +677,10 @@ textarea:focus{
   }
 </script>
 
-<script src="/js/club.js"></script>
-<script src="/js/socios.js"></script>
-<script src="/js/asistencia.js"></script>
-<script src="/js/vendor/zxing-browser.min.js?v=20260331"></script>
+  <script src="/js/club.js"></script>
+  <script src="/js/socios.js"></script>
+  <script src="/js/asistencia.js"></script>
+  <script src="/js/vendor/zxing-browser.min.js?v=20260331"></script>
 <script src="/js/acceso.js?v=20260331"></script>
   <script src="/js/configuracion.js"></script>
   <script src="/js/gastos.js"></script>

@@ -2299,8 +2299,7 @@ const asistReporteState = {
   mes: new Date().getMonth() + 1,
   actividad: '',
   actividadAdicional: '',
-  categoria: '',
-  calendar: null
+  categoria: ''
 };
 
 async function cargarFiltrosAsistReporte() {
@@ -2351,45 +2350,28 @@ function actualizarAsistReporteMesLabel() {
   if (el) el.textContent = `${MESES[asistReporteState.mes - 1]} ${asistReporteState.anio}`;
 }
 
-function initAsistCalendar() {
-  const el = $('calendarAsistencia');
-  if (!el || asistReporteState.calendar) return;
-
-  if (!window.FullCalendar || !window.FullCalendar.Calendar) {
-    el.innerHTML = '<div style="color:#b91c1c;">FullCalendar no disponible</div>';
-    return;
-  }
-
-  asistReporteState.calendar = new FullCalendar.Calendar(el, {
-    initialView: 'dayGridMonth',
-    headerToolbar: false,
-    height: 'auto',
-    dayMaxEvents: 3,
-    eventDisplay: 'block',
-    events: [],
-    eventClick: (info) => {
-      const eventoId = info.event.extendedProps?.eventoId;
-      if (eventoId) verDetalleEventoAsistencia(eventoId);
-    }
-  });
-
-  asistReporteState.calendar.render();
+function formatFechaDMY(fechaStr) {
+  if (!fechaStr) return '';
+  const soloFecha = String(fechaStr).slice(0, 10); // 'YYYY-MM-DD'
+  const [y, m, d] = soloFecha.split('-');
+  if (!y || !m || !d) return String(fechaStr);
+  return `${d}/${m}/${y}`;
 }
 
 async function loadAsistReporteMes() {
   actualizarAsistReporteMesLabel();
 
   const msg = $('asistReporteMsg');
+  const cont = $('asistEventosMes');
   const { actividad, categoria } = asistReporteState;
 
   if (!actividad || !categoria) {
-    if (msg) msg.textContent = 'Seleccioná Actividad y Categoría para ver el calendario.';
-    if (asistReporteState.calendar) asistReporteState.calendar.removeAllEvents();
+    if (msg) msg.textContent = 'Seleccioná Actividad y Categoría para ver los entrenamientos/partidos del mes.';
+    if (cont) cont.innerHTML = '';
     return;
   }
 
   if (msg) msg.textContent = '';
-  initAsistCalendar();
 
   const clubId = getActiveClubId();
   const params = new URLSearchParams({
@@ -2409,24 +2391,54 @@ async function loadAsistReporteMes() {
     return;
   }
 
-  const events = (data.eventos || []).map(ev => {
+  renderAsistEventosMes(data.eventos || []);
+}
+
+function renderAsistEventosMes(eventos) {
+  const cont = $('asistEventosMes');
+  if (!cont) return;
+
+  if (!eventos.length) {
+    cont.innerHTML = '<div class="muted small">No hay entrenamientos ni partidos cargados este mes para esos filtros.</div>';
+    return;
+  }
+
+  cont.innerHTML = eventos.map(ev => {
     const esPartido = ev.tipo === 'partido';
     const presentes = Number(ev.presentes || 0);
     const ausentes = Number(ev.ausentes || 0);
-    return {
-      title: `${esPartido ? 'Partido' : 'Entren.'} (${presentes}/${presentes + ausentes})`,
-      start: ev.fecha,
-      allDay: true,
-      backgroundColor: esPartido ? '#f97316' : '#2563eb',
-      borderColor: esPartido ? '#f97316' : '#2563eb',
-      extendedProps: { eventoId: ev.id }
-    };
-  });
+    return `
+      <div class="asist-evento-card" data-id="${ev.id}" style="
+        cursor:pointer;
+        border:1px solid #e5e7eb;
+        border-left:4px solid ${esPartido ? '#f97316' : '#2563eb'};
+        border-radius:10px;
+        padding:10px 12px;
+        margin-bottom:8px;
+        background:#fff;
+      ">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>${esPartido ? '🏆 Partido' : '🏃 Entrenamiento'}</strong>
+          <span class="muted small">${formatFechaDMY(ev.fecha)}</span>
+        </div>
+        <div style="margin-top:4px;">
+          <span style="color:#16a34a; font-weight:600;">✔ ${presentes} asistieron</span>
+          &nbsp;·&nbsp;
+          <span style="color:#dc2626; font-weight:600;">✘ ${ausentes} faltaron</span>
+        </div>
+      </div>
+    `;
+  }).join('');
 
-  asistReporteState.calendar.removeAllEvents();
-  asistReporteState.calendar.addEventSource(events);
-  asistReporteState.calendar.gotoDate(new Date(asistReporteState.anio, asistReporteState.mes - 1, 1));
+  cont.querySelectorAll('.asist-evento-card').forEach(card => {
+    card.addEventListener('click', () => {
+      cont.querySelectorAll('.asist-evento-card').forEach(c => c.style.background = '#fff');
+      card.style.background = '#f3f4f6';
+      verDetalleEventoAsistencia(card.dataset.id);
+    });
+  });
 }
+
 
 async function verDetalleEventoAsistencia(eventoId) {
   const cont = $('asistDetalleDia');
@@ -2452,7 +2464,7 @@ async function verDetalleEventoAsistencia(eventoId) {
   cont.innerHTML = `
     <div style="margin-bottom:8px;">
       <strong>${evento.tipo === 'partido' ? 'Partido' : 'Entrenamiento'}</strong>
-      <div class="muted small">${evento.actividad}${evento.actividad_adicional ? ' + ' + evento.actividad_adicional : ''} · ${evento.categoria} · ${evento.fecha}</div>
+      <div class="muted small">${evento.actividad}${evento.actividad_adicional ? ' + ' + evento.actividad_adicional : ''} · ${evento.categoria} · ${formatFechaDMY(evento.fecha)}</div>
     </div>
     <div style="margin-bottom:10px;">
       <strong class="small" style="color:#16a34a;">✔ Presentes (${presentes.length})</strong>
@@ -2528,7 +2540,7 @@ async function cargarHistorialSocioAsistReporte(socioId) {
     <div class="card-table" style="max-height:260px; overflow-y:auto;">
       ${historial.map(h => `
         <div style="display:flex; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px solid #f0f0f0;">
-          <span>${h.fecha} · ${h.tipo === 'partido' ? 'Partido' : 'Entren.'} · ${h.actividad} (${h.categoria})</span>
+          <span>${formatFechaDMY(h.fecha)} · ${h.tipo === 'partido' ? 'Partido' : 'Entren.'} · ${h.actividad} (${h.categoria})</span>
           <span style="color:${h.presente ? '#16a34a' : '#dc2626'}; font-weight:700;">
             ${h.presente ? '✔ Presente' : '✘ Ausente'}${h.origen === 'invitado' ? ' (invitado)' : ''}
           </span>
