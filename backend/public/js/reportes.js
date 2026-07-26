@@ -2300,7 +2300,8 @@ const asistReporteState = {
   actividad: '',
   actividadAdicional: '',
   categoria: '',
-  anioNacimiento: ''
+  anioNacimiento: '',
+  tipo: ''
 };
 
 async function cargarFiltrosAsistReporte() {
@@ -2362,6 +2363,13 @@ function formatFechaDMY(fechaStr) {
 async function loadAsistReporteMes() {
   actualizarAsistReporteMesLabel();
 
+  // Cada vez que se recarga el mes (cambio de filtro, de mes, etc.)
+  // el detalle que estaba mostrado queda obsoleto: lo reseteamos.
+  const detalle = $('asistDetalleDia');
+  if (detalle) {
+    detalle.innerHTML = '<div class="muted small">Hacé clic en la fecha de un entrenamiento o partido (en el encabezado de la tabla) para ver el detalle.</div>';
+  }
+
   const msg = $('asistReporteMsg');
   const cont = $('asistTablaMes');
   const { actividad, categoria } = asistReporteState;
@@ -2386,6 +2394,9 @@ async function loadAsistReporteMes() {
   }
   if (asistReporteState.anioNacimiento) {
     params.set('anioNacimiento', asistReporteState.anioNacimiento);
+  }
+  if (asistReporteState.tipo) {
+    params.set('tipo', asistReporteState.tipo);
   }
 
   const { res, data } = await fetchAuth(`/club/${clubId}/reportes/asistencia/matriz-mes?${params.toString()}`);
@@ -2662,6 +2673,12 @@ function bindAsistenciaReporte() {
   const selAdic = $('asistReporteActividadAdicional');
   const selCategoria = $('asistReporteCategoria');
   const inputAnio = $('asistReporteAnioNacimiento');
+  const selTipo = $('asistReporteTipo');
+
+  selTipo?.addEventListener('change', () => {
+    asistReporteState.tipo = selTipo.value;
+    loadAsistReporteMes().catch(e => console.error(e));
+  });
 
   selActividad?.addEventListener('change', () => {
     asistReporteState.actividad = selActividad.value;

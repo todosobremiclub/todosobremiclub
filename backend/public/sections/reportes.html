@@ -147,7 +147,15 @@
 
     <div class="card-body">
       <!-- Filtros -->
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:14px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; gap:10px; margin-bottom:14px;">
+        <div>
+          <label class="muted small">Tipo</label>
+          <select id="asistReporteTipo" style="width:100%; padding:8px;">
+            <option value="">Todos</option>
+            <option value="entrenamiento">Solo entrenamientos</option>
+            <option value="partido">Solo partidos</option>
+          </select>
+        </div>
         <div>
           <label class="muted small">Actividad</label>
           <select id="asistReporteActividad" style="width:100%; padding:8px;">

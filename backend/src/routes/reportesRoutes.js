@@ -4347,10 +4347,10 @@ router.get('/:clubId/reportes/asistencia/evento/:eventoId', requireAuth, require
 // 2b) Matriz Socios x Fechas del mes (reemplaza a los recuadros):
 //     filas = socios, columnas = cada entrenamiento/partido del mes,
 //     celda = presente/ausente/sin registro, + tally de asistencias/faltas.
-// GET /:clubId/reportes/asistencia/matriz-mes?anio=&mes=&actividad=&categoria=&actividadAdicional=&anioNacimiento=
+// GET /:clubId/reportes/asistencia/matriz-mes?anio=&mes=&actividad=&categoria=&actividadAdicional=&anioNacimiento=&tipo=
 router.get('/:clubId/reportes/asistencia/matriz-mes', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { anio, mes, actividad = '', categoria = '', actividadAdicional = '', anioNacimiento = '' } = req.query;
+  const { anio, mes, actividad = '', categoria = '', actividadAdicional = '', anioNacimiento = '', tipo = '' } = req.query;
 
   try {
     if (!anio || !mes || !actividad.trim() || !categoria.trim()) {
@@ -4366,6 +4366,11 @@ router.get('/:clubId/reportes/asistencia/matriz-mes', requireAuth, requireClubAc
     ];
     const params = [clubId, Number(anio), Number(mes), actividad, categoria];
     let p = 6;
+
+    if (['entrenamiento', 'partido'].includes(tipo)) {
+      where.push(`e.tipo = $${p++}`);
+      params.push(tipo);
+    }
 
     if (actividadAdicional.trim()) {
       where.push(`e.actividad_adicional = $${p++}`);
