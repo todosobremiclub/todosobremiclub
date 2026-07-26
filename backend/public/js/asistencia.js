@@ -256,7 +256,7 @@
   }
 
   async function guardarAsistencia() {
-    const { tipo, actividad, actividadAdicional, categoria, fecha } = getDatosEvento();
+    const { tipo, actividad, actividadAdicional, categoria, fecha, anioNacimiento } = getDatosEvento();
     const clubId = getActiveClubId();
 
     const checks = document.querySelectorAll('.asist-check-convocado');
@@ -274,7 +274,7 @@
         method: 'POST',
         json: true,
         body: JSON.stringify({
-          tipo, actividad, actividadAdicional, categoria, fecha,
+          tipo, actividad, actividadAdicional, categoria, fecha, anioNacimiento,
           convocados: convocadosPayload,
           invitados: invitadosPayload
         })

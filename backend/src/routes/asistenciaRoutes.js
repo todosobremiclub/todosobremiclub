@@ -120,6 +120,7 @@ router.post('/:clubId/asistencia', requireAuth, requireClubAccess, async (req, r
     actividadAdicional = null,
     categoria,
     fecha,
+    anioNacimiento = null,
     convocados = [],
     invitados = []
   } = req.body ?? {};
@@ -162,10 +163,14 @@ router.post('/:clubId/asistencia', requireAuth, requireClubAccess, async (req, r
     // ===== 1) Cabecera del evento =====
     const rEvento = await db.query(
       `INSERT INTO asistencia_eventos
-        (club_id, tipo, actividad, actividad_adicional, categoria, fecha, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+        (club_id, tipo, actividad, actividad_adicional, categoria, fecha, anio_nacimiento_convocado, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        RETURNING id`,
-      [clubId, tipo, actividad.trim(), actividadAdicional?.trim() || null, categoria.trim(), fecha, req.user?.userId || req.user?.id || null]
+      [
+        clubId, tipo, actividad.trim(), actividadAdicional?.trim() || null, categoria.trim(), fecha,
+        anioNacimiento ? Number(anioNacimiento) : null,
+        req.user?.userId || req.user?.id || null
+      ]
     );
     const eventoId = rEvento.rows[0].id;
 

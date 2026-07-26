@@ -4267,12 +4267,14 @@ router.get('/:clubId/reportes/asistencia/eventos-mes', requireAuth, requireClubA
       where.push(`e.actividad_adicional IS NULL`);
     }
 
-    // Filtro opcional por año de nacimiento: al aplicarlo, el conteo de
-    // presentes/ausentes queda acotado a los socios de ese año, y solo
-    // aparecen los eventos que tengan al menos un convocado de ese año.
+    // El año de nacimiento es parte de la etiqueta del evento (se define
+    // al tomar la asistencia): un evento solo aparece si coincide
+    // exactamente con el filtro aplicado.
     if (String(anioNacimiento).trim()) {
-      where.push(`EXTRACT(YEAR FROM s.fecha_nacimiento) = $${p++}`);
+      where.push(`e.anio_nacimiento_convocado = $${p++}`);
       params.push(Number(anioNacimiento));
+    } else {
+      where.push(`e.anio_nacimiento_convocado IS NULL`);
     }
 
     const r = await db.query(
@@ -4285,7 +4287,6 @@ router.get('/:clubId/reportes/asistencia/eventos-mes', requireAuth, requireClubA
         COUNT(d.id) FILTER (WHERE d.presente = false) AS ausentes
       FROM asistencia_eventos e
       LEFT JOIN asistencia_detalle d ON d.evento_id = e.id
-      LEFT JOIN socios s ON s.id = d.socio_id
       WHERE ${where.join(' AND ')}
       GROUP BY e.id, e.tipo, e.fecha
       ORDER BY e.fecha ASC
@@ -4373,6 +4374,16 @@ router.get('/:clubId/reportes/asistencia/matriz-mes', requireAuth, requireClubAc
       where.push(`e.actividad_adicional IS NULL`);
     }
 
+    // El año de nacimiento es parte de la etiqueta del evento (se define
+    // al tomar la asistencia), no un filtro sobre los socios: un evento
+    // solo aparece si coincide exactamente con el filtro aplicado.
+    if (String(anioNacimiento).trim()) {
+      where.push(`e.anio_nacimiento_convocado = $${p++}`);
+      params.push(Number(anioNacimiento));
+    } else {
+      where.push(`e.anio_nacimiento_convocado IS NULL`);
+    }
+
     const rEventos = await db.query(
       `
       SELECT id, tipo, fecha
@@ -4390,23 +4401,15 @@ router.get('/:clubId/reportes/asistencia/matriz-mes', requireAuth, requireClubAc
 
     const eventoIds = eventos.map(e => e.id);
 
-    const detalleParams = [eventoIds];
-    let dp = 2;
-    let anioNacFilter = '';
-    if (String(anioNacimiento).trim()) {
-      anioNacFilter = `AND EXTRACT(YEAR FROM s.fecha_nacimiento) = $${dp++}`;
-      detalleParams.push(Number(anioNacimiento));
-    }
-
     const rDetalle = await db.query(
       `
       SELECT d.evento_id, d.socio_id, d.presente, s.nombre, s.apellido, s.numero_socio
       FROM asistencia_detalle d
       JOIN socios s ON s.id = d.socio_id
-      WHERE d.evento_id = ANY($1::uuid[]) ${anioNacFilter}
+      WHERE d.evento_id = ANY($1::uuid[])
       ORDER BY s.apellido ASC, s.nombre ASC
       `,
-      detalleParams
+      [eventoIds]
     );
 
     // Armamos: sociosMap { socioId -> { id, nombre, apellido, numero_socio, celdas:{eventoId: bool}, presentes, ausentes } }
