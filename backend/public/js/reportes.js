@@ -2363,7 +2363,7 @@ async function loadAsistReporteMes() {
   actualizarAsistReporteMesLabel();
 
   const msg = $('asistReporteMsg');
-  const cont = $('asistEventosMes');
+  const cont = $('asistTablaMes');
   const { actividad, categoria } = asistReporteState;
 
   if (!actividad || !categoria) {
@@ -2388,18 +2388,18 @@ async function loadAsistReporteMes() {
     params.set('anioNacimiento', asistReporteState.anioNacimiento);
   }
 
-  const { res, data } = await fetchAuth(`/club/${clubId}/reportes/asistencia/eventos-mes?${params.toString()}`);
+  const { res, data } = await fetchAuth(`/club/${clubId}/reportes/asistencia/matriz-mes?${params.toString()}`);
 
   if (!res.ok || !data.ok) {
     if (msg) msg.textContent = data.error || 'Error al cargar los eventos del mes.';
     return;
   }
 
-  renderAsistEventosMes(data.eventos || []);
+  renderAsistTablaMes(data.eventos || [], data.socios || []);
 }
 
-function renderAsistEventosMes(eventos) {
-  const cont = $('asistEventosMes');
+function renderAsistTablaMes(eventos, socios) {
+  const cont = $('asistTablaMes');
   if (!cont) return;
 
   if (!eventos.length) {
@@ -2407,39 +2407,58 @@ function renderAsistEventosMes(eventos) {
     return;
   }
 
-  cont.innerHTML = eventos.map(ev => {
+  const theadFechas = eventos.map(ev => {
     const esPartido = ev.tipo === 'partido';
-    const presentes = Number(ev.presentes || 0);
-    const ausentes = Number(ev.ausentes || 0);
     return `
-      <div class="asist-evento-card" data-id="${ev.id}" style="
+      <th class="asist-col-fecha" data-id="${ev.id}" style="
         cursor:pointer;
-        border:1px solid #e5e7eb;
-        border-left:4px solid ${esPartido ? '#f97316' : '#2563eb'};
-        border-radius:10px;
-        padding:10px 12px;
-        margin-bottom:8px;
-        background:#fff;
-      ">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <strong>${esPartido ? '🏆 Partido' : '🏃 Entrenamiento'}</strong>
-          <span class="muted small">${formatFechaDMY(ev.fecha)}</span>
-        </div>
-        <div style="margin-top:4px;">
-          <span style="color:#16a34a; font-weight:600;">✔ ${presentes} asistieron</span>
-          &nbsp;·&nbsp;
-          <span style="color:#dc2626; font-weight:600;">✘ ${ausentes} faltaron</span>
-        </div>
-      </div>
+        color:${esPartido ? '#f97316' : '#16a34a'};
+        padding:6px 8px;
+        white-space:nowrap;
+        border-bottom:2px solid #e5e7eb;
+      " title="${esPartido ? 'Partido' : 'Entrenamiento'} · clic para ver detalle">
+        ${formatFechaDMY(ev.fecha)}
+      </th>
     `;
   }).join('');
 
-  cont.querySelectorAll('.asist-evento-card').forEach(card => {
-    card.addEventListener('click', () => {
-      cont.querySelectorAll('.asist-evento-card').forEach(c => c.style.background = '#fff');
-      card.style.background = '#f3f4f6';
-      verDetalleEventoAsistencia(card.dataset.id);
-    });
+  const filasSocios = socios.length
+    ? socios.map(s => {
+        const celdas = eventos.map(ev => {
+          const val = s.celdas[ev.id];
+          if (val === undefined) return `<td class="muted" style="text-align:center; padding:6px;">—</td>`;
+          return val
+            ? `<td style="text-align:center; padding:6px; color:#16a34a; font-weight:700;">✔</td>`
+            : `<td style="text-align:center; padding:6px; color:#dc2626; font-weight:700;">✘</td>`;
+        }).join('');
+
+        return `
+          <tr style="border-bottom:1px solid #f0f0f0;">
+            <td style="padding:6px 8px; white-space:nowrap;">${s.apellido}, ${s.nombre} <span class="muted small">(#${s.numero_socio ?? '-'})</span></td>
+            ${celdas}
+            <td style="text-align:center; padding:6px; font-weight:700; white-space:nowrap;">${s.presentes}/${s.ausentes}</td>
+          </tr>
+        `;
+      }).join('')
+    : `<tr><td colspan="${eventos.length + 2}" class="muted small" style="padding:10px;">Sin socios registrados en estos eventos.</td></tr>`;
+
+  cont.innerHTML = `
+    <table style="border-collapse:collapse; width:100%; font-size:13px;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:6px 8px; border-bottom:2px solid #e5e7eb;">Socio</th>
+          ${theadFechas}
+          <th style="padding:6px 8px; border-bottom:2px solid #e5e7eb; white-space:nowrap;">Asist./Faltas</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filasSocios}
+      </tbody>
+    </table>
+  `;
+
+  cont.querySelectorAll('.asist-col-fecha').forEach(th => {
+    th.addEventListener('click', () => verDetalleEventoAsistencia(th.dataset.id));
   });
 }
 
@@ -2656,9 +2675,13 @@ function bindAsistenciaReporte() {
     asistReporteState.categoria = selCategoria.value;
     loadAsistReporteMes().catch(e => console.error(e));
   });
-  inputAnio?.addEventListener('change', () => {
-    asistReporteState.anioNacimiento = inputAnio.value || '';
-    loadAsistReporteMes().catch(e => console.error(e));
+  let anioNacDebounce = null;
+  inputAnio?.addEventListener('input', () => {
+    clearTimeout(anioNacDebounce);
+    anioNacDebounce = setTimeout(() => {
+      asistReporteState.anioNacimiento = inputAnio.value || '';
+      loadAsistReporteMes().catch(e => console.error(e));
+    }, 500);
   });
 
   $('btnAsistReporteMesPrev')?.addEventListener('click', () => {

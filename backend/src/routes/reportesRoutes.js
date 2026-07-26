@@ -4343,9 +4343,103 @@ router.get('/:clubId/reportes/asistencia/evento/:eventoId', requireAuth, require
   }
 });
 
-// 3) Historial de asistencia de un socio puntual (buscador libre,
-//    sin depender de los filtros de Actividad/Categoría).
-// GET /:clubId/reportes/asistencia/socio?search=
+// 2b) Matriz Socios x Fechas del mes (reemplaza a los recuadros):
+//     filas = socios, columnas = cada entrenamiento/partido del mes,
+//     celda = presente/ausente/sin registro, + tally de asistencias/faltas.
+// GET /:clubId/reportes/asistencia/matriz-mes?anio=&mes=&actividad=&categoria=&actividadAdicional=&anioNacimiento=
+router.get('/:clubId/reportes/asistencia/matriz-mes', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { anio, mes, actividad = '', categoria = '', actividadAdicional = '', anioNacimiento = '' } = req.query;
+
+  try {
+    if (!anio || !mes || !actividad.trim() || !categoria.trim()) {
+      return res.status(400).json({ ok: false, error: 'Faltan anio, mes, actividad y/o categoría' });
+    }
+
+    const where = [
+      'e.club_id = $1',
+      `EXTRACT(YEAR FROM e.fecha) = $2`,
+      `EXTRACT(MONTH FROM e.fecha) = $3`,
+      'e.actividad = $4',
+      'e.categoria = $5'
+    ];
+    const params = [clubId, Number(anio), Number(mes), actividad, categoria];
+    let p = 6;
+
+    if (actividadAdicional.trim()) {
+      where.push(`e.actividad_adicional = $${p++}`);
+      params.push(actividadAdicional);
+    } else {
+      where.push(`e.actividad_adicional IS NULL`);
+    }
+
+    const rEventos = await db.query(
+      `
+      SELECT id, tipo, fecha
+      FROM asistencia_eventos e
+      WHERE ${where.join(' AND ')}
+      ORDER BY fecha ASC
+      `,
+      params
+    );
+
+    const eventos = rEventos.rows;
+    if (!eventos.length) {
+      return res.json({ ok: true, eventos: [], socios: [] });
+    }
+
+    const eventoIds = eventos.map(e => e.id);
+
+    const detalleParams = [eventoIds];
+    let dp = 2;
+    let anioNacFilter = '';
+    if (String(anioNacimiento).trim()) {
+      anioNacFilter = `AND EXTRACT(YEAR FROM s.fecha_nacimiento) = $${dp++}`;
+      detalleParams.push(Number(anioNacimiento));
+    }
+
+    const rDetalle = await db.query(
+      `
+      SELECT d.evento_id, d.socio_id, d.presente, s.nombre, s.apellido, s.numero_socio
+      FROM asistencia_detalle d
+      JOIN socios s ON s.id = d.socio_id
+      WHERE d.evento_id = ANY($1::uuid[]) ${anioNacFilter}
+      ORDER BY s.apellido ASC, s.nombre ASC
+      `,
+      detalleParams
+    );
+
+    // Armamos: sociosMap { socioId -> { id, nombre, apellido, numero_socio, celdas:{eventoId: bool}, presentes, ausentes } }
+    const sociosMap = new Map();
+
+    for (const d of rDetalle.rows) {
+      const key = String(d.socio_id);
+      if (!sociosMap.has(key)) {
+        sociosMap.set(key, {
+          id: d.socio_id,
+          nombre: d.nombre,
+          apellido: d.apellido,
+          numero_socio: d.numero_socio,
+          celdas: {},
+          presentes: 0,
+          ausentes: 0
+        });
+      }
+      const s = sociosMap.get(key);
+      s.celdas[d.evento_id] = d.presente;
+      if (d.presente) s.presentes++; else s.ausentes++;
+    }
+
+    const socios = Array.from(sociosMap.values())
+      .sort((a, b) => (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre));
+
+    res.json({ ok: true, eventos, socios });
+  } catch (e) {
+    console.error('❌ reporte asistencia matriz-mes', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 router.get('/:clubId/reportes/asistencia/socio', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
   const { search = '' } = req.query;

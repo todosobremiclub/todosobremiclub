@@ -174,15 +174,13 @@
 
       <div id="asistReporteMsg" class="muted small" style="margin-bottom:10px;"></div>
 
-      <!-- Recuadros de eventos del mes + detalle -->
-      <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:16px; align-items:start;">
-        <div id="asistEventosMes" style="max-height:460px; overflow-y:auto;"></div>
+      <!-- Tabla Socios x Fechas + detalle -->
+      <div id="asistTablaMesWrap" style="overflow-x:auto; margin-bottom:16px;">
+        <div id="asistTablaMes"></div>
+      </div>
 
-        <div>
-          <div id="asistDetalleDia" class="card-table">
-            <div class="muted small">Hacé clic en un entrenamiento o partido para ver el detalle.</div>
-          </div>
-        </div>
+      <div id="asistDetalleDia" class="card-table">
+        <div class="muted small">Hacé clic en la fecha de un entrenamiento o partido (en el encabezado de la tabla) para ver el detalle.</div>
       </div>
 
       <!-- Búsqueda por socio -->
