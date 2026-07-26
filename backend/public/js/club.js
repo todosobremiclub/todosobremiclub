@@ -322,6 +322,7 @@ function normalizeRole(role){
   if (r === 'read' || r === 'readonly' || r === 'solo lectura' || r === 'solo_lectura') return 'solo_lectura';
   if (r === 'comunicacion' || r === 'comunicación' || r === 'comms') return 'comunicacion';
   if (r === 'finanzas' || r === 'finance') return 'finanzas';
+  if (r === 'asistencias' || r === 'asistencia') return 'asistencias';
   if (r === 'staff') return 'admin'; // compat: staff se trata como admin
   return r;
 }
@@ -332,6 +333,7 @@ function buildPermissions(role){
     role: r,
     // Acceso a secciones (qué puede ver)
     canAccess(section){
+      if (r === 'asistencias') return section === 'reportes';
       if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
       if (r === 'profesor') return ['socios','noticias','notificaciones'].includes(section);
       return ALL_SECTIONS.includes(section);
@@ -339,6 +341,7 @@ function buildPermissions(role){
     // Escritura / ejecutar acciones (mutaciones)
     canWrite(section){
       if (r === 'admin') return true;
+      if (r === 'asistencias') return section === 'reportes';
       if (r === 'finanzas') return ['pagos','gastos','reportes'].includes(section);
       if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
       if (r === 'profesor') return ['noticias','notificaciones'].includes(section);
@@ -365,10 +368,18 @@ function applyNavVisibility(perms){
   if (btnAcceso && !perms.canAccess('acceso')) {
     btnAcceso.style.display = 'none';
   }
+
+  // El rol "asistencias" solo carga asistencia y ve el reporte: no
+  // necesita el QR de postulación.
+  const btnQR = document.getElementById('btnVerQR');
+  if (btnQR && perms.role === 'asistencias') {
+    btnQR.style.display = 'none';
+  }
 }
 
 // Sección inicial según rol
 function pickDefaultSection(perms){
+  if (perms.role === 'asistencias') return 'reportes';
   return (perms.role === 'comunicacion') ? 'noticias' : 'socios';
 }
 

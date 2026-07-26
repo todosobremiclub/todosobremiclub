@@ -2785,6 +2785,23 @@ function bindAsistenciaReporte() {
 async function initReportesSection() {
 
   // =============================
+  // ROL "asistencias": solo ve el reporte de Asistencia
+  // =============================
+  if (window.__clubRole === 'asistencias') {
+    const switchWrap = $('reportesSwitch');
+    if (switchWrap) switchWrap.style.display = 'none';
+
+    document.querySelectorAll('.report-finanzas').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.report-socios').forEach(el => el.style.display = 'none');
+
+    const cardAsistencia = $('card-asistencia');
+    if (cardAsistencia) cardAsistencia.style.display = '';
+
+    bindAsistenciaReporte();
+    return;
+  }
+
+  // =============================
   // SWITCH FINANZAS / SOCIOS
   // =============================
   function applyReportesView(mode) {
