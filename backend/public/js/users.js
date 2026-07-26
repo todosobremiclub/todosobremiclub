@@ -8,7 +8,8 @@ const CLUB_ROLE_OPTIONS = [
   'comunicacion',
   'finanzas',
   'staff',
-  'profesor' // ✅ NUEVO ROL
+  'profesor', // ✅ NUEVO ROL
+  'asistencias'
 ];
 
 
