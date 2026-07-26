@@ -4240,10 +4240,10 @@ router.get(
 
 // 1) Eventos del mes (para pintar el calendario), filtrados por
 //    Actividad + Categoría (+ Actividad adicional opcional).
-// GET /:clubId/reportes/asistencia/eventos-mes?anio=&mes=&actividad=&categoria=&actividadAdicional=
+// GET /:clubId/reportes/asistencia/eventos-mes?anio=&mes=&actividad=&categoria=&actividadAdicional=&anioNacimiento=
 router.get('/:clubId/reportes/asistencia/eventos-mes', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { anio, mes, actividad = '', categoria = '', actividadAdicional = '' } = req.query;
+  const { anio, mes, actividad = '', categoria = '', actividadAdicional = '', anioNacimiento = '' } = req.query;
 
   try {
     if (!anio || !mes || !actividad.trim() || !categoria.trim()) {
@@ -4267,6 +4267,14 @@ router.get('/:clubId/reportes/asistencia/eventos-mes', requireAuth, requireClubA
       where.push(`e.actividad_adicional IS NULL`);
     }
 
+    // Filtro opcional por año de nacimiento: al aplicarlo, el conteo de
+    // presentes/ausentes queda acotado a los socios de ese año, y solo
+    // aparecen los eventos que tengan al menos un convocado de ese año.
+    if (String(anioNacimiento).trim()) {
+      where.push(`EXTRACT(YEAR FROM s.fecha_nacimiento) = $${p++}`);
+      params.push(Number(anioNacimiento));
+    }
+
     const r = await db.query(
       `
       SELECT
@@ -4277,6 +4285,7 @@ router.get('/:clubId/reportes/asistencia/eventos-mes', requireAuth, requireClubA
         COUNT(d.id) FILTER (WHERE d.presente = false) AS ausentes
       FROM asistencia_eventos e
       LEFT JOIN asistencia_detalle d ON d.evento_id = e.id
+      LEFT JOIN socios s ON s.id = d.socio_id
       WHERE ${where.join(' AND ')}
       GROUP BY e.id, e.tipo, e.fecha
       ORDER BY e.fecha ASC

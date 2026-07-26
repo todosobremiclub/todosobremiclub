@@ -2299,7 +2299,8 @@ const asistReporteState = {
   mes: new Date().getMonth() + 1,
   actividad: '',
   actividadAdicional: '',
-  categoria: ''
+  categoria: '',
+  anioNacimiento: ''
 };
 
 async function cargarFiltrosAsistReporte() {
@@ -2383,6 +2384,9 @@ async function loadAsistReporteMes() {
   if (asistReporteState.actividadAdicional) {
     params.set('actividadAdicional', asistReporteState.actividadAdicional);
   }
+  if (asistReporteState.anioNacimiento) {
+    params.set('anioNacimiento', asistReporteState.anioNacimiento);
+  }
 
   const { res, data } = await fetchAuth(`/club/${clubId}/reportes/asistencia/eventos-mes?${params.toString()}`);
 
@@ -2462,9 +2466,12 @@ async function verDetalleEventoAsistencia(eventoId) {
   const fila = (d) => `<div style="padding:3px 0;">${d.apellido}, ${d.nombre} <span class="muted small">(#${d.numero_socio ?? '-'})</span></div>`;
 
   cont.innerHTML = `
-    <div style="margin-bottom:8px;">
-      <strong>${evento.tipo === 'partido' ? 'Partido' : 'Entrenamiento'}</strong>
-      <div class="muted small">${evento.actividad}${evento.actividad_adicional ? ' + ' + evento.actividad_adicional : ''} · ${evento.categoria} · ${formatFechaDMY(evento.fecha)}</div>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+      <div>
+        <strong>${evento.tipo === 'partido' ? 'Partido' : 'Entrenamiento'}</strong>
+        <div class="muted small">${evento.actividad}${evento.actividad_adicional ? ' + ' + evento.actividad_adicional : ''} · ${evento.categoria} · ${formatFechaDMY(evento.fecha)}</div>
+      </div>
+      <button type="button" id="btnAsistEliminarEvento" class="navbtn navbtn--top" style="padding:4px 8px; font-size:12px; background:#ef4444; border-color:#ef4444; color:#fff;">🗑 Eliminar</button>
     </div>
     <div style="margin-bottom:10px;">
       <strong class="small" style="color:#16a34a;">✔ Presentes (${presentes.length})</strong>
@@ -2475,12 +2482,91 @@ async function verDetalleEventoAsistencia(eventoId) {
       ${ausentes.map(fila).join('') || '<div class="muted small">—</div>'}
     </div>
     ${invitados.length ? `
-      <div>
+      <div style="margin-bottom:10px;">
         <strong class="small">★ Invitados de otra categoría (${invitados.length})</strong>
         ${invitados.map(d => `<div style="padding:3px 0;">${d.apellido}, ${d.nombre} <span class="muted small">(${d.categoria_socio})</span></div>`).join('')}
       </div>
     ` : ''}
+
+    <div style="border-top:1px solid #e5e7eb; padding-top:10px; margin-top:6px;">
+      <strong class="small">+ Agregar socio que faltó cargar</strong>
+      <div style="display:flex; gap:8px; margin:6px 0;">
+        <input id="asistAgregarSocioInput" type="text" placeholder="Buscar por nombre, apellido o DNI..." style="flex:1; padding:6px;" />
+        <button type="button" id="btnAsistAgregarSocioBuscar" class="navbtn navbtn--top" style="padding:4px 8px; font-size:12px;">Buscar</button>
+      </div>
+      <div id="asistAgregarSocioResultados" class="muted small"></div>
+    </div>
   `;
+
+  $('btnAsistEliminarEvento')?.addEventListener('click', () => eliminarEventoAsistencia(eventoId));
+  $('btnAsistAgregarSocioBuscar')?.addEventListener('click', () => buscarSocioParaAgregar(eventoId));
+}
+
+async function eliminarEventoAsistencia(eventoId) {
+  const confirmado = confirm('¿Seguro que querés eliminar este evento de asistencia? Esta acción no se puede deshacer.');
+  if (!confirmado) return;
+
+  const clubId = getActiveClubId();
+  const { res, data } = await fetchAuth(`/club/${clubId}/asistencia/${eventoId}`, { method: 'DELETE' });
+
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'No se pudo eliminar el evento.');
+    return;
+  }
+
+  $('asistDetalleDia').innerHTML = '<div class="muted small">Evento eliminado. Hacé clic en otro entrenamiento o partido para ver el detalle.</div>';
+  await loadAsistReporteMes();
+}
+
+async function buscarSocioParaAgregar(eventoId) {
+  const input = $('asistAgregarSocioInput');
+  const cont = $('asistAgregarSocioResultados');
+  const q = (input?.value || '').trim();
+  if (!q || !cont) { if (cont) cont.textContent = ''; return; }
+
+  cont.textContent = 'Buscando...';
+
+  const clubId = getActiveClubId();
+  const { res, data } = await fetchAuth(`/club/${clubId}/socios?search=${encodeURIComponent(q)}&activo=1&limit=10`);
+
+  if (!res.ok || !data.ok) {
+    cont.textContent = 'Error al buscar socios.';
+    return;
+  }
+
+  const socios = data.socios || [];
+  if (!socios.length) {
+    cont.innerHTML = '<div class="muted small">Sin resultados.</div>';
+    return;
+  }
+
+  cont.innerHTML = socios.map(s => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
+      <span>${s.apellido}, ${s.nombre} <span class="muted small">(${s.categoria})</span></span>
+      <button type="button" class="asist-confirmar-agregar navbtn navbtn--top" data-id="${s.id}" style="padding:2px 8px; font-size:12px;">+ Agregar</button>
+    </div>
+  `).join('');
+
+  cont.querySelectorAll('.asist-confirmar-agregar').forEach(btn => {
+    btn.addEventListener('click', () => agregarSocioAEvento(eventoId, btn.dataset.id));
+  });
+}
+
+async function agregarSocioAEvento(eventoId, socioId) {
+  const clubId = getActiveClubId();
+  const { res, data } = await fetchAuth(`/club/${clubId}/asistencia/${eventoId}/socio`, {
+    method: 'POST',
+    json: true,
+    body: JSON.stringify({ socioId, presente: true })
+  });
+
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'No se pudo agregar el socio.');
+    return;
+  }
+
+  await verDetalleEventoAsistencia(eventoId);
+  await loadAsistReporteMes();
 }
 
 async function buscarSocioAsistReporte() {
@@ -2556,6 +2642,7 @@ function bindAsistenciaReporte() {
   const selActividad = $('asistReporteActividad');
   const selAdic = $('asistReporteActividadAdicional');
   const selCategoria = $('asistReporteCategoria');
+  const inputAnio = $('asistReporteAnioNacimiento');
 
   selActividad?.addEventListener('change', () => {
     asistReporteState.actividad = selActividad.value;
@@ -2567,6 +2654,10 @@ function bindAsistenciaReporte() {
   });
   selCategoria?.addEventListener('change', () => {
     asistReporteState.categoria = selCategoria.value;
+    loadAsistReporteMes().catch(e => console.error(e));
+  });
+  inputAnio?.addEventListener('change', () => {
+    asistReporteState.anioNacimiento = inputAnio.value || '';
     loadAsistReporteMes().catch(e => console.error(e));
   });
 

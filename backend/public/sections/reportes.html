@@ -147,7 +147,7 @@
 
     <div class="card-body">
       <!-- Filtros -->
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:14px;">
         <div>
           <label class="muted small">Actividad</label>
           <select id="asistReporteActividad" style="width:100%; padding:8px;">
@@ -165,6 +165,10 @@
           <select id="asistReporteCategoria" style="width:100%; padding:8px;">
             <option value="">Seleccioná...</option>
           </select>
+        </div>
+        <div>
+          <label class="muted small">Año de nacimiento (opcional)</label>
+          <input id="asistReporteAnioNacimiento" type="number" min="1900" max="2100" placeholder="Ej: 2012" style="width:100%; padding:8px;" />
         </div>
       </div>
 

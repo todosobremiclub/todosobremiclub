@@ -207,4 +207,82 @@ router.post('/:clubId/asistencia', requireAuth, requireClubAccess, async (req, r
   }
 });
 
+// ============================================================
+// DELETE /club/:clubId/asistencia/:eventoId
+// Elimina un evento de asistencia (y su detalle, por CASCADE).
+// ============================================================
+router.delete('/:clubId/asistencia/:eventoId', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, eventoId } = req.params;
+
+  try {
+    const r = await db.query(
+      `DELETE FROM asistencia_eventos WHERE id = $1 AND club_id = $2 RETURNING id`,
+      [eventoId, clubId]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Evento no encontrado' });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ asistencia DELETE evento', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// POST /club/:clubId/asistencia/:eventoId/socio
+// Agrega un socio que se olvidaron de cargar en un evento ya
+// guardado. Si su categoría coincide con la del evento queda como
+// 'convocado', si no, como 'invitado'.
+// body: { socioId, presente = true }
+// ============================================================
+router.post('/:clubId/asistencia/:eventoId/socio', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, eventoId } = req.params;
+  const { socioId, presente = true } = req.body ?? {};
+
+  try {
+    if (!socioId) {
+      return res.status(400).json({ ok: false, error: 'Falta socioId' });
+    }
+
+    const rEvento = await db.query(
+      `SELECT id, categoria FROM asistencia_eventos WHERE id = $1 AND club_id = $2`,
+      [eventoId, clubId]
+    );
+    if (!rEvento.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Evento no encontrado' });
+    }
+
+    const rSocio = await db.query(
+      `SELECT id, categoria FROM socios WHERE id = $1 AND club_id = $2`,
+      [socioId, clubId]
+    );
+    if (!rSocio.rowCount) {
+      return res.status(400).json({ ok: false, error: 'El socio no pertenece a este club' });
+    }
+
+    const categoriaEvento = rEvento.rows[0].categoria;
+    const categoriaSocio = rSocio.rows[0].categoria;
+    const origen = categoriaSocio === categoriaEvento ? 'convocado' : 'invitado';
+
+    const r = await db.query(
+      `INSERT INTO asistencia_detalle
+        (evento_id, socio_id, categoria_socio, origen, presente)
+       VALUES ($1,$2,$3,$4,$5)
+       RETURNING id`,
+      [eventoId, socioId, categoriaSocio, origen, !!presente]
+    );
+
+    res.json({ ok: true, detalleId: r.rows[0].id, origen });
+  } catch (e) {
+    if (e.code === '23505') {
+      return res.status(409).json({ ok: false, error: 'Este socio ya está cargado en este evento' });
+    }
+    console.error('❌ asistencia POST agregar socio', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 module.exports = router;
