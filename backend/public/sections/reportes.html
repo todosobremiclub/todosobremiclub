@@ -147,15 +147,7 @@
 
     <div class="card-body">
       <!-- Filtros -->
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; gap:10px; margin-bottom:14px;">
-        <div>
-          <label class="muted small">Tipo</label>
-          <select id="asistReporteTipo" style="width:100%; padding:8px;">
-            <option value="">Todos</option>
-            <option value="entrenamiento">Solo entrenamientos</option>
-            <option value="partido">Solo partidos</option>
-          </select>
-        </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:14px;">
         <div>
           <label class="muted small">Actividad</label>
           <select id="asistReporteActividad" style="width:100%; padding:8px;">
@@ -181,6 +173,17 @@
       </div>
 
       <div id="asistReporteMsg" class="muted small" style="margin-bottom:10px;"></div>
+
+      <!-- Filtro de tipo, una vez ya cargada la búsqueda -->
+      <div id="asistFiltroTipoWrap" style="display:none; gap:18px; align-items:center; margin-bottom:12px;">
+        <span class="muted small">Mostrar:</span>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="checkbox" id="asistFiltroTipoEntrenamiento" /> <span style="color:#16a34a; font-weight:600;">Entrenamientos</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="checkbox" id="asistFiltroTipoPartido" /> <span style="color:#f97316; font-weight:600;">Partidos</span>
+        </label>
+      </div>
 
       <!-- Tabla Socios x Fechas + detalle -->
       <div id="asistTablaMesWrap" style="overflow-x:auto; margin-bottom:16px;">

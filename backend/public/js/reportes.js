@@ -2301,7 +2301,8 @@ const asistReporteState = {
   actividadAdicional: '',
   categoria: '',
   anioNacimiento: '',
-  tipo: ''
+  eventosRaw: [],
+  sociosRaw: []
 };
 
 async function cargarFiltrosAsistReporte() {
@@ -2372,11 +2373,13 @@ async function loadAsistReporteMes() {
 
   const msg = $('asistReporteMsg');
   const cont = $('asistTablaMes');
+  const filtroTipoWrap = $('asistFiltroTipoWrap');
   const { actividad, categoria } = asistReporteState;
 
   if (!actividad || !categoria) {
     if (msg) msg.textContent = 'Seleccioná Actividad y Categoría para ver los entrenamientos/partidos del mes.';
     if (cont) cont.innerHTML = '';
+    if (filtroTipoWrap) filtroTipoWrap.style.display = 'none';
     return;
   }
 
@@ -2395,18 +2398,67 @@ async function loadAsistReporteMes() {
   if (asistReporteState.anioNacimiento) {
     params.set('anioNacimiento', asistReporteState.anioNacimiento);
   }
-  if (asistReporteState.tipo) {
-    params.set('tipo', asistReporteState.tipo);
-  }
 
   const { res, data } = await fetchAuth(`/club/${clubId}/reportes/asistencia/matriz-mes?${params.toString()}`);
 
   if (!res.ok || !data.ok) {
     if (msg) msg.textContent = data.error || 'Error al cargar los eventos del mes.';
+    if (filtroTipoWrap) filtroTipoWrap.style.display = 'none';
     return;
   }
 
-  renderAsistTablaMes(data.eventos || [], data.socios || []);
+  asistReporteState.eventosRaw = data.eventos || [];
+  asistReporteState.sociosRaw = data.socios || [];
+
+  // Nueva búsqueda: reseteamos el filtro de tipo a "mostrar todo".
+  const chkEntrenamiento = $('asistFiltroTipoEntrenamiento');
+  const chkPartido = $('asistFiltroTipoPartido');
+  if (chkEntrenamiento) chkEntrenamiento.checked = false;
+  if (chkPartido) chkPartido.checked = false;
+
+  if (filtroTipoWrap) {
+    filtroTipoWrap.style.display = asistReporteState.eventosRaw.length ? 'flex' : 'none';
+  }
+
+  aplicarFiltroTipoYRenderizar();
+}
+
+function aplicarFiltroTipoYRenderizar() {
+  const chkEntrenamiento = $('asistFiltroTipoEntrenamiento')?.checked || false;
+  const chkPartido = $('asistFiltroTipoPartido')?.checked || false;
+
+  const { eventosRaw, sociosRaw } = asistReporteState;
+
+  // Si ninguno está tildado, se muestra todo. Si hay al menos uno
+  // tildado, se muestra solo esos tipos.
+  const eventosFiltrados = (!chkEntrenamiento && !chkPartido)
+    ? eventosRaw
+    : eventosRaw.filter(ev =>
+        (chkEntrenamiento && ev.tipo === 'entrenamiento') ||
+        (chkPartido && ev.tipo === 'partido')
+      );
+
+  const eventoIdsFiltrados = new Set(eventosFiltrados.map(ev => String(ev.id)));
+
+  // Recalculamos las celdas y los totales de cada socio en base a los
+  // eventos que quedaron después del filtro (no a los totales originales).
+  const sociosFiltrados = sociosRaw
+    .map(s => {
+      const celdas = {};
+      let presentes = 0;
+      let ausentes = 0;
+
+      Object.keys(s.celdas).forEach(eventoId => {
+        if (!eventoIdsFiltrados.has(String(eventoId))) return;
+        celdas[eventoId] = s.celdas[eventoId];
+        if (s.celdas[eventoId]) presentes++; else ausentes++;
+      });
+
+      return { ...s, celdas, presentes, ausentes };
+    })
+    .filter(s => Object.keys(s.celdas).length > 0);
+
+  renderAsistTablaMes(eventosFiltrados, sociosFiltrados);
 }
 
 function renderAsistTablaMes(eventos, socios) {
@@ -2673,12 +2725,11 @@ function bindAsistenciaReporte() {
   const selAdic = $('asistReporteActividadAdicional');
   const selCategoria = $('asistReporteCategoria');
   const inputAnio = $('asistReporteAnioNacimiento');
-  const selTipo = $('asistReporteTipo');
+  const chkEntrenamiento = $('asistFiltroTipoEntrenamiento');
+  const chkPartido = $('asistFiltroTipoPartido');
 
-  selTipo?.addEventListener('change', () => {
-    asistReporteState.tipo = selTipo.value;
-    loadAsistReporteMes().catch(e => console.error(e));
-  });
+  chkEntrenamiento?.addEventListener('change', () => aplicarFiltroTipoYRenderizar());
+  chkPartido?.addEventListener('change', () => aplicarFiltroTipoYRenderizar());
 
   selActividad?.addEventListener('change', () => {
     asistReporteState.actividad = selActividad.value;
