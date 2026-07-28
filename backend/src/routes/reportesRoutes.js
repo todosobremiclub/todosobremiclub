@@ -1005,10 +1005,7 @@ WHERE s.club_id = $1
       AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
     )
   )
-  AND (
-    pm.socio_id IS NULL
-    OR pm.pago_completo_total = false
-  );
+  AND pm.socio_id IS NULL;
       `;
 
       const [rDetalle, rCount] = await Promise.all([

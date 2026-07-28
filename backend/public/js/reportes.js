@@ -48,12 +48,12 @@
     categoriasByActividad: {}      // { actividad: [ { categoria, cantidad } ] }
   };
 
-  const impagosState = {
+const impagosState = {
     anio: new Date().getFullYear(),
     rows: [],            // [{ anio, mes, cantidad, mes_num }]
     currentIndex: 0,
     page: 0,
-    pageSize: 20,
+    pageSize: 1000,       // suficientemente alto para traer todos los socios impagos en una sola página
     totalForCurrent: 0
   };
 
