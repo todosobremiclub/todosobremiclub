@@ -754,12 +754,15 @@ async function openDetalleModal({ title, sub, url, columns, moneyKey, dateKey })
         return;
       }
 
-      const items = data.items || [];
+const items = data.items || [];
       impagosState.totalForCurrent = Number(data.total || items.length);
+
+      const totalMontoEl = $('impagosModalTotalMonto');
 
       if (!items.length) {
         body.innerHTML = '<div class="muted">No hay socios impagos para este mes.</div>';
         if (info) info.textContent = '';
+        if (totalMontoEl) totalMontoEl.textContent = '';
         return;
       }
 
@@ -773,7 +776,7 @@ async function openDetalleModal({ title, sub, url, columns, moneyKey, dateKey })
               <th>Nombre</th>
               <th>Actividad</th>
               <th>Categoría</th>
-              <th>Teléfono</th>
+              <th>Monto cuota</th>
               <th>Fecha ingreso</th>
             </tr>
           </thead>
@@ -786,7 +789,7 @@ async function openDetalleModal({ title, sub, url, columns, moneyKey, dateKey })
                 <td>${s.nombre ?? ''}</td>
                 <td>${s.actividad ?? ''}</td>
                 <td>${s.categoria ?? ''}</td>
-                <td>${s.telefono ?? ''}</td>
+                <td style="text-align:right;">${moneyARS.format(Number(s.monto_cuota || 0))}</td>
                 <td>${formatFecha(s.fecha_ingreso)}</td>
               </tr>
             `).join('')}
@@ -801,9 +804,16 @@ async function openDetalleModal({ title, sub, url, columns, moneyKey, dateKey })
         info.textContent = `Mostrando ${desde}-${hasta} de ${impagosState.totalForCurrent} socios impagos`;
       }
 
+      if (totalMontoEl) {
+        const totalMonto = Number(data.totalMonto || 0);
+        totalMontoEl.textContent = `Total adeudado: ${moneyARS.format(totalMonto)}`;
+      }
+
     } catch (e) {
       console.error(e);
       body.innerHTML = `<div class="muted" style="color:#b91c1c;">${e.message || 'Error inesperado cargando socios impagos'}</div>`;
+      const totalMontoEl = $('impagosModalTotalMonto');
+      if (totalMontoEl) totalMontoEl.textContent = '';
     }
   }
 

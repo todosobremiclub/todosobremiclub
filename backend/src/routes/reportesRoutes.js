@@ -892,8 +892,17 @@ ORDER BY s.numero_socio ASC
 LIMIT $4 OFFSET $5;
       `;
 
-      const qCount = `
-SELECT COUNT(1) AS total
+const qCount = `
+SELECT
+  COUNT(1) AS total,
+  COALESCE(SUM(
+    CASE
+      WHEN gf_miembro.id IS NOT NULL THEN 0
+      WHEN gf_jefe.id    IS NOT NULL THEN COALESCE(act_gf.precio_mensual, 0)
+      WHEN ec.id         IS NOT NULL THEN COALESCE(ec.monto, 0)
+      ELSE COALESCE(act.precio_mensual, 0)
+    END
+  ), 0) AS total_monto
 FROM socios s
 LEFT JOIN (
   SELECT
@@ -908,6 +917,26 @@ LEFT JOIN (
 ) pm
   ON pm.socio_id = s.id
  AND pm.mes = $3
+LEFT JOIN excepciones_cuota ec
+  ON ec.id = s.excepcion_cuota_id
+ AND ec.club_id = s.club_id
+LEFT JOIN grupos_familiares gf_jefe
+  ON gf_jefe.club_id = s.club_id
+ AND gf_jefe.jefe_socio_id = s.id
+ AND gf_jefe.activo = true
+LEFT JOIN grupos_familiares_miembros gfm
+  ON gfm.socio_id = s.id
+LEFT JOIN grupos_familiares gf_miembro
+  ON gf_miembro.id = gfm.grupo_familiar_id
+ AND gf_miembro.activo = true
+LEFT JOIN actividades act
+  ON act.club_id = s.club_id
+ AND act.nombre = s.actividad
+ AND act.activo = true
+LEFT JOIN actividades act_gf
+  ON act_gf.club_id = s.club_id
+ AND act_gf.nombre = 'Grupo Familiar'
+ AND act_gf.activo = true
 WHERE s.club_id = $1
   AND s.activo = true
   AND s.becado = false
@@ -931,10 +960,12 @@ WHERE s.club_id = $1
       ]);
 
       const total = Number(rCount.rows[0].total);
+      const totalMonto = Number(rCount.rows[0].total_monto);
 
       return res.json({
         ok: true,
         total,
+        totalMonto,
         limit,
         offset,
         items: rDetalle.rows
