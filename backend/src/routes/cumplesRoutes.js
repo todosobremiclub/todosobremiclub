@@ -97,7 +97,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
     let queryParams;
 
     if (esAdmin) {
-      queryText = `
+queryText = `
         SELECT
           id,
           nombre,
@@ -112,7 +112,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
         FROM socios
         WHERE club_id = $1
           AND activo = true
-        ORDER BY fecha_nacimiento
+        ORDER BY EXTRACT(MONTH FROM fecha_nacimiento), EXTRACT(DAY FROM fecha_nacimiento)
       `;
       queryParams = [clubId];
     } else if (req.user?.socioId) {
@@ -133,7 +133,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
         return res.status(403).json({ ok: false, error: 'El socio no pertenece a este club' });
       }
 
-      queryText = `
+queryText = `
         SELECT
           id,
           nombre,
@@ -149,7 +149,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
         WHERE club_id = $1
           AND activo = true
           AND actividad = $2
-        ORDER BY fecha_nacimiento
+        ORDER BY EXTRACT(MONTH FROM fecha_nacimiento), EXTRACT(DAY FROM fecha_nacimiento)
       `;
       queryParams = [clubId, actividad];
     } else {
