@@ -847,7 +847,7 @@ router.get(
     }
 
     try {
-      const qDetalle = `
+const qDetalle = `
 SELECT
   s.id,
   s.numero_socio,
@@ -856,8 +856,18 @@ SELECT
   s.apellido,
   s.actividad,
   s.categoria,
-  s.telefono,
   s.fecha_ingreso,
+  CASE
+    WHEN gf_miembro.id IS NOT NULL THEN 0
+    ELSE
+      COALESCE(
+        CASE
+          WHEN ec.id      IS NOT NULL THEN ec.monto
+          WHEN gf_jefe.id IS NOT NULL THEN act_gf.precio_mensual
+          ELSE act.precio_mensual
+        END, 0
+      ) + COALESCE(adic.adicionales_monto, 0)
+  END AS monto_cuota,
 CASE  
   WHEN pm.socio_id IS NULL THEN 'Sin pago'  
 END
@@ -876,6 +886,37 @@ LEFT JOIN (
 ) pm
   ON pm.socio_id = s.id
  AND pm.mes = $3
+LEFT JOIN excepciones_cuota ec
+  ON ec.id = s.excepcion_cuota_id
+ AND ec.club_id = s.club_id
+ AND ec.activo = true
+LEFT JOIN grupos_familiares gf_jefe
+  ON gf_jefe.club_id = s.club_id
+ AND gf_jefe.jefe_socio_id = s.id
+ AND gf_jefe.activo = true
+LEFT JOIN grupos_familiares_miembros gfm
+  ON gfm.socio_id = s.id
+LEFT JOIN grupos_familiares gf_miembro
+  ON gf_miembro.id = gfm.grupo_familiar_id
+ AND gf_miembro.activo = true
+LEFT JOIN actividades act
+  ON act.club_id = s.club_id
+ AND act.nombre = s.actividad
+ AND act.activo = true
+LEFT JOIN actividades act_gf
+  ON act_gf.club_id = s.club_id
+ AND act_gf.nombre = 'Grupo Familiar'
+ AND act_gf.activo = true
+LEFT JOIN LATERAL (
+  SELECT COALESCE(SUM(aa.precio_mensual), 0) AS adicionales_monto
+  FROM jsonb_array_elements_text(
+    COALESCE(NULLIF(s.actividades_adicionales, ''), '[]')::jsonb
+  ) ad(nombre)
+  LEFT JOIN actividades_adicionales aa
+    ON aa.club_id = s.club_id
+   AND aa.activo = true
+   AND TRIM(aa.nombre) = TRIM(ad.nombre)
+) adic ON true
 WHERE s.club_id = $1
   AND s.activo = true
   AND s.becado = false
@@ -898,9 +939,14 @@ SELECT
   COALESCE(SUM(
     CASE
       WHEN gf_miembro.id IS NOT NULL THEN 0
-      WHEN gf_jefe.id    IS NOT NULL THEN COALESCE(act_gf.precio_mensual, 0)
-      WHEN ec.id         IS NOT NULL THEN COALESCE(ec.monto, 0)
-      ELSE COALESCE(act.precio_mensual, 0)
+      ELSE
+        COALESCE(
+          CASE
+            WHEN ec.id      IS NOT NULL THEN ec.monto
+            WHEN gf_jefe.id IS NOT NULL THEN act_gf.precio_mensual
+            ELSE act.precio_mensual
+          END, 0
+        ) + COALESCE(adic.adicionales_monto, 0)
     END
   ), 0) AS total_monto
 FROM socios s
@@ -920,6 +966,7 @@ LEFT JOIN (
 LEFT JOIN excepciones_cuota ec
   ON ec.id = s.excepcion_cuota_id
  AND ec.club_id = s.club_id
+ AND ec.activo = true
 LEFT JOIN grupos_familiares gf_jefe
   ON gf_jefe.club_id = s.club_id
  AND gf_jefe.jefe_socio_id = s.id
@@ -937,6 +984,16 @@ LEFT JOIN actividades act_gf
   ON act_gf.club_id = s.club_id
  AND act_gf.nombre = 'Grupo Familiar'
  AND act_gf.activo = true
+LEFT JOIN LATERAL (
+  SELECT COALESCE(SUM(aa.precio_mensual), 0) AS adicionales_monto
+  FROM jsonb_array_elements_text(
+    COALESCE(NULLIF(s.actividades_adicionales, ''), '[]')::jsonb
+  ) ad(nombre)
+  LEFT JOIN actividades_adicionales aa
+    ON aa.club_id = s.club_id
+   AND aa.activo = true
+   AND TRIM(aa.nombre) = TRIM(ad.nombre)
+) adic ON true
 WHERE s.club_id = $1
   AND s.activo = true
   AND s.becado = false
