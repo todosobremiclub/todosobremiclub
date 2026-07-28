@@ -3737,12 +3737,14 @@ router.get(
 
       let esperado = 0;
       let socios = 0;
+      let necesitaRecalcular = true;
+      let snapshotSource = 'dinamico';
 
-      // 1) Si el mes cerró, intentar usar snapshot
+      // 1) Si el mes cerró, intentar usar snapshot — pero solo si sigue vigente
       if (closedMonth) {
         const rExist = await db.query(
           `
-          SELECT monto_esperado, socios_count
+          SELECT monto_esperado, socios_count, created_at
           FROM resumen_esperado_mensual
           WHERE club_id = $1
             AND anio = $2
@@ -3753,13 +3755,32 @@ router.get(
         );
 
         if (rExist.rowCount) {
-          esperado = Number(rExist.rows[0].monto_esperado);
-          socios = Number(rExist.rows[0].socios_count);
+          const rCambios = await db.query(
+            `
+            SELECT EXISTS (
+              SELECT 1 FROM socios
+              WHERE club_id = $1
+                AND updated_at > $2
+            ) AS hay_cambios
+            `,
+            [clubId, rExist.rows[0].created_at]
+          );
+
+          const snapshotDesactualizado = rCambios.rows[0].hay_cambios;
+
+          if (!snapshotDesactualizado) {
+            esperado = Number(rExist.rows[0].monto_esperado);
+            socios = Number(rExist.rows[0].socios_count);
+            necesitaRecalcular = false;
+            snapshotSource = 'guardado';
+          } else {
+            snapshotSource = 'recalculado_por_cambios';
+          }
         }
       }
 
-      // 2) Si no había snapshot o el mes no cerró, calcular en vivo
-      if (!esperado && !socios) {
+      // 2) Si no había snapshot vigente, o quedó desactualizado, o el mes no cerró: calcular en vivo
+      if (necesitaRecalcular) {
 const q = `
   SELECT
     s.becado,
@@ -3820,6 +3841,9 @@ const q = `
 
         const r = await db.query(q, [clubId, anio, mes]);
 
+        esperado = 0;
+        socios = 0;
+
 for (const s of r.rows) {
   if (s.becado) continue;
 
@@ -3841,14 +3865,17 @@ for (const s of r.rows) {
   socios++;
 }
 
-        // Guardar snapshot SOLO si el mes cerró
+        // Guardar/actualizar snapshot SOLO si el mes cerró
         if (closedMonth) {
           await db.query(
             `
             INSERT INTO resumen_esperado_mensual
-              (club_id, anio, mes, monto_esperado, socios_count)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (club_id, anio, mes) DO NOTHING
+              (club_id, anio, mes, monto_esperado, socios_count, created_at)
+            VALUES ($1, $2, $3, $4, $5, NOW())
+            ON CONFLICT (club_id, anio, mes) DO UPDATE
+              SET monto_esperado = EXCLUDED.monto_esperado,
+                  socios_count   = EXCLUDED.socios_count,
+                  created_at     = NOW()
             `,
             [clubId, anio, mes, esperado, socios]
           );
@@ -3878,12 +3905,12 @@ for (const s of r.rows) {
         esperado,
         recaudado,
         diferencia,
-        source: closedMonth ? 'cerrado' : 'dinamico'
+        source: closedMonth ? snapshotSource : 'dinamico'
       });
 
     } catch (e) {
       console.error('❌ esperado-vs-recaudado:', e);
-      return res.status(500).json({ ok: false, error: e.message });
+      res.status(500).json({ ok: false, error: e.message });
     }
   }
 );
