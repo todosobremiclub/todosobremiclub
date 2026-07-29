@@ -298,7 +298,7 @@ const rClub = await db.query(
       : false;
 
 
-    const rSocio = await db.query(
+const rSocio = await db.query(
       `
 SELECT
   pm.id,
@@ -310,7 +310,8 @@ SELECT
   pm.monto_total_teorico,
   pm.monto_pagado,
   pm.pago_completo,
-  tp.estado_transferencia
+  tp.estado_transferencia,
+  tp.comprobante_texto
       FROM pagos_mensuales pm
       LEFT JOIN LATERAL (
         SELECT
@@ -318,7 +319,8 @@ SELECT
             WHEN estado = 'comprobante_subido' THEN 'en_revision'
             WHEN estado = 'rechazado' THEN 'rechazado'
             ELSE NULL
-          END AS estado_transferencia
+          END AS estado_transferencia,
+          comprobante_texto
         FROM transferencias_pago
         WHERE club_id = pm.club_id
           AND socio_id = pm.socio_id
@@ -337,6 +339,18 @@ SELECT
 
     let pagosRows = rSocio.rows || [];
 
+    // Extraer el texto del último rechazo (después de "[RECHAZO] ")
+    pagosRows = pagosRows.map((p) => {
+      if (p.estado_transferencia === 'rechazado' && p.comprobante_texto) {
+        const match = String(p.comprobante_texto).match(/\[RECHAZO\]\s*([\s\S]*)$/);
+        p.motivo_rechazo = match ? match[1].trim() : null;
+      } else {
+        p.motivo_rechazo = null;
+      }
+      delete p.comprobante_texto;
+      return p;
+    });
+
     const now = new Date();
     const anioNow = now.getFullYear();
     const mesNow = now.getMonth() + 1;
@@ -345,7 +359,7 @@ SELECT
     if (Number(anio) === Number(anioNow)) {
       const existeMes = pagosRows.some((p) => Number(p.mes) === Number(mesNow));
 
-      if (!existeMes) {
+if (!existeMes) {
         const rT = await db.query(
           `
           SELECT
@@ -353,7 +367,8 @@ SELECT
               WHEN estado = 'comprobante_subido' THEN 'en_revision'
               WHEN estado = 'rechazado' THEN 'rechazado'
               ELSE NULL
-            END AS estado_transferencia
+            END AS estado_transferencia,
+            comprobante_texto
           FROM transferencias_pago
           WHERE club_id = $1
             AND socio_id = $2
@@ -365,15 +380,21 @@ SELECT
           [clubId, socioId, anioNow, mesNow]
         );
 
+        const estadoActual = rT.rowCount ? rT.rows[0].estado_transferencia : null;
+        let motivoActual = null;
+        if (estadoActual === 'rechazado' && rT.rows[0].comprobante_texto) {
+          const match = String(rT.rows[0].comprobante_texto).match(/\[RECHAZO\]\s*([\s\S]*)$/);
+          motivoActual = match ? match[1].trim() : null;
+        }
+
         pagosRows.push({
           mes: mesNow,
           monto: 0,
           fecha_pago: '',
           cuenta: '',
           pendiente: true,
-          estado_transferencia: rT.rowCount
-            ? rT.rows[0].estado_transferencia
-            : null,
+          estado_transferencia: estadoActual,
+          motivo_rechazo: motivoActual,
         });
       }
     }
