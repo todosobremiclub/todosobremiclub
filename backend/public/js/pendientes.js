@@ -164,14 +164,10 @@ items.forEach(t => {
         ? `<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;">Parcial</span>`
         : '';
 
-      tr.innerHTML = `
+tr.innerHTML = `
   <td>${socioLabel}</td>
   <td>${periodo}</td>
   <td>${moneyArs(t.monto_esperado)} ${parcialBadge}</td>
-
-<td>${t.fecha_formateada || '—'}</td>
-    ${t.referencia || '—'}
-  </td>
 
   <td>${t.fecha_formateada || '—'}</td>
 
@@ -196,6 +192,7 @@ items.forEach(t => {
     </button>
   </td>
 `;
+
       tbody.appendChild(tr);
     });
   }
