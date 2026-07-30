@@ -50,12 +50,24 @@ function parseAdicionalesSocio(raw) {
  */
 async function getConceptosDisponibles(clubId, socioId) {
   const rSoc = await db.query(
-    `SELECT id, actividad, excepcion_cuota_id,
-            actividades_adicionales,
-            es_jefe_plan_familiar, es_miembro_plan_familiar
-     FROM socios
-     WHERE id=$1 AND club_id=$2
-     LIMIT 1`,
+    `
+    SELECT
+      s.id, s.actividad, s.excepcion_cuota_id, s.actividades_adicionales,
+      CASE WHEN gf_jefe.id IS NOT NULL THEN true ELSE false END AS es_jefe_plan_familiar,
+      CASE WHEN gf_miembro.id IS NOT NULL THEN true ELSE false END AS es_miembro_plan_familiar
+    FROM socios s
+    LEFT JOIN grupos_familiares gf_jefe
+      ON gf_jefe.club_id = s.club_id
+     AND gf_jefe.jefe_socio_id = s.id
+     AND gf_jefe.activo = true
+    LEFT JOIN grupos_familiares_miembros gfm
+      ON gfm.socio_id = s.id
+    LEFT JOIN grupos_familiares gf_miembro
+      ON gf_miembro.id = gfm.grupo_familiar_id
+     AND gf_miembro.activo = true
+    WHERE s.id=$1 AND s.club_id=$2
+    LIMIT 1
+    `,
     [socioId, clubId]
   );
   if (!rSoc.rowCount) return null;
