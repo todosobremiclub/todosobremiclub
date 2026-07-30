@@ -169,7 +169,7 @@ items.forEach(t => {
   <td>${periodo}</td>
   <td>${moneyArs(t.monto_esperado)} ${parcialBadge}</td>
 
-  <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+<td>${t.fecha_formateada || '—'}</td>
     ${t.referencia || '—'}
   </td>
 
