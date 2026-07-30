@@ -136,22 +136,38 @@ function renderSociosPendientes(items) {
       return;
     }
 
-    items.forEach(t => {
+items.forEach(t => {
       const tr = document.createElement('tr');
       tr.dataset.id = t.id;
 
       const socioLabel = `#${t.numero_socio ?? '—'} ${t.apellido ?? ''} ${t.nombre ?? ''}`.trim();
       const periodo = `${t.mes}/${t.anio}`;
-      const estadoTxt = (t.estado === 'comprobante_subido') ? 'Con comprobante' : 'Iniciada';
 
-      const comprobanteHtml = t.comprobante_url
-        ? `<a href="${t.comprobante_url}" target="_blank" rel="noopener">Ver</a>`
-        : (t.comprobante_texto ? 'Texto' : '—');
+      // Comprobante: si es una imagen, la mostramos como miniatura clickeable
+      const esImagen = t.comprobante_url && /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(t.comprobante_url);
+      const comprobanteHtml = esImagen
+        ? `<img src="${t.comprobante_url}" class="pend-mini" style="cursor:pointer;" onclick="window.open('${t.comprobante_url}','_blank')" />`
+        : (t.comprobante_url
+            ? `<a href="${t.comprobante_url}" target="_blank" rel="noopener">Ver</a>`
+            : '—');
+
+      // Detalle: qué está pagando (base/adicional) + si es parcial
+      let detalleConceptos = '';
+      try {
+        const detalle = typeof t.detalle_pago === 'string' ? JSON.parse(t.detalle_pago) : t.detalle_pago;
+        if (Array.isArray(detalle) && detalle.length) {
+          detalleConceptos = detalle.map(c => c.nombre).join(', ');
+        }
+      } catch {}
+
+      const parcialBadge = t.es_parcial
+        ? `<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;">Parcial</span>`
+        : '';
 
       tr.innerHTML = `
   <td>${socioLabel}</td>
   <td>${periodo}</td>
-  <td>${moneyArs(t.monto_esperado)}</td>
+  <td>${moneyArs(t.monto_esperado)} ${parcialBadge}</td>
 
   <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
     ${t.referencia || '—'}
@@ -159,8 +175,13 @@ function renderSociosPendientes(items) {
 
   <td>${t.fecha_formateada || '—'}</td>
 
+  <td>${comprobanteHtml}</td>
+
   <td>
-    ${t.comprobante_texto ? t.comprobante_texto : '—'}
+    <div><b>Concepto:</b> ${detalleConceptos || '—'}</div>
+    <div><b>Cuenta origen:</b> ${t.cuenta_origen || '—'}</div>
+    ${t.comentario ? `<div><b>Comentario:</b> ${t.comentario}</div>` : ''}
+    ${t.comprobante_texto ? `<div><b>Nota:</b> ${t.comprobante_texto}</div>` : ''}
   </td>
 
   <td style="white-space:nowrap;">

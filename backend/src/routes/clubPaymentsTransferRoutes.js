@@ -50,7 +50,7 @@ router.get('/:clubId/payments/transfer/pending', requireAuth, requireClubAccess,
     if (estado === 'iniciado') estados = ['iniciado'];
     if (estado === 'comprobante_subido') estados = ['comprobante_subido'];
 
-    const r = await db.query(
+const r = await db.query(
       `
       SELECT
         t.id,
@@ -65,7 +65,11 @@ router.get('/:clubId/payments/transfer/pending', requireAuth, requireClubAccess,
         t.monto_esperado,
         t.estado,
         t.comprobante_url,
-t.comprobante_texto,
+        t.comprobante_texto,
+        t.cuenta_origen,
+        t.comentario,
+        t.detalle_pago,
+        t.es_parcial,
 to_char(t.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Argentina/Buenos_Aires', 'DD/MM/YYYY HH24:MI') as fecha_formateada
       FROM transferencias_pago t
       JOIN socios s ON s.id = t.socio_id AND s.club_id = t.club_id
@@ -158,17 +162,28 @@ await db.query(
     }
     const s = rSoc.rows[0];
 
-    // 4) Insertar recibo real
+// 4) Insertar recibo real (respetando si fue un pago parcial)
+    const montoPago = Number(t.monto_esperado) || 0;
+    const esParcial = t.es_parcial === true;
+    const detallePago = t.detalle_pago
+      ? (typeof t.detalle_pago === 'string' ? t.detalle_pago : JSON.stringify(t.detalle_pago))
+      : null;
+    const cuentaTexto = t.cuenta_origen
+      ? `Transferencia (cuenta origen: ${t.cuenta_origen})`
+      : 'Transferencia';
+
     const rIns = await db.query(
       `
       INSERT INTO pagos_mensuales
       (club_id, socio_id, anio, mes, monto, fecha_pago, cuenta,
        socio_nombre, socio_apellido, socio_numero,
-       estado_pago, metodo_pago, referencia_transferencia, confirmado_at)
+       estado_pago, metodo_pago, referencia_transferencia, confirmado_at,
+       monto_pagado, monto_total_teorico, pago_completo, es_parcial, detalle_pago)
       VALUES
       ($1,$2,$3,$4,$5,$6,$7,
        $8,$9,$10,
-       $11,$12,$13,$14)
+       $11,$12,$13,$14,
+       $15,$16,$17,$18,$19::jsonb)
       RETURNING id
       `,
       [
@@ -176,16 +191,21 @@ await db.query(
         t.socio_id,
         t.anio,
         t.mes,
-        Number(t.monto_esperado),
+        montoPago,
         fechaPago,
-        'Transferencia',
+        cuentaTexto,
         s.nombre ?? null,
         s.apellido ?? null,
         s.numero_socio ?? null,
         'confirmado',
         'transferencia',
         t.referencia,
-        new Date()
+        new Date(),
+        montoPago,
+        montoPago,
+        !esParcial,
+        esParcial,
+        detallePago
       ]
     );
 
