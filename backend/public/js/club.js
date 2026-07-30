@@ -333,18 +333,17 @@ function buildPermissions(role){
     role: r,
     // Acceso a secciones (qué puede ver)
     canAccess(section){
-      if (r === 'asistencias') return section === 'reportes';
       if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
-      if (r === 'profesor') return ['socios','noticias','notificaciones'].includes(section);
+      if (r === 'profesor') return ['socios','noticias','notificaciones','asistencia'].includes(section);
       return ALL_SECTIONS.includes(section);
     },
     // Escritura / ejecutar acciones (mutaciones)
     canWrite(section){
       if (r === 'admin') return true;
-      if (r === 'asistencias') return section === 'reportes';
       if (r === 'finanzas') return ['pagos','gastos','reportes'].includes(section);
       if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
-      if (r === 'profesor') return ['noticias','notificaciones'].includes(section);
+      if (r === 'profesor') return ['noticias','notificaciones','asistencia'].includes(section);
+      if (r === 'asistencias') return ['asistencia'].includes(section);
       return false; // solo_lectura u otros
     }
   };
@@ -397,11 +396,14 @@ function pickDefaultSection(perms){
       const isSameOrigin = !/^https?:\/\//i.test(url) || url.startsWith(window.location.origin);
 
       if (isSameOrigin && method !== 'GET' && method !== 'HEAD'){
-        const urlStr = String(url || '');
+const urlStr = String(url || '');
 let sec = window.currentSection;
 
 if (urlStr.includes('/noticias')) {
   sec = 'noticias';
+}
+if (urlStr.includes('/asistencia')) {
+  sec = 'asistencia';
 }
         const p = window.__clubPerms;
         if (p && !p.canWrite(sec)){
