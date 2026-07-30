@@ -162,7 +162,7 @@ router.post('/payments/transfer/start', requireAuth, async (req, res) => {
       [clubId, socioId, anioNum, mesNum]
     );
 
-    if (rActivo.rowCount) {
+if (rActivo.rowCount) {
       const activo = rActivo.rows[0];
 
       if (activo.estado === 'comprobante_subido') {
@@ -174,10 +174,15 @@ router.post('/payments/transfer/start', requireAuth, async (req, res) => {
         });
       }
 
+      // Reutilizamos el intento, pero igual necesitamos calcular
+      // los conceptos disponibles para que la app pueda mostrarlos
+      const conceptosReuse = await getConceptosDisponibles(clubId, socioId);
+
       return res.json({
         ok: true,
         transferenciaId: activo.id,
         estado: 'iniciado',
+        conceptosDisponibles: conceptosReuse || [],
         reuse: true
       });
     }
