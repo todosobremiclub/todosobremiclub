@@ -479,11 +479,9 @@ try {
     );
 
     // 2) Limpieza de tablas sin FK estricta pero que igual referencian club_id
-    //    (no rompen el DELETE, pero dejan basura si no se borran)
     await db.query('DELETE FROM pagos_mensuales WHERE club_id=$1', [id]);
     await db.query('DELETE FROM gastos WHERE club_id=$1', [id]);
     await db.query('DELETE FROM ingresos_generales WHERE club_id=$1', [id]);
-    await db.query('DELETE FROM excepciones_cuota WHERE club_id=$1', [id]);
     await db.query('DELETE FROM categorias_deportivas WHERE club_id=$1', [id]);
     await db.query('DELETE FROM tipos_gasto WHERE club_id=$1', [id]);
     await db.query('DELETE FROM tipos_ingreso WHERE club_id=$1', [id]);
@@ -502,6 +500,9 @@ try {
 
     // 4) socios (después de todo lo que dependía de socio_id)
     await db.query('DELETE FROM socios WHERE club_id=$1', [id]);
+
+    // 4b) excepciones_cuota: recién ahora, porque "socios" tenía una FK hacia esta tabla
+    await db.query('DELETE FROM excepciones_cuota WHERE club_id=$1', [id]);
 
     // 5) contadores / auxiliares
     await db.query('DELETE FROM club_counters WHERE club_id=$1', [id]);
