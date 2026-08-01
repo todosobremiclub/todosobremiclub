@@ -461,38 +461,44 @@ router.delete('/:id', requireAuth, requireRole('superadmin'), async (req, res) =
 try {
     await db.query('BEGIN');
 
-    // ⚠️ BORRAR HIJOS PRIMERO, respetando dependencias entre tablas hijas
-    // (ej: grupos_familiares_miembros depende de grupos_familiares y de socios;
-    //  gastos depende de tipos_gasto y responsables_gasto;
-    //  ingresos_generales depende de tipos_ingreso; etc.)
-
-    // 1) Nietos: dependen de otras tablas hijas, deben irse primero
+    // 1) Nietos / tablas que dependen de otras tablas hijas (deben irse primero)
     await db.query(
       `DELETE FROM grupos_familiares_miembros
        WHERE grupo_familiar_id IN (SELECT id FROM grupos_familiares WHERE club_id=$1)`,
       [id]
     );
+    await db.query(
+      `DELETE FROM grupos_familiares_miembros
+       WHERE socio_id IN (SELECT id FROM socios WHERE club_id=$1)`,
+      [id]
+    );
+    await db.query(
+      `DELETE FROM asistencia_detalle
+       WHERE socio_id IN (SELECT id FROM socios WHERE club_id=$1)`,
+      [id]
+    );
+
+    // 2) Limpieza de tablas sin FK estricta pero que igual referencian club_id
+    //    (no rompen el DELETE, pero dejan basura si no se borran)
     await db.query('DELETE FROM pagos_mensuales WHERE club_id=$1', [id]);
     await db.query('DELETE FROM gastos WHERE club_id=$1', [id]);
     await db.query('DELETE FROM ingresos_generales WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM excepciones_cuota WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM categorias_deportivas WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM tipos_gasto WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM tipos_ingreso WHERE club_id=$1', [id]);
 
-    // 2) Hijos directos de socios / club
+    // 3) Hijos directos de socios / club (con FK real)
     await db.query('DELETE FROM socios_adjuntos WHERE club_id=$1', [id]);
     await db.query('DELETE FROM socios_comentarios WHERE club_id=$1', [id]);
-    await db.query('DELETE FROM cuotas_mensuales WHERE club_id=$1', [id]);
-    await db.query('DELETE FROM excepciones_cuota WHERE club_id=$1', [id]);
     await db.query('DELETE FROM grupos_familiares WHERE club_id=$1', [id]);
-    await db.query('DELETE FROM categorias_deportivas WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM asistencia_eventos WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM cuotas_mensuales WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM responsables_gasto WHERE club_id=$1', [id]);
     await db.query('DELETE FROM actividades WHERE club_id=$1', [id]);
     await db.query('DELETE FROM noticias WHERE club_id=$1', [id]);
     await db.query('DELETE FROM notificaciones WHERE club_id=$1', [id]);
     await db.query('DELETE FROM club_comments WHERE club_id=$1', [id]);
-
-    // 3) Tablas de configuración que ahora sí pueden borrarse
-    //    (después de gastos e ingresos_generales, que las referenciaban)
-    await db.query('DELETE FROM tipos_gasto WHERE club_id=$1', [id]);
-    await db.query('DELETE FROM tipos_ingreso WHERE club_id=$1', [id]);
-    await db.query('DELETE FROM responsables_gasto WHERE club_id=$1', [id]);
 
     // 4) socios (después de todo lo que dependía de socio_id)
     await db.query('DELETE FROM socios WHERE club_id=$1', [id]);
