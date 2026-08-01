@@ -461,24 +461,32 @@ router.delete('/:id', requireAuth, requireRole('superadmin'), async (req, res) =
 try {
     await db.query('BEGIN');
 
-    // 1) Nietos / tablas que dependen de otras tablas hijas (deben irse primero)
+    // 1) Tablas que dependen de otra tabla hija (deben irse primero que su padre)
     await db.query(
-      `DELETE FROM grupos_familiares_miembros
-       WHERE grupo_familiar_id IN (SELECT id FROM grupos_familiares WHERE club_id=$1)`,
-      [id]
-    );
-    await db.query(
-      `DELETE FROM grupos_familiares_miembros
-       WHERE socio_id IN (SELECT id FROM socios WHERE club_id=$1)`,
+      `DELETE FROM transferencias_pago
+       WHERE pago_mensual_id IN (SELECT id FROM pagos_mensuales WHERE club_id=$1)`,
       [id]
     );
     await db.query(
       `DELETE FROM asistencia_detalle
-       WHERE socio_id IN (SELECT id FROM socios WHERE club_id=$1)`,
+       WHERE socio_id IN (SELECT id FROM socios WHERE club_id=$1)
+          OR evento_id IN (SELECT id FROM asistencia_eventos WHERE club_id=$1)`,
+      [id]
+    );
+    await db.query(
+      `DELETE FROM grupos_familiares_miembros
+       WHERE grupo_familiar_id IN (SELECT id FROM grupos_familiares WHERE club_id=$1)
+          OR socio_id IN (SELECT id FROM socios WHERE club_id=$1)`,
       [id]
     );
 
-    // 2) Limpieza de tablas sin FK estricta pero que igual referencian club_id
+    // 2) Ahora sí, tablas que ya no tienen hijos pendientes
+    await db.query('DELETE FROM asistencia_eventos WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM grupos_familiares WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM socios_adjuntos WHERE club_id=$1', [id]);
+    await db.query('DELETE FROM socios_comentarios WHERE club_id=$1', [id]);
+
+    // 3) Tablas sin FK real hacia clubs, pero con club_id (limpieza, no rompen el DELETE)
     await db.query('DELETE FROM pagos_mensuales WHERE club_id=$1', [id]);
     await db.query('DELETE FROM gastos WHERE club_id=$1', [id]);
     await db.query('DELETE FROM ingresos_generales WHERE club_id=$1', [id]);
@@ -486,11 +494,7 @@ try {
     await db.query('DELETE FROM tipos_gasto WHERE club_id=$1', [id]);
     await db.query('DELETE FROM tipos_ingreso WHERE club_id=$1', [id]);
 
-    // 3) Hijos directos de socios / club (con FK real)
-    await db.query('DELETE FROM socios_adjuntos WHERE club_id=$1', [id]);
-    await db.query('DELETE FROM socios_comentarios WHERE club_id=$1', [id]);
-    await db.query('DELETE FROM grupos_familiares WHERE club_id=$1', [id]);
-    await db.query('DELETE FROM asistencia_eventos WHERE club_id=$1', [id]);
+    // 4) Resto de hijos directos de clubs
     await db.query('DELETE FROM cuotas_mensuales WHERE club_id=$1', [id]);
     await db.query('DELETE FROM responsables_gasto WHERE club_id=$1', [id]);
     await db.query('DELETE FROM actividades WHERE club_id=$1', [id]);
@@ -498,19 +502,19 @@ try {
     await db.query('DELETE FROM notificaciones WHERE club_id=$1', [id]);
     await db.query('DELETE FROM club_comments WHERE club_id=$1', [id]);
 
-    // 4) socios (después de todo lo que dependía de socio_id)
+    // 5) socios (después de TODO lo que dependía de socio_id)
     await db.query('DELETE FROM socios WHERE club_id=$1', [id]);
 
-    // 4b) excepciones_cuota: recién ahora, porque "socios" tenía una FK hacia esta tabla
+    // 6) excepciones_cuota: recién ahora, porque "socios" tenía FK hacia esta tabla
     await db.query('DELETE FROM excepciones_cuota WHERE club_id=$1', [id]);
 
-    // 5) contadores / auxiliares
+    // 7) contadores / auxiliares
     await db.query('DELETE FROM club_counters WHERE club_id=$1', [id]);
 
-    // 6) relación usuarios↔club
+    // 8) relación usuarios↔club
     await db.query('DELETE FROM user_clubs WHERE club_id=$1', [id]);
 
-    // 7) por último, el club
+    // 9) por último, el club
     await db.query('DELETE FROM clubs WHERE id=$1', [id]);
 
     await db.query('COMMIT');
