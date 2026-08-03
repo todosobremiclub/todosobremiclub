@@ -25,9 +25,19 @@
     </div>
   </div>
 
-  <div class="socios-info">
-    <span id="sociosActivosCount">Socios activos: 0</span>
+<div class="socios-info">
+  <div class="socios-quick-stats">
+    <button type="button" id="btnStatImpagosMes" class="socios-stat-btn socios-stat-btn--warn" title="Ver listado de socios impagos del mes en curso">
+      <span class="socios-stat-dot"></span>
+      <span id="sociosImpagosMesCount">Impagos del mes: –</span>
+    </button>
+
+    <button type="button" id="btnStatPendientes" class="socios-stat-btn socios-stat-btn--info" title="Ver solicitudes pendientes">
+      <span class="socios-stat-dot"></span>
+      <span id="sociosPendientesCount">Solicitudes pendientes: –</span>
+    </button>
   </div>
+</div>
 </div>
 
   <!-- ================= TABLA ================= -->
@@ -500,19 +510,59 @@
 .socios-info {
   margin-top: 8px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
-#sociosActivosCount {
+#sociosImpagosMesCount,
+#sociosPendientesCount {
+  white-space: nowrap;
+}
+
+/* ================= BOTONES DE ESTADÍSTICAS RÁPIDAS (SOCIOS) ================= */
+.socios-quick-stats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.socios-stat-btn {
   display: inline-flex;
   align-items: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-primary) 8%, #ffffff);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, #dbe3ef);
-  color: #0f172a;
-  font-size: 12px;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
   font-weight: 700;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.socios-stat-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.10);
+}
+
+.socios-stat-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+/* Impagos del mes -> color de acento del club */
+.socios-stat-btn--warn {
+  color: color-mix(in srgb, var(--color-accent) 55%, #000000);
+  background: color-mix(in srgb, var(--color-accent) 16%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+/* Solicitudes pendientes -> color secundario del club */
+.socios-stat-btn--info {
+  color: color-mix(in srgb, var(--color-secondary) 60%, #000000);
+  background: color-mix(in srgb, var(--color-secondary) 10%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
 }
 
 /* ================= FONDO TENUE CLUB – VISTA SOCIOS ================= */
@@ -734,6 +784,16 @@
 
   .socios-info {
     justify-content: flex-start;
+  }
+
+  .socios-quick-stats {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .socios-stat-btn {
+    flex: 1 1 100%;
+    justify-content: center;
   }
 
 }

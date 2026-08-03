@@ -2212,6 +2212,116 @@ if (payload.es_menor && !payload.tutor_nombre) {
   }
 
   // =============================
+  // QUICK STATS (Impagos del mes / Pendientes)
+  // =============================
+
+  // Espera hasta `timeoutMs` a que exista un elemento en el DOM (útil porque
+  // las secciones se cargan de forma asíncrona vía loadSection en app.js)
+  function waitForElement(selector, timeoutMs = 4000) {
+    return new Promise((resolve) => {
+      const existing = document.querySelector(selector);
+      if (existing) return resolve(existing);
+
+      const start = Date.now();
+      const interval = setInterval(() => {
+        const el = document.querySelector(selector);
+        if (el) {
+          clearInterval(interval);
+          resolve(el);
+        } else if (Date.now() - start > timeoutMs) {
+          clearInterval(interval);
+          resolve(null);
+        }
+      }, 100);
+    });
+  }
+
+  async function loadImpagosMesActualCount() {
+    const el = $('sociosImpagosMesCount');
+    if (!el) return;
+
+    try {
+      const clubId = getActiveClubId();
+      const now = new Date();
+      const anio = now.getFullYear();
+      const mesActual = now.getMonth() + 1;
+
+      const res = await fetchAuth(`/club/${clubId}/reportes/impagos-mes?anio=${anio}`);
+      const data = await safeJson(res);
+
+      if (!data.ok) {
+        el.textContent = 'Impagos del mes: –';
+        return;
+      }
+
+      const rows = data.rows || [];
+      const rowActual = rows.find((r) => Number(r.mes_num) === mesActual);
+      const cantidad = rowActual ? Number(rowActual.cantidad) : 0;
+
+      el.textContent = `Impagos del mes: ${cantidad}`;
+    } catch (e) {
+      console.warn('No se pudo cargar el conteo de impagos del mes:', e);
+      el.textContent = 'Impagos del mes: –';
+    }
+  }
+
+  async function loadPendientesCount() {
+    const el = $('sociosPendientesCount');
+    if (!el) return;
+
+    try {
+      const clubId = getActiveClubId();
+      const res = await fetchAuth(`/club/${clubId}/pendientes`);
+      const data = await safeJson(res);
+
+      const cantidad = data.ok ? (data.items?.length ?? 0) : 0;
+      el.textContent = `Solicitudes pendientes: ${cantidad}`;
+    } catch (e) {
+      console.warn('No se pudo cargar el conteo de solicitudes pendientes:', e);
+      el.textContent = 'Solicitudes pendientes: –';
+    }
+  }
+
+  async function refreshQuickStatsSocios() {
+    await Promise.all([
+      loadImpagosMesActualCount(),
+      loadPendientesCount()
+    ]);
+  }
+
+  // Botón "Socios impagos en el mes en curso" -> Reportes > vista Socios >
+  // tarjeta "Cuotas impagas", abriendo el detalle del mes actual
+  async function goToReporteImpagosMesActual() {
+    const btnReportes = document.querySelector('[data-section="reportes"]');
+    if (!btnReportes) {
+      alert('No se encontró la sección de Reportes.');
+      return;
+    }
+    btnReportes.click();
+
+    const btnSwitchSocios = await waitForElement('#btnSwitchSocios');
+    btnSwitchSocios?.click();
+
+    const card = await waitForElement('#card-impagos');
+    card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const kpi = await waitForElement('#impagosCount');
+    // Pequeño delay para que reportes.js termine de posicionar
+    // impagosState en el mes en curso antes de simular el click
+    setTimeout(() => kpi?.click(), 300);
+  }
+
+  // Botón "Solicitudes Pendientes" -> solapa Pendientes
+  function goToPendientes() {
+    const btnPendientes = document.querySelector('[data-section="pendientes"]');
+    if (!btnPendientes) {
+      alert('No se encontró la sección de Pendientes.');
+      return;
+    }
+    btnPendientes.click();
+  }
+
+  // =============================
   // Bind events
   // =============================
   function bindOnce() {
@@ -2224,6 +2334,9 @@ if (payload.es_menor && !payload.tutor_nombre) {
     ensurePhotoViewer();
     ensureDraftPhotoUI();
     bindSorting();
+
+    $('btnStatImpagosMes')?.addEventListener('click', goToReporteImpagosMesActual);
+    $('btnStatPendientes')?.addEventListener('click', goToPendientes);
 
     $('filtroActividad')?.addEventListener('change', loadSocios);
     $('btnNuevoSocio')?.addEventListener('click', openModalNew);
@@ -2695,6 +2808,7 @@ root.addEventListener('dblclick', (ev) => {
   await loadExcepcionesCuotaConfig().catch(() => {});
   await loadSociosGrupoFamiliarCache().catch(() => {});
   await loadSocios();
+  await refreshQuickStatsSocios().catch(() => {});
 }
 
   window.initSociosSection = initSociosSection;
