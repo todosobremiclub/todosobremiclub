@@ -173,10 +173,16 @@ router.delete('/:id', requireAuth, requireRole('superadmin'), async (req, res) =
   const { id } = req.params;
 
   try {
+    await db.query('BEGIN');
+
     await db.query(`DELETE FROM user_clubs WHERE user_id=$1`, [id]);
+    await db.query(`DELETE FROM password_reset_tokens WHERE user_id=$1`, [id]);
     await db.query(`DELETE FROM users WHERE id=$1`, [id]);
+
+    await db.query('COMMIT');
     res.json({ ok: true });
   } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ delete user', e);
     res.status(500).json({ ok: false, error: e.message });
   }
