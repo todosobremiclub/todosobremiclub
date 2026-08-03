@@ -27,6 +27,11 @@
 
 <div class="socios-info">
   <div class="socios-quick-stats">
+    <button type="button" id="btnStatSociosActivos" class="socios-stat-btn socios-stat-btn--ok" title="Ver socios activos por Actividad/Categoría">
+      <span class="socios-stat-dot"></span>
+      <span id="sociosActivosCount">Socios activos: 0</span>
+    </button>
+
     <button type="button" id="btnStatImpagosMes" class="socios-stat-btn socios-stat-btn--warn" title="Ver listado de socios impagos del mes en curso">
       <span class="socios-stat-dot"></span>
       <span id="sociosImpagosMesCount">Impagos del mes: –</span>
@@ -38,6 +43,20 @@
     </button>
   </div>
 </div>
+</div>
+
+<!-- ================= MODAL IMPAGOS DEL MES (popup con listado) ================= -->
+<div id="modalImpagosMes" class="modal hidden">
+  <div class="modal-content" style="max-width:760px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <h3 id="modalImpagosMesTitle" style="margin:0;">Impagos del mes</h3>
+      <button id="btnCloseModalImpagosMes" type="button" title="Cerrar" style="border:none; background:transparent; font-size:20px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <div id="modalImpagosMesSub" class="muted small" style="margin-bottom:10px;"></div>
+    <div id="modalImpagosMesBody" style="max-height:60vh; overflow-y:auto;">
+      <div class="muted small">Cargando…</div>
+    </div>
+  </div>
 </div>
 
   <!-- ================= TABLA ================= -->
@@ -513,6 +532,7 @@
   justify-content: center;
 }
 
+#sociosActivosCount,
 #sociosImpagosMesCount,
 #sociosPendientesCount {
   white-space: nowrap;
@@ -549,6 +569,13 @@
   border-radius: 50%;
   background: currentColor;
   flex: 0 0 auto;
+}
+
+/* Socios activos -> color primario del club */
+.socios-stat-btn--ok {
+  color: color-mix(in srgb, var(--color-primary) 70%, #000000);
+  background: color-mix(in srgb, var(--color-primary) 12%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 /* Impagos del mes -> color de acento del club */

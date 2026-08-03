@@ -2289,9 +2289,9 @@ if (payload.es_menor && !payload.tutor_nombre) {
     ]);
   }
 
-  // Botón "Socios impagos en el mes en curso" -> Reportes > vista Socios >
-  // tarjeta "Cuotas impagas", abriendo el detalle del mes actual
-  async function goToReporteImpagosMesActual() {
+  // Botón "Socios activos" -> Reportes > vista Socios > tarjeta
+  // "Socios por Actividad/Categoría"
+  async function goToReporteSociosActividad() {
     const btnReportes = document.querySelector('[data-section="reportes"]');
     if (!btnReportes) {
       alert('No se encontró la sección de Reportes.');
@@ -2302,13 +2302,108 @@ if (payload.es_menor && !payload.tutor_nombre) {
     const btnSwitchSocios = await waitForElement('#btnSwitchSocios');
     btnSwitchSocios?.click();
 
-    const card = await waitForElement('#card-impagos');
+    const card = await waitForElement('#card-actividades');
     card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
-    const kpi = await waitForElement('#impagosCount');
-    // Pequeño delay para que reportes.js termine de posicionar
-    // impagosState en el mes en curso antes de simular el click
-    setTimeout(() => kpi?.click(), 300);
+  // Botón "Impagos del mes" -> abre un popup propio con el listado de
+  // socios impagos del mes en curso (sin salir de la sección Socios)
+  function bindModalImpagosMesOnce() {
+    const modal = $('modalImpagosMes');
+    if (!modal || modal.dataset.bound === '1') return;
+    modal.dataset.bound = '1';
+
+    $('btnCloseModalImpagosMes')?.addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+
+    modal.addEventListener('click', (ev) => {
+      if (ev.target === modal) modal.classList.add('hidden');
+    });
+  }
+
+  async function openImpagosMesModal() {
+    const modal = $('modalImpagosMes');
+    const body = $('modalImpagosMesBody');
+    const title = $('modalImpagosMesTitle');
+    const sub = $('modalImpagosMesSub');
+    if (!modal || !body) return;
+
+    bindModalImpagosMesOnce();
+
+    const now = new Date();
+    const anio = now.getFullYear();
+    const mes = now.getMonth() + 1;
+    const nombresMes = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    if (title) title.textContent = 'Impagos del mes';
+    if (sub) sub.textContent = `${nombresMes[mes - 1]} ${anio} · socios activos sin registro de pago`;
+    body.innerHTML = '<div class="muted small">Cargando socios impagos…</div>';
+    modal.classList.remove('hidden');
+
+    try {
+      const clubId = getActiveClubId();
+      const params = new URLSearchParams({
+        anio: String(anio),
+        mes: String(mes),
+        limit: '100',
+        offset: '0'
+      });
+
+      const res = await fetchAuth(`/club/${clubId}/reportes/impagos-mes/detalle?${params.toString()}`);
+      const data = await safeJson(res);
+
+      if (!data.ok) {
+        body.innerHTML = `<div class="muted" style="color:#b91c1c;">${data.error || 'Error cargando socios impagos'}</div>`;
+        return;
+      }
+
+      const items = data.items || [];
+      const total = Number(data.total || items.length);
+
+      if (!items.length) {
+        body.innerHTML = '<div class="muted">No hay socios impagos este mes.</div>';
+        return;
+      }
+
+      body.innerHTML = `
+        <table class="socios-table" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>N° Socio</th>
+              <th>DNI</th>
+              <th>Apellido</th>
+              <th>Nombre</th>
+              <th>Actividad</th>
+              <th>Categoría</th>
+              <th>Teléfono</th>
+              <th>Fecha ingreso</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((s) => `
+              <tr>
+                <td>${s.numero_socio ?? ''}</td>
+                <td>${s.dni ?? ''}</td>
+                <td>${s.apellido ?? ''}</td>
+                <td>${s.nombre ?? ''}</td>
+                <td>${s.actividad ?? ''}</td>
+                <td>${s.categoria ?? ''}</td>
+                <td>${s.telefono ?? ''}</td>
+                <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0, 10) : ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        ${total > items.length ? `<div class="muted small" style="margin-top:8px;">Mostrando ${items.length} de ${total} socios impagos.</div>` : ''}
+      `;
+    } catch (e) {
+      console.warn('Error abriendo listado de impagos del mes:', e);
+      body.innerHTML = '<div class="muted" style="color:#b91c1c;">Error inesperado cargando el listado.</div>';
+    }
   }
 
   // Botón "Solicitudes Pendientes" -> solapa Pendientes
@@ -2335,7 +2430,8 @@ if (payload.es_menor && !payload.tutor_nombre) {
     ensureDraftPhotoUI();
     bindSorting();
 
-    $('btnStatImpagosMes')?.addEventListener('click', goToReporteImpagosMesActual);
+    $('btnStatSociosActivos')?.addEventListener('click', goToReporteSociosActividad);
+    $('btnStatImpagosMes')?.addEventListener('click', openImpagosMesModal);
     $('btnStatPendientes')?.addEventListener('click', goToPendientes);
 
     $('filtroActividad')?.addEventListener('change', loadSocios);
