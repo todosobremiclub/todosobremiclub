@@ -18,4 +18,9 @@ async function query(text, params) {
   return pool.query(text, params);
 }
 
-module.exports = { query };
+async function getClient() {
+  if (!pool) throw new Error('DATABASE_URL no configurada');
+  return pool.connect();
+}
+
+module.exports = { query, getClient };

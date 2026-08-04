@@ -2681,9 +2681,9 @@ $('sociosTableBody')?.addEventListener('click', async (ev) => {
       return;
     }
 
-    if (confirm('¿Eliminar socio?')) {
-      await deleteSocio(id);
-    }
+if (confirm('¿Eliminar socio? Se borrará de forma PERMANENTE junto con todo su historial (asistencias, pagos, adjuntos, comentarios, etc.). Esta acción no se puede deshacer.')) {
+  await deleteSocio(id);
+}
     return;
   }
 });

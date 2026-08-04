@@ -1318,22 +1318,60 @@ const r = await db.query(
 });
 
 // ===============================
-// ELIMINAR SOCIO
+// ELIMINAR SOCIO (borrado total, incluyendo todo su historial relacionado)
 // ===============================
 router.delete('/:clubId/socios/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
+  const client = await db.getClient();
+
   try {
-    const r = await db.query(
-      `DELETE FROM socios WHERE id = $1 AND club_id = $2`,
+    await client.query('BEGIN');
+
+    // 1) Confirmar que el socio existe en este club
+    const rCheck = await client.query(
+      `SELECT id FROM socios WHERE id = $1 AND club_id = $2`,
       [id, clubId]
     );
-    if (!r.rowCount) {
+    if (!rCheck.rowCount) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
     }
+
+    // 2) Buscar todas las tablas que tengan una FK hacia socios.id
+    const rFks = await client.query(`
+      SELECT
+        tc.table_name AS tabla,
+        kcu.column_name AS columna
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+       AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage ccu
+        ON tc.constraint_name = ccu.constraint_name
+       AND tc.table_schema = ccu.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND tc.table_schema = 'public'
+        AND ccu.table_name = 'socios'
+        AND ccu.column_name = 'id'
+        AND tc.table_name <> 'socios'
+    `);
+
+    // 3) Borrar el historial relacionado en cada una de esas tablas
+    for (const { tabla, columna } of rFks.rows) {
+      await client.query(`DELETE FROM "${tabla}" WHERE "${columna}" = $1`, [id]);
+    }
+
+    // 4) Borrar el socio (esto libera el número de socio y el DNI)
+    await client.query(`DELETE FROM socios WHERE id = $1 AND club_id = $2`, [id, clubId]);
+
+    await client.query('COMMIT');
     res.json({ ok: true });
   } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('❌ delete socio', e);
     res.status(500).json({ ok: false, error: e.message });
+  } finally {
+    client.release();
   }
 });
 
