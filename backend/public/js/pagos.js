@@ -7,6 +7,12 @@
     { n: 9, label: 'Sep' }, { n: 10, label: 'Oct' }, { n: 11, label: 'Nov' }, { n: 12, label: 'Dic' }
   ];
 
+  // Nombres completos de mes, usados en la exportación a Excel de "Abono Cuota Social"
+  const MESES_FULL = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+
   /* =============================
    * Helpers auth / club (TOKEN)
    * ============================= */
@@ -483,6 +489,78 @@ pageRows.forEach(s => {
   nextBtn.disabled = pagosPageCurrent >= totalPages;
   nextBtn.dataset.page = 'next';
   pagDiv.appendChild(nextBtn);
+}
+
+/* =============================
+ * Exportar a Excel (Abono Cuota Social)
+ * ============================= */
+
+// Carga la librería SheetJS (xlsx) bajo demanda, una sola vez.
+function ensureXLSXLibrary() {
+  if (window.XLSX) return Promise.resolve();
+
+  if (window.__xlsxLibLoadingPromise) return window.__xlsxLibLoadingPromise;
+
+  window.__xlsxLibLoadingPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('No se pudo cargar la librería para generar el Excel.'));
+    document.head.appendChild(script);
+  });
+
+  return window.__xlsxLibLoadingPromise;
+}
+
+// Genera y descarga el Excel con el estado de pago (✔ / ✗) mes a mes
+// de los socios actualmente listados (respeta el filtro de búsqueda y el año elegido).
+async function exportPagosExcel() {
+  if (!pagosRowsAll.length) {
+    alert('No hay socios para exportar con el filtro/año actual.');
+    return;
+  }
+
+  const btn = $('btnExportPagosExcel');
+  if (btn) btn.disabled = true;
+
+  try {
+    await ensureXLSXLibrary();
+
+    const headers = ['N° Socio', 'Socio', ...MESES_FULL];
+
+    const dataRows = pagosRowsAll.map((s) => {
+      const mesesPagados = Array.isArray(s.meses_pagados)
+        ? s.meses_pagados.map(Number)
+        : [];
+
+      const nombreCompleto = `${s.apellido ?? ''} ${s.nombre ?? ''}`.trim();
+
+      const fila = [s.numero_socio ?? '', nombreCompleto];
+      for (let mes = 1; mes <= 12; mes++) {
+        fila.push(mesesPagados.includes(mes) ? '✔' : '✗');
+      }
+      return fila;
+    });
+
+    const aoa = [headers, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Ancho de columnas: N° Socio, Socio, y los 12 meses
+    ws['!cols'] = [
+      { wch: 10 },
+      { wch: 30 },
+      ...MESES_FULL.map(() => ({ wch: 10 }))
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `Pagos ${selectedYear}`);
+    XLSX.writeFile(wb, `Abono_Cuota_Social_${selectedYear}.xlsx`);
+  } catch (e) {
+    console.error(e);
+    alert(e.message || 'Error generando el Excel.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 /* =============================
@@ -1362,6 +1440,8 @@ $('formIngreso')?.addEventListener('submit', async (ev) => {
   });
 
   $('pagosSearch')?.addEventListener('input', loadResumen);
+
+  $('btnExportPagosExcel')?.addEventListener('click', exportPagosExcel);
 
   $('btnRefreshPagos')?.addEventListener('click', async () => {
     await loadResumen();
