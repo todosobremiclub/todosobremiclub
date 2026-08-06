@@ -19,8 +19,9 @@
       <button id="btnBuscarSocios" style="display:none;">Buscar</button>
     </div>
 
-    <div class="socios-actions-inline">
+<div class="socios-actions-inline">
       <button id="btnNuevoSocio" title="Nuevo socio">➕</button>
+      <button id="btnEnviarBienvenida" title="Enviar bienvenida por email">✉️</button>
       <button id="btnExportSocios" title="Descargar Excel">📥</button>
     </div>
   </div>
@@ -332,7 +333,7 @@
     </div>
   </div>
 
-  <!-- ================= MODAL RESULTADO CARGA MASIVA ================= -->
+<!-- ================= MODAL RESULTADO CARGA MASIVA ================= -->
   <div id="modalBulkLog" class="modal hidden">
     <div class="modal-content" style="max-width: 900px; width: 95vw;">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
@@ -342,6 +343,42 @@
       <div id="bulkLogBody" style="margin-top:12px;"></div>
       <div class="modal-actions footer" style="display:flex; justify-content:flex-end; gap:10px;">
         <button id="btnBulkLogOk" class="btn btn-primary">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL ENVIAR BIENVENIDA ================= -->
+  <div id="modalBienvenida" class="modal hidden">
+    <div class="modal-content" style="max-width: 640px; width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <h3 style="margin:0;">Enviar bienvenida por email</h3>
+        <button id="btnBienvenidaClose" class="btn btn-secondary">✕</button>
+      </div>
+
+      <p class="muted small" style="margin-top:8px;">
+        Se enviará un email con el usuario (N° de socio) y la contraseña (DNI) a los
+        socios seleccionados. Solo se muestran los socios activos que todavía no
+        recibieron este email.
+      </p>
+
+      <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+        <label class="checkbox-inline" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="chkBienvenidaSeleccionarTodos">
+          Seleccionar todos
+        </label>
+        <span id="bienvenidaCantidadSeleccionados" class="muted small"></span>
+      </div>
+
+      <div id="bienvenidaLista"
+           style="margin-top:10px; border:1px solid #e5e7eb; border-radius:8px; max-height:340px; overflow-y:auto;">
+        <div class="muted small" style="padding:12px;">Cargando socios pendientes…</div>
+      </div>
+
+      <div id="bienvenidaResultado" style="margin-top:10px;"></div>
+
+      <div class="modal-actions footer" style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+        <button id="btnBienvenidaCancelar" class="btn btn-secondary">Cerrar</button>
+        <button id="btnBienvenidaEnviar" class="btn btn-primary">Enviar bienvenida</button>
       </div>
     </div>
   </div>

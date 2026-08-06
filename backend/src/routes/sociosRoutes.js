@@ -5,6 +5,7 @@ const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 const { initFirebase } = require('../config/firebaseAdmin');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
+const nodemailer = require('nodemailer'); // ✅ NUEVO: para el email de bienvenida
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -52,6 +53,67 @@ function requireClubAccess(req, res, next) {
     return res.status(403).json({ ok: false, error: 'No autorizado para este club' });
   }
   next();
+}
+
+// ===============================
+// BIENVENIDA POR EMAIL – HELPERS
+// ===============================
+
+// Mismo transporter que ya usa el proyecto en authRoutes.js / app.js
+function getMailTransporter() {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASS
+    }
+  });
+}
+
+// ✅ Texto del mail de bienvenida. Editar SOLO acá cuando se quiera cambiar la redacción.
+function buildBienvenidaEmail({ clubName, clubLogoUrl, nombre, apellido, numeroSocio, dni }) {
+  const subject = `¡Bienvenido/a a ${clubName}!`;
+
+  const text = `Hola ${nombre} ${apellido},
+
+¡Te damos la bienvenida a ${clubName}!
+
+Ya podés ingresar a la app de socios con estos datos:
+
+Usuario (N° de socio): ${numeroSocio}
+Contraseña (DNI): ${dni}
+
+Descargá la app y disfrutá de todos los beneficios.
+
+Saludos,
+${clubName}`;
+
+  // ✅ Logo del club en el encabezado (si el club tiene uno cargado)
+  const logoHtml = clubLogoUrl
+    ? `
+      <div style="text-align:center; margin-bottom:18px;">
+        <img src="${clubLogoUrl}" alt="${clubName}"
+             style="max-width:160px; max-height:90px; object-fit:contain;">
+      </div>
+    `
+    : '';
+
+  const html = `
+    <div style="font-family:Arial, sans-serif; color:#111; max-width:480px; margin:0 auto;">
+      ${logoHtml}
+      <p>Hola <b>${nombre} ${apellido}</b>,</p>
+      <p>¡Te damos la bienvenida a <b>${clubName}</b>!</p>
+      <p>Ya podés ingresar a la app de socios con estos datos:</p>
+      <ul>
+        <li><b>Usuario (N° de socio):</b> ${numeroSocio}</li>
+        <li><b>Contraseña (DNI):</b> ${dni}</li>
+      </ul>
+      <p>Descargá la app y disfrutá de todos los beneficios.</p>
+      <p>Saludos,<br>${clubName}</p>
+    </div>
+  `;
+
+  return { subject, text, html };
 }
 
 // ===============================
@@ -1719,7 +1781,7 @@ router.get('/:clubId/socios/export.xlsx', requireAuth, requireClubAccess, async 
       });
     }
 
-    res.setHeader(
+res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
@@ -1735,5 +1797,152 @@ router.get('/:clubId/socios/export.xlsx', requireAuth, requireClubAccess, async 
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+// ===============================
+// BIENVENIDA POR EMAIL – LISTAR PENDIENTES
+// GET /club/:clubId/socios/bienvenida/pendientes
+// Devuelve los socios ACTIVOS que todavía no recibieron el mail de bienvenida.
+// ===============================
+router.get(
+  '/:clubId/socios/bienvenida/pendientes',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    try {
+      const r = await db.query(
+        `
+        SELECT
+          id,
+          numero_socio,
+          dni,
+          nombre,
+          apellido,
+          email
+        FROM socios
+        WHERE club_id = $1
+          AND activo = true
+          AND bienvenida_enviada_at IS NULL
+        ORDER BY numero_socio ASC
+        `,
+        [clubId]
+      );
+
+      res.json({ ok: true, socios: r.rows });
+    } catch (e) {
+      console.error('❌ list pendientes bienvenida', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ===============================
+// BIENVENIDA POR EMAIL – ENVIAR A LOS SELECCIONADOS
+// POST /club/:clubId/socios/bienvenida/enviar
+// body: { socioIds: [id1, id2, ...] }
+//
+// Por cada socio:
+//  - Se vuelve a verificar en la DB que sigue pendiente (evita reenviar
+//    por doble click o si dos personas lo mandan al mismo tiempo).
+//  - Si no tiene email cargado, se reporta como error y NO se marca enviado.
+//  - Si el envío de mail falla, se reporta como error y NO se marca enviado
+//    (así puede reintentarse después, sigue apareciendo en "pendientes").
+//  - Si se envía OK, se marca bienvenida_enviada_at = NOW() y desaparece
+//    de "pendientes" en los próximos envíos.
+// ===============================
+router.post(
+  '/:clubId/socios/bienvenida/enviar',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const { socioIds } = req.body ?? {};
+
+    try {
+      if (!Array.isArray(socioIds) || socioIds.length === 0) {
+        return res.status(400).json({ ok: false, error: 'Seleccioná al menos un socio.' });
+      }
+
+const rClub = await db.query(`SELECT name, logo_url FROM clubs WHERE id = $1 LIMIT 1`, [clubId]);
+      const clubName = rClub.rowCount ? rClub.rows[0].name : 'tu club';
+      const clubLogoUrl = rClub.rowCount ? rClub.rows[0].logo_url : null;
+
+      const transporter = getMailTransporter();
+
+      let enviados = 0;
+      const errores = [];
+
+      for (const socioId of socioIds) {
+        // Re-chequear que siga pendiente (protege contra doble envío)
+        const rSocio = await db.query(
+          `
+          SELECT id, numero_socio, dni, nombre, apellido, email
+          FROM socios
+          WHERE id = $1
+            AND club_id = $2
+            AND bienvenida_enviada_at IS NULL
+          LIMIT 1
+          `,
+          [socioId, clubId]
+        );
+
+        if (!rSocio.rowCount) {
+          // Ya se había enviado antes (o no existe) -> se ignora en silencio
+          continue;
+        }
+
+        const socio = rSocio.rows[0];
+        const email = String(socio.email ?? '').trim();
+
+        if (!email) {
+          errores.push({
+            socioId: socio.id,
+            numero_socio: socio.numero_socio,
+            error: 'El socio no tiene email cargado.'
+          });
+          continue;
+        }
+
+const { subject, text, html } = buildBienvenidaEmail({
+          clubName,
+          clubLogoUrl,
+          nombre: socio.nombre,
+          apellido: socio.apellido,
+          numeroSocio: socio.numero_socio,
+          dni: socio.dni
+        });
+
+        try {
+          await transporter.sendMail({
+            from: `"${clubName}" <${process.env.MAIL_USER}>`,
+            to: email,
+            subject,
+            text,
+            html
+          });
+
+          await db.query(
+            `UPDATE socios SET bienvenida_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
+            [socio.id, clubId]
+          );
+
+          enviados++;
+        } catch (err) {
+          console.error(`❌ error enviando bienvenida a socio ${socio.id}:`, err.message);
+          errores.push({
+            socioId: socio.id,
+            numero_socio: socio.numero_socio,
+            error: 'No se pudo enviar el email.'
+          });
+        }
+      }
+
+      res.json({ ok: true, enviados, errores });
+    } catch (e) {
+      console.error('❌ enviar bienvenida', e);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
 
 module.exports = router;

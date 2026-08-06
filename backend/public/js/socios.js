@@ -794,10 +794,11 @@ function formatNombreTabla(s) {
   // =============================
   // Estado
   // =============================
-  let editingId = null;
+let editingId = null;
 let sociosCache = [];
 let sociosGrupoFamiliarCache = [];
 let draftPhoto = null;
+let bienvenidaPendientesCache = []; // ✅ NUEVO: socios pendientes de bienvenida
 
 let grupoFamiliarSeleccionados = [];
 let grupoFamiliarSeleccionadosDraft = [];
@@ -2406,7 +2407,7 @@ if (payload.es_menor && !payload.tutor_nombre) {
     }
   }
 
-  // Botón "Solicitudes Pendientes" -> solapa Pendientes
+// Botón "Solicitudes Pendientes" -> solapa Pendientes
   function goToPendientes() {
     const btnPendientes = document.querySelector('[data-section="pendientes"]');
     if (!btnPendientes) {
@@ -2414,6 +2415,135 @@ if (payload.es_menor && !payload.tutor_nombre) {
       return;
     }
     btnPendientes.click();
+  }
+
+  // =============================
+  // BIENVENIDA POR EMAIL
+  // =============================
+
+  async function loadBienvenidaPendientes() {
+    const clubId = getActiveClubId();
+    const cont = $('bienvenidaLista');
+    if (cont) {
+      cont.innerHTML = '<div class="muted small" style="padding:12px;">Cargando socios pendientes…</div>';
+    }
+
+    const res = await fetchAuth(`/club/${clubId}/socios/bienvenida/pendientes`);
+    const data = await safeJson(res);
+
+    if (!res.ok || !data.ok) {
+      if (cont) {
+        cont.innerHTML = `<div class="muted small" style="padding:12px;">${escapeHtml(data.error || 'Error cargando socios pendientes')}</div>`;
+      }
+      bienvenidaPendientesCache = [];
+      return;
+    }
+
+    bienvenidaPendientesCache = data.socios || [];
+    renderBienvenidaLista();
+  }
+
+  function renderBienvenidaLista() {
+    const cont = $('bienvenidaLista');
+    if (!cont) return;
+
+    if (!bienvenidaPendientesCache.length) {
+      cont.innerHTML = '<div class="muted small" style="padding:12px;">No hay socios pendientes de recibir la bienvenida. 🎉</div>';
+      updateBienvenidaContador();
+      return;
+    }
+
+    cont.innerHTML = bienvenidaPendientesCache.map((s) => `
+      <label style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid #eee;">
+        <input type="checkbox" class="chk-bienvenida-socio" value="${escapeHtml(s.id)}">
+        <span style="flex:1;">
+          <b>${escapeHtml(s.apellido ?? '')}, ${escapeHtml(s.nombre ?? '')}</b>
+          <span class="muted small"> — N° ${escapeHtml(String(s.numero_socio ?? ''))}</span>
+        </span>
+        <span class="muted small">${s.email ? escapeHtml(s.email) : 'Sin email ⚠️'}</span>
+      </label>
+    `).join('');
+
+    updateBienvenidaContador();
+  }
+
+  function updateBienvenidaContador() {
+    const el = $('bienvenidaCantidadSeleccionados');
+    if (!el) return;
+    const total = document.querySelectorAll('.chk-bienvenida-socio').length;
+    const marcados = document.querySelectorAll('.chk-bienvenida-socio:checked').length;
+    el.textContent = total ? `${marcados} de ${total} seleccionados` : '';
+  }
+
+  async function openModalBienvenida() {
+    const modal = $('modalBienvenida');
+    if (!modal) return;
+
+    const chkTodos = $('chkBienvenidaSeleccionarTodos');
+    if (chkTodos) chkTodos.checked = false;
+
+    const resultado = $('bienvenidaResultado');
+    if (resultado) resultado.innerHTML = '';
+
+    modal.classList.remove('hidden');
+    await loadBienvenidaPendientes();
+  }
+
+  function closeModalBienvenida() {
+    $('modalBienvenida')?.classList.add('hidden');
+  }
+
+  async function enviarBienvenidaSeleccionados() {
+    if (window.__clubPerms && !window.__clubPerms.canWrite('socios')) {
+      alert('No tenés permisos para enviar bienvenidas');
+      return;
+    }
+
+    const seleccionados = Array.from(document.querySelectorAll('.chk-bienvenida-socio:checked'))
+      .map((el) => el.value);
+
+    if (!seleccionados.length) {
+      alert('Seleccioná al menos un socio.');
+      return;
+    }
+
+    const clubId = getActiveClubId();
+    const btn = $('btnBienvenidaEnviar');
+    const resultado = $('bienvenidaResultado');
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+
+    try {
+      const res = await fetchAuth(`/club/${clubId}/socios/bienvenida/enviar`, {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({ socioIds: seleccionados })
+      });
+      const data = await safeJson(res);
+
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'No se pudo enviar la bienvenida');
+        return;
+      }
+
+      if (resultado) {
+        const okTxt = `✅ Enviados: ${data.enviados}`;
+        const errTxt = data.errores?.length
+          ? '<br>⚠️ Con errores: ' + data.errores.length + ' (' +
+            data.errores.map(e => `N° ${escapeHtml(String(e.numero_socio ?? ''))}: ${escapeHtml(e.error)}`).join(', ') +
+            ')'
+          : '';
+        resultado.innerHTML = `<div class="muted small">${okTxt}${errTxt}</div>`;
+      }
+
+      await loadBienvenidaPendientes();
+      await loadSocios();
+    } catch (e) {
+      console.error(e);
+      alert(e.message || 'Error enviando bienvenida');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Enviar bienvenida'; }
+    }
   }
 
   // =============================
@@ -2434,12 +2564,38 @@ if (payload.es_menor && !payload.tutor_nombre) {
     $('btnStatImpagosMes')?.addEventListener('click', openImpagosMesModal);
     $('btnStatPendientes')?.addEventListener('click', goToPendientes);
 
-    $('filtroActividad')?.addEventListener('change', loadSocios);
+$('filtroActividad')?.addEventListener('change', loadSocios);
     $('btnNuevoSocio')?.addEventListener('click', openModalNew);
     if (window.__clubRole === 'profesor') {
   const btn = $('btnNuevoSocio');
   if (btn) btn.style.display = 'none';
+  const btnBienvenida = $('btnEnviarBienvenida');
+  if (btnBienvenida) btnBienvenida.style.display = 'none';
 }
+
+    // ✅ NUEVO: Enviar bienvenida por email
+    $('btnEnviarBienvenida')?.addEventListener('click', openModalBienvenida);
+    $('btnBienvenidaClose')?.addEventListener('click', closeModalBienvenida);
+    $('btnBienvenidaCancelar')?.addEventListener('click', closeModalBienvenida);
+    $('btnBienvenidaEnviar')?.addEventListener('click', enviarBienvenidaSeleccionados);
+
+    $('chkBienvenidaSeleccionarTodos')?.addEventListener('change', (e) => {
+      document.querySelectorAll('.chk-bienvenida-socio').forEach((chk) => {
+        chk.checked = e.target.checked;
+      });
+      updateBienvenidaContador();
+    });
+
+    $('bienvenidaLista')?.addEventListener('change', (e) => {
+      if (e.target.classList.contains('chk-bienvenida-socio')) {
+        updateBienvenidaContador();
+      }
+    });
+
+    $('modalBienvenida')?.addEventListener('click', (ev) => {
+      if (ev.target && ev.target.id === 'modalBienvenida') closeModalBienvenida();
+    });
+
     $('btnCancelarSocio')?.addEventListener('click', closeModalSocio);
     $('btnGuardarSocio')?.addEventListener('click', saveSocio);
     $('socioMenor')?.addEventListener('change', () => toggleTutorField());
