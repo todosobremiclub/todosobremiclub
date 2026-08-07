@@ -319,10 +319,100 @@ async function openDetalleModal({ title, sub, url, columns, moneyKey, dateKey })
       total: `Total: ${moneyARS.format(rendered.total)}`
     });
 
+} catch (e) {
+    console.error(e);
+    body.innerHTML = `<div class="muted" style="color:#b91c1c;">${e.message || 'Error inesperado'}</div>`;
+  }
+}
+
+// =============================
+// PANEL – SOCIOS LOGUEADOS EN LA APP
+// =============================
+async function loadSociosLogueados() {
+  const kpi = $('logueadosCount');
+  if (!kpi) return;
+
+  try {
+    const clubId = getActiveClubId();
+    const { data } = await fetchAuth(`/club/${clubId}/reportes/socios-logueados`);
+    if (!data.ok) {
+      kpi.textContent = '–';
+      return;
+    }
+    kpi.textContent = String(data.total || 0);
+  } catch (e) {
+    console.error(e);
+    kpi.textContent = '–';
+  }
+}
+
+async function openLogueadosDetalle() {
+  const modal = ensureDetalleModal();
+  const body = $('detalleModalBody');
+  if (!modal || !body) return;
+
+  setDetalleHeader({
+    title: 'Socios logueados en la app',
+    sub: 'Socios que ingresaron a la app al menos una vez.'
+  });
+  setDetalleFooter({ info: '', total: '' });
+  body.innerHTML = `<div class="muted">Cargando listado...</div>`;
+  modal.classList.remove('hidden');
+
+  try {
+    const clubId = getActiveClubId();
+    const { data } = await fetchAuth(`/club/${clubId}/reportes/socios-logueados/detalle`);
+    if (!data.ok) {
+      body.innerHTML = `<div class="muted" style="color:#b91c1c;">${data.error || 'Error cargando listado'}</div>`;
+      return;
+    }
+
+    const rows = data.rows || [];
+    if (!rows.length) {
+      body.innerHTML = `<div class="muted small">Todavía no hay socios logueados en la app.</div>`;
+      setDetalleFooter({ info: '0 socios', total: '' });
+      return;
+    }
+
+    const html = `
+      <table class="socios-table" style="font-size:13px;">
+        <thead>
+          <tr>
+            <th>N° Socio</th>
+            <th>DNI</th>
+            <th>Nombre</th>
+            <th>Apellido</th>
+            <th>Teléfono</th>
+            <th>Último login</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(s => `
+            <tr>
+              <td>${s.numero_socio ?? ''}</td>
+              <td>${s.dni ?? ''}</td>
+              <td>${s.nombre ?? ''}</td>
+              <td>${s.apellido ?? ''}</td>
+              <td>${s.telefono ?? ''}</td>
+              <td>${s.ultimo_login_app ? formatFecha(s.ultimo_login_app) : ''}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    body.innerHTML = html;
+    setDetalleFooter({ info: `${rows.length} socios`, total: '' });
   } catch (e) {
     console.error(e);
     body.innerHTML = `<div class="muted" style="color:#b91c1c;">${e.message || 'Error inesperado'}</div>`;
   }
+}
+
+function bindLogueadosInteractions() {
+  const kpi = $('logueadosCount');
+  if (!kpi || kpi.dataset.bound === '1') return;
+  kpi.dataset.bound = '1';
+  kpi.addEventListener('click', () => openLogueadosDetalle());
 }
 
   // =============================
@@ -2857,9 +2947,13 @@ async function initReportesSection() {
   bindActividadesInteractions();
   await loadActividadesMain();
 
-  // Panel 2 – impagos
+// Panel 2 – impagos
   bindImpagosInteractions();
   await loadImpagosData(impagosState.anio);
+
+  // Panel – socios logueados en la app
+  bindLogueadosInteractions();
+  await loadSociosLogueados();
 
   // Panel 3 – ingresos vs gastos
   bindIGInteractions();

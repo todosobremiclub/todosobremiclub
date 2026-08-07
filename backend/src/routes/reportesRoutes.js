@@ -2236,10 +2236,68 @@ router.get('/:clubId/reportes/socios-nuevos-mes/detalle', requireAuth, requireCl
         AND EXTRACT(MONTH FROM fecha_ingreso) = $3
       ORDER BY fecha_ingreso, apellido, nombre
     `;
-    const r = await db.query(q, [clubId, anio, mes]);
+const r = await db.query(q, [clubId, anio, mes]);
     res.json({ ok: true, rows: r.rows });
   } catch (e) {
     console.error('❌ detalle socios-nuevos-mes', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
+// ===============================
+// SOCIOS QUE SE LOGUEARON EN LA APP (al menos una vez)
+// GET /club/:clubId/reportes/socios-logueados
+// ===============================
+router.get('/:clubId/reportes/socios-logueados', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+
+  try {
+    const q = `
+      SELECT COUNT(*)::int AS total
+      FROM socios
+      WHERE club_id = $1
+        AND ultimo_login_app IS NOT NULL
+    `;
+    const r = await db.query(q, [clubId]);
+
+    res.json({
+      ok: true,
+      total: r.rows[0]?.total || 0
+    });
+  } catch (e) {
+    console.error('❌ reporte socios-logueados', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
+// ===============================
+// DETALLE: socios que se loguearon en la app
+// GET /club/:clubId/reportes/socios-logueados/detalle
+// ===============================
+router.get('/:clubId/reportes/socios-logueados/detalle', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+
+  try {
+    const q = `
+      SELECT
+        id,
+        numero_socio,
+        dni,
+        nombre,
+        apellido,
+        telefono,
+        ultimo_login_app
+      FROM socios
+      WHERE club_id = $1
+        AND ultimo_login_app IS NOT NULL
+      ORDER BY ultimo_login_app DESC
+    `;
+    const r = await db.query(q, [clubId]);
+    res.json({ ok: true, rows: r.rows });
+  } catch (e) {
+    console.error('❌ detalle socios-logueados', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });

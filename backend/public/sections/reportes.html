@@ -120,11 +120,36 @@
       </button>
     </div>
 
-    <div class="card-body">
+<div class="card-body">
       <div class="card-chart">
         <canvas id="chartActividades"></canvas>
       </div>
       <div class="card-table hidden" id="tablaActividades"></div>
+    </div>
+  </div>
+
+  <!-- BLOQUE – SOCIOS LOGUEADOS EN LA APP -->
+  <div class="report-card report-socios" id="card-logueados">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Socios logueados en la app</h3>
+        <div class="card-subtitle muted">
+          Socios que ingresaron a la app al menos una vez.
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div class="impagos-top">
+        <div class="impagos-kpi">
+          <div class="impagos-label">Socios logueados</div>
+          <div id="logueadosCount" class="impagos-value" style="cursor:pointer;" title="Ver listado">–</div>
+        </div>
+
+        <div class="impagos-secondary muted small">
+          Click en la cantidad para ver el listado de socios.
+        </div>
+      </div>
     </div>
   </div>
 

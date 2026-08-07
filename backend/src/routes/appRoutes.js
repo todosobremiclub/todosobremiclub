@@ -71,13 +71,23 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ ok: false, error: 'Credenciales incorrectas' });
     }
 
-    const socio = rSocio.rows[0];
+const socio = rSocio.rows[0];
 
     if (!socio.activo) {
       return res.status(403).json({ ok: false, error: 'Socio inactivo' });
     }
 
     const clubId = socio.club_id;
+
+    // ✅ Registrar que el socio se logueó en la app (para el reporte de Socios logueados)
+    try {
+      await db.query(
+        `UPDATE socios SET ultimo_login_app = NOW() WHERE id = $1`,
+        [socio.id]
+      );
+    } catch (eLogin) {
+      console.error('⚠️ No se pudo registrar ultimo_login_app:', eLogin);
+    }
 
     /// 2) Traer club (para theme dinámico + transferencias)
 const rClub = await db.query(
