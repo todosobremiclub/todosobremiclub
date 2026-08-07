@@ -19,10 +19,20 @@
       <button id="btnBuscarSocios" style="display:none;">Buscar</button>
     </div>
 
-<div class="socios-actions-inline">
-      <button id="btnNuevoSocio" title="Nuevo socio">➕</button>
-      <button id="btnEnviarBienvenida" title="Enviar bienvenida por email">✉️</button>
-      <button id="btnExportSocios" title="Descargar Excel">📥</button>
+<div class="socios-actions-group">
+      <div class="socios-actions-inline">
+        <button id="btnNuevoSocio" title="Nuevo socio">➕</button>
+        <button id="btnEnviarBienvenida" title="Enviar bienvenida por email">✉️</button>
+        <button id="btnExportSocios" title="Descargar Excel">📥</button>
+      </div>
+
+      <div class="socios-actions-divider"></div>
+
+      <div class="socios-bulk-inline">
+        <button id="btnSociosTemplate" class="btn btn-secondary btn-sm" title="Descargar plantilla Excel para carga masiva">📄 Plantilla</button>
+        <button id="btnSociosBulkUpload" class="btn btn-primary btn-sm" title="Cargar socios desde un Excel">⬆️ Carga masiva</button>
+        <input id="inputSociosBulk" type="file" accept=".xlsx" style="display:none;">
+      </div>
     </div>
   </div>
 
@@ -84,14 +94,9 @@
     </table>
   </div>
 
-  <!-- ================= PAGINACIÓN ================= -->
+<!-- ================= PAGINACIÓN ================= -->
   <div class="socios-bottom-bar">
     <div id="sociosPagination" class="pagination"></div>
-    <div class="socios-bulk-bar">
-      <button id="btnSociosTemplate" class="btn btn-secondary">📥 Excel (plantilla)</button>
-      <button id="btnSociosBulkUpload" class="btn btn-primary">⬆️ Carga masiva</button>
-      <input id="inputSociosBulk" type="file" accept=".xlsx" style="display:none;">
-    </div>
   </div>
 
   <!-- ================= MODAL SOCIO ================= -->
@@ -563,6 +568,35 @@
   background: color-mix(in srgb, var(--color-primary) 10%, #ffffff);
 }
 
+/* ================= GRUPO DE ACCIONES (iconos + carga masiva) ================= */
+.socios-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.socios-actions-divider {
+  width: 1px;
+  height: 26px;
+  background: color-mix(in srgb, var(--color-primary) 22%, #cbd5e1);
+}
+
+.socios-bulk-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-sm {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .socios-info {
   margin-top: 8px;
   display: flex;
@@ -825,12 +859,26 @@
     align-items: stretch;
   }
 
-  .socios-filters-inline {
+.socios-filters-inline {
     flex-direction: column;
     align-items: stretch;
   }
 
   .socios-actions-inline {
+    justify-content: flex-end;
+  }
+
+  .socios-actions-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .socios-actions-divider {
+    display: none;
+  }
+
+  .socios-bulk-inline {
     justify-content: flex-end;
   }
 
@@ -865,19 +913,13 @@
 /* ================= BOTTOM BAR ================= */
 .socios-bottom-bar {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   margin-top: 14px;
 }
 #sociosPagination {
-  flex: 1;
   display: flex;
   justify-content: center;
-}
-.socios-bulk-bar {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
 }
 
 /* ================= WHATSAPP ICON ================= */
