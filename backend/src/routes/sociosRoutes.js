@@ -74,6 +74,9 @@ function getMailTransporter() {
 function buildBienvenidaEmail({ clubName, clubLogoUrl, nombre, apellido, numeroSocio, dni }) {
   const subject = `¡Bienvenido/a a ${clubName}!`;
 
+  const ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.todosobremiclub.app';
+  const IOS_URL = 'https://apps.apple.com/ar/app/todo-sobre-mi-club/id6766353290';
+
   const text = `Hola ${nombre} ${apellido},
 
 ¡Te damos la bienvenida a ${clubName}!
@@ -83,7 +86,10 @@ Ya podés ingresar a la app de socios con estos datos:
 Usuario (N° de socio): ${numeroSocio}
 Contraseña (DNI): ${dni}
 
-Descargá la app y disfrutá de todos los beneficios.
+Descargá la app y sé parte de nuestro club.
+
+Android: ${ANDROID_URL}
+iOS: ${IOS_URL}
 
 Saludos,
 ${clubName}`;
@@ -108,7 +114,17 @@ ${clubName}`;
         <li><b>Usuario (N° de socio):</b> ${numeroSocio}</li>
         <li><b>Contraseña (DNI):</b> ${dni}</li>
       </ul>
-      <p>Descargá la app y disfrutá de todos los beneficios.</p>
+      <p>Descargá la app y sé parte de nuestro club.</p>
+      <p style="text-align:center; margin:22px 0;">
+        <a href="${ANDROID_URL}"
+           style="display:inline-block; margin:6px 8px; padding:10px 18px; background:#111827; color:#ffffff; text-decoration:none; border-radius:8px; font-weight:bold; font-size:13px;">
+          📲 Descargar para Android
+        </a>
+        <a href="${IOS_URL}"
+           style="display:inline-block; margin:6px 8px; padding:10px 18px; background:#111827; color:#ffffff; text-decoration:none; border-radius:8px; font-weight:bold; font-size:13px;">
+          📱 Descargar para iOS
+        </a>
+      </p>
       <p>Saludos,<br>${clubName}</p>
     </div>
   `;
@@ -1332,7 +1348,11 @@ const r = await db.query(
     es_menor = $15,
     tutor_nombre = $16,
     tiene_actividades_adicionales = $17,
-    actividades_adicionales = $18
+    actividades_adicionales = $18,
+    bienvenida_enviada_at = CASE
+      WHEN email IS DISTINCT FROM $7 THEN NULL
+      ELSE bienvenida_enviada_at
+    END
   WHERE id = $19 AND club_id = $20
   RETURNING *
   `,
