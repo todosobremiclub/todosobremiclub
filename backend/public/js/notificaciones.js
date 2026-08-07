@@ -48,10 +48,15 @@
     catch { return String(iso); }
   }
 
-  // =========================
+// =========================
   // HISTORIAL
   // =========================
   let cache = [];
+
+  // Catálogos para el selector de Destino
+  let actividadesCache = [];
+  let categoriasCache = [];
+  let aniosNacimientoCache = [];
 
   async function loadNotificaciones() {
     const tbody = $id('notificacionesTableBody');
@@ -100,6 +105,45 @@
     });
   }
 
+// =========================
+  // CATÁLOGOS PARA EL DESTINO (mismos que usa Noticias)
+  // =========================
+  async function loadActividades() {
+    const clubId = getActiveClubId();
+    try {
+      const { res, data } = await fetchAuth(`/club/${clubId}/config/actividades`);
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando actividades');
+      actividadesCache = data.actividades || [];
+    } catch (e) {
+      console.error('loadActividades:', e);
+      actividadesCache = [];
+    }
+  }
+
+  async function loadCategorias() {
+    const clubId = getActiveClubId();
+    try {
+      const { res, data } = await fetchAuth(`/club/${clubId}/config/categorias`);
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando categorías');
+      categoriasCache = data.categorias || [];
+    } catch (e) {
+      console.error('loadCategorias:', e);
+      categoriasCache = [];
+    }
+  }
+
+  async function loadAniosNacimiento() {
+    const clubId = getActiveClubId();
+    try {
+      const { res, data } = await fetchAuth(`/club/${clubId}/noticias/anios-nacimiento`);
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando años de nacimiento');
+      aniosNacimientoCache = (data.anios || []).map(a => String(a));
+    } catch (e) {
+      console.error('loadAniosNacimiento:', e);
+      aniosNacimientoCache = [];
+    }
+  }
+
   // =========================
   // ENVIAR
   // =========================
@@ -113,26 +157,145 @@ function renderDestinoExtra() {
   if (tipo === 'todos' || tipo === 'falta_pago') return;
 
   if (tipo === 'actividad') {
-    cont.innerHTML = `<input id="notiDestinoValor1" placeholder="Actividad" />`;
+    const label = document.createElement('label');
+    label.textContent = 'Actividad';
+
+    const sel = document.createElement('select');
+    sel.id = 'notiDestinoActividad';
+    sel.innerHTML =
+      `<option value="">Seleccionar actividad...</option>` +
+      actividadesCache
+        .map(a => `<option value="${escapeHtml(a.nombre)}">${escapeHtml(a.nombre)}</option>`)
+        .join('');
+
+    label.appendChild(sel);
+    cont.appendChild(label);
+    return;
   }
+
   if (tipo === 'categoria') {
-    cont.innerHTML = `<input id="notiDestinoValor1" placeholder="Categoría" />`;
+    const label = document.createElement('label');
+    label.textContent = 'Categoría';
+
+    const sel = document.createElement('select');
+    sel.id = 'notiDestinoCategoria';
+    sel.innerHTML =
+      `<option value="">Seleccionar categoría...</option>` +
+      categoriasCache
+        .map(c => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`)
+        .join('');
+
+    label.appendChild(sel);
+    cont.appendChild(label);
+    return;
   }
+
   if (tipo === 'anio_nac') {
-    cont.innerHTML = `<input id="notiDestinoValor1" type="number" placeholder="Año nacimiento" />`;
+    const label = document.createElement('label');
+    label.textContent = 'Año de nacimiento';
+
+    const sel = document.createElement('select');
+    sel.id = 'notiDestinoAnio';
+    sel.innerHTML =
+      `<option value="">Seleccionar año...</option>` +
+      aniosNacimientoCache
+        .map(y => `<option value="${y}">${y}</option>`)
+        .join('');
+
+    label.appendChild(sel);
+    cont.appendChild(label);
+    return;
   }
-  if (tipo === 'act_cat' || tipo === 'cat_anio') {
-    cont.innerHTML = `
-      <input id="notiDestinoValor1" placeholder="Valor 1" />
-      <input id="notiDestinoValor2" placeholder="Valor 2" />
-    `;
+
+  if (tipo === 'act_cat') {
+    const labelAct = document.createElement('label');
+    labelAct.textContent = 'Actividad';
+
+    const selAct = document.createElement('select');
+    selAct.id = 'notiDestinoActividad';
+    selAct.innerHTML =
+      `<option value="">Seleccionar actividad...</option>` +
+      actividadesCache
+        .map(a => `<option value="${escapeHtml(a.nombre)}">${escapeHtml(a.nombre)}</option>`)
+        .join('');
+    labelAct.appendChild(selAct);
+
+    const labelCat = document.createElement('label');
+    labelCat.textContent = 'Categoría';
+
+    const selCat = document.createElement('select');
+    selCat.id = 'notiDestinoCategoria';
+    selCat.innerHTML =
+      `<option value="">Seleccionar categoría...</option>` +
+      categoriasCache
+        .map(c => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`)
+        .join('');
+    labelCat.appendChild(selCat);
+
+    cont.appendChild(labelAct);
+    cont.appendChild(labelCat);
+    return;
+  }
+
+  if (tipo === 'cat_anio') {
+    const labelCat = document.createElement('label');
+    labelCat.textContent = 'Categoría';
+
+    const selCat = document.createElement('select');
+    selCat.id = 'notiDestinoCategoria';
+    selCat.innerHTML =
+      `<option value="">Seleccionar categoría...</option>` +
+      categoriasCache
+        .map(c => `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.nombre)}</option>`)
+        .join('');
+    labelCat.appendChild(selCat);
+
+    const labelAnio = document.createElement('label');
+    labelAnio.textContent = 'Año de nacimiento';
+
+    const selAnio = document.createElement('select');
+    selAnio.id = 'notiDestinoAnio';
+    selAnio.innerHTML =
+      `<option value="">Seleccionar año...</option>` +
+      aniosNacimientoCache
+        .map(y => `<option value="${y}">${y}</option>`)
+        .join('');
+    labelAnio.appendChild(selAnio);
+
+    cont.appendChild(labelCat);
+    cont.appendChild(labelAnio);
+    return;
   }
 }
 
 function getDestinoPayload() {
   const tipo = $id('notiDestinoTipo')?.value || 'todos';
-  const v1 = $id('notiDestinoValor1')?.value?.trim() || null;
-  const v2 = $id('notiDestinoValor2')?.value?.trim() || null;
+
+  let v1 = null;
+  let v2 = null;
+
+  if (tipo === 'actividad') {
+    v1 = $id('notiDestinoActividad')?.value?.trim() || '';
+    if (!v1) throw new Error('Seleccioná una actividad');
+  } else if (tipo === 'categoria') {
+    v1 = $id('notiDestinoCategoria')?.value?.trim() || '';
+    if (!v1) throw new Error('Seleccioná una categoría');
+  } else if (tipo === 'anio_nac') {
+    v1 = $id('notiDestinoAnio')?.value?.trim() || '';
+    if (!v1) throw new Error('Seleccioná un año de nacimiento');
+  } else if (tipo === 'cat_anio') {
+    v1 = $id('notiDestinoCategoria')?.value?.trim() || '';
+    v2 = $id('notiDestinoAnio')?.value?.trim() || '';
+    if (!v1 || !v2) throw new Error('Seleccioná categoría y año');
+  } else if (tipo === 'act_cat') {
+    v1 = $id('notiDestinoActividad')?.value?.trim() || '';
+    v2 = $id('notiDestinoCategoria')?.value?.trim() || '';
+    if (!v1 || !v2) throw new Error('Seleccioná actividad y categoría');
+  } else if (tipo === 'falta_pago') {
+    v1 = null;
+    v2 = null;
+  }
+
   return { destino_tipo: tipo, destino_valor1: v1, destino_valor2: v2 };
 }
 
@@ -228,15 +391,30 @@ function getDestinoPayload() {
     }
   });
 
-  // ✅ init llamado desde club.js cuando carga la sección
+// ✅ init llamado desde club.js cuando carga la sección
   window.initNotificacionesSection = async () => {
     console.log('[notificaciones] init sección ✅');
+
+    // Catálogos para el selector de Destino (actividad/categoría/año)
+    await Promise.all([loadActividades(), loadCategorias(), loadAniosNacimiento()]);
+    renderDestinoExtra();
+
     await loadNotificaciones();
   };
 
 document.addEventListener('change', (e) => {
   if (e.target?.id === 'notiDestinoTipo') {
-    renderDestinoExtra();
+    const tipo = e.target.value || 'todos';
+
+    (async () => {
+      if (tipo === 'actividad') await loadActividades();
+      if (tipo === 'categoria') await loadCategorias();
+      if (tipo === 'anio_nac') await loadAniosNacimiento();
+      if (tipo === 'act_cat') await Promise.all([loadActividades(), loadCategorias()]);
+      if (tipo === 'cat_anio') await Promise.all([loadCategorias(), loadAniosNacimiento()]);
+
+      renderDestinoExtra();
+    })();
   }
 });
 

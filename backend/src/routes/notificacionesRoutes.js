@@ -62,17 +62,104 @@ function isAdminToken(req) {
 }
 
 // ===============================
-// Helper: enviar push a topic del club
-// (solo dispositivos suscriptos a ese club)
+// Helper: normalizar texto para nombre de topic FCM
+// ⚠️ Esta función debe dar EXACTAMENTE el mismo resultado que
+// normalizeForTopic() en push_service.dart (lado app). Si se
+// cambia una, hay que cambiar la otra, sino los nombres de topic
+// no van a coincidir entre backend y app.
+// ===============================
+function slugForTopic(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // sacar acentos
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60);
+}
+
+// ===============================
+// Helper: validar destino_tipo (mismos criterios que Noticias)
+// ===============================
+const DESTINO_TIPOS_VALIDOS = new Set([
+  'todos',
+  'actividad',
+  'categoria',
+  'anio_nac',
+  'cat_anio',
+  'act_cat',
+  'falta_pago',
+]);
+
+function validateDestino({ destino_tipo, destino_valor1, destino_valor2 }) {
+  const tipo = destino_tipo || 'todos';
+
+  if (!DESTINO_TIPOS_VALIDOS.has(tipo)) {
+    throw new Error('destino_tipo inválido');
+  }
+  if (tipo === 'actividad' && !destino_valor1) {
+    throw new Error('Falta actividad (destino_valor1)');
+  }
+  if (tipo === 'categoria' && !destino_valor1) {
+    throw new Error('Falta categoría (destino_valor1)');
+  }
+  if (tipo === 'anio_nac' && !destino_valor1) {
+    throw new Error('Falta año de nacimiento (destino_valor1)');
+  }
+  if (tipo === 'cat_anio' && (!destino_valor1 || !destino_valor2)) {
+    throw new Error('Falta categoría o año de nacimiento (destino_valor1 / destino_valor2)');
+  }
+  if (tipo === 'act_cat' && (!destino_valor1 || !destino_valor2)) {
+    throw new Error('Falta actividad o categoría (destino_valor1 / destino_valor2)');
+  }
+}
+
+// ===============================
+// Helper: resolver a qué topic/condición de FCM mandar el push
+// según el destino elegido en el panel.
+// ===============================
+function buildFcmTarget(clubId, destino) {
+  const tipo = destino?.destino_tipo || 'todos';
+  const v1 = destino?.destino_valor1 || null;
+  const v2 = destino?.destino_valor2 || null;
+
+  const topicActividad = (act) => `club_${clubId}_act_${slugForTopic(act)}`;
+  const topicCategoria = (cat) => `club_${clubId}_cat_${slugForTopic(cat)}`;
+  const topicAnio = (anio) => `club_${clubId}_anio_${slugForTopic(anio)}`;
+  const topicFaltaPago = () => `club_${clubId}_faltapago`;
+
+  switch (tipo) {
+    case 'actividad':
+      return { topic: topicActividad(v1) };
+    case 'categoria':
+      return { topic: topicCategoria(v1) };
+    case 'anio_nac':
+      return { topic: topicAnio(v1) };
+    case 'act_cat':
+      return {
+        condition: `'${topicActividad(v1)}' in topics && '${topicCategoria(v2)}' in topics`,
+      };
+    case 'cat_anio':
+      return {
+        condition: `'${topicCategoria(v1)}' in topics && '${topicAnio(v2)}' in topics`,
+      };
+    case 'falta_pago':
+      return { topic: topicFaltaPago() };
+    default:
+      return { topic: `club_${clubId}` };
+  }
+}
+
+// ===============================
+// Helper: enviar push al destino elegido
+// (todos / actividad / categoría / año / falta de pago / combinaciones)
 // ✅ Incluye clubName en el título y en data
 // ===============================
 async function sendPushToClubTopic({ clubId, clubName, titulo, cuerpo, notificacionId, data }) {
   const admin = initFirebase();
   if (!admin) throw new Error('Firebase no inicializado (faltan FIREBASE_*)');
 
-
-
-  const topic = `club_${clubId}`;
+  const target = buildFcmTarget(clubId, data);
 
   // ✅ Título con nombre del club
   // Ej: "Club Atlético — Suspensión por lluvia"
@@ -82,7 +169,7 @@ async function sendPushToClubTopic({ clubId, clubName, titulo, cuerpo, notificac
 
   // data en FCM debe ser string
   const message = {
-    topic,
+    ...target, // { topic: '...' } o { condition: '...' }
     notification: {
       title: String(titleFinal).slice(0, 120),
       body: String(cuerpo ?? '').slice(0, 200),
@@ -177,9 +264,16 @@ router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (re
       return res.status(400).json({ ok: false, error: 'Completá título y cuerpo.' });
     }
 
+    // ✅ Validar el destino elegido (mismos criterios que Noticias)
+    try {
+      validateDestino(data ?? {});
+    } catch (eDestino) {
+      return res.status(400).json({ ok: false, error: eDestino.message });
+    }
+
+
     // ✅ Traer nombre del club (para mostrar en push)
-    const rClub = await db.query(
-      `SELECT name FROM clubs WHERE id = $1 LIMIT 1`,
+    const rClub = await db.query(      `SELECT name FROM clubs WHERE id = $1 LIMIT 1`,
       [clubId]
     );
     const clubName = rClub.rowCount ? rClub.rows[0].name : 'Club';
