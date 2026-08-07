@@ -1351,6 +1351,8 @@ const r = await db.query(
     actividades_adicionales = $18,
     bienvenida_enviada_at = CASE
       WHEN email IS DISTINCT FROM $21 THEN NULL
+      WHEN dni IS DISTINCT FROM $22 THEN NULL
+      WHEN numero_socio IS DISTINCT FROM $23 THEN NULL
       ELSE bienvenida_enviada_at
     END
   WHERE id = $19 AND club_id = $20
@@ -1377,7 +1379,9 @@ const r = await db.query(
     (actividades_adicionales ?? null),
     id,
     clubId,
-    email ?? null, // ✅ NUEVO: mismo valor que $7, pero en un parámetro aparte para el CASE
+    email ?? null,   // ✅ mismo valor que $7, en parámetro aparte para el CASE
+    dni,             // ✅ NUEVO: mismo valor que $2, en parámetro aparte para el CASE
+    numero_socio,    // ✅ NUEVO: mismo valor que $1, en parámetro aparte para el CASE
   ]
 );
 
