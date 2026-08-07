@@ -326,7 +326,7 @@ router.post('/socios/photo-request', requireAuth, async (req, res) => {
       ]
     );
 
-    return res.json({
+return res.json({
       ok: true,
       pendiente_id: r.rows[0].id,
       filename,
@@ -337,6 +337,118 @@ router.post('/socios/photo-request', requireAuth, async (req, res) => {
       ok: false,
       error: e.message || 'Error interno',
     });
+  }
+});
+
+// ======================================================
+// GET /app/asistencias?mes=YYYY-MM
+// App: resumen + detalle de asistencias/ausencias del socio
+// logueado para el mes indicado (por defecto, el mes actual).
+// Además informa si el socio tiene ALGÚN registro histórico
+// (en cualquier mes) para que la app decida si muestra o no
+// el indicador en el carnet.
+// ======================================================
+function monthRangeFromYYYYMM(ym) {
+  const m = String(ym || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const start = `${y}-${String(mo).padStart(2, '0')}-01`;
+  const endDate = new Date(y, mo, 1); // primer día del mes siguiente
+  const endY = endDate.getFullYear();
+  const endM = endDate.getMonth() + 1;
+  const endExclusive = `${endY}-${String(endM).padStart(2, '0')}-01`;
+  return { start, endExclusive };
+}
+
+router.get('/asistencias', requireAuth, async (req, res) => {
+  try {
+    const clubId =
+      req.user?.clubId || req.user?.club_id || req.user?.clubID || null;
+    const socioId =
+      req.user?.socioId || req.user?.socio_id || req.user?.socioID || null;
+
+    if (!clubId || !socioId) {
+      return res.status(401).json({ ok: false, error: 'Token inválido para la app' });
+    }
+
+    const now = new Date();
+    const mesDefault = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const mesParam = String(req.query.mes || mesDefault);
+
+    const range = monthRangeFromYYYYMM(mesParam);
+    if (!range) {
+      return res.status(400).json({ ok: false, error: 'Parámetro "mes" inválido (usar YYYY-MM)' });
+    }
+
+    // ¿Tiene ALGÚN registro histórico (en cualquier mes, no solo el pedido)?
+    const rHist = await db.query(
+      `
+      SELECT EXISTS (
+        SELECT 1
+        FROM asistencia_detalle ad
+        JOIN asistencia_eventos ae ON ae.id = ad.evento_id
+        WHERE ad.socio_id = $1 AND ae.club_id = $2
+      ) AS existe
+      `,
+      [socioId, clubId]
+    );
+    const tieneHistorial = rHist.rows?.[0]?.existe === true;
+
+    // Si nunca tuvo un registro, ni siquiera consultamos el detalle del mes:
+    // esto es lo que la app usa para decidir si oculta el indicador del carnet.
+    if (!tieneHistorial) {
+      return res.json({
+        ok: true,
+        mes: mesParam,
+        tieneHistorial: false,
+        resumen: { presentes: 0, ausentes: 0 },
+        detalle: [],
+      });
+    }
+
+    const rDet = await db.query(
+      `
+      SELECT
+        to_char(ae.fecha::date, 'YYYY-MM-DD') AS fecha,
+        ae.tipo,
+        ae.actividad,
+        ae.actividad_adicional,
+        ae.categoria,
+        ad.presente
+      FROM asistencia_detalle ad
+      JOIN asistencia_eventos ae ON ae.id = ad.evento_id
+      WHERE ad.socio_id = $1
+        AND ae.club_id = $2
+        AND ae.fecha::date >= $3::date
+        AND ae.fecha::date <  $4::date
+      ORDER BY ae.fecha ASC
+      `,
+      [socioId, clubId, range.start, range.endExclusive]
+    );
+
+    const detalle = rDet.rows.map((r) => ({
+      fecha: r.fecha,
+      tipo: r.tipo,
+      actividad: r.actividad,
+      actividadAdicional: r.actividad_adicional,
+      categoria: r.categoria,
+      presente: r.presente === true,
+    }));
+
+    const presentes = detalle.filter((d) => d.presente).length;
+    const ausentes = detalle.length - presentes;
+
+    return res.json({
+      ok: true,
+      mes: mesParam,
+      tieneHistorial: true,
+      resumen: { presentes, ausentes },
+      detalle,
+    });
+  } catch (e) {
+    console.error('❌ /app/asistencias error:', e);
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
 
