@@ -335,6 +335,13 @@ function buildPermissions(role){
     canAccess(section){
       if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
       if (r === 'profesor') return ['socios','noticias','notificaciones','asistencia'].includes(section);
+      // ✅ FIX: al rol "asistencias" le faltaba esta restricción, así que
+      // caía en el "return ALL_SECTIONS" de abajo y veía todos los tabs
+      // (Socios, Pendientes, Ingresos, Gastos, Configuración, etc.), aunque
+      // no pudiera escribir en ellos. Solo debe poder entrar a "Reportes"
+      // (donde reportes.js ya lo limita a ver únicamente el reporte de
+      // Asistencia) y a "asistencia" (el modal de Tomar asistencia).
+      if (r === 'asistencias') return ['reportes','asistencia'].includes(section);
       return ALL_SECTIONS.includes(section);
     },
     // Escritura / ejecutar acciones (mutaciones)

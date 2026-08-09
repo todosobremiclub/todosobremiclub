@@ -54,32 +54,14 @@
     $('asistGuardarMsg').textContent = '';
     $('asistAnioNacimiento').value = '';
 
-    // ✅ NUEVO: resetear el bloque plegable de "ampliar búsqueda"
+    // ✅ NUEVO: resetear categorías/años adicionales (ahora en el formulario principal)
     categoriasAdicionalesSeleccionadas = new Set();
     aniosAdicionalesSeleccionados = [];
     if ($('asistAnioAdicionalInput')) $('asistAnioAdicionalInput').value = '';
     renderAniosAdicionalesChips();
-    colapsarAmpliarBusqueda();
 
     $('asistenciaPasoSocios').style.display = 'none';
     $('asistenciaPasoDatos').style.display = 'block';
-  }
-
-  // ✅ NUEVO: plegar/desplegar el bloque de "ampliar búsqueda"
-  function colapsarAmpliarBusqueda() {
-    const body = $('asistAmpliarBusquedaBody');
-    const icon = $('asistToggleAmpliarIcon');
-    if (body) body.style.display = 'none';
-    if (icon) icon.style.transform = 'rotate(0deg)';
-  }
-
-  function toggleAmpliarBusqueda() {
-    const body = $('asistAmpliarBusquedaBody');
-    const icon = $('asistToggleAmpliarIcon');
-    if (!body) return;
-    const abierto = body.style.display !== 'none';
-    body.style.display = abierto ? 'none' : 'block';
-    if (icon) icon.style.transform = abierto ? 'rotate(0deg)' : 'rotate(180deg)';
   }
 
   async function cargarSelects() {
@@ -448,8 +430,8 @@
     });
     $('btnAsistGuardar')?.addEventListener('click', () => guardarAsistencia());
 
-    // ✅ NUEVO: toggle del bloque plegable "ampliar búsqueda" + agregar año adicional
-    $('btnAsistToggleAmpliar')?.addEventListener('click', toggleAmpliarBusqueda);
+    // ✅ NUEVO: agregar año adicional (categorías adicionales se bindean solas
+    // como chips cada vez que se dibujan, en renderCategoriasAdicionalesChips)
     $('btnAsistAgregarAnioAdicional')?.addEventListener('click', agregarAnioAdicional);
     $('asistAnioAdicionalInput')?.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {

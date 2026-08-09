@@ -36,11 +36,27 @@ router.get('/:clubId/asistencia/socios-filtrados', requireAuth, requireClubAcces
       actividad = '',
       categoria = '',
       actividadAdicional = '',
-      anioNacimiento = ''
+      anioNacimiento = '',
+      // ✅ NUEVO: permiten ampliar la búsqueda a más de una categoría / año de
+      // nacimiento (por ejemplo, chicos que entrenan/juegan con más de una
+      // categoría). Solo se usan para ENCONTRAR socios: la categoría y el año
+      // "principales" del evento (arriba) siguen siendo un valor único, así que
+      // no afectan en nada a cómo se guarda el evento ni a los reportes que
+      // filtran por categoría/año exactos.
+      categoriasAdicionales = '',
+      aniosAdicionales = ''
     } = req.query;
 
     if (!actividad.trim() || !categoria.trim()) {
       return res.status(400).json({ ok: false, error: 'Faltan actividad y/o categoría' });
+    }
+
+    // Normaliza un query param que puede llegar como CSV ("2012,2011"), como
+    // array (si se repite el mismo parámetro en la URL) o vacío, a una lista
+    // de strings limpia y sin duplicados.
+    function toList(value) {
+      const arr = Array.isArray(value) ? value : String(value ?? '').split(',');
+      return [...new Set(arr.map((v) => String(v).trim()).filter(Boolean))];
     }
 
     const where = ['s.club_id = $1', 's.activo = true'];
@@ -50,8 +66,10 @@ router.get('/:clubId/asistencia/socios-filtrados', requireAuth, requireClubAcces
     where.push(`s.actividad = $${p++}`);
     params.push(actividad);
 
-    where.push(`s.categoria = $${p++}`);
-    params.push(categoria);
+    // ✅ NUEVO: categoría principal + categorías adicionales (selección múltiple)
+    const categorias = [...new Set([categoria.trim(), ...toList(categoriasAdicionales)])];
+    where.push(`s.categoria = ANY($${p++})`);
+    params.push(categorias);
 
     // actividades_adicionales se guarda como JSON string (array de nombres),
     // p.ej. '["Natación","Pileta"]'. El operador jsonb "?" chequea si el
@@ -65,11 +83,16 @@ router.get('/:clubId/asistencia/socios-filtrados', requireAuth, requireClubAcces
       params.push(actividadAdicional);
     }
 
-    // Filtro opcional por año de nacimiento (útil cuando la categoría
-    // sola no alcanza para distinguir, p.ej. categorías por edad).
-    if (anioNacimiento && String(anioNacimiento).trim()) {
-      where.push(`EXTRACT(YEAR FROM s.fecha_nacimiento) = $${p++}`);
-      params.push(Number(anioNacimiento));
+    // Filtro opcional por año de nacimiento (útil cuando la categoría sola no
+    // alcanza para distinguir, p.ej. categorías por edad). ✅ NUEVO: admite
+    // varios años a la vez (principal + adicionales).
+    const anios = [...toList(anioNacimiento), ...toList(aniosAdicionales)]
+      .map(Number)
+      .filter((n) => Number.isInteger(n));
+
+    if (anios.length) {
+      where.push(`EXTRACT(YEAR FROM s.fecha_nacimiento) = ANY($${p++})`);
+      params.push(anios);
     }
 
 
