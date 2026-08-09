@@ -43,14 +43,43 @@
   let convocados = [];   // [{id, nombre, apellido, numero_socio, categoria}]
   let invitados = [];    // [{id, nombre, apellido, numero_socio, categoria}]
 
+  // ✅ NUEVO: categorías/años adicionales para ampliar la búsqueda de convocados
+  let categoriasAdicionalesSeleccionadas = new Set();
+  let aniosAdicionalesSeleccionados = []; // array de strings, en orden de agregado
+
   function resetModal() {
     convocados = [];
     invitados = [];
     $('asistDatosMsg').textContent = '';
     $('asistGuardarMsg').textContent = '';
     $('asistAnioNacimiento').value = '';
+
+    // ✅ NUEVO: resetear el bloque plegable de "ampliar búsqueda"
+    categoriasAdicionalesSeleccionadas = new Set();
+    aniosAdicionalesSeleccionados = [];
+    if ($('asistAnioAdicionalInput')) $('asistAnioAdicionalInput').value = '';
+    renderAniosAdicionalesChips();
+    colapsarAmpliarBusqueda();
+
     $('asistenciaPasoSocios').style.display = 'none';
     $('asistenciaPasoDatos').style.display = 'block';
+  }
+
+  // ✅ NUEVO: plegar/desplegar el bloque de "ampliar búsqueda"
+  function colapsarAmpliarBusqueda() {
+    const body = $('asistAmpliarBusquedaBody');
+    const icon = $('asistToggleAmpliarIcon');
+    if (body) body.style.display = 'none';
+    if (icon) icon.style.transform = 'rotate(0deg)';
+  }
+
+  function toggleAmpliarBusqueda() {
+    const body = $('asistAmpliarBusquedaBody');
+    const icon = $('asistToggleAmpliarIcon');
+    if (!body) return;
+    const abierto = body.style.display !== 'none';
+    body.style.display = abierto ? 'none' : 'block';
+    if (icon) icon.style.transform = abierto ? 'rotate(0deg)' : 'rotate(180deg)';
   }
 
   async function cargarSelects() {
@@ -88,6 +117,104 @@
       opt.textContent = a.nombre;
       selAdic.appendChild(opt);
     });
+
+    // ✅ NUEVO: chips seleccionables de categorías adicionales (mismo catálogo
+    // que la categoría principal), para poder tocar más de una a la hora de
+    // buscar convocados. Se re-generan cada vez que se abre el modal, así que
+    // arrancan siempre "sin tocar" (todas deseleccionadas).
+    categoriasAdicionalesSeleccionadas = new Set();
+    renderCategoriasAdicionalesChips(rCat.categorias || []);
+  }
+
+  // ✅ NUEVO: dibuja los chips de categorías adicionales y bindea el toggle
+  // (tocar un chip lo prende/apaga, como un filtro).
+  function renderCategoriasAdicionalesChips(categoriasList) {
+    const wrap = $('asistCategoriasAdicionalesWrap');
+    if (!wrap) return;
+
+    if (!categoriasList.length) {
+      wrap.innerHTML = '<span class="muted small">No hay categorías configuradas.</span>';
+      return;
+    }
+
+    wrap.innerHTML = categoriasList.map(c => {
+      const seleccionada = categoriasAdicionalesSeleccionadas.has(c.nombre);
+      return `
+        <button type="button" class="asist-chip-cat-adicional" data-value="${c.nombre}"
+          style="padding:6px 12px; border-radius:999px; font-size:13px; cursor:pointer;
+                 border:1px solid ${seleccionada ? 'var(--color-primary,#2563eb)' : '#d1d5db'};
+                 background:${seleccionada ? 'var(--color-primary,#2563eb)' : '#fff'};
+                 color:${seleccionada ? '#fff' : '#374151'};
+                 transition:all .12s ease;">
+          ${seleccionada ? '✓ ' : ''}${c.nombre}
+        </button>
+      `;
+    }).join('');
+
+    wrap.querySelectorAll('.asist-chip-cat-adicional').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const valor = btn.dataset.value;
+        if (categoriasAdicionalesSeleccionadas.has(valor)) {
+          categoriasAdicionalesSeleccionadas.delete(valor);
+        } else {
+          categoriasAdicionalesSeleccionadas.add(valor);
+        }
+        renderCategoriasAdicionalesChips(categoriasList);
+      });
+    });
+  }
+
+  // ✅ NUEVO: agrega un año a la lista de "años adicionales" desde el input
+  function agregarAnioAdicional() {
+    const input = $('asistAnioAdicionalInput');
+    if (!input) return;
+    const valor = String(input.value || '').trim();
+
+    if (!valor) return;
+    if (!/^\d{4}$/.test(valor)) {
+      $('asistDatosMsg').textContent = 'El año adicional debe tener 4 dígitos (ej: 2011).';
+      return;
+    }
+    $('asistDatosMsg').textContent = '';
+
+    if (!aniosAdicionalesSeleccionados.includes(valor)) {
+      aniosAdicionalesSeleccionados.push(valor);
+      renderAniosAdicionalesChips();
+    }
+    input.value = '';
+    input.focus();
+  }
+
+  // ✅ NUEVO: dibuja los chips (removibles con ✕) de años adicionales agregados
+  function renderAniosAdicionalesChips() {
+    const wrap = $('asistAniosAdicionalesChips');
+    if (!wrap) return;
+
+    wrap.innerHTML = aniosAdicionalesSeleccionados.map(anio => `
+      <span style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px;
+                    border-radius:999px; background:var(--color-primary,#2563eb); color:#fff; font-size:13px;">
+        ${anio}
+        <button type="button" class="asist-quitar-anio-adicional" data-value="${anio}"
+                style="border:none; background:none; color:#fff; cursor:pointer; font-weight:bold; line-height:1; padding:0;">✕</button>
+      </span>
+    `).join('');
+
+    wrap.querySelectorAll('.asist-quitar-anio-adicional').forEach(btn => {
+      btn.addEventListener('click', () => {
+        aniosAdicionalesSeleccionados = aniosAdicionalesSeleccionados.filter(a => a !== btn.dataset.value);
+        renderAniosAdicionalesChips();
+      });
+    });
+  }
+
+  // ✅ NUEVO: categorías adicionales tildadas para ampliar la búsqueda
+  function getCategoriasAdicionalesSeleccionadas() {
+    return Array.from(categoriasAdicionalesSeleccionadas);
+  }
+
+  // ✅ NUEVO: años adicionales agregados para ampliar la búsqueda
+  function getAniosAdicionales() {
+    return [...aniosAdicionalesSeleccionados];
   }
 
   function abrirModal() {
@@ -124,7 +251,7 @@
     const filas = convocados.map(s => `
       <label style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #f0f0f0;">
         <input type="checkbox" class="asist-check-convocado" data-id="${s.id}" />
-        <span>${s.apellido}, ${s.nombre} <span class="muted small">(#${s.numero_socio ?? '-'})</span></span>
+        <span>${s.apellido}, ${s.nombre} <span class="muted small">(#${s.numero_socio ?? '-'}${s.categoria ? ' · ' + s.categoria : ''})</span></span>
       </label>
     `).join('');
 
@@ -229,9 +356,16 @@
     const clubId = getActiveClubId();
     const { actividadAdicional, anioNacimiento } = getDatosEvento();
 
+    // ✅ NUEVO: categorías/años adicionales tildados, para ampliar la búsqueda
+    // (no cambian la categoría/año "principal" del evento).
+    const categoriasAdicionales = getCategoriasAdicionalesSeleccionadas();
+    const aniosAdicionales = getAniosAdicionales();
+
     const params = new URLSearchParams({ actividad, categoria });
     if (actividadAdicional) params.set('actividadAdicional', actividadAdicional);
     if (anioNacimiento) params.set('anioNacimiento', anioNacimiento);
+    if (categoriasAdicionales.length) params.set('categoriasAdicionales', categoriasAdicionales.join(','));
+    if (aniosAdicionales.length) params.set('aniosAdicionales', aniosAdicionales.join(','));
 
     const res = await fetchAuth(`/club/${clubId}/asistencia/socios-filtrados?${params.toString()}`);
     const data = await safeJson(res);
@@ -245,8 +379,14 @@
     invitados = [];
 
     const { tipo: t2 } = getDatosEvento();
+
+    const extraTxt = [
+      categoriasAdicionales.length ? `+ ${categoriasAdicionales.join(', ')}` : '',
+      aniosAdicionales.length ? `+ años ${aniosAdicionales.join(', ')}` : ''
+    ].filter(Boolean).join(' · ');
+
     $('asistResumenEvento').textContent =
-      `${t2 === 'partido' ? 'Partido' : 'Entrenamiento'} · ${actividad}${actividadAdicional ? ' + ' + actividadAdicional : ''} · ${categoria}${anioNacimiento ? ' · Nacidos en ' + anioNacimiento : ''} · ${fecha}`;
+      `${t2 === 'partido' ? 'Partido' : 'Entrenamiento'} · ${actividad}${actividadAdicional ? ' + ' + actividadAdicional : ''} · ${categoria}${extraTxt ? ' (' + extraTxt + ')' : ''}${anioNacimiento ? ' · Nacidos en ' + anioNacimiento : ''} · ${fecha}`;
 
     renderConvocados();
     renderInvitados();
@@ -307,6 +447,16 @@
       $('asistenciaPasoDatos').style.display = 'block';
     });
     $('btnAsistGuardar')?.addEventListener('click', () => guardarAsistencia());
+
+    // ✅ NUEVO: toggle del bloque plegable "ampliar búsqueda" + agregar año adicional
+    $('btnAsistToggleAmpliar')?.addEventListener('click', toggleAmpliarBusqueda);
+    $('btnAsistAgregarAnioAdicional')?.addEventListener('click', agregarAnioAdicional);
+    $('asistAnioAdicionalInput')?.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        agregarAnioAdicional();
+      }
+    });
 
     $('modalAsistencia')?.addEventListener('click', (ev) => {
       if (ev.target.id === 'modalAsistencia') cerrarModal();

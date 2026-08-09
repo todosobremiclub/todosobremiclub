@@ -478,6 +478,42 @@ textarea:focus{
           <label class="muted small">Año de nacimiento (opcional)</label>
           <input id="asistAnioNacimiento" type="number" min="1900" max="2100" placeholder="Ej: 2012" style="width:100%; padding:8px;" />
         </div>
+
+        <!-- ✅ NUEVO: sección plegable para ampliar la búsqueda a otras
+             categorías/años (chicos que entrenan o juegan con más de una
+             categoría). Colapsada por defecto para no ensuciar el flujo normal
+             de quien no la necesita. No modifica la categoría/año "principal"
+             de arriba, que sigue siendo la que se guarda en el evento. -->
+        <div style="grid-column:1 / -1;">
+          <button type="button" id="btnAsistToggleAmpliar"
+                  style="width:100%; display:flex; align-items:center; justify-content:space-between;
+                         padding:9px 12px; font-size:13px; color:var(--color-secondary,#1e40af);
+                         background:#eff6ff; border:1px solid #dbeafe; border-radius:10px; cursor:pointer;">
+            <span>🔎 ¿Hay chicos que entrenan o juegan con otra categoría? Ampliar búsqueda</span>
+            <span id="asistToggleAmpliarIcon" style="transition:transform .15s ease;">▾</span>
+          </button>
+
+          <div id="asistAmpliarBusquedaBody"
+               style="display:none; margin-top:8px; padding:12px; border:1px dashed #bfdbfe; border-radius:10px; background:#f8fafc;">
+            <p class="muted small" style="margin:0 0 10px;">
+              Tildá otras categorías o agregá otros años de nacimiento: esos socios van a
+              aparecer directo en la lista de convocados, sin tener que buscarlos uno por uno.
+            </p>
+
+            <label class="muted small">Categorías adicionales</label>
+            <div id="asistCategoriasAdicionalesWrap" style="display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 14px;">
+              <span class="muted small">Cargando categorías...</span>
+            </div>
+
+            <label class="muted small">Años de nacimiento adicionales</label>
+            <div style="display:flex; gap:8px; margin-top:6px;">
+              <input id="asistAnioAdicionalInput" type="number" min="1900" max="2100"
+                     placeholder="Ej: 2011" style="flex:1; padding:8px;" />
+              <button type="button" id="btnAsistAgregarAnioAdicional" class="btn" style="padding:8px 16px; white-space:nowrap;">+ Agregar</button>
+            </div>
+            <div id="asistAniosAdicionalesChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
+          </div>
+        </div>
       </div>
 
       <div id="asistDatosMsg" class="muted small" style="margin-top:8px; color:#b91c1c;"></div>
