@@ -452,4 +452,38 @@ router.get('/asistencias', requireAuth, async (req, res) => {
   }
 });
 
+// ======================================================
+// GET /app/config
+// Devuelve la versión mínima de build permitida por
+// plataforma y el link a la store correspondiente.
+// Sin auth: se consulta ANTES de loguearse, en cada
+// apertura de la app (ver app.dart, _checkForceUpdate).
+//
+// Para forzar una actualización: subí el número de
+// minBuildAndroid / minBuildIOS al build que acabás de
+// publicar. Cualquier instalación con un build MENOR
+// queda bloqueada hasta que actualice.
+// ======================================================
+const APP_MIN_BUILD_ANDROID = 22;
+// ⚠️ iOS todavía está en TestFlight (no en la store pública).
+// Dejamos el mínimo en 0 (= nunca bloquea) hasta que se apruebe
+// la primera versión pública y tengamos la URL real de App Store.
+const APP_MIN_BUILD_IOS = 0;
+
+const APP_STORE_URL_ANDROID =
+  'https://play.google.com/store/apps/details?id=com.todosobremiclub.app';
+// TODO: completar con la URL real una vez publicada en App Store
+// (formato: https://apps.apple.com/app/idXXXXXXXXXX)
+const APP_STORE_URL_IOS = '';
+
+router.get('/config', (req, res) => {
+  return res.json({
+    ok: true,
+    minBuildAndroid: APP_MIN_BUILD_ANDROID,
+    minBuildIOS: APP_MIN_BUILD_IOS,
+    storeUrlAndroid: APP_STORE_URL_ANDROID,
+    storeUrlIOS: APP_STORE_URL_IOS,
+  });
+});
+
 module.exports = router;
