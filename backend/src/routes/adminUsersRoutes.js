@@ -338,22 +338,45 @@ router.post('/', requireAuth, requireRole('superadmin'), async (req, res) => {
 // ================== EDITAR ==================
 router.put('/:id', requireAuth, requireRole('superadmin'), async (req, res) => {
   const { id } = req.params;
-  const { email, full_name, is_active, assignments } = req.body;
+  const { email, full_name, is_active, assignments, password } = req.body || {};
 
   try {
-    await db.query(
-      `UPDATE users SET email=$1, full_name=$2, is_active=COALESCE($3, is_active) WHERE id=$4`,
-      [email, full_name || null, is_active, id]
-    );
+    const emailNorm = email ? String(email).trim().toLowerCase() : email;
 
-    // Reemplazamos roles del usuario
-    await db.query(`DELETE FROM user_clubs WHERE user_id=$1`, [id]);
+    // ✅ FIX: antes este endpoint no leía `password` del body, así que si se
+    // escribía una contraseña nueva en el formulario de edición, se ignoraba por
+    // completo (el usuario seguía con la contraseña vieja). Ahora, si llega una
+    // contraseña no vacía, se hashea y se actualiza junto con el resto de los datos.
+    if (password) {
+      const passHash = await bcrypt.hash(password, 10);
+      await db.query(
+        `UPDATE users
+         SET email=$1, full_name=$2, is_active=COALESCE($3, is_active), password_hash=$4
+         WHERE id=$5`,
+        [emailNorm, full_name || null, is_active, passHash, id]
+      );
+    } else {
+      await db.query(
+        `UPDATE users SET email=$1, full_name=$2, is_active=COALESCE($3, is_active) WHERE id=$4`,
+        [emailNorm, full_name || null, is_active, id]
+      );
+    }
 
+    // ✅ FIX: antes se hacía `DELETE FROM user_clubs WHERE user_id=$1` y después se
+    // insertaban solo las asignaciones que llegaban en este request. Como el
+    // formulario "Editar usuario del club" únicamente manda la asignación del club
+    // que se está editando en ese momento, esto borraba (sin avisar) el acceso del
+    // usuario a CUALQUIER OTRO club al que también estuviera asignado. Ahora se
+    // actualiza/inserta el rol solo para los club_id que llegan en `assignments`,
+    // sin tocar las asignaciones a otros clubes.
     if (Array.isArray(assignments)) {
       for (const a of assignments) {
+        if (!a?.club_id || !a?.role) continue;
+
         await db.query(
           `INSERT INTO user_clubs (user_id, club_id, role)
-           VALUES ($1,$2,$3)`,
+           VALUES ($1,$2,$3)
+           ON CONFLICT (user_id, club_id) DO UPDATE SET role = EXCLUDED.role`,
           [id, a.club_id, a.role]
         );
       }
