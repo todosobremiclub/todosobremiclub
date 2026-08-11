@@ -2565,6 +2565,15 @@ if (payload.es_menor && !payload.tutor_nombre) {
     $('btnStatPendientes')?.addEventListener('click', goToPendientes);
 
 $('filtroActividad')?.addEventListener('change', loadSocios);
+
+    // ✅ NUEVO: el campo DNI no admite puntos (ni ningún otro carácter que no
+    // sea número) — se limpia a medida que se escribe o se pega, tanto al
+    // cargar un socio nuevo como al editar uno existente (mismo input).
+    $('socioDni')?.addEventListener('input', (e) => {
+      const limpio = onlyDigits(e.target.value);
+      if (e.target.value !== limpio) e.target.value = limpio;
+    });
+
     $('btnNuevoSocio')?.addEventListener('click', openModalNew);
     if (window.__clubRole === 'profesor') {
   const btn = $('btnNuevoSocio');

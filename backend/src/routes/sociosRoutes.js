@@ -7,6 +7,12 @@ const multer = require('multer');
 const ExcelJS = require('exceljs');
 const nodemailer = require('nodemailer'); // ✅ NUEVO: para el email de bienvenida
 
+// ✅ NUEVO: DNI sin puntos ni otros caracteres, se usa al cargar/editar un
+// socio a mano (el import de Excel ya tenía su propia versión de esto).
+function onlyDigitsDni(v) {
+  return String(v ?? '').replace(/\D+/g, '');
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB (Excel)
@@ -1182,7 +1188,12 @@ const {
 } = req.body ?? {};
 
   try {
-    if (!dni || !nombre || !apellido || !fecha_nacimiento || !categoria || !actividad) {
+    // ✅ NUEVO: el DNI se guarda siempre solo con dígitos (sin puntos, guiones,
+    // espacios, etc.), sea que venga limpio del formulario web/app o con
+    // puntos por las dudas (copiar/pegar, versiones viejas de la app, etc.).
+    const dniLimpio = onlyDigitsDni(dni);
+
+    if (!dniLimpio || !nombre || !apellido || !fecha_nacimiento || !categoria || !actividad) {
       return res.status(400).json({
         ok: false,
         error: 'Completá DNI, Nombre, Apellido, Categoría, Actividad y Fecha de nacimiento.'
@@ -1256,7 +1267,7 @@ const r = await db.query(
   [
     clubId,
     nro,
-    String(dni),
+    dniLimpio,
     String(nombre),
     String(apellido),
     telefono ?? null,
@@ -1326,6 +1337,9 @@ if (es_menor && !String(tutor_nombre || '').trim()) {
       });
     }
 
+// ✅ NUEVO: mismo criterio que al crear, el DNI se guarda solo con dígitos.
+const dniLimpio = onlyDigitsDni(dni);
+
 await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id });
 
 const r = await db.query(
@@ -1360,7 +1374,7 @@ const r = await db.query(
   `,
   [
     numero_socio,
-    dni,
+    dniLimpio,
     nombre,
     apellido,
     telefono ?? null,
@@ -1380,7 +1394,7 @@ const r = await db.query(
     id,
     clubId,
     email ?? null,   // ✅ mismo valor que $7, en parámetro aparte para el CASE
-    dni,             // ✅ NUEVO: mismo valor que $2, en parámetro aparte para el CASE
+    dniLimpio,       // ✅ NUEVO: mismo valor que $2, en parámetro aparte para el CASE
     numero_socio,    // ✅ NUEVO: mismo valor que $1, en parámetro aparte para el CASE
   ]
 );
