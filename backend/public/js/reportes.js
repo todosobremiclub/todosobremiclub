@@ -2885,9 +2885,9 @@ function bindAsistenciaReporte() {
 async function initReportesSection() {
 
   // =============================
-  // ROL "asistencias": solo ve el reporte de Asistencia
+  // ROLES "asistencias" y "profesor": solo ven el reporte de Asistencia
   // =============================
-  if (window.__clubRole === 'asistencias') {
+  if (window.__clubRole === 'asistencias' || window.__clubRole === 'profesor') {
     const switchWrap = $('reportesSwitch');
     if (switchWrap) switchWrap.style.display = 'none';
 

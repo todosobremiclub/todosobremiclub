@@ -334,7 +334,10 @@ function buildPermissions(role){
     // Acceso a secciones (qué puede ver)
     canAccess(section){
       if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
-      if (r === 'profesor') return ['socios','noticias','notificaciones','asistencia'].includes(section);
+      // ✅ NUEVO: el profesor ahora también entra a "Reportes", donde
+      // reportes.js lo limita a ver únicamente el reporte de Asistencia
+      // (mismo criterio que el rol "asistencias").
+      if (r === 'profesor') return ['socios','noticias','notificaciones','asistencia','reportes'].includes(section);
       // ✅ FIX: al rol "asistencias" le faltaba esta restricción, así que
       // caía en el "return ALL_SECTIONS" de abajo y veía todos los tabs
       // (Socios, Pendientes, Ingresos, Gastos, Configuración, etc.), aunque
