@@ -7,6 +7,11 @@ const multer = require('multer');
 const ExcelJS = require('exceljs');
 const nodemailer = require('nodemailer'); // ✅ NUEVO: para el email de bienvenida
 
+// ✅ NUEVO: tamaño de lote e intervalo entre lotes para la bienvenida por email
+// (se puede ajustar sin tocar código, seteando estas variables de entorno en Render)
+const BIENVENIDA_LOTE_SIZE = Number(process.env.BIENVENIDA_LOTE_SIZE || 20);
+const BIENVENIDA_LOTE_INTERVALO_MIN = Number(process.env.BIENVENIDA_LOTE_INTERVALO_MIN || 60);
+
 // ✅ NUEVO: DNI sin puntos ni otros caracteres, se usa al cargar/editar un
 // socio a mano (el import de Excel ya tenía su propia versión de esto).
 function onlyDigitsDni(v) {
@@ -1858,10 +1863,16 @@ router.get(
           nombre,
           apellido,
           email
-        FROM socios
+        FROM socios s
         WHERE club_id = $1
           AND activo = true
           AND bienvenida_enviada_at IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM bienvenida_envios_programados e
+            WHERE e.socio_id = s.id
+              AND e.enviado_at IS NULL
+              AND e.error IS NULL
+          )
         ORDER BY numero_socio ASC
         `,
         [clubId]
@@ -1902,86 +1913,157 @@ router.post(
         return res.status(400).json({ ok: false, error: 'Seleccioná al menos un socio.' });
       }
 
-const rClub = await db.query(`SELECT name, logo_url FROM clubs WHERE id = $1 LIMIT 1`, [clubId]);
-      const clubName = rClub.rowCount ? rClub.rows[0].name : 'tu club';
-      const clubLogoUrl = rClub.rowCount ? rClub.rows[0].logo_url : null;
+      // Re-chequear cuáles siguen pendientes y no tienen ya un envío programado sin enviar
+      // (protege contra doble click y contra volver a programar a alguien que ya está en cola)
+      const rPendientes = await db.query(
+        `
+        SELECT s.id
+        FROM socios s
+        WHERE s.club_id = $1
+          AND s.id = ANY($2::uuid[])
+          AND s.bienvenida_enviada_at IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM bienvenida_envios_programados e
+            WHERE e.socio_id = s.id
+              AND e.enviado_at IS NULL
+              AND e.error IS NULL
+          )
+        `,
+        [clubId, socioIds]
+      );
 
-      const transporter = getMailTransporter();
+      const idsAProgramar = rPendientes.rows.map(r => r.id);
 
-      let enviados = 0;
-      const errores = [];
-
-      for (const socioId of socioIds) {
-        // Re-chequear que siga pendiente (protege contra doble envío)
-        const rSocio = await db.query(
-          `
-          SELECT id, numero_socio, dni, nombre, apellido, email
-          FROM socios
-          WHERE id = $1
-            AND club_id = $2
-            AND bienvenida_enviada_at IS NULL
-          LIMIT 1
-          `,
-          [socioId, clubId]
-        );
-
-        if (!rSocio.rowCount) {
-          // Ya se había enviado antes (o no existe) -> se ignora en silencio
-          continue;
-        }
-
-        const socio = rSocio.rows[0];
-        const email = String(socio.email ?? '').trim();
-
-        if (!email) {
-          errores.push({
-            socioId: socio.id,
-            numero_socio: socio.numero_socio,
-            error: 'El socio no tiene email cargado.'
-          });
-          continue;
-        }
-
-const { subject, text, html } = buildBienvenidaEmail({
-          clubName,
-          clubLogoUrl,
-          nombre: socio.nombre,
-          apellido: socio.apellido,
-          numeroSocio: socio.numero_socio,
-          dni: socio.dni
+      if (!idsAProgramar.length) {
+        return res.json({
+          ok: true,
+          programados: 0,
+          lotes: 0,
+          mensaje: 'No hay socios nuevos para programar (ya estaban enviados o en cola).'
         });
-
-        try {
-          await transporter.sendMail({
-            from: `"${clubName}" <${process.env.MAIL_USER}>`,
-            to: email,
-            subject,
-            text,
-            html
-          });
-
-          await db.query(
-            `UPDATE socios SET bienvenida_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
-            [socio.id, clubId]
-          );
-
-          enviados++;
-        } catch (err) {
-          console.error(`❌ error enviando bienvenida a socio ${socio.id}:`, err.message);
-          errores.push({
-            socioId: socio.id,
-            numero_socio: socio.numero_socio,
-            error: 'No se pudo enviar el email.'
-          });
-        }
       }
 
-      res.json({ ok: true, enviados, errores });
+      // Partir en lotes de BIENVENIDA_LOTE_SIZE; cada lote se manda
+      // BIENVENIDA_LOTE_INTERVALO_MIN minutos después del anterior
+      // (el lote 0 sale en la próxima corrida del worker, ver procesarBienvenidasPendientes)
+      const ahora = new Date();
+      const filasValues = [];
+      const params = [];
+      let idx = 1;
+
+      idsAProgramar.forEach((socioId, i) => {
+        const lote = Math.floor(i / BIENVENIDA_LOTE_SIZE);
+        const programadoPara = new Date(ahora.getTime() + lote * BIENVENIDA_LOTE_INTERVALO_MIN * 60 * 1000);
+
+        filasValues.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++})`);
+        params.push(clubId, socioId, lote, programadoPara);
+      });
+
+      await db.query(
+        `
+        INSERT INTO bienvenida_envios_programados (club_id, socio_id, lote, programado_para)
+        VALUES ${filasValues.join(', ')}
+        `,
+        params
+      );
+
+      const totalLotes = Math.floor((idsAProgramar.length - 1) / BIENVENIDA_LOTE_SIZE) + 1;
+
+      res.json({
+        ok: true,
+        programados: idsAProgramar.length,
+        lotes: totalLotes,
+        loteSize: BIENVENIDA_LOTE_SIZE,
+        intervaloMinutos: BIENVENIDA_LOTE_INTERVALO_MIN
+      });
     } catch (e) {
-      console.error('❌ enviar bienvenida', e);
+      console.error('❌ programar bienvenida', e);
       res.status(500).json({ ok: false, error: e.message });
     }
   }
 );
 
+// ===============================
+// BIENVENIDA POR EMAIL – PROCESAR COLA PROGRAMADA
+// La llama periódicamente app.js (setInterval), no es un endpoint HTTP.
+// Manda los envíos cuya fecha programada ya llegó, en tandas de a 50 por
+// corrida (para no trabarse si el servidor estuvo caído un rato y se
+// acumularon varias horas de cola).
+// ===============================
+async function procesarBienvenidasPendientes() {
+  try {
+    const r = await db.query(
+      `
+      SELECT e.id AS envio_id, e.club_id, s.id AS socio_id, s.numero_socio,
+             s.dni, s.nombre, s.apellido, s.email,
+             c.name AS club_name, c.logo_url AS club_logo_url
+      FROM bienvenida_envios_programados e
+      JOIN socios s ON s.id = e.socio_id
+      JOIN clubs c ON c.id = e.club_id
+      WHERE e.enviado_at IS NULL
+        AND e.error IS NULL
+        AND e.programado_para <= NOW()
+      ORDER BY e.programado_para ASC
+      LIMIT 50
+      `
+    );
+
+    if (!r.rowCount) return;
+
+    console.log(`✉️ Procesando ${r.rowCount} bienvenida(s) programada(s)...`);
+    const transporter = getMailTransporter();
+
+    for (const row of r.rows) {
+      const email = String(row.email ?? '').trim();
+
+      if (!email) {
+        await db.query(
+          `UPDATE bienvenida_envios_programados SET error = $2 WHERE id = $1`,
+          [row.envio_id, 'El socio no tiene email cargado.']
+        );
+        continue;
+      }
+
+      const { subject, text, html } = buildBienvenidaEmail({
+        clubName: row.club_name,
+        clubLogoUrl: row.club_logo_url,
+        nombre: row.nombre,
+        apellido: row.apellido,
+        numeroSocio: row.numero_socio,
+        dni: row.dni
+      });
+
+      try {
+        await transporter.sendMail({
+          from: `"${row.club_name}" <${process.env.MAIL_USER}>`,
+          to: email,
+          subject,
+          text,
+          html
+        });
+
+        await db.query(
+          `UPDATE bienvenida_envios_programados SET enviado_at = NOW() WHERE id = $1`,
+          [row.envio_id]
+        );
+        await db.query(
+          `UPDATE socios SET bienvenida_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
+          [row.socio_id, row.club_id]
+        );
+      } catch (err) {
+        console.error(`❌ error enviando bienvenida programada ${row.envio_id}:`, err.message);
+        await db.query(
+          `UPDATE bienvenida_envios_programados SET error = $2 WHERE id = $1`,
+          [row.envio_id, 'No se pudo enviar el email.']
+        );
+      }
+    }
+  } catch (e) {
+    console.error('❌ procesarBienvenidasPendientes', e);
+  }
+}
+
 module.exports = router;
+// ✅ NUEVO: se expone la función además del router, para que app.js pueda
+// llamarla periódicamente con setInterval
+module.exports.procesarBienvenidasPendientes = procesarBienvenidasPendientes;

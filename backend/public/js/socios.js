@@ -2511,7 +2511,7 @@ if (payload.es_menor && !payload.tutor_nombre) {
     const btn = $('btnBienvenidaEnviar');
     const resultado = $('bienvenidaResultado');
 
-    if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Programando...'; }
 
     try {
       const res = await fetchAuth(`/club/${clubId}/socios/bienvenida/enviar`, {
@@ -2522,18 +2522,19 @@ if (payload.es_menor && !payload.tutor_nombre) {
       const data = await safeJson(res);
 
       if (!res.ok || !data.ok) {
-        alert(data.error || 'No se pudo enviar la bienvenida');
+        alert(data.error || 'No se pudo programar la bienvenida');
         return;
       }
 
       if (resultado) {
-        const okTxt = `✅ Enviados: ${data.enviados}`;
-        const errTxt = data.errores?.length
-          ? '<br>⚠️ Con errores: ' + data.errores.length + ' (' +
-            data.errores.map(e => `N° ${escapeHtml(String(e.numero_socio ?? ''))}: ${escapeHtml(e.error)}`).join(', ') +
-            ')'
-          : '';
-        resultado.innerHTML = `<div class="muted small">${okTxt}${errTxt}</div>`;
+        if (!data.programados) {
+          resultado.innerHTML = `<div class="muted small">${escapeHtml(data.mensaje || 'No había socios nuevos para programar.')}</div>`;
+        } else {
+          const txt = data.lotes > 1
+            ? `📩 Se programaron ${data.programados} envíos en ${data.lotes} tandas (una cada ${data.intervaloMinutos} minutos aprox). La primera tanda sale en los próximos minutos.`
+            : `📩 Se programaron ${data.programados} envíos, salen en los próximos minutos.`;
+          resultado.innerHTML = `<div class="muted small">${txt}</div>`;
+        }
       }
 
       await loadBienvenidaPendientes();

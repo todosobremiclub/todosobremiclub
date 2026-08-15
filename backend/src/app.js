@@ -71,7 +71,12 @@ app.use('/admin/clubs', adminClubsRoutes);
 app.use('/admin/users', adminUsersRoutes);
 
 app.use('/club', require('./routes/clubRoutes'));
-app.use('/club', require('./routes/sociosRoutes'));
+
+// ✅ Guardamos la referencia (antes se pasaba directo al require) para poder
+// llamar a procesarBienvenidasPendientes() desde el setInterval de más abajo
+const sociosRoutes = require('./routes/sociosRoutes');
+app.use('/club', sociosRoutes);
+
 app.use('/club', configuracionRoutes);
 app.use('/club', require('./routes/gastosRoutes'));
 app.use('/club', require('./routes/cumplesRoutes'));
@@ -97,6 +102,15 @@ app.use('/app', require('./routes/appRoutes'));
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
+
+// ✅ NUEVO: worker de envío de bienvenidas por lotes.
+// Revisa cada 5 minutos si hay envíos programados cuya hora ya llegó, y los manda.
+// (El tamaño de lote y el intervalo entre lotes se configuran en sociosRoutes.js
+// con las variables de entorno BIENVENIDA_LOTE_SIZE y BIENVENIDA_LOTE_INTERVALO_MIN)
+const CHEQUEO_BIENVENIDA_MS = 5 * 60 * 1000; // cada 5 minutos
+setInterval(() => {
+  sociosRoutes.procesarBienvenidasPendientes();
+}, CHEQUEO_BIENVENIDA_MS);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ API listening on ${PORT}`));
