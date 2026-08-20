@@ -44,6 +44,18 @@
 
 </section>
 
+<!-- ================= MODAL COMPARACIÓN: ACTUALIZAR INFORMACIÓN ================= -->
+<div id="modalComparacionOverlay" class="modal-comparacion-overlay" style="display:none;">
+  <div class="modal-comparacion-box">
+    <h3 style="margin-top:0;">Confirmar actualización de datos del socio</h3>
+    <div id="modalComparacionBody"></div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+      <button id="modalComparacionCancel" class="btn btn-secondary">Cancelar</button>
+      <button id="modalComparacionConfirm" class="btn-ok">Confirmar cambios</button>
+    </div>
+  </div>
+</div>
+
 <style>
   .pend-mini{
     width:34px;
@@ -79,5 +91,26 @@
 .btn-ok:hover {
   background-color: #15803d !important;
   border-color: #15803d !important;
+}
+
+.modal-comparacion-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  display: flex;
+}
+
+.modal-comparacion-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 640px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 </style>

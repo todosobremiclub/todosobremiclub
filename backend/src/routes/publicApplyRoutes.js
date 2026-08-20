@@ -105,7 +105,9 @@ router.post('/club/:clubId/apply', async (req, res) => {
 } = req.body ?? {};
 
     // ✅ tipoFinal SIEMPRE al principio (evita "Cannot access before initialization")
-    const tipoFinal =
+    // Nota: es "let" porque más abajo, si el DNI ya pertenece a un socio existente,
+    // una postulación de tipo 'alta' se reconvierte en 'actualizacion'.
+    let tipoFinal =
       String(tipo ?? 'alta').trim().toLowerCase() === 'foto'
         ? 'foto'
         : 'alta';
@@ -167,9 +169,11 @@ if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
         });
       }
     } else {
-      // alta normal: no debe existir
+      // alta normal: si el DNI ya pertenece a un socio del club, en lugar de
+      // rechazar la postulación la convertimos en una solicitud de
+      // ACTUALIZACIÓN DE DATOS (el admin la verá en Pendientes y decidirá).
       if (rSoc.rowCount) {
-        return res.status(409).json({ ok: false, error: 'Ya existe un socio con ese DNI' });
+        tipoFinal = 'actualizacion';
       }
     }
 
@@ -207,6 +211,9 @@ if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
     // Insertar en pendientes (incluye tipo)
     // IMPORTANTÍSIMO: para tipo='foto' NO podemos enviar actividad/categoria null si la tabla es NOT NULL.
     // Entonces tomamos actividad/categoria/fecha_nacimiento del socio existente.
+    // Para tipo='actualizacion' SÍ guardamos los datos NUEVOS tal como los cargó
+    // el socio (caen en la misma rama que 'alta' en los ternarios de abajo), para
+    // que el admin pueda compararlos contra los datos actuales en la pantalla de Pendientes.
     // =========================
     const socioRow = rSoc.rowCount ? rSoc.rows[0] : null;
 

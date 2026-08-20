@@ -58,10 +58,13 @@ function renderSociosPendientes(items) {
   items.forEach(p => {
     const tr = document.createElement('tr');
     tr.dataset.id = p.id;
+    tr.dataset.tipo = p.tipo || 'alta';
 
     const tipoTxt = (p.tipo === 'foto')
       ? 'Actualización de foto'
-      : 'Alta';
+      : (p.tipo === 'actualizacion')
+        ? 'Actualizar Información'
+        : 'Alta';
 
     // ✅ ACA ESTÁ LA CLAVE (faltaba esto)
     const fotoHtml = p.foto_url
@@ -83,7 +86,7 @@ function renderSociosPendientes(items) {
       <td>${p.telefono || ''}</td>
       <td style="white-space:nowrap;">
         <button class="btn-ok" data-act="accept">
-          ${p.tipo === 'foto' ? 'Aplicar foto' : 'Aceptar'}
+          ${p.tipo === 'foto' ? 'Aplicar foto' : (p.tipo === 'actualizacion' ? 'Revisar cambios' : 'Aceptar')}
         </button>
 
         <button
@@ -106,6 +109,79 @@ function renderSociosPendientes(items) {
       return;
     }
     renderSociosPendientes(data.items || []);
+  }
+
+  // =========================
+  // MODAL COMPARACIÓN (tipo='actualizacion')
+  // =========================
+  const CAMPOS_COMPARACION = [
+    ['nombre', 'Nombre'],
+    ['apellido', 'Apellido'],
+    ['actividad', 'Actividad'],
+    ['categoria', 'Categoría'],
+    ['telefono', 'Teléfono'],
+    ['email', 'Email'],
+    ['direccion', 'Dirección'],
+    ['fecha_nacimiento', 'Fecha de nacimiento']
+  ];
+
+  function mostrarModalComparacion(pendiente, actual) {
+    return new Promise((resolve) => {
+      const overlay = $('modalComparacionOverlay');
+      const body = $('modalComparacionBody');
+
+      // Fallback por si el HTML del modal no está presente todavía
+      if (!overlay || !body) {
+        resolve(confirm('¿Confirmar la actualización de los datos del socio? El número de socio no cambia.'));
+        return;
+      }
+
+      const filas = CAMPOS_COMPARACION.map(([key, label]) => {
+        const valorActual = actual ? (actual[key] ?? '') : '';
+        const valorNuevo = pendiente ? (pendiente[key] ?? '') : '';
+        const distinto = String(valorActual || '').trim() !== String(valorNuevo || '').trim();
+
+        return `
+          <tr${distinto ? ' style="background:#fef9c3;"' : ''}>
+            <td><b>${label}</b></td>
+            <td>${valorActual || '—'}</td>
+            <td style="text-align:center;">${distinto ? '➡️' : ''}</td>
+            <td>${distinto ? `<b>${valorNuevo || '—'}</b>` : (valorNuevo || '—')}</td>
+          </tr>
+        `;
+      }).join('');
+
+      body.innerHTML = `
+        <p class="muted" style="margin-top:0;">
+          N° de socio <b>#${actual?.numero_socio ?? '—'}</b>. El número de socio se mantiene sin cambios.
+        </p>
+        <div class="table-wrapper">
+          <table class="socios-table" style="width:100%;">
+            <thead>
+              <tr><th>Campo</th><th>Dato actual</th><th></th><th>Dato nuevo</th></tr>
+            </thead>
+            <tbody>${filas}</tbody>
+          </table>
+        </div>
+      `;
+
+      overlay.style.display = 'flex';
+
+      const btnConfirm = $('modalComparacionConfirm');
+      const btnCancel = $('modalComparacionCancel');
+
+      function cerrar(resultado) {
+        overlay.style.display = 'none';
+        btnConfirm.removeEventListener('click', onConfirm);
+        btnCancel.removeEventListener('click', onCancel);
+        resolve(resultado);
+      }
+      function onConfirm() { cerrar(true); }
+      function onCancel() { cerrar(false); }
+
+      btnConfirm.addEventListener('click', onConfirm);
+      btnCancel.addEventListener('click', onCancel);
+    });
   }
 
   // =========================
@@ -229,7 +305,39 @@ tr.innerHTML = `
 
       // ======= SOCIOS PENDIENTES =======
       if (btn.dataset.act === 'accept') {
-        const tipo = btn.textContent.toLowerCase().includes('foto') ? 'foto' : 'alta';
+        const tipo = tr.dataset.tipo || 'alta';
+
+        // Actualización de datos de un socio existente: primero mostramos
+        // la comparación de datos actuales vs nuevos y pedimos confirmación explícita.
+        if (tipo === 'actualizacion') {
+          const { res: resCmp, data: cmp } = await fetchAuth(
+            `/club/${clubId}/pendientes/${rowId}/comparar`
+          );
+
+          if (!resCmp.ok || !cmp.ok) {
+            alert(cmp.error || 'No se pudo obtener la comparación de datos');
+            return;
+          }
+
+          const confirmado = await mostrarModalComparacion(cmp.pendiente, cmp.actual);
+          if (!confirmado) return;
+
+          const { res, data } = await fetchAuth(
+            `/club/${clubId}/pendientes/${rowId}/aceptar`,
+            { method: 'POST' }
+          );
+
+          if (!res.ok || !data.ok) {
+            alert(data.error || 'Error actualizando los datos del socio');
+            return;
+          }
+
+          alert(`✅ Datos actualizados. Socio N° ${data.numero_socio}`);
+          await loadSociosPendientes();
+          window.actualizarBadgePendientes?.();
+          return;
+        }
+
         const msg = (tipo === 'foto')
           ? '¿Aceptar solicitud y actualizar la foto del socio?'
           : '¿Aceptar postulación y crear socio?';

@@ -35,6 +35,46 @@ router.get('/:clubId/pendientes', requireAuth, async (req, res) => {
   }
 });
 
+// GET /club/:clubId/pendientes/:id/comparar
+// Devuelve los datos NUEVOS de la postulación pendiente junto a los datos
+// ACTUALES del socio en la base, para que el admin pueda revisar el
+// cambio antes de confirmarlo (usado por el modal de "Actualizar Información").
+router.get('/:clubId/pendientes/:id/comparar', requireAuth, requireClubAccess, async (req, res) => {
+  try {
+    const { clubId, id } = req.params;
+
+    const rP = await db.query(
+      `SELECT id, dni, nombre, apellido, actividad, categoria, telefono, email,
+              direccion, fecha_nacimiento, foto_url, tipo, estado
+       FROM socios_pendientes
+       WHERE id=$1 AND club_id=$2
+       LIMIT 1`,
+      [id, clubId]
+    );
+
+    if (!rP.rowCount) return res.status(404).json({ ok: false, error: 'No encontrado' });
+    const p = rP.rows[0];
+
+    const rSoc = await db.query(
+      `SELECT id, numero_socio, nombre, apellido, actividad, categoria, telefono,
+              email, direccion, fecha_nacimiento, foto_url
+       FROM socios
+       WHERE club_id=$1 AND dni=$2
+       LIMIT 1`,
+      [clubId, p.dni]
+    );
+
+    res.json({
+      ok: true,
+      pendiente: p,
+      actual: rSoc.rowCount ? rSoc.rows[0] : null
+    });
+  } catch (e) {
+    console.error('❌ comparar pendiente', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // POST /club/:clubId/pendientes/:id/rechazar
 router.post('/:clubId/pendientes/:id/rechazar', requireAuth, requireClubAccess, async (req, res) => {
   try {
@@ -84,7 +124,9 @@ const tipo = String(p.tipo ?? 'alta').toLowerCase();
 
     // 2) Validación según tipo
 const rSoc = await db.query(
-  `SELECT id, numero_socio, foto_url FROM socios WHERE club_id=$1 AND dni=$2 LIMIT 1`,
+  `SELECT id, numero_socio, foto_url, nombre, apellido, actividad, categoria,
+          telefono, email, direccion, fecha_nacimiento
+   FROM socios WHERE club_id=$1 AND dni=$2 LIMIT 1`,
   [clubId, p.dni]
 );
 
@@ -117,6 +159,57 @@ if (tipo === 'foto') {
   return res.json({
     ok:true,
     modo:'foto',
+    socioId,
+    numero_socio: rSoc.rows[0].numero_socio
+  });
+}
+
+// Actualización de datos de un socio existente (el DNI ya estaba dado de alta).
+// El número de socio NUNCA se toca: solo se pisan los datos nuevos.
+if (tipo === 'actualizacion') {
+  if (!rSoc.rowCount) {
+    await db.query('ROLLBACK');
+    return res.status(404).json({
+      ok: false,
+      error: 'No existe un socio con ese DNI (puede haber sido eliminado)'
+    });
+  }
+
+  const socioId = rSoc.rows[0].id;
+
+  await db.query(
+    `UPDATE socios
+     SET nombre=$1, apellido=$2, actividad=$3, categoria=$4,
+         telefono=$5, email=$6, direccion=$7, fecha_nacimiento=$8,
+         foto_url=COALESCE($9, foto_url),
+         updated_at=NOW()
+     WHERE id=$10 AND club_id=$11`,
+    [
+      p.nombre,
+      p.apellido,
+      p.actividad,
+      p.categoria,
+      p.telefono ?? null,
+      p.email ?? null,
+      p.direccion ?? null,
+      p.fecha_nacimiento,
+      p.foto_url,
+      socioId,
+      clubId
+    ]
+  );
+
+  await db.query(
+    `UPDATE socios_pendientes
+     SET estado='aceptado', updated_at=now()
+     WHERE id=$1 AND club_id=$2`,
+    [id, clubId]
+  );
+
+  await db.query('COMMIT');
+  return res.json({
+    ok: true,
+    modo: 'actualizacion',
     socioId,
     numero_socio: rSoc.rows[0].numero_socio
   });
