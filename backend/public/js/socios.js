@@ -2309,6 +2309,53 @@ if (payload.es_menor && !payload.tutor_nombre) {
 
   // Botón "Impagos del mes" -> abre un popup propio con el listado de
   // socios impagos del mes en curso (sin salir de la sección Socios)
+
+  // Filtro de Actividad/Categoría propio de este modal (se combinan con AND
+  // si se eligen los dos) y mes/año que está mostrando actualmente.
+  const impagosMesModalState = {
+    anio: new Date().getFullYear(),
+    mes: new Date().getMonth() + 1,
+    actividad: '',
+    categoria: ''
+  };
+
+  // Llena los combos de Actividad/Categoría del modal reutilizando el cache
+  // que ya usa el filtro de la tabla de Socios (o pidiéndolo si aún no está).
+  async function cargarFiltrosModalImpagosMes() {
+    if (!actividadesConfigCache.length) {
+      try { await loadActividadesConfig(); } catch (_) {}
+    }
+    if (!categoriasToolbarCache.length) {
+      try { await loadCategoriasToolbar(); } catch (_) {}
+    }
+
+    const selAct = $('modalImpagosMesFiltroActividad');
+    if (selAct) {
+      const actual = selAct.value;
+      selAct.innerHTML = '<option value="">Todas</option>';
+      actividadesConfigCache.forEach((a) => {
+        const opt = document.createElement('option');
+        opt.value = a.nombre;
+        opt.textContent = a.nombre;
+        selAct.appendChild(opt);
+      });
+      selAct.value = actual || '';
+    }
+
+    const selCat = $('modalImpagosMesFiltroCategoria');
+    if (selCat) {
+      const actual = selCat.value;
+      selCat.innerHTML = '<option value="">Todas</option>';
+      categoriasToolbarCache.forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c.nombre;
+        opt.textContent = c.nombre;
+        selCat.appendChild(opt);
+      });
+      selCat.value = actual || '';
+    }
+  }
+
   function bindModalImpagosMesOnce() {
     const modal = $('modalImpagosMes');
     if (!modal || modal.dataset.bound === '1') return;
@@ -2321,38 +2368,36 @@ if (payload.es_menor && !payload.tutor_nombre) {
     modal.addEventListener('click', (ev) => {
       if (ev.target === modal) modal.classList.add('hidden');
     });
+
+    $('modalImpagosMesFiltroActividad')?.addEventListener('change', (ev) => {
+      impagosMesModalState.actividad = ev.target.value || '';
+      cargarListadoImpagosMesModal();
+    });
+
+    $('modalImpagosMesFiltroCategoria')?.addEventListener('change', (ev) => {
+      impagosMesModalState.categoria = ev.target.value || '';
+      cargarListadoImpagosMesModal();
+    });
   }
 
-  async function openImpagosMesModal() {
-    const modal = $('modalImpagosMes');
+  // Trae y renderiza el listado de socios impagos según el mes/año y el
+  // filtro de Actividad/Categoría actuales del modal.
+  async function cargarListadoImpagosMesModal() {
     const body = $('modalImpagosMesBody');
-    const title = $('modalImpagosMesTitle');
-    const sub = $('modalImpagosMesSub');
-    if (!modal || !body) return;
+    if (!body) return;
 
-    bindModalImpagosMesOnce();
-
-    const now = new Date();
-    const anio = now.getFullYear();
-    const mes = now.getMonth() + 1;
-    const nombresMes = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
-
-    if (title) title.textContent = 'Impagos del mes';
-    if (sub) sub.textContent = `${nombresMes[mes - 1]} ${anio} · socios activos sin registro de pago`;
     body.innerHTML = '<div class="muted small">Cargando socios impagos…</div>';
-    modal.classList.remove('hidden');
 
     try {
       const clubId = getActiveClubId();
       const params = new URLSearchParams({
-        anio: String(anio),
-        mes: String(mes),
+        anio: String(impagosMesModalState.anio),
+        mes: String(impagosMesModalState.mes),
         limit: '100',
         offset: '0'
       });
+      if (impagosMesModalState.actividad) params.set('actividad', impagosMesModalState.actividad);
+      if (impagosMesModalState.categoria) params.set('categoria', impagosMesModalState.categoria);
 
       const res = await fetchAuth(`/club/${clubId}/reportes/impagos-mes/detalle?${params.toString()}`);
       const data = await safeJson(res);
@@ -2366,7 +2411,7 @@ if (payload.es_menor && !payload.tutor_nombre) {
       const total = Number(data.total || items.length);
 
       if (!items.length) {
-        body.innerHTML = '<div class="muted">No hay socios impagos este mes.</div>';
+        body.innerHTML = '<div class="muted">No hay socios impagos con este filtro.</div>';
         return;
       }
 
@@ -2405,6 +2450,34 @@ if (payload.es_menor && !payload.tutor_nombre) {
       console.warn('Error abriendo listado de impagos del mes:', e);
       body.innerHTML = '<div class="muted" style="color:#b91c1c;">Error inesperado cargando el listado.</div>';
     }
+  }
+
+  async function openImpagosMesModal() {
+    const modal = $('modalImpagosMes');
+    const body = $('modalImpagosMesBody');
+    const title = $('modalImpagosMesTitle');
+    const sub = $('modalImpagosMesSub');
+    if (!modal || !body) return;
+
+    bindModalImpagosMesOnce();
+
+    const now = new Date();
+    impagosMesModalState.anio = now.getFullYear();
+    impagosMesModalState.mes = now.getMonth() + 1;
+    // El filtro de Actividad/Categoría se mantiene entre aperturas del modal
+    // (no se resetea), para no perder la selección del admin.
+
+    const nombresMes = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    if (title) title.textContent = 'Impagos del mes';
+    if (sub) sub.textContent = `${nombresMes[impagosMesModalState.mes - 1]} ${impagosMesModalState.anio} · socios activos sin registro de pago`;
+    modal.classList.remove('hidden');
+
+    await cargarFiltrosModalImpagosMes();
+    await cargarListadoImpagosMesModal();
   }
 
 // Botón "Solicitudes Pendientes" -> solapa Pendientes

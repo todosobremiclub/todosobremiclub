@@ -735,6 +735,8 @@ router.get(
   async (req, res) => {
     const { clubId } = req.params;
     const anio = getYearFromQuery(req.query); // helper ya definido arriba
+    const actividad = (req.query.actividad || '').toString().trim() || null;
+    const categoria = (req.query.categoria || '').toString().trim() || null;
     const MESES = [
       'Enero','Febrero','Marzo','Abril','Mayo','Junio',
       'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
@@ -751,6 +753,8 @@ socios_activos AS (
   WHERE club_id = $1
     AND activo = true
     AND becado = false
+    AND ($3::text IS NULL OR actividad = $3)
+    AND ($4::text IS NULL OR categoria = $4)
 ),
 base AS (
   SELECT
@@ -788,7 +792,7 @@ GROUP BY b.mes_num
 ORDER BY b.mes_num;
       `;
 
-      const r = await db.query(q, [clubId, anio]);
+      const r = await db.query(q, [clubId, anio, actividad, categoria]);
 
       // Filtrar meses según fecha actual
       const now = new Date();
@@ -839,6 +843,8 @@ router.get(
     const mes = Number(req.query.mes);
     const limit = Math.min(Number(req.query.limit) || 20, 100); // máx 100
     const offset = Number(req.query.offset) || 0;
+    const actividad = (req.query.actividad || '').toString().trim() || null;
+    const categoria = (req.query.categoria || '').toString().trim() || null;
 
     if (!anio || !mes) {
       return res
@@ -929,6 +935,8 @@ WHERE s.club_id = $1
     )
   )
 AND pm.socio_id IS NULL
+AND ($6::text IS NULL OR s.actividad = $6)
+AND ($7::text IS NULL OR s.categoria = $7)
 ORDER BY s.numero_socio ASC
 LIMIT $4 OFFSET $5;
       `;
@@ -1005,12 +1013,14 @@ WHERE s.club_id = $1
       AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
     )
   )
-  AND pm.socio_id IS NULL;
+  AND pm.socio_id IS NULL
+  AND ($4::text IS NULL OR s.actividad = $4)
+  AND ($5::text IS NULL OR s.categoria = $5);
       `;
 
       const [rDetalle, rCount] = await Promise.all([
-        db.query(qDetalle, [clubId, anio, mes, limit, offset]),
-        db.query(qCount, [clubId, anio, mes])
+        db.query(qDetalle, [clubId, anio, mes, limit, offset, actividad, categoria]),
+        db.query(qCount, [clubId, anio, mes, actividad, categoria])
       ]);
 
       const total = Number(rCount.rows[0].total);
@@ -1047,6 +1057,8 @@ router.get(
     const { clubId } = req.params;
     const anio = Number(req.query.anio);
     const mes  = Number(req.query.mes);
+    const actividad = (req.query.actividad || '').toString().trim() || null;
+    const categoria = (req.query.categoria || '').toString().trim() || null;
 
     if (!anio) {
       return res.status(400).json({ ok: false, error: 'anio es obligatorio' });
@@ -1071,6 +1083,8 @@ router.get(
             FROM socios
             WHERE club_id = $1
               AND activo = true
+              AND ($3::text IS NULL OR actividad = $3)
+              AND ($4::text IS NULL OR categoria = $4)
           ),
           base AS (
             SELECT
@@ -1104,7 +1118,7 @@ router.get(
           ORDER BY b.mes_num;
         `;
 
-        const r = await db.query(q, [clubId, anio]);
+        const r = await db.query(q, [clubId, anio, actividad, categoria]);
         const rows = r.rows.map(x => ({
           mes: MESES[x.mes_num - 1],
           cantidad: x.cantidad
@@ -1155,10 +1169,12 @@ router.get(
             )
           )
           AND pm.id IS NULL
+          AND ($4::text IS NULL OR s.actividad = $4)
+          AND ($5::text IS NULL OR s.categoria = $5)
         ORDER BY s.numero_socio ASC
       `;
 
-      const r = await db.query(q, [clubId, anio, mes]);
+      const r = await db.query(q, [clubId, anio, mes, actividad, categoria]);
 
 const rows = r.rows.map(s => ({
   ...s,
@@ -1199,6 +1215,8 @@ router.get(
     const { clubId } = req.params;
     const anio = Number(req.query.anio);
     const mes  = Number(req.query.mes);
+    const actividad = (req.query.actividad || '').toString().trim() || null;
+    const categoria = (req.query.categoria || '').toString().trim() || null;
 
     if (!anio) {
       return res.status(400).json({ ok: false, error: 'anio es obligatorio' });
@@ -1223,6 +1241,8 @@ router.get(
             FROM socios
             WHERE club_id = $1
               AND activo = true
+              AND ($3::text IS NULL OR actividad = $3)
+              AND ($4::text IS NULL OR categoria = $4)
           ),
           base AS (
             SELECT
@@ -1256,7 +1276,7 @@ router.get(
           ORDER BY b.mes_num;
         `;
 
-        const r = await db.query(q, [clubId, anio]);
+        const r = await db.query(q, [clubId, anio, actividad, categoria]);
         const rows = r.rows.map(x => ({
           mes: MESES[x.mes_num - 1],
           cantidad: x.cantidad
@@ -1308,10 +1328,12 @@ router.get(
             )
           )
           AND pm.id IS NULL
+          AND ($4::text IS NULL OR s.actividad = $4)
+          AND ($5::text IS NULL OR s.categoria = $5)
         ORDER BY s.numero_socio ASC
       `;
 
-      const r = await db.query(q, [clubId, anio, mes]);
+      const r = await db.query(q, [clubId, anio, mes, actividad, categoria]);
 
       return sendExcel(
         res,

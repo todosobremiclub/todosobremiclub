@@ -54,7 +54,9 @@ const impagosState = {
     currentIndex: 0,
     page: 0,
     pageSize: 1000,       // suficientemente alto para traer todos los socios impagos en una sola página
-    totalForCurrent: 0
+    totalForCurrent: 0,
+    actividad: '',       // filtro opcional (se combina con categoria si ambos están seleccionados)
+    categoria: ''         // filtro opcional
   };
 
   const igState = {
@@ -664,6 +666,72 @@ function bindLogueadosInteractions() {
   // =============================
   // PANEL 2 – IMPAGOS POR MES
   // =============================
+
+  // Carga las opciones de los combos de filtro (Actividad / Categoría) del
+  // panel de Cuotas impagas. El filtro se aplica tanto al conteo/detalle en
+  // pantalla como al reporte exportado (PDF/Excel) para el mismo panel.
+  async function cargarFiltrosImpagos() {
+    const clubId = getActiveClubId();
+
+    const [rAct, rCat] = await Promise.all([
+      fetchAuth(`/club/${clubId}/config/actividades`),
+      fetchAuth(`/club/${clubId}/config/categorias`)
+    ]);
+
+    const selAct = $('impagosFiltroActividad');
+    if (selAct) {
+      const actual = selAct.value;
+      selAct.innerHTML = '<option value="">Todas</option>';
+      (rAct.data?.actividades || []).forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.nombre;
+        opt.textContent = a.nombre;
+        selAct.appendChild(opt);
+      });
+      selAct.value = actual || '';
+    }
+
+    const selCat = $('impagosFiltroCategoria');
+    if (selCat) {
+      const actual = selCat.value;
+      selCat.innerHTML = '<option value="">Todas</option>';
+      (rCat.data?.categorias || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.nombre;
+        opt.textContent = c.nombre;
+        selCat.appendChild(opt);
+      });
+      selCat.value = actual || '';
+    }
+  }
+
+  function bindImpagosFiltros() {
+    const selAct = $('impagosFiltroActividad');
+    const selCat = $('impagosFiltroCategoria');
+    if (!selAct && !selCat) return;
+
+    const onFiltroChange = async () => {
+      impagosState.actividad = selAct?.value || '';
+      impagosState.categoria = selCat?.value || '';
+      await loadImpagosData();
+      // Si el modal de detalle está abierto, refrescamos también su listado
+      const modal = $('impagosModal');
+      if (modal && !modal.classList.contains('hidden')) {
+        impagosState.page = 0;
+        await loadImpagosPageForCurrent();
+      }
+    };
+
+    if (selAct && selAct.dataset.bound !== '1') {
+      selAct.dataset.bound = '1';
+      selAct.addEventListener('change', onFiltroChange);
+    }
+    if (selCat && selCat.dataset.bound !== '1') {
+      selCat.dataset.bound = '1';
+      selCat.addEventListener('change', onFiltroChange);
+    }
+  }
+
   async function loadImpagosData(anio) {
     const tabela = $('tablaImpagos');
     const detailBody = $('detailImpagosBody');
@@ -673,19 +741,26 @@ function bindLogueadosInteractions() {
     try {
       const clubId = getActiveClubId();
       const params = new URLSearchParams({ anio: String(impagosState.anio) });
+      if (impagosState.actividad) params.set('actividad', impagosState.actividad);
+      if (impagosState.categoria) params.set('categoria', impagosState.categoria);
       const url = `/club/${clubId}/reportes/impagos-mes?${params.toString()}`;
       const { data } = await fetchAuth(url);
       if (!data.ok) {
         if (tabela) showError(tabela, data.error || 'Error cargando impagos');
         return;
       }
+      // Preservar el mes que se estaba viendo (por ej. si se cambió el
+      // filtro mientras el modal mostraba un mes distinto al actual).
+      const mesPrevioSeleccionado = impagosState.rows[impagosState.currentIndex]?.mes_num;
+
       const rows = data.rows || [];
       impagosState.rows = rows;
 
       const now = new Date();
       const currentMonth = now.getMonth() + 1;
+      const mesAConservar = mesPrevioSeleccionado ?? currentMonth;
       let idx = 0;
-      const found = rows.findIndex(r => Number(r.mes_num) === currentMonth);
+      const found = rows.findIndex(r => Number(r.mes_num) === mesAConservar);
       if (found >= 0) idx = found;
       impagosState.currentIndex = idx;
 
@@ -805,10 +880,16 @@ function bindLogueadosInteractions() {
     if (!modal) return;
 
     if (titleEl) titleEl.textContent = 'Cuotas impagas';
-    if (subEl)   subEl.textContent   = `${sel.mes} ${sel.anio} · socios activos sin registro de pago`;
+    if (subEl) subEl.textContent = `${sel.mes} ${sel.anio} · socios activos sin registro de pago`;
 
     impagosState.page = 0;
     modal.classList.remove('hidden');
+
+    // El filtro de Actividad/Categoría vive dentro de este modal: lo
+    // poblamos y bindeamos recién al abrir el listado.
+    await cargarFiltrosImpagos();
+    bindImpagosFiltros();
+
     await loadImpagosPageForCurrent();
   }
 
@@ -835,6 +916,8 @@ function bindLogueadosInteractions() {
         limit:  String(limit),
         offset: String(offset)
       });
+      if (impagosState.actividad) params.set('actividad', impagosState.actividad);
+      if (impagosState.categoria) params.set('categoria', impagosState.categoria);
 
       const url = `/club/${clubId}/reportes/impagos-mes/detalle?${params.toString()}`;
       const { data } = await fetchAuth(url);
@@ -2058,6 +2141,13 @@ if (exportConfig.extraKey !== 'sociosActCatActual') {
 // ✅ Para export ACTUAL (sin período), avisamos al backend
 if (exportConfig.extraKey === 'sociosActCatActual') {
   params.set('extra', 'actual');
+}
+
+// ✅ Cuotas impagas: exportar con el mismo filtro de Actividad/Categoría
+// que está aplicado en el panel (se combinan con AND si se eligen los dos)
+if (exportConfig.endpoint === 'impagos-mes') {
+  if (impagosState.actividad) params.set('actividad', impagosState.actividad);
+  if (impagosState.categoria) params.set('categoria', impagosState.categoria);
 }
 
   // url final
