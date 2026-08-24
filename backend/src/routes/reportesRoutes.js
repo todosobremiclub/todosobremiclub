@@ -4,6 +4,19 @@ const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const router = express.Router();
 
+// ===== AGRUPACIÓN DE CUENTA "TRANSFERENCIA" =====
+// Los pagos por transferencia guardan en `cuenta` un texto libre distinto por
+// movimiento (ej: "Transferencia (cuenta origen: Juan Pérez)"), porque el
+// socio/admin puede aclarar el origen. Para los reportes de "Responsable"
+// (Ingresos por responsable / Ingresos vs Gastos por responsable) todas esas
+// variantes deben verse agrupadas como un único concepto "Transferencia".
+// Se usa tanto para el SELECT/GROUP BY (resumen) como para el filtro de
+// igualdad en los detalles (para que al hacer click en "Transferencia" traiga
+// TODOS los movimientos, sin importar la cuenta de origen aclarada).
+function cuentaAgrupadaSQL(col, fallback = "'Sin cuenta'") {
+  return `CASE WHEN COALESCE(${col}, ${fallback}) ILIKE 'Transferencia%' THEN 'Transferencia' ELSE COALESCE(${col}, ${fallback}) END`;
+}
+
 // ===== EXPORT HELPERS =====
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
@@ -2813,28 +2826,28 @@ router.get(
     try {
       // 1) Ingresos generales (manuales)
       const q1 = `
-        SELECT 
-          COALESCE(ig.cuenta, 'Sin cuenta') AS responsable,
+        SELECT
+          ${cuentaAgrupadaSQL('ig.cuenta')} AS responsable,
           SUM(ig.monto) AS total
         FROM ingresos_generales ig
-        WHERE ig.club_id = $1 
+        WHERE ig.club_id = $1
           AND ig.activo = true
           AND EXTRACT(YEAR FROM ig.fecha) = $2
           AND EXTRACT(MONTH FROM ig.fecha) = $3
-        GROUP BY COALESCE(ig.cuenta, 'Sin cuenta')
+        GROUP BY ${cuentaAgrupadaSQL('ig.cuenta')}
       `;
 
       // 2) Cuotas sociales (pagos_mensuales)
       const q2 = `
-        SELECT 
-          COALESCE(pm.cuenta, 'Sin cuenta') AS responsable,
+        SELECT
+          ${cuentaAgrupadaSQL('pm.cuenta')} AS responsable,
           SUM(pm.monto) AS total
         FROM pagos_mensuales pm
         WHERE pm.club_id = $1
           AND pm.fecha_pago IS NOT NULL
           AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
           AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
-        GROUP BY COALESCE(pm.cuenta, 'Sin cuenta')
+        GROUP BY ${cuentaAgrupadaSQL('pm.cuenta')}
       `;
 
       const [r1, r2] = await Promise.all([
@@ -2891,25 +2904,25 @@ router.get(
 
     try {
       const qIng1 = `
-        SELECT COALESCE(ig.cuenta,'Sin cuenta') AS responsable,
+        SELECT ${cuentaAgrupadaSQL('ig.cuenta')} AS responsable,
                SUM(ig.monto) AS total
         FROM ingresos_generales ig
         WHERE ig.club_id = $1
           AND ig.activo = true
           AND EXTRACT(YEAR FROM ig.fecha) = $2
           AND EXTRACT(MONTH FROM ig.fecha) = $3
-        GROUP BY COALESCE(ig.cuenta,'Sin cuenta')
+        GROUP BY ${cuentaAgrupadaSQL('ig.cuenta')}
       `;
 
       const qIng2 = `
-        SELECT COALESCE(pm.cuenta,'Sin cuenta') AS responsable,
+        SELECT ${cuentaAgrupadaSQL('pm.cuenta')} AS responsable,
                SUM(pm.monto) AS total
         FROM pagos_mensuales pm
         WHERE pm.club_id = $1
           AND pm.fecha_pago IS NOT NULL
           AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
           AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
-        GROUP BY COALESCE(pm.cuenta,'Sin cuenta')
+        GROUP BY ${cuentaAgrupadaSQL('pm.cuenta')}
       `;
 
       const qGas = `
@@ -2994,7 +3007,7 @@ router.get(
             AND ig.activo = true
             AND EXTRACT(YEAR FROM ig.fecha) = $2
             AND EXTRACT(MONTH FROM ig.fecha) = $3
-            AND COALESCE(ig.cuenta,'Sin cuenta') = $4
+            AND ${cuentaAgrupadaSQL('ig.cuenta')} = $4
         `;
 
         const qCuotas = `
@@ -3009,7 +3022,7 @@ router.get(
             AND pm.fecha_pago IS NOT NULL
             AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
             AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
-            AND COALESCE(pm.cuenta,'Sin cuenta') = $4
+            AND ${cuentaAgrupadaSQL('pm.cuenta')} = $4
         `;
 
         const [rA, rB] = await Promise.all([
@@ -3332,7 +3345,7 @@ router.get(
           AND ig.activo = true
           AND EXTRACT(YEAR FROM ig.fecha) = $2
           AND EXTRACT(MONTH FROM ig.fecha) = $3
-          AND COALESCE(ig.cuenta, 'Sin cuenta') = $4
+          AND ${cuentaAgrupadaSQL('ig.cuenta')} = $4
         ORDER BY ig.fecha DESC;
       `;
 
@@ -3362,7 +3375,7 @@ router.get(
   AND pm.fecha_pago IS NOT NULL
   AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
   AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
-  AND COALESCE(pm.cuenta, 'Sin cuenta') = $4
+  AND ${cuentaAgrupadaSQL('pm.cuenta')} = $4
   ORDER BY pm.fecha_pago DESC;
 `;
 
@@ -3418,7 +3431,7 @@ router.get(
             AND ig.activo = true
             AND EXTRACT(YEAR FROM ig.fecha) = $2
             AND EXTRACT(MONTH FROM ig.fecha) = $3
-            AND COALESCE(ig.cuenta,'Sin cuenta') = $4
+            AND ${cuentaAgrupadaSQL('ig.cuenta')} = $4
           ORDER BY ig.fecha DESC
         `;
 
@@ -3434,7 +3447,7 @@ router.get(
             AND pm.fecha_pago IS NOT NULL
             AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
             AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
-            AND COALESCE(pm.cuenta,'Sin cuenta') = $4
+            AND ${cuentaAgrupadaSQL('pm.cuenta')} = $4
           ORDER BY pm.fecha_pago DESC
         `;
 
