@@ -246,7 +246,20 @@ router.post('/:clubId/grupo-familiar', requireAuth, requireClubAccess, async (re
   const { clubId } = req.params;
   const { jefeSocioId, miembros } = req.body;
 
+  if (!jefeSocioId) {
+    return res.status(400).json({ ok: false, error: 'Falta el socio jefe del grupo familiar.' });
+  }
+
+  // ✅ NUEVO: sacamos duplicados y al propio jefe de la lista de miembros
+  // ANTES de tocar la base (antes se filtraba el jefe adentro del loop,
+  // pero un ID repetido en el array igual llegaba a intentar un INSERT
+  // duplicado dentro del mismo grupo).
+  const miembrosIds = [...new Set((miembros || []).map((id) => String(id)))]
+    .filter((id) => id !== String(jefeSocioId));
+
   try {
+    await db.query('BEGIN');
+
     // 1. buscar grupo existente
     let grupo = await getGrupoByJefe({ clubId, jefeSocioId });
 
@@ -265,16 +278,47 @@ router.post('/:clubId/grupo-familiar', requireAuth, requireClubAccess, async (re
 
     const grupoId = grupo.id;
 
-    // 3. limpiar miembros anteriores
+    // ✅ NUEVO: validar ANTES de insertar que ninguno de los socios elegidos
+    // ya sea miembro de OTRO grupo familiar activo. Antes esto solo se
+    // filtraba en el frontend contra una lista de socios que se cacheaba una
+    // sola vez (podía quedar desactualizada), y si igual llegaba a pasar acá,
+    // Postgres lo cortaba con un 500 crudo:
+    // "duplicate key value violates unique constraint ux_miembro_unico".
+    if (miembrosIds.length) {
+      const rConflicto = await db.query(
+        `
+        SELECT s.id, s.nombre, s.apellido, s.numero_socio
+        FROM grupos_familiares_miembros gfm
+        JOIN grupos_familiares gf ON gf.id = gfm.grupo_familiar_id
+        JOIN socios s ON s.id = gfm.socio_id
+        WHERE gf.club_id = $1
+          AND gf.activo = true
+          AND gf.id <> $2
+          AND gfm.socio_id = ANY($3::uuid[])
+        `,
+        [clubId, grupoId, miembrosIds]
+      );
+
+      if (rConflicto.rowCount) {
+        await db.query('ROLLBACK');
+        const nombres = rConflicto.rows
+          .map((s) => `${s.apellido} ${s.nombre} (N° ${s.numero_socio})`)
+          .join(', ');
+        return res.status(409).json({
+          ok: false,
+          error: `Ya pertenece a otro Grupo Familiar activo: ${nombres}. Sacalo de ese grupo antes de agregarlo acá.`
+        });
+      }
+    }
+
+    // 3. limpiar miembros anteriores de ESTE grupo
     await db.query(
       `DELETE FROM grupos_familiares_miembros WHERE grupo_familiar_id = $1`,
       [grupoId]
     );
 
     // 4. insertar nuevos miembros
-    for (const socioId of (miembros || [])) {
-      if (socioId === jefeSocioId) continue;
-
+    for (const socioId of miembrosIds) {
       await db.query(
         `
         INSERT INTO grupos_familiares_miembros (id, grupo_familiar_id, socio_id, created_at)
@@ -284,10 +328,22 @@ router.post('/:clubId/grupo-familiar', requireAuth, requireClubAccess, async (re
       );
     }
 
+    await db.query('COMMIT');
     res.json({ ok: true });
 
   } catch (e) {
-    console.error(e);
+    try { await db.query('ROLLBACK'); } catch (_) {}
+
+    // ✅ NUEVO: red de seguridad por si dos guardados chocan justo al mismo
+    // tiempo (carrera) y la validación de arriba no llegó a agarrarlo.
+    if (e && e.code === '23505') {
+      return res.status(409).json({
+        ok: false,
+        error: 'Uno de los socios seleccionados ya pertenece a otro Grupo Familiar activo. Actualizá la pantalla e intentá de nuevo.'
+      });
+    }
+
+    console.error('❌ POST grupo-familiar', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
@@ -299,17 +355,49 @@ router.delete('/:clubId/grupo-familiar/:jefeSocioId', requireAuth, requireClubAc
   const { clubId, jefeSocioId } = req.params;
 
   try {
-    await db.query(`
-      UPDATE grupos_familiares
-      SET activo = false, updated_at = NOW()
+    await db.query('BEGIN');
+
+    const rGrupo = await db.query(
+      `
+      SELECT id
+      FROM grupos_familiares
       WHERE club_id = $1
         AND jefe_socio_id = $2
-    `, [clubId, jefeSocioId]);
+        AND activo = true
+      LIMIT 1
+      `,
+      [clubId, jefeSocioId]
+    );
 
+    if (rGrupo.rowCount) {
+      const grupoId = rGrupo.rows[0].id;
+
+      // ✅ NUEVO: esto antes NO se borraba. Las filas de miembros quedaban
+      // huérfanas (el grupo pasaba a activo=false pero sus integrantes
+      // seguían en grupos_familiares_miembros), y esas filas viejas chocaban
+      // contra "ux_miembro_unico" apenas alguien intentaba volver a armar un
+      // Grupo Familiar con esos mismos socios más adelante.
+      await db.query(
+        `DELETE FROM grupos_familiares_miembros WHERE grupo_familiar_id = $1`,
+        [grupoId]
+      );
+
+      await db.query(
+        `
+        UPDATE grupos_familiares
+        SET activo = false, updated_at = NOW()
+        WHERE id = $1
+        `,
+        [grupoId]
+      );
+    }
+
+    await db.query('COMMIT');
     res.json({ ok: true });
 
   } catch (e) {
-    console.error(e);
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ DELETE grupo-familiar', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });

@@ -537,9 +537,13 @@ async function openGrupoFamiliarModal() {
   const modal = $('modalGrupoFamiliar');
   if (!modal) return;
 
-  if (!sociosGrupoFamiliarCache.length) {
-    await loadSociosGrupoFamiliarCache();
-  }
+  // ✅ NUEVO: siempre recargamos la lista de socios al abrir el modal, en
+  // vez de reusar la caché de la primera vez que se abrió en esta sesión.
+  // Antes, si alguien ya quedaba asignado a otro Grupo Familiar después de
+  // que se cargó la caché, esta pantalla lo seguía mostrando como
+  // disponible y dejaba elegirlo igual — el choque terminaba recién al
+  // guardar, como un error de base de datos.
+  await loadSociosGrupoFamiliarCache();
 
   grupoFamiliarSeleccionadosDraft = [...grupoFamiliarSeleccionados];
 
@@ -2729,7 +2733,10 @@ $('btnGrupoFamiliarAceptar')?.addEventListener('click', async () => {
       console.log('✅ Grupo familiar guardado automáticamente');
     } catch (e) {
       console.error('Error guardando grupo familiar', e);
-      alert('Error guardando grupo familiar');
+      // ✅ NUEVO: mostrar el motivo real que manda el backend (por ejemplo
+      // "Ya pertenece a otro Grupo Familiar activo: ...") en vez de un
+      // mensaje genérico que no explica qué pasó.
+      alert(e.message || 'Error guardando grupo familiar');
     }
   }
 });
