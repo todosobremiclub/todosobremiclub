@@ -188,6 +188,22 @@
         </div>
       </div>
 
+      <!-- Cuotas pendientes de planes de cuotas personalizados (ej: equitación). Independiente de "Meses a pagar": cada cuota ya tiene su propio mes fijo. -->
+      <div class="modal-block" id="planCuotasPagoWrap" style="display:none;">
+        <label>Cuotas de planes personalizados pendientes</label>
+        <div id="planCuotasPagoLista"
+             style="
+               border:1px solid #bbf7d0;
+               border-radius:8px;
+               padding:10px;
+               background:#f0fdf4;
+               min-height:40px;
+             "></div>
+        <div class="muted small" style="margin-top:4px;">
+          Cada cuota se cobra con la fecha y la cuenta de este pago, en el mes que ya tiene asignado (no depende de "Meses a pagar").
+        </div>
+      </div>
+
       <div class="modal-block">
         <label>Meses a pagar</label>
         <div id="mesesGrid" class="meses-grid"></div>

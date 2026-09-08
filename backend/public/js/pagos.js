@@ -78,6 +78,13 @@ let mesesParciales = new Set();    // meses con conceptos pendientes
 let mesesSeleccionados = new Set();
 let detallePagosPorMes = new Map(); // 🔥 CLAVE
 
+// ✅ Cuotas pendientes de planes de cuotas personalizados (ej: equitación),
+// del socio seleccionado en el modal de pago. Cada una ya tiene su propio
+// mes/año fijo, así que se cobran aparte de "Meses a pagar" (que multiplica
+// los conceptos base/adicionales por cada mes tildado).
+let planCuotasPendientesSocio = [];   // [{cuotaId, planId, actividadNombre, numeroCuota, totalCuotas, anio, mes, monto}]
+let planCuotasSeleccionadasPago = new Set(); // cuotaId de las tildadas para pagar ahora
+
 
   // Ingresos generales
   let tiposIngresoCache = [];
@@ -250,6 +257,93 @@ if (selectedSocioTarifa && selectedSocioTarifa.tipo !== 'grupo_familiar_miembro'
   return conceptos;
 }
 
+function escapeHtmlPagos(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+const MESES_FULL_PLAN = MESES_FULL; // alias, mismo array
+
+async function loadPlanCuotasPendientesSocio(socioId) {
+  planCuotasPendientesSocio = [];
+  planCuotasSeleccionadasPago = new Set();
+
+  if (!socioId) {
+    renderPlanCuotasPago();
+    return;
+  }
+
+  const clubId = getActiveClubId();
+  try {
+    const { res, data } = await fetchAuth(`/club/${clubId}/socios/${socioId}/planes-actividad`);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando planes de cuotas');
+
+    const planes = (data.planes || []).filter(p => p.activo);
+    planes.forEach((p) => {
+      const totalCuotas = (p.cuotas || []).length;
+      (p.cuotas || [])
+        .filter((c) => !c.pagado)
+        .forEach((c) => {
+          planCuotasPendientesSocio.push({
+            cuotaId: c.id,
+            planId: p.id,
+            actividadNombre: p.actividad_nombre,
+            numeroCuota: c.numero_cuota,
+            totalCuotas,
+            anio: c.anio,
+            mes: c.mes,
+            monto: Number(c.monto) || 0
+          });
+        });
+    });
+
+    // orden por vencimiento
+    planCuotasPendientesSocio.sort((a, b) => (a.anio - b.anio) || (a.mes - b.mes));
+  } catch (e) {
+    console.error('❌ loadPlanCuotasPendientesSocio', e);
+    planCuotasPendientesSocio = [];
+  }
+
+  renderPlanCuotasPago();
+}
+
+function renderPlanCuotasPago() {
+  const wrap = $('planCuotasPagoWrap');
+  const cont = $('planCuotasPagoLista');
+  if (!wrap || !cont) return;
+
+  if (!planCuotasPendientesSocio.length) {
+    wrap.style.display = 'none';
+    cont.innerHTML = '';
+    return;
+  }
+
+  wrap.style.display = 'block';
+
+  cont.innerHTML = planCuotasPendientesSocio.map((c, i) => `
+    <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; padding:6px 0; border-bottom:1px solid #d1fae5;">
+      <span style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" data-plan-cuota-idx="${i}" ${planCuotasSeleccionadasPago.has(c.cuotaId) ? 'checked' : ''}>
+        <span>${escapeHtmlPagos(c.actividadNombre)} - Cuota ${c.numeroCuota}/${c.totalCuotas} (${MESES_FULL_PLAN[c.mes - 1] || c.mes} ${c.anio})</span>
+      </span>
+      <strong>${moneyARS(c.monto)}</strong>
+    </label>
+  `).join('');
+
+  cont.querySelectorAll('input[type="checkbox"]').forEach((chk) => {
+    chk.addEventListener('change', () => {
+      const idx = Number(chk.dataset.planCuotaIdx);
+      const cuota = planCuotasPendientesSocio[idx];
+      if (!cuota) return;
+      if (chk.checked) planCuotasSeleccionadasPago.add(cuota.cuotaId);
+      else planCuotasSeleccionadasPago.delete(cuota.cuotaId);
+    });
+  });
+}
+
 function getConceptosPendientesDelMes(mesNum) {
   const detalle = detallePagosPorMes.get(Number(mesNum)) || [];
 
@@ -297,6 +391,7 @@ if (selectedSocioTarifa?.tipo === 'grupo_familiar_miembro') {
   conceptosBaseSocio = conceptos.map(c => ({ ...c }));
 
   renderConceptosPago(conceptosBaseSocio);
+  await loadPlanCuotasPendientesSocio(s.id);
 
   $('modalElegirSocio')?.classList.add('hidden');
   await refreshMesesPagados();
@@ -317,6 +412,7 @@ if (selectedSocioTarifa?.tipo === 'grupo_familiar_miembro') {
   const conceptos = buildConceptosParaSocio(s);
   conceptosBaseSocio = conceptos.map(c => ({ ...c })); // ✅ guardar copia base completa
   renderConceptosPago(conceptosBaseSocio);
+  await loadPlanCuotasPendientesSocio(s.id);
 
   $('modalElegirSocio')?.classList.add('hidden');
   await refreshMesesPagados();
@@ -580,6 +676,10 @@ function openModal() {
 
   conceptosBaseSocio = [];
   conceptosSeleccionados = [];
+
+  planCuotasPendientesSocio = [];
+  planCuotasSeleccionadasPago = new Set();
+  renderPlanCuotasPago();
 
   const conceptosLista = $('conceptosPagoLista');
   if (conceptosLista) {
@@ -881,14 +981,25 @@ function renderMontoHint() {
 
 async function savePago() {
   if (!selectedSocioId) return alert('Seleccioná un socio');
-  if (!mesesSeleccionados.size) return alert('Seleccioná al menos un mes');
+
+  // ✅ Ahora se puede guardar SOLO cuota social (con meses), SOLO cuotas de
+  // un plan personalizado, o ambas cosas juntas en el mismo pago.
+  const hayMesesCuotaSocial = mesesSeleccionados.size > 0;
+  const hayCuotasPlan = planCuotasSeleccionadasPago.size > 0;
+
+  if (!hayMesesCuotaSocial && !hayCuotasPlan) {
+    return alert('Seleccioná al menos un mes de la cuota social o una cuota de un plan personalizado.');
+  }
 
   const fecha = $('modalFechaPago')?.value;
   if (!fecha) return alert('Seleccioná fecha de pago');
 
+  const cuentaId = $('pagoCuenta')?.value;
+  if (!cuentaId) return alert('Seleccioná una cuenta');
+
   const { esParcial, montoNum } = getPagoParcialState();
 
-  if (esParcial) {
+  if (hayMesesCuotaSocial && esParcial) {
     if (Number.isNaN(montoNum) || montoNum < 0) {
       alert('Ingresá un monto parcial válido (>= 0).');
       return;
@@ -896,68 +1007,108 @@ async function savePago() {
   }
 
   const clubId = getActiveClubId();
-
-  const detallePago = conceptosSeleccionados.map((c) => ({
-    tipo: c.tipo,
-    nombre: c.nombre,
-    monto: Number(c.monto || 0),
-    seleccionado: c.seleccionado === true
-  }));
-
-  const montoTotalTeorico = conceptosSeleccionados.reduce(
-    (acc, c) => acc + Number(c.monto || 0),
-    0
-  );
-
-  const montoSeleccionadoConceptos = conceptosSeleccionados.reduce(
-    (acc, c) => acc + (c.seleccionado ? Number(c.monto || 0) : 0),
-    0
-  );
-
-  const pagoCompletoPorConceptos =
-    conceptosSeleccionados.length > 0 &&
-    conceptosSeleccionados.every((c) => c.seleccionado === true);
-
-  const body = {
-    socio_id: selectedSocioId,
-    anio: selectedYear,
-    meses: Array.from(mesesSeleccionados),
-    fecha_pago: fecha,
-    es_parcial: esParcial,
-    detalle_pago: detallePago,
-    monto_total_teorico: montoTotalTeorico,
-    monto_pagado: esParcial ? Number(montoNum) : montoSeleccionadoConceptos,
-    pago_completo: esParcial ? false : pagoCompletoPorConceptos
-  };
-
-  const cuentaId = $('pagoCuenta')?.value;
-  if (!cuentaId) return alert('Seleccioná una cuenta');
-
-  const cuentaNombre = getCuentaNombreById(cuentaId);
-  if (!cuentaNombre) return alert('Cuenta inválida');
-
-  body.cuenta = cuentaNombre;
-
-  if (esParcial) {
-    body.monto_parcial = Number(montoNum);
-  }
-
   const btn = $('btnPagoSave');
   if (btn) btn.disabled = true;
 
   try {
-    const { res, data } = await fetchAuth(`/club/${clubId}/pagos`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      json: true
-    });
+    let insertedCount = 0;
+    let cuotasPlanPagadas = 0;
 
-    if (!res.ok || !data?.ok) {
-      alert(data?.error || 'Error guardando pago');
-      return;
+    // ------------------------------
+    // 1) Cuota social / adicionales (flujo de siempre)
+    // ------------------------------
+    if (hayMesesCuotaSocial) {
+      const cuentaNombre = getCuentaNombreById(cuentaId);
+      if (!cuentaNombre) {
+        alert('Cuenta inválida');
+        return;
+      }
+
+      const detallePago = conceptosSeleccionados.map((c) => ({
+        tipo: c.tipo,
+        nombre: c.nombre,
+        monto: Number(c.monto || 0),
+        seleccionado: c.seleccionado === true
+      }));
+
+      const montoTotalTeorico = conceptosSeleccionados.reduce(
+        (acc, c) => acc + Number(c.monto || 0),
+        0
+      );
+
+      const montoSeleccionadoConceptos = conceptosSeleccionados.reduce(
+        (acc, c) => acc + (c.seleccionado ? Number(c.monto || 0) : 0),
+        0
+      );
+
+      const pagoCompletoPorConceptos =
+        conceptosSeleccionados.length > 0 &&
+        conceptosSeleccionados.every((c) => c.seleccionado === true);
+
+      const body = {
+        socio_id: selectedSocioId,
+        anio: selectedYear,
+        meses: Array.from(mesesSeleccionados),
+        fecha_pago: fecha,
+        es_parcial: esParcial,
+        detalle_pago: detallePago,
+        monto_total_teorico: montoTotalTeorico,
+        monto_pagado: esParcial ? Number(montoNum) : montoSeleccionadoConceptos,
+        pago_completo: esParcial ? false : pagoCompletoPorConceptos,
+        cuenta: cuentaNombre
+      };
+
+      if (esParcial) {
+        body.monto_parcial = Number(montoNum);
+      }
+
+      const { res, data } = await fetchAuth(`/club/${clubId}/pagos`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+        json: true
+      });
+
+      if (!res.ok || !data?.ok) {
+        alert(data?.error || 'Error guardando el pago de la cuota social');
+        return;
+      }
+
+      insertedCount = data.insertedCount || 0;
     }
 
-    alert(`✅ Pagos guardados: ${data.insertedCount}`);
+    // ------------------------------
+    // 2) Cuotas de planes personalizados (misma cuenta y fecha)
+    //    Agrupadas por plan, porque cada plan tiene su propio endpoint.
+    // ------------------------------
+    if (hayCuotasPlan) {
+      const porPlan = new Map(); // planId -> [cuotaId, ...]
+      planCuotasPendientesSocio.forEach((c) => {
+        if (!planCuotasSeleccionadasPago.has(c.cuotaId)) return;
+        if (!porPlan.has(c.planId)) porPlan.set(c.planId, []);
+        porPlan.get(c.planId).push(c.cuotaId);
+      });
+
+      for (const [planId, cuotaIds] of porPlan.entries()) {
+        const { res, data } = await fetchAuth(`/club/${clubId}/planes-actividad/${planId}/registrar-pago`, {
+          method: 'POST',
+          body: JSON.stringify({ cuotaIds, cuenta_id: cuentaId, fecha_pago: fecha }),
+          json: true
+        });
+
+        if (!res.ok || !data?.ok) {
+          alert(data?.error || 'Error registrando el pago de una cuota del plan');
+          return;
+        }
+
+        cuotasPlanPagadas += data.cuotasPagadas || cuotaIds.length;
+      }
+    }
+
+    const partes = [];
+    if (insertedCount) partes.push(`${insertedCount} mes(es) de cuota social`);
+    if (cuotasPlanPagadas) partes.push(`${cuotasPlanPagadas} cuota(s) de plan personalizado`);
+    alert(`✅ Pago guardado: ${partes.join(' + ')}`);
+
     closeModal();
     await loadResumen();
   } finally {
