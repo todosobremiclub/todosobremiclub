@@ -540,26 +540,9 @@ let planCuotasSocioId = null;          // socio para el que está abierto el mod
 let planCuotasPlanesSocio = [];        // todos los planes (activos) del socio, cacheados al abrir
 let planCuotasPlanIdActual = null;     // id del plan que se está viendo/editando (null = todavía no existe)
 let planCuotasCuotasActuales = [];     // cuotas en pantalla (editable)
-let planCuotasCuentasCache = [];       // cuentas disponibles (Efectivo, MP, etc.)
-let planCuotasSeleccionParaPago = new Set(); // ids de cuotas tildadas para registrar el pago
-
-async function loadCuentasPlanCuotas() {
-  const clubId = getActiveClubId();
-  try {
-    const res = await fetchAuth(`/club/${clubId}/config/responsables`);
-    const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudieron cargar las cuentas.');
-    planCuotasCuentasCache = data.responsables || data.items || [];
-  } catch (e) {
-    console.error('❌ loadCuentasPlanCuotas', e);
-    planCuotasCuentasCache = [];
-  }
-  const sel = $('planCuotasCuenta');
-  if (sel) {
-    sel.innerHTML = '<option value="">Seleccionar...</option>' +
-      planCuotasCuentasCache.map(c => `<option value="${escapeHtml(String(c.id))}">${escapeHtml(c.nombre || '')}</option>`).join('');
-  }
-}
+// ✅ El pago de las cuotas se registra desde Pagos → Registrar Pago (no acá).
+// Acá solo se arma/edita el plan y, si hace falta corregir algo, se puede
+// deshacer un pago ya cobrado.
 
 function fillPlanCuotasActividadSelect() {
   const sel = $('planCuotasActividad');
@@ -581,20 +564,17 @@ async function abrirModalPlanCuotas() {
   planCuotasSocioId = editingId;
   planCuotasPlanIdActual = null;
   planCuotasCuotasActuales = [];
-  planCuotasSeleccionParaPago = new Set();
 
   if (!actividadesAdicionalesConfigCache.length) {
     await loadActividadesAdicionalesConfig().catch(() => {});
   }
   fillPlanCuotasActividadSelect();
-  await loadCuentasPlanCuotas();
 
   $('planCuotasMontoTotal').value = '';
   $('planCuotasCantidad').value = '';
   $('planCuotasMesInicio').value = '';
   $('planCuotasAnioInicio').value = '';
   $('planCuotasActividad').value = '';
-  $('planCuotasFechaPago').value = new Date().toISOString().slice(0, 10);
 
   $('planCuotasEstado').textContent = 'Elegí una actividad.';
   renderPlanCuotasTabla([]);
@@ -638,8 +618,6 @@ function actualizarEstadoPlanCuotasFicha() {
 function onPlanCuotasActividadChange() {
   const actividadId = $('planCuotasActividad').value;
   const plan = planCuotasPlanesSocio.find(p => String(p.actividad_id) === String(actividadId));
-
-  planCuotasSeleccionParaPago = new Set();
 
   if (!actividadId) {
     planCuotasPlanIdActual = null;
@@ -695,11 +673,11 @@ function renderPlanCuotasTabla(cuotas) {
           <button type="button" class="btn btn-secondary" data-accion="revertir" style="padding:1px 6px; font-size:11px; margin-top:2px;">Deshacer pago</button>
         </div>`;
     } else if (c.id) {
-      // pendiente y ya guardada -> se puede tildar para pagarla
-      colPagada = `<input type="checkbox" data-field="seleccionar-pago" ${planCuotasSeleccionParaPago.has(c.id) ? 'checked' : ''}>`;
+      // pendiente y ya guardada -> se cobra desde Pagos, acá solo se informa
+      colPagada = `<span class="muted small">Pendiente</span>`;
     } else {
-      // fila nueva, todavía no guardada -> primero hay que guardar el plan
-      colPagada = `<input type="checkbox" disabled title="Guardá el plan primero">`;
+      // fila nueva, todavía no guardada
+      colPagada = `<span class="muted small">Guardá el plan</span>`;
     }
 
     return `
@@ -740,13 +718,6 @@ function renderPlanCuotasTabla(cuotas) {
       });
     });
 
-    tr.querySelector('input[data-field="seleccionar-pago"]')?.addEventListener('change', (e) => {
-      const cuota = planCuotasCuotasActuales[idx];
-      if (e.target.checked) planCuotasSeleccionParaPago.add(cuota.id);
-      else planCuotasSeleccionParaPago.delete(cuota.id);
-      actualizarBarraPagoCuotas();
-    });
-
     tr.querySelector('[data-accion="revertir"]')?.addEventListener('click', () => {
       revertirPagoCuota(planCuotasCuotasActuales[idx]);
     });
@@ -757,71 +728,6 @@ function renderPlanCuotasTabla(cuotas) {
       renderPlanCuotasTabla(planCuotasCuotasActuales);
     });
   });
-
-  actualizarBarraPagoCuotas();
-}
-
-function actualizarBarraPagoCuotas() {
-  const info = $('planCuotasSeleccionInfo');
-  const btn = $('btnRegistrarPagoCuotas');
-  if (!info || !btn) return;
-
-  const cant = planCuotasSeleccionParaPago.size;
-  if (!cant) {
-    info.textContent = 'Tildá una o más cuotas para pagarlas.';
-    btn.disabled = true;
-    return;
-  }
-
-  const montoSeleccionado = planCuotasCuotasActuales
-    .filter(c => planCuotasSeleccionParaPago.has(c.id))
-    .reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
-
-  info.textContent = `${cant} cuota(s) seleccionada(s) por $ ${montoSeleccionado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`;
-  btn.disabled = false;
-}
-
-async function registrarPagoCuotasSeleccionadas() {
-  if (!planCuotasSeleccionParaPago.size) return;
-  if (!planCuotasPlanIdActual) {
-    alert('Guardá el plan antes de registrar un pago.');
-    return;
-  }
-
-  const cuentaId = $('planCuotasCuenta').value;
-  const fechaPago = $('planCuotasFechaPago').value;
-
-  if (!cuentaId) {
-    alert('Elegí la cuenta con la que se cobró.');
-    return;
-  }
-  if (!fechaPago) {
-    alert('Indicá la fecha de pago.');
-    return;
-  }
-
-  const clubId = getActiveClubId();
-  try {
-    const res = await fetchAuth(`/club/${clubId}/planes-actividad/${planCuotasPlanIdActual}/registrar-pago`, {
-      method: 'POST',
-      body: JSON.stringify({
-        cuotaIds: Array.from(planCuotasSeleccionParaPago),
-        cuenta_id: cuentaId,
-        fecha_pago: fechaPago
-      }),
-      json: true
-    });
-    const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo registrar el pago.');
-
-    alert('Pago registrado. Ya quedó sumado a la recaudación del club.');
-    planCuotasSeleccionParaPago = new Set();
-    await cargarPlanesActividadSocio();
-    onPlanCuotasActividadChange();
-  } catch (e) {
-    console.error('❌ registrarPagoCuotasSeleccionadas', e);
-    alert(e.message || 'No se pudo registrar el pago.');
-  }
 }
 
 async function revertirPagoCuota(cuota) {
@@ -3169,7 +3075,6 @@ $('btnGenerarCuotasSugeridas')?.addEventListener('click', generarCuotasSugeridas
 $('btnAgregarCuotaManual')?.addEventListener('click', agregarCuotaManualUI);
 $('btnGuardarPlanCuotas')?.addEventListener('click', guardarPlanCuotasUI);
 $('btnEliminarPlanCuotas')?.addEventListener('click', eliminarPlanCuotasUI);
-$('btnRegistrarPagoCuotas')?.addEventListener('click', registrarPagoCuotasSeleccionadas);
 
 $('grupoFamiliarSearch')?.addEventListener('input', (e) => {
   renderGrupoFamiliarLista(e.target.value);
