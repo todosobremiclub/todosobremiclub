@@ -262,6 +262,23 @@
 
   </div>
 </div>
+
+<!-- =========================
+   PLAN DE CUOTAS PERSONALIZADO
+   (actividades con pago en cuotas irregulares, ej: curso de equitación)
+========================= -->
+<div class="col-span-4" style="margin-top:4px;">
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <button type="button" id="btnConfigurarPlanCuotas" class="btn btn-secondary" disabled>
+      Configurar plan de cuotas
+    </button>
+    <span id="socioPlanCuotasEstado" class="muted small">Guardá el socio para poder configurar un plan.</span>
+  </div>
+  <div class="muted small" style="margin-top:4px;">
+    Para actividades con pago en cuotas irregulares (ej: curso de equitación por etapas). No modifica la cuota normal del club.
+  </div>
+</div>
+
           <!-- Categoría -->
           <div class="col-span-2">
             <label>Categoría *</label>
@@ -395,6 +412,96 @@
       <div class="modal-actions footer" style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
         <button id="btnBienvenidaCancelar" class="btn btn-secondary">Cerrar</button>
         <button id="btnBienvenidaEnviar" class="btn btn-primary">Enviar bienvenida</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL PLAN DE CUOTAS PERSONALIZADO ================= -->
+  <div id="modalPlanCuotas" class="modal hidden">
+    <div class="modal-content" style="max-width: 760px; width: 95vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <h3 style="margin:0;">Plan de cuotas personalizado</h3>
+        <button id="btnPlanCuotasClose" class="btn btn-secondary">✕</button>
+      </div>
+
+      <p class="muted small" style="margin-top:8px;">
+        Para actividades con esquema de pago irregular (ej: curso de equitación por etapas).
+        Es un plan aparte, específico de este socio y esta actividad: no modifica la cuota normal del club.
+      </p>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:12px;">
+        <div>
+          <label>Actividad *</label>
+          <select id="planCuotasActividad">
+            <option value="">Seleccionar actividad…</option>
+          </select>
+        </div>
+        <div>
+          <label>Estado del plan</label>
+          <div id="planCuotasEstado" class="muted small" style="margin-top:8px;">Elegí una actividad.</div>
+        </div>
+      </div>
+
+      <div id="planCuotasGenerador" style="margin-top:16px; border-top:1px solid #e5e7eb; padding-top:12px;">
+        <label class="muted small">Generar sugerencia de cuotas en partes iguales (después la podés editar a mano)</label>
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:6px;">
+          <div>
+            <label>Monto total</label>
+            <input id="planCuotasMontoTotal" type="number" min="0" step="0.01" placeholder="Ej: 130000">
+          </div>
+          <div>
+            <label>Cantidad de cuotas</label>
+            <input id="planCuotasCantidad" type="number" min="1" max="24" placeholder="Ej: 13">
+          </div>
+          <div>
+            <label>Mes 1ª cuota</label>
+            <input id="planCuotasMesInicio" type="number" min="1" max="12" placeholder="1-12">
+          </div>
+          <div>
+            <label>Año 1ª cuota</label>
+            <input id="planCuotasAnioInicio" type="number" min="2024" max="2100" placeholder="Ej: 2026">
+          </div>
+        </div>
+        <button type="button" id="btnGenerarCuotasSugeridas" class="btn btn-secondary" style="margin-top:10px;">
+          Generar cuotas sugeridas
+        </button>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="margin:0;">Detalle de cuotas</label>
+          <button type="button" id="btnAgregarCuotaManual" class="btn btn-secondary" style="padding:4px 10px;">
+            + Agregar cuota
+          </button>
+        </div>
+        <div style="margin-top:8px; border:1px solid #e5e7eb; border-radius:8px; overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr style="background:#fafafa; text-align:left;">
+                <th style="padding:6px 8px;">Cuota</th>
+                <th style="padding:6px 8px;">Mes</th>
+                <th style="padding:6px 8px;">Año</th>
+                <th style="padding:6px 8px;">Monto</th>
+                <th style="padding:6px 8px;">Pagada</th>
+                <th style="padding:6px 8px;"></th>
+              </tr>
+            </thead>
+            <tbody id="planCuotasTablaBody">
+              <tr><td colspan="6" class="muted small" style="padding:10px;">Sin cuotas cargadas.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="planCuotasTotal" class="muted small" style="margin-top:6px;"></div>
+      </div>
+
+      <div class="modal-actions footer" style="display:flex; justify-content:space-between; gap:10px; margin-top:16px;">
+        <button type="button" id="btnEliminarPlanCuotas" class="btn btn-secondary" style="display:none; color:#b91c1c;">
+          Eliminar plan
+        </button>
+        <div style="display:flex; gap:10px;">
+          <button type="button" id="btnPlanCuotasCancelar" class="btn btn-secondary">Cerrar</button>
+          <button type="button" id="btnGuardarPlanCuotas" class="btn btn-primary">Guardar plan</button>
+        </div>
       </div>
     </div>
   </div>

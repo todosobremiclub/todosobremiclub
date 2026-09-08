@@ -533,6 +533,326 @@ function syncGrupoFamiliarUI() {
   renderGrupoFamiliarResumen();
 }
 
+// =============================
+// PLAN DE CUOTAS PERSONALIZADO (por socio + actividad)
+// =============================
+let planCuotasSocioId = null;          // socio para el que está abierto el modal
+let planCuotasPlanesSocio = [];        // todos los planes (activos) del socio, cacheados al abrir
+let planCuotasPlanIdActual = null;     // id del plan que se está viendo/editando (null = todavía no existe)
+let planCuotasCuotasActuales = [];     // cuotas en pantalla (editable)
+
+function fillPlanCuotasActividadSelect() {
+  const sel = $('planCuotasActividad');
+  if (!sel) return;
+  const valorPrevio = sel.value;
+  sel.innerHTML = '<option value="">Seleccionar actividad…</option>' +
+    actividadesAdicionalesConfigCache.map(a =>
+      `<option value="${escapeHtml(String(a.id))}">${escapeHtml(a.nombre || '')}</option>`
+    ).join('');
+  if (valorPrevio) sel.value = valorPrevio;
+}
+
+async function abrirModalPlanCuotas() {
+  if (!editingId) {
+    alert('Guardá el socio primero para poder configurar un plan de cuotas.');
+    return;
+  }
+
+  planCuotasSocioId = editingId;
+  planCuotasPlanIdActual = null;
+  planCuotasCuotasActuales = [];
+
+  if (!actividadesAdicionalesConfigCache.length) {
+    await loadActividadesAdicionalesConfig().catch(() => {});
+  }
+  fillPlanCuotasActividadSelect();
+
+  $('planCuotasMontoTotal').value = '';
+  $('planCuotasCantidad').value = '';
+  $('planCuotasMesInicio').value = '';
+  $('planCuotasAnioInicio').value = '';
+  $('planCuotasActividad').value = '';
+
+  $('planCuotasEstado').textContent = 'Elegí una actividad.';
+  renderPlanCuotasTabla([]);
+  $('btnEliminarPlanCuotas').style.display = 'none';
+
+  await cargarPlanesActividadSocio();
+
+  $('modalPlanCuotas').classList.remove('hidden');
+}
+
+function cerrarModalPlanCuotas() {
+  $('modalPlanCuotas').classList.add('hidden');
+}
+
+async function cargarPlanesActividadSocio() {
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(`/club/${clubId}/socios/${planCuotasSocioId}/planes-actividad`);
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudieron cargar los planes.');
+    planCuotasPlanesSocio = (data.planes || []).filter(p => p.activo);
+    actualizarEstadoPlanCuotasFicha();
+  } catch (e) {
+    console.error('❌ cargarPlanesActividadSocio', e);
+    planCuotasPlanesSocio = [];
+  }
+}
+
+// Texto resumen que se ve en la ficha del socio (fuera del modal)
+function actualizarEstadoPlanCuotasFicha() {
+  const el = $('socioPlanCuotasEstado');
+  if (!el) return;
+  if (!planCuotasPlanesSocio.length) {
+    el.textContent = 'Sin plan de cuotas personalizado.';
+    return;
+  }
+  const nombres = planCuotasPlanesSocio.map(p => p.actividad_nombre).join(', ');
+  el.textContent = `Tiene plan de cuotas en: ${nombres}.`;
+}
+
+function onPlanCuotasActividadChange() {
+  const actividadId = $('planCuotasActividad').value;
+  const plan = planCuotasPlanesSocio.find(p => String(p.actividad_id) === String(actividadId));
+
+  if (!actividadId) {
+    planCuotasPlanIdActual = null;
+    planCuotasCuotasActuales = [];
+    $('planCuotasEstado').textContent = 'Elegí una actividad.';
+    renderPlanCuotasTabla([]);
+    $('btnEliminarPlanCuotas').style.display = 'none';
+    return;
+  }
+
+  if (plan) {
+    planCuotasPlanIdActual = plan.id;
+    planCuotasCuotasActuales = (plan.cuotas || []).map(c => ({ ...c }));
+    const pagadas = planCuotasCuotasActuales.filter(c => c.pagado).length;
+    $('planCuotasEstado').textContent =
+      `Plan activo: ${planCuotasCuotasActuales.length} cuotas, ${pagadas} pagadas.`;
+    $('btnEliminarPlanCuotas').style.display = '';
+  } else {
+    planCuotasPlanIdActual = null;
+    planCuotasCuotasActuales = [];
+    $('planCuotasEstado').textContent = 'Sin plan para esta actividad todavía.';
+    $('btnEliminarPlanCuotas').style.display = 'none';
+  }
+
+  renderPlanCuotasTabla(planCuotasCuotasActuales);
+}
+
+const MESES_NOMBRE = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+function renderPlanCuotasTabla(cuotas) {
+  const body = $('planCuotasTablaBody');
+  const totalEl = $('planCuotasTotal');
+  if (!body) return;
+
+  if (!cuotas.length) {
+    body.innerHTML = '<tr><td colspan="6" class="muted small" style="padding:10px;">Sin cuotas cargadas.</td></tr>';
+    if (totalEl) totalEl.textContent = '';
+    return;
+  }
+
+  // orden visual por año/mes
+  const ordenadas = [...cuotas].sort((a, b) => (a.anio - b.anio) || (a.mes - b.mes));
+
+  body.innerHTML = ordenadas.map((c, idx) => `
+    <tr data-idx="${idx}">
+      <td style="padding:4px 8px;">${idx + 1}</td>
+      <td style="padding:4px 8px;">
+        <input type="number" min="1" max="12" value="${c.mes ?? ''}" data-field="mes" style="width:60px;">
+      </td>
+      <td style="padding:4px 8px;">
+        <input type="number" min="2024" max="2100" value="${c.anio ?? ''}" data-field="anio" style="width:80px;">
+      </td>
+      <td style="padding:4px 8px;">
+        <input type="number" min="0" step="0.01" value="${c.monto ?? ''}" data-field="monto" style="width:100px;">
+      </td>
+      <td style="padding:4px 8px; text-align:center;">
+        <input type="checkbox" data-field="pagado" ${c.pagado ? 'checked' : ''} ${c.id ? '' : 'disabled title="Guardá el plan primero"'}>
+      </td>
+      <td style="padding:4px 8px;">
+        <button type="button" class="btn btn-secondary" data-accion="quitar" style="padding:2px 8px;">✕</button>
+      </td>
+    </tr>
+  `).join('');
+
+  planCuotasCuotasActuales = ordenadas;
+
+  const total = ordenadas.reduce((acc, c) => acc + (Number(c.monto) || 0), 0);
+  if (totalEl) {
+    totalEl.textContent = `Total: $ ${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })} — ${ordenadas.length} cuota(s).`;
+  }
+
+  // listeners de edición inline
+  body.querySelectorAll('tr[data-idx]').forEach(tr => {
+    const idx = Number(tr.dataset.idx);
+
+    tr.querySelectorAll('input[data-field="mes"], input[data-field="anio"], input[data-field="monto"]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const campo = inp.dataset.field;
+        planCuotasCuotasActuales[idx][campo] = inp.value === '' ? '' : Number(inp.value);
+      });
+    });
+
+    const chkPagado = tr.querySelector('input[data-field="pagado"]');
+    chkPagado?.addEventListener('change', async () => {
+      const cuota = planCuotasCuotasActuales[idx];
+      if (!cuota.id) return; // no debería pasar, está disabled
+      await marcarCuotaPagada(cuota, chkPagado.checked);
+    });
+
+    tr.querySelector('[data-accion="quitar"]')?.addEventListener('click', () => {
+      const cuota = planCuotasCuotasActuales[idx];
+      if (cuota.pagado) {
+        alert('Esta cuota ya está marcada como pagada. Desmarcala primero si de verdad querés quitarla.');
+        return;
+      }
+      planCuotasCuotasActuales.splice(idx, 1);
+      renderPlanCuotasTabla(planCuotasCuotasActuales);
+    });
+  });
+}
+
+async function marcarCuotaPagada(cuota, pagado) {
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(
+      `/club/${clubId}/planes-actividad/${planCuotasPlanIdActual}/cuotas/${cuota.id}/pagar`,
+      { method: 'POST', body: JSON.stringify({ pagado }), json: true }
+    );
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo actualizar la cuota.');
+    cuota.pagado = pagado;
+    const pagadas = planCuotasCuotasActuales.filter(c => c.pagado).length;
+    $('planCuotasEstado').textContent =
+      `Plan activo: ${planCuotasCuotasActuales.length} cuotas, ${pagadas} pagadas.`;
+  } catch (e) {
+    console.error('❌ marcarCuotaPagada', e);
+    alert(e.message || 'No se pudo actualizar la cuota.');
+    renderPlanCuotasTabla(planCuotasCuotasActuales); // revierte el checkbox visualmente
+  }
+}
+
+async function generarCuotasSugeridasUI() {
+  const actividadId = $('planCuotasActividad').value;
+  if (!actividadId) {
+    alert('Elegí primero la actividad.');
+    return;
+  }
+  if (planCuotasCuotasActuales.some(c => c.pagado)) {
+    alert('Este plan ya tiene cuotas pagadas. Para no perderlas, agregá o editá a mano las cuotas que faltan en la tabla, en vez de generar de nuevo.');
+    return;
+  }
+
+  const montoTotal = Number($('planCuotasMontoTotal').value);
+  const cantidadCuotas = Number($('planCuotasCantidad').value);
+  const mesInicio = Number($('planCuotasMesInicio').value);
+  const anioInicio = Number($('planCuotasAnioInicio').value);
+
+  if (!montoTotal || !cantidadCuotas || !mesInicio || !anioInicio) {
+    alert('Completá monto total, cantidad de cuotas, mes y año de la primera cuota.');
+    return;
+  }
+
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(`/club/${clubId}/planes-actividad/sugerir-cuotas`, {
+      method: 'POST',
+      body: JSON.stringify({ montoTotal, cantidadCuotas, mesInicio, anioInicio }),
+      json: true
+    });
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo generar la sugerencia.');
+    planCuotasCuotasActuales = data.cuotas.map(c => ({ ...c, pagado: false }));
+    renderPlanCuotasTabla(planCuotasCuotasActuales);
+  } catch (e) {
+    console.error('❌ generarCuotasSugeridasUI', e);
+    alert(e.message || 'No se pudo generar la sugerencia.');
+  }
+}
+
+function agregarCuotaManualUI() {
+  planCuotasCuotasActuales.push({ numero_cuota: planCuotasCuotasActuales.length + 1, anio: '', mes: '', monto: '', pagado: false });
+  renderPlanCuotasTabla(planCuotasCuotasActuales);
+}
+
+async function guardarPlanCuotasUI() {
+  const actividadId = $('planCuotasActividad').value;
+  if (!actividadId) {
+    alert('Elegí la actividad.');
+    return;
+  }
+  if (!planCuotasCuotasActuales.length) {
+    alert('Agregá al menos una cuota.');
+    return;
+  }
+  for (const c of planCuotasCuotasActuales) {
+    if (!c.mes || !c.anio || c.monto === '' || c.monto == null || Number(c.monto) <= 0) {
+      alert('Revisá que todas las cuotas tengan mes, año y monto cargados.');
+      return;
+    }
+  }
+
+  const cuotasPayload = planCuotasCuotasActuales
+    .sort((a, b) => (a.anio - b.anio) || (a.mes - b.mes))
+    .map((c, idx) => ({
+      numero_cuota: idx + 1,
+      anio: Number(c.anio),
+      mes: Number(c.mes),
+      monto: Number(c.monto),
+      pagado: !!c.pagado
+    }));
+
+  const clubId = getActiveClubId();
+  try {
+    let res;
+    if (planCuotasPlanIdActual) {
+      res = await fetchAuth(`/club/${clubId}/planes-actividad/${planCuotasPlanIdActual}/cuotas`, {
+        method: 'PUT',
+        body: JSON.stringify({ cuotas: cuotasPayload }),
+        json: true
+      });
+    } else {
+      res = await fetchAuth(`/club/${clubId}/socios/${planCuotasSocioId}/planes-actividad`, {
+        method: 'POST',
+        body: JSON.stringify({ actividad_id: actividadId, cuotas: cuotasPayload }),
+        json: true
+      });
+    }
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo guardar el plan.');
+
+    alert('Plan de cuotas guardado.');
+    await cargarPlanesActividadSocio();
+    onPlanCuotasActividadChange(); // refresca la tabla con los ids ya asignados
+  } catch (e) {
+    console.error('❌ guardarPlanCuotasUI', e);
+    alert(e.message || 'No se pudo guardar el plan.');
+  }
+}
+
+async function eliminarPlanCuotasUI() {
+  if (!planCuotasPlanIdActual) return;
+  if (!confirm('¿Eliminar este plan de cuotas? Esta acción no se puede deshacer.')) return;
+
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(`/club/${clubId}/planes-actividad/${planCuotasPlanIdActual}`, { method: 'DELETE' });
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo eliminar el plan.');
+
+    alert('Plan eliminado.');
+    await cargarPlanesActividadSocio();
+    onPlanCuotasActividadChange();
+  } catch (e) {
+    console.error('❌ eliminarPlanCuotasUI', e);
+    alert(e.message || 'No se pudo eliminar el plan.');
+  }
+}
+
 async function openGrupoFamiliarModal() {
   const modal = $('modalGrupoFamiliar');
   if (!modal) return;
@@ -1385,6 +1705,14 @@ if (wrap) {
 
 setActividadesAdicionalesSeleccionadas([]);
 
+  // ✅ Plan de cuotas personalizado: solo tiene sentido con el socio ya guardado
+  planCuotasSocioId = null;
+  planCuotasPlanesSocio = [];
+  const btnPlanCuotas = $('btnConfigurarPlanCuotas');
+  if (btnPlanCuotas) btnPlanCuotas.disabled = true;
+  const estadoPlanCuotas = $('socioPlanCuotasEstado');
+  if (estadoPlanCuotas) estadoPlanCuotas.textContent = 'Guardá el socio para poder configurar un plan.';
+
   $('modalSocio').classList.remove('hidden');
 }
 
@@ -1522,6 +1850,14 @@ setActividadesAdicionalesSeleccionadas(adicionales);
 
   syncGrupoFamiliarUI();
   renderGrupoFamiliarResumen();
+
+  // ✅ Plan de cuotas personalizado: ya se puede configurar (el socio existe)
+  planCuotasSocioId = socio.id;
+  const btnPlanCuotas = $('btnConfigurarPlanCuotas');
+  if (btnPlanCuotas) btnPlanCuotas.disabled = false;
+  const estadoPlanCuotas = $('socioPlanCuotasEstado');
+  if (estadoPlanCuotas) estadoPlanCuotas.textContent = 'Cargando...';
+  cargarPlanesActividadSocio().catch(() => {});
 
   $('modalSocio').classList.remove('hidden');
 }
@@ -2715,6 +3051,16 @@ $('btnSeleccionarGrupoFamiliar')?.addEventListener('click', async () => {
 
 $('btnGrupoFamiliarClose')?.addEventListener('click', closeGrupoFamiliarModal);
 $('btnGrupoFamiliarCancel')?.addEventListener('click', closeGrupoFamiliarModal);
+
+// ✅ Plan de cuotas personalizado
+$('btnConfigurarPlanCuotas')?.addEventListener('click', abrirModalPlanCuotas);
+$('btnPlanCuotasClose')?.addEventListener('click', cerrarModalPlanCuotas);
+$('btnPlanCuotasCancelar')?.addEventListener('click', cerrarModalPlanCuotas);
+$('planCuotasActividad')?.addEventListener('change', onPlanCuotasActividadChange);
+$('btnGenerarCuotasSugeridas')?.addEventListener('click', generarCuotasSugeridasUI);
+$('btnAgregarCuotaManual')?.addEventListener('click', agregarCuotaManualUI);
+$('btnGuardarPlanCuotas')?.addEventListener('click', guardarPlanCuotasUI);
+$('btnEliminarPlanCuotas')?.addEventListener('click', eliminarPlanCuotasUI);
 
 $('grupoFamiliarSearch')?.addEventListener('input', (e) => {
   renderGrupoFamiliarLista(e.target.value);
