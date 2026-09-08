@@ -268,14 +268,21 @@
    (actividades con pago en cuotas irregulares, ej: curso de equitación)
 ========================= -->
 <div class="col-span-4" style="margin-top:4px;">
+  <label class="checkbox-inline" style="display:flex; align-items:center; gap:8px;">
+    <input type="checkbox" id="socioTienePlanCuotas">
+    Tiene plan de cuotas personalizado
+  </label>
+  <div class="muted small" style="margin-top:4px;">
+    Para actividades con pago en cuotas irregulares (ej: curso de equitación por etapas). No modifica la cuota normal del club.
+  </div>
+</div>
+
+<div id="socioPlanCuotasWrap" class="col-span-4" style="display:none; margin-top:6px;">
   <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
     <button type="button" id="btnConfigurarPlanCuotas" class="btn btn-secondary" disabled>
       Configurar plan de cuotas
     </button>
     <span id="socioPlanCuotasEstado" class="muted small">Guardá el socio para poder configurar un plan.</span>
-  </div>
-  <div class="muted small" style="margin-top:4px;">
-    Para actividades con pago en cuotas irregulares (ej: curso de equitación por etapas). No modifica la cuota normal del club.
   </div>
 </div>
 

@@ -1722,6 +1722,10 @@ setActividadesAdicionalesSeleccionadas([]);
   // ✅ Plan de cuotas personalizado: solo tiene sentido con el socio ya guardado
   planCuotasSocioId = null;
   planCuotasPlanesSocio = [];
+  const chkPlanCuotas = $('socioTienePlanCuotas');
+  if (chkPlanCuotas) chkPlanCuotas.checked = false;
+  const wrapPlanCuotas = $('socioPlanCuotasWrap');
+  if (wrapPlanCuotas) wrapPlanCuotas.style.display = 'none';
   const btnPlanCuotas = $('btnConfigurarPlanCuotas');
   if (btnPlanCuotas) btnPlanCuotas.disabled = true;
   const estadoPlanCuotas = $('socioPlanCuotasEstado');
@@ -1871,7 +1875,17 @@ setActividadesAdicionalesSeleccionadas(adicionales);
   if (btnPlanCuotas) btnPlanCuotas.disabled = false;
   const estadoPlanCuotas = $('socioPlanCuotasEstado');
   if (estadoPlanCuotas) estadoPlanCuotas.textContent = 'Cargando...';
-  cargarPlanesActividadSocio().catch(() => {});
+
+  const chkPlanCuotas = $('socioTienePlanCuotas');
+  const wrapPlanCuotas = $('socioPlanCuotasWrap');
+
+  await cargarPlanesActividadSocio().catch(() => {});
+
+  // ✅ Si ya tiene algún plan cargado, el checkbox se tilda solo y se
+  // muestra el botón directamente (no hace falta que el admin lo tilde).
+  const tienePlan = planCuotasPlanesSocio.length > 0;
+  if (chkPlanCuotas) chkPlanCuotas.checked = tienePlan;
+  if (wrapPlanCuotas) wrapPlanCuotas.style.display = tienePlan ? 'block' : 'none';
 
   $('modalSocio').classList.remove('hidden');
 }
@@ -3067,6 +3081,11 @@ $('btnGrupoFamiliarClose')?.addEventListener('click', closeGrupoFamiliarModal);
 $('btnGrupoFamiliarCancel')?.addEventListener('click', closeGrupoFamiliarModal);
 
 // ✅ Plan de cuotas personalizado
+$('socioTienePlanCuotas')?.addEventListener('change', function () {
+  const wrap = $('socioPlanCuotasWrap');
+  if (wrap) wrap.style.display = this.checked ? 'block' : 'none';
+});
+
 $('btnConfigurarPlanCuotas')?.addEventListener('click', abrirModalPlanCuotas);
 $('btnPlanCuotasClose')?.addEventListener('click', cerrarModalPlanCuotas);
 $('btnPlanCuotasCancelar')?.addEventListener('click', cerrarModalPlanCuotas);
