@@ -479,6 +479,25 @@
               + Agregar cuota
             </button>
           </div>
+
+          <!-- Registrar pago de las cuotas tildadas: mismo criterio que el pago de la cuota social (pide cuenta) -->
+          <div id="planCuotasPagoBar" style="margin-top:8px; display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px;">
+            <div>
+              <label class="muted small">Cuenta</label>
+              <select id="planCuotasCuenta" style="min-width:160px;">
+                <option value="">Seleccionar...</option>
+              </select>
+            </div>
+            <div>
+              <label class="muted small">Fecha de pago</label>
+              <input id="planCuotasFechaPago" type="date">
+            </div>
+            <button type="button" id="btnRegistrarPagoCuotas" class="btn btn-primary" style="padding:6px 14px;">
+              Registrar pago
+            </button>
+            <span id="planCuotasSeleccionInfo" class="muted small">Tildá una o más cuotas para pagarlas.</span>
+          </div>
+
           <div style="margin-top:8px; border:1px solid #e5e7eb; border-radius:8px; overflow-x:auto; max-height:320px; overflow-y:auto;">
             <table style="width:100%; border-collapse:collapse;">
               <thead>

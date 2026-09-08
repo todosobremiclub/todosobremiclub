@@ -458,7 +458,7 @@ router.get('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClub
       const ids = planes.map(p => p.id);
       const rCuotas = await db.query(
         `
-        SELECT id, plan_id, numero_cuota, anio, mes, monto, pagado, fecha_pago
+        SELECT id, plan_id, numero_cuota, anio, mes, monto, pagado, fecha_pago, cuenta
         FROM planes_actividad_cuotas
         WHERE plan_id = ANY($1::uuid[])
         ORDER BY anio, mes, numero_cuota
@@ -605,32 +605,246 @@ router.put('/:clubId/planes-actividad/:planId/cuotas', requireAuth, requireClubA
   }
 });
 
-// POST: marca una cuota puntual como pagada / no pagada
-router.post('/:clubId/planes-actividad/:planId/cuotas/:cuotaId/pagar', requireAuth, requireClubAccess, async (req, res) => {
-  const { clubId, planId, cuotaId } = req.params;
-  const { pagado } = req.body; // true / false
+// ------------------------------------------------------------
+// Helper: resuelve el nombre de la cuenta a partir de cuenta_id
+// (mismo criterio que usa pagosRoutes.js para la cuota social)
+// ------------------------------------------------------------
+async function resolverCuentaPlanCuotas({ clubId, cuenta, cuenta_id }) {
+  if (cuenta) return cuenta;
+  if (!cuenta_id) return null;
+  try {
+    const r = await db.query(
+      `SELECT nombre FROM responsables_gasto WHERE id = $1 AND club_id = $2 LIMIT 1`,
+      [cuenta_id, clubId]
+    );
+    return r.rowCount ? r.rows[0].nombre : null;
+  } catch (e) {
+    console.error('Error resolviendo cuenta (plan de cuotas)', e);
+    return null;
+  }
+}
+
+// POST: registra el pago DE VERDAD de una o varias cuotas del plan.
+// A diferencia de un simple check, esto:
+//  1) Suma el monto de cada cuota como un concepto más dentro de
+//     pagos_mensuales (la misma tabla de la que salen recaudación y
+//     todos los reportes), en el mes exacto al que corresponde esa cuota.
+//  2) Guarda la cuenta elegida, igual que en el pago de la cuota social.
+//  3) Marca la cuota como pagada en el plan.
+// A propósito NO participa del cálculo de "pago_completo" de ese mes
+// (el que decide si el socio está al día con la cuota social): pagar
+// una cuota de una actividad especial no debe hacer que alguien
+// aparezca "al día" o "en mora" del club por un concepto aparte.
+router.post('/:clubId/planes-actividad/:planId/registrar-pago', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId } = req.params;
+  const { cuotaIds, cuenta, cuenta_id, fecha_pago } = req.body;
+
+  if (!Array.isArray(cuotaIds) || !cuotaIds.length) {
+    return res.status(400).json({ ok: false, error: 'Seleccioná al menos una cuota.' });
+  }
+
+  const cuentaFinal = await resolverCuentaPlanCuotas({ clubId, cuenta, cuenta_id });
+  if (!cuentaFinal) {
+    return res.status(400).json({ ok: false, error: 'Elegí la cuenta con la que se cobró.' });
+  }
+
+  const fechaPagoFinal = fecha_pago || new Date().toISOString().slice(0, 10);
 
   try {
     const rPlan = await db.query(
-      `SELECT id FROM planes_actividad_socio WHERE id = $1 AND club_id = $2`,
+      `
+      SELECT p.id, p.socio_id, p.actividad_id, a.nombre AS actividad_nombre,
+             s.nombre AS socio_nombre, s.apellido AS socio_apellido, s.numero_socio
+      FROM planes_actividad_socio p
+      JOIN actividades_adicionales a ON a.id = p.actividad_id
+      JOIN socios s ON s.id = p.socio_id
+      WHERE p.id = $1 AND p.club_id = $2
+      `,
       [planId, clubId]
     );
     if (!rPlan.rowCount) {
       return res.status(404).json({ ok: false, error: 'Plan no encontrado.' });
     }
+    const plan = rPlan.rows[0];
 
-    await db.query(
+    const rTotalCuotas = await db.query(
+      `SELECT COUNT(*) AS total FROM planes_actividad_cuotas WHERE plan_id = $1`,
+      [planId]
+    );
+    const totalCuotas = Number(rTotalCuotas.rows[0]?.total || 0);
+
+    const rCuotas = await db.query(
       `
-      UPDATE planes_actividad_cuotas
-      SET pagado = $1, fecha_pago = CASE WHEN $1 = true THEN NOW() ELSE NULL END
-      WHERE id = $2 AND plan_id = $3
+      SELECT id, numero_cuota, anio, mes, monto
+      FROM planes_actividad_cuotas
+      WHERE plan_id = $1 AND id = ANY($2::uuid[]) AND pagado = false
       `,
-      [!!pagado, cuotaId, planId]
+      [planId, cuotaIds]
     );
 
+    if (!rCuotas.rowCount) {
+      return res.status(400).json({ ok: false, error: 'Las cuotas seleccionadas ya están pagadas o no existen.' });
+    }
+
+    await db.query('BEGIN');
+
+    for (const cuota of rCuotas.rows) {
+      const item = {
+        tipo: 'plan_actividad',
+        nombre: `${plan.actividad_nombre} - Cuota ${cuota.numero_cuota}/${totalCuotas}`,
+        monto: Number(cuota.monto),
+        seleccionado: true,
+        plan_cuota_id: cuota.id
+      };
+
+      const rPrev = await db.query(
+        `
+        SELECT id, detalle_pago, monto_total_teorico
+        FROM pagos_mensuales
+        WHERE club_id = $1 AND socio_id = $2 AND anio = $3 AND mes = $4
+        LIMIT 1
+        `,
+        [clubId, plan.socio_id, cuota.anio, cuota.mes]
+      );
+
+      if (!rPrev.rowCount) {
+        await db.query(
+          `
+          INSERT INTO pagos_mensuales
+          (club_id, socio_id, socio_nombre, socio_apellido, socio_numero, anio, mes,
+           monto, fecha_pago, cuenta, detalle_pago, monto_total_teorico, monto_pagado, pago_completo)
+          VALUES
+          ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false)
+          `,
+          [
+            clubId, plan.socio_id, plan.socio_nombre, plan.socio_apellido, plan.numero_socio,
+            cuota.anio, cuota.mes,
+            item.monto, fechaPagoFinal, cuentaFinal, JSON.stringify([item]), item.monto, item.monto
+          ]
+        );
+      } else {
+        const prev = rPrev.rows[0];
+        const prevDetalle = Array.isArray(prev.detalle_pago) ? prev.detalle_pago : [];
+        const mergedDetalle = [...prevDetalle.filter(d => d.plan_cuota_id !== cuota.id), item];
+
+        const montoPagado = mergedDetalle
+          .filter(d => d.seleccionado === true)
+          .reduce((acc, d) => acc + Number(d.monto || 0), 0);
+
+        // ✅ "pago_completo" solo depende de los conceptos que NO son de un
+        // plan de cuotas (base + adicionales normales), para no alterar el
+        // estado de mora de la cuota social del club.
+        const itemsCuotaSocial = mergedDetalle.filter(d => d.tipo !== 'plan_actividad');
+        const pagoCompleto = itemsCuotaSocial.length > 0
+          ? itemsCuotaSocial.every(d => d.seleccionado === true)
+          : false;
+
+        const montoTeoricoNuevo = Number(prev.monto_total_teorico || 0) + item.monto;
+
+        await db.query(
+          `
+          UPDATE pagos_mensuales
+          SET monto = $1, fecha_pago = $2, cuenta = $3, detalle_pago = $4,
+              monto_total_teorico = $5, monto_pagado = $1, pago_completo = $6
+          WHERE id = $7
+          `,
+          [montoPagado, fechaPagoFinal, cuentaFinal, JSON.stringify(mergedDetalle), montoTeoricoNuevo, pagoCompleto, prev.id]
+        );
+      }
+
+      await db.query(
+        `UPDATE planes_actividad_cuotas SET pagado = true, fecha_pago = $1, cuenta = $2 WHERE id = $3`,
+        [fechaPagoFinal, cuentaFinal, cuota.id]
+      );
+    }
+
+    await db.query('COMMIT');
+    res.json({ ok: true, cuotasPagadas: rCuotas.rows.length });
+  } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ POST registrar-pago plan cuotas', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST: deshace el pago de una cuota puntual (por si se cargó mal).
+// Saca el concepto correspondiente de pagos_mensuales y recalcula esa
+// fila, y vuelve a dejar la cuota como pendiente en el plan.
+router.post('/:clubId/planes-actividad/:planId/cuotas/:cuotaId/revertir-pago', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId, cuotaId } = req.params;
+
+  try {
+    const rPlan = await db.query(
+      `SELECT id, socio_id FROM planes_actividad_socio WHERE id = $1 AND club_id = $2`,
+      [planId, clubId]
+    );
+    if (!rPlan.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Plan no encontrado.' });
+    }
+    const socioId = rPlan.rows[0].socio_id;
+
+    const rCuota = await db.query(
+      `SELECT id, anio, mes, monto, pagado FROM planes_actividad_cuotas WHERE id = $1 AND plan_id = $2`,
+      [cuotaId, planId]
+    );
+    if (!rCuota.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Cuota no encontrada.' });
+    }
+    const cuota = rCuota.rows[0];
+
+    if (!cuota.pagado) {
+      return res.json({ ok: true }); // ya estaba pendiente, nada que hacer
+    }
+
+    await db.query('BEGIN');
+
+    const rPrev = await db.query(
+      `
+      SELECT id, detalle_pago, monto_total_teorico
+      FROM pagos_mensuales
+      WHERE club_id = $1 AND socio_id = $2 AND anio = $3 AND mes = $4
+      LIMIT 1
+      `,
+      [clubId, socioId, cuota.anio, cuota.mes]
+    );
+
+    if (rPrev.rowCount) {
+      const prev = rPrev.rows[0];
+      const prevDetalle = Array.isArray(prev.detalle_pago) ? prev.detalle_pago : [];
+      const mergedDetalle = prevDetalle.filter(d => d.plan_cuota_id !== cuotaId);
+
+      const montoPagado = mergedDetalle
+        .filter(d => d.seleccionado === true)
+        .reduce((acc, d) => acc + Number(d.monto || 0), 0);
+
+      const itemsCuotaSocial = mergedDetalle.filter(d => d.tipo !== 'plan_actividad');
+      const pagoCompleto = itemsCuotaSocial.length > 0
+        ? itemsCuotaSocial.every(d => d.seleccionado === true)
+        : false;
+
+      const montoTeoricoNuevo = Math.max(0, Number(prev.monto_total_teorico || 0) - Number(cuota.monto));
+
+      await db.query(
+        `
+        UPDATE pagos_mensuales
+        SET monto = $1, detalle_pago = $2, monto_total_teorico = $3,
+            monto_pagado = $1, pago_completo = $4
+        WHERE id = $5
+        `,
+        [montoPagado, JSON.stringify(mergedDetalle), montoTeoricoNuevo, pagoCompleto, prev.id]
+      );
+    }
+
+    await db.query(
+      `UPDATE planes_actividad_cuotas SET pagado = false, fecha_pago = NULL, cuenta = NULL WHERE id = $1`,
+      [cuotaId]
+    );
+
+    await db.query('COMMIT');
     res.json({ ok: true });
   } catch (e) {
-    console.error('❌ POST cuota pagar', e);
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ POST revertir-pago plan cuotas', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
