@@ -403,6 +403,254 @@ router.delete('/:clubId/grupo-familiar/:jefeSocioId', requireAuth, requireClubAc
 });
 
 // ===============================
+// PLAN DE CUOTAS PERSONALIZADO POR SOCIO + ACTIVIDAD
+// (para actividades con esquema de pago irregular, ej: equitación)
+// ===============================
+
+// Arma la sugerencia de cuotas en partes iguales (el admin la puede
+// editar antes de guardar). El resto de redondeo va todo en la última
+// cuota para que la suma cierre exacto contra montoTotal.
+function generarCuotasSugeridas({ montoTotal, cantidadCuotas, mesInicio, anioInicio }) {
+  const total = Number(montoTotal);
+  const cant = parseInt(cantidadCuotas, 10);
+  const montoBase = Math.floor((total / cant) * 100) / 100;
+  const cuotas = [];
+
+  let mes = parseInt(mesInicio, 10);
+  let anio = parseInt(anioInicio, 10);
+  let acumulado = 0;
+
+  for (let i = 1; i <= cant; i++) {
+    let monto = montoBase;
+    if (i === cant) {
+      // última cuota: se lleva el resto para que la suma cierre exacto
+      monto = Math.round((total - acumulado) * 100) / 100;
+    }
+    acumulado += monto;
+
+    cuotas.push({ numero_cuota: i, anio, mes, monto });
+
+    mes++;
+    if (mes > 12) { mes = 1; anio++; }
+  }
+
+  return cuotas;
+}
+
+// GET: lista los planes (activos e inactivos) de un socio, con sus cuotas
+router.get('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, socioId } = req.params;
+  try {
+    const rPlanes = await db.query(
+      `
+      SELECT p.id, p.actividad_id, p.activo, p.created_at,
+             a.nombre AS actividad_nombre
+      FROM planes_actividad_socio p
+      JOIN actividades_adicionales a ON a.id = p.actividad_id
+      WHERE p.club_id = $1 AND p.socio_id = $2
+      ORDER BY p.created_at DESC
+      `,
+      [clubId, socioId]
+    );
+
+    const planes = rPlanes.rows;
+    if (planes.length) {
+      const ids = planes.map(p => p.id);
+      const rCuotas = await db.query(
+        `
+        SELECT id, plan_id, numero_cuota, anio, mes, monto, pagado, fecha_pago
+        FROM planes_actividad_cuotas
+        WHERE plan_id = ANY($1::uuid[])
+        ORDER BY anio, mes, numero_cuota
+        `,
+        [ids]
+      );
+      for (const plan of planes) {
+        plan.cuotas = rCuotas.rows.filter(c => c.plan_id === plan.id);
+      }
+    }
+
+    res.json({ ok: true, planes });
+  } catch (e) {
+    console.error('❌ GET planes-actividad', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST: sugiere cuotas en partes iguales, SIN guardar nada todavía.
+// El frontend usa esto para prellenar la tabla editable antes de confirmar.
+router.post('/:clubId/planes-actividad/sugerir-cuotas', requireAuth, requireClubAccess, async (req, res) => {
+  const { montoTotal, cantidadCuotas, mesInicio, anioInicio } = req.body;
+
+  if (!montoTotal || !cantidadCuotas || !mesInicio || !anioInicio) {
+    return res.status(400).json({ ok: false, error: 'Faltan datos para sugerir las cuotas.' });
+  }
+
+  try {
+    const cuotas = generarCuotasSugeridas({ montoTotal, cantidadCuotas, mesInicio, anioInicio });
+    res.json({ ok: true, cuotas });
+  } catch (e) {
+    console.error('❌ POST sugerir-cuotas', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST: crea (o reactiva) el plan de un socio para una actividad, con el
+// detalle de cuotas ya definitivo (el que el admin confirmó, editado o no).
+router.post('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, socioId } = req.params;
+  const { actividad_id, cuotas } = req.body;
+
+  if (!actividad_id || !Array.isArray(cuotas) || !cuotas.length) {
+    return res.status(400).json({ ok: false, error: 'Falta la actividad o el detalle de cuotas.' });
+  }
+
+  for (const c of cuotas) {
+    if (!c.anio || !c.mes || c.monto == null) {
+      return res.status(400).json({ ok: false, error: 'Cada cuota necesita año, mes y monto.' });
+    }
+  }
+
+  try {
+    await db.query('BEGIN');
+
+    // ¿ya existe un plan (activo o no) para este socio+actividad? Por el
+    // UNIQUE (club_id, socio_id, actividad_id) no podemos insertar otro:
+    // si existe, lo reactivamos y le reemplazamos las cuotas.
+    const rExiste = await db.query(
+      `SELECT id FROM planes_actividad_socio WHERE club_id = $1 AND socio_id = $2 AND actividad_id = $3`,
+      [clubId, socioId, actividad_id]
+    );
+
+    let planId;
+    if (rExiste.rowCount) {
+      planId = rExiste.rows[0].id;
+      await db.query(
+        `UPDATE planes_actividad_socio SET activo = true, updated_at = NOW() WHERE id = $1`,
+        [planId]
+      );
+      await db.query(`DELETE FROM planes_actividad_cuotas WHERE plan_id = $1`, [planId]);
+    } else {
+      const rNew = await db.query(
+        `
+        INSERT INTO planes_actividad_socio (id, club_id, socio_id, actividad_id, activo, created_at, updated_at)
+        VALUES (gen_random_uuid(), $1, $2, $3, true, NOW(), NOW())
+        RETURNING id
+        `,
+        [clubId, socioId, actividad_id]
+      );
+      planId = rNew.rows[0].id;
+    }
+
+    for (const c of cuotas) {
+      await db.query(
+        `
+        INSERT INTO planes_actividad_cuotas (id, plan_id, numero_cuota, anio, mes, monto, pagado)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, false)
+        `,
+        [planId, c.numero_cuota || null, c.anio, c.mes, c.monto]
+      );
+    }
+
+    await db.query('COMMIT');
+    res.json({ ok: true, planId });
+
+  } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ POST planes-actividad', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// PUT: reemplaza el detalle de cuotas de un plan existente (edición posterior)
+router.put('/:clubId/planes-actividad/:planId/cuotas', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId } = req.params;
+  const { cuotas } = req.body;
+
+  if (!Array.isArray(cuotas) || !cuotas.length) {
+    return res.status(400).json({ ok: false, error: 'Falta el detalle de cuotas.' });
+  }
+
+  try {
+    const rPlan = await db.query(
+      `SELECT id FROM planes_actividad_socio WHERE id = $1 AND club_id = $2`,
+      [planId, clubId]
+    );
+    if (!rPlan.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Plan no encontrado.' });
+    }
+
+    await db.query('BEGIN');
+    // Solo se tocan las cuotas que todavía no fueron pagadas, para no
+    // perder el historial de pago de las que ya se cobraron.
+    await db.query(`DELETE FROM planes_actividad_cuotas WHERE plan_id = $1 AND pagado = false`, [planId]);
+
+    for (const c of cuotas) {
+      if (c.pagado) continue; // las pagadas no se re-insertan, ya siguen ahí
+      await db.query(
+        `
+        INSERT INTO planes_actividad_cuotas (id, plan_id, numero_cuota, anio, mes, monto, pagado)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, false)
+        `,
+        [planId, c.numero_cuota || null, c.anio, c.mes, c.monto]
+      );
+    }
+
+    await db.query('COMMIT');
+    res.json({ ok: true });
+  } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ PUT planes-actividad/cuotas', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST: marca una cuota puntual como pagada / no pagada
+router.post('/:clubId/planes-actividad/:planId/cuotas/:cuotaId/pagar', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId, cuotaId } = req.params;
+  const { pagado } = req.body; // true / false
+
+  try {
+    const rPlan = await db.query(
+      `SELECT id FROM planes_actividad_socio WHERE id = $1 AND club_id = $2`,
+      [planId, clubId]
+    );
+    if (!rPlan.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Plan no encontrado.' });
+    }
+
+    await db.query(
+      `
+      UPDATE planes_actividad_cuotas
+      SET pagado = $1, fecha_pago = CASE WHEN $1 = true THEN NOW() ELSE NULL END
+      WHERE id = $2 AND plan_id = $3
+      `,
+      [!!pagado, cuotaId, planId]
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ POST cuota pagar', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// DELETE: da de baja el plan (soft-delete, igual que Grupo Familiar)
+router.delete('/:clubId/planes-actividad/:planId', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId } = req.params;
+  try {
+    await db.query(
+      `UPDATE planes_actividad_socio SET activo = false, updated_at = NOW() WHERE id = $1 AND club_id = $2`,
+      [planId, clubId]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ DELETE planes-actividad', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ===============================
 // LISTAR / BUSCAR / FILTRAR (+ pago_al_dia)
 // ===============================
 router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) => {
