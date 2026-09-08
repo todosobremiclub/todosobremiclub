@@ -3958,6 +3958,24 @@ for (const s of r.rows) {
   socios++;
 }
 
+// ✅ Sumar lo esperado de los planes de cuotas personalizados (ej: equitación)
+// cuya cuota vence este mes/año, tengan o no ya el pago registrado.
+const rPlanEsperado = await db.query(
+  `
+  SELECT COALESCE(SUM(c.monto), 0) AS total
+  FROM planes_actividad_cuotas c
+  JOIN planes_actividad_socio p ON p.id = c.plan_id
+  JOIN socios s ON s.id = p.socio_id
+  WHERE p.club_id = $1
+    AND p.activo = true
+    AND s.activo = true
+    AND c.anio = $2
+    AND c.mes = $3
+  `,
+  [clubId, anio, mes]
+);
+esperado += Number(rPlanEsperado.rows[0]?.total || 0);
+
         // Guardar/actualizar snapshot SOLO si el mes cerró
         if (closedMonth) {
           await db.query(
@@ -4120,6 +4138,24 @@ adicionales_conceptos AS (
         AND EXTRACT(MONTH FROM s.fecha_ingreso) <= $3
       )
     )
+),
+plan_conceptos AS (
+  -- ✅ Cuotas de planes de cuotas personalizados (ej: equitación) que
+  -- vencen este mes/año. Mismo formato de nombre que usa el pago
+  -- ("Actividad - Cuota N/Total") para que se agrupen en una sola fila
+  -- junto con lo recaudado.
+  SELECT
+    a.nombre || ' - Cuota ' || c.numero_cuota || '/' || COUNT(*) OVER (PARTITION BY c.plan_id) AS actividad,
+    c.monto AS esperado
+  FROM planes_actividad_cuotas c
+  JOIN planes_actividad_socio p ON p.id = c.plan_id
+  JOIN actividades_adicionales a ON a.id = p.actividad_id
+  JOIN socios s ON s.id = p.socio_id
+  WHERE p.club_id = $1
+    AND p.activo = true
+    AND s.activo = true
+    AND c.anio = $2
+    AND c.mes = $3
 )
 SELECT
   actividad,
@@ -4128,6 +4164,8 @@ FROM (
   SELECT actividad, esperado FROM base_conceptos
   UNION ALL
   SELECT actividad, esperado FROM adicionales_conceptos
+  UNION ALL
+  SELECT actividad, esperado FROM plan_conceptos
 ) t
 WHERE actividad IS NOT NULL
 GROUP BY actividad
