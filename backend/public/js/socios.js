@@ -2684,7 +2684,9 @@ if (payload.es_menor && !payload.tutor_nombre) {
     anio: new Date().getFullYear(),
     mes: new Date().getMonth() + 1,
     actividad: '',
-    categoria: ''
+    categoria: '',
+    page: 0,       // página actual (0 = primera)
+    limit: 100     // tamaño de página (máx que acepta el backend)
   };
 
   // Llena los combos de Actividad/Categoría del modal reutilizando el cache
@@ -2739,13 +2741,56 @@ if (payload.es_menor && !payload.tutor_nombre) {
 
     $('modalImpagosMesFiltroActividad')?.addEventListener('change', (ev) => {
       impagosMesModalState.actividad = ev.target.value || '';
+      impagosMesModalState.page = 0;
       cargarListadoImpagosMesModal();
     });
 
     $('modalImpagosMesFiltroCategoria')?.addEventListener('change', (ev) => {
       impagosMesModalState.categoria = ev.target.value || '';
+      impagosMesModalState.page = 0;
       cargarListadoImpagosMesModal();
     });
+  }
+
+  // Dibuja los botones «Anterior / Siguiente» + "Página X de Y" en un
+  // contenedor dado. Se usa tanto arriba como abajo del listado.
+  function renderImpagosMesPagerInto(container, { page, totalPages, total }) {
+    if (!container) return;
+    container.innerHTML = '';
+    if (totalPages <= 1) return; // 1 sola página -> no hace falta paginar
+
+    const btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.textContent = '‹ Anterior';
+    btnPrev.disabled = page <= 0;
+    btnPrev.addEventListener('click', () => {
+      if (impagosMesModalState.page <= 0) return;
+      impagosMesModalState.page -= 1;
+      cargarListadoImpagosMesModal();
+    });
+
+    const info = document.createElement('span');
+    info.className = 'impagos-mes-pager-info';
+    info.textContent = `Página ${page + 1} de ${totalPages} · ${total} socios impagos`;
+
+    const btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.textContent = 'Siguiente ›';
+    btnNext.disabled = page >= totalPages - 1;
+    btnNext.addEventListener('click', () => {
+      if (impagosMesModalState.page >= totalPages - 1) return;
+      impagosMesModalState.page += 1;
+      cargarListadoImpagosMesModal();
+    });
+
+    container.appendChild(btnPrev);
+    container.appendChild(info);
+    container.appendChild(btnNext);
+  }
+
+  function renderImpagosMesPager(state) {
+    renderImpagosMesPagerInto($('modalImpagosMesPagerTop'), state);
+    renderImpagosMesPagerInto($('modalImpagosMesPagerBottom'), state);
   }
 
   // Trae y renderiza el listado de socios impagos según el mes/año y el
@@ -2758,11 +2803,13 @@ if (payload.es_menor && !payload.tutor_nombre) {
 
     try {
       const clubId = getActiveClubId();
+      const limit = impagosMesModalState.limit;
+      const offset = impagosMesModalState.page * limit;
       const params = new URLSearchParams({
         anio: String(impagosMesModalState.anio),
         mes: String(impagosMesModalState.mes),
-        limit: '100',
-        offset: '0'
+        limit: String(limit),
+        offset: String(offset)
       });
       if (impagosMesModalState.actividad) params.set('actividad', impagosMesModalState.actividad);
       if (impagosMesModalState.categoria) params.set('categoria', impagosMesModalState.categoria);
@@ -2772,14 +2819,28 @@ if (payload.es_menor && !payload.tutor_nombre) {
 
       if (!data.ok) {
         body.innerHTML = `<div class="muted" style="color:#b91c1c;">${data.error || 'Error cargando socios impagos'}</div>`;
+        $('modalImpagosMesPagerTop').innerHTML = '';
+        $('modalImpagosMesPagerBottom').innerHTML = '';
         return;
       }
 
       const items = data.items || [];
       const total = Number(data.total || items.length);
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+
+      // Si al cambiar de filtro la página actual quedó fuera de rango
+      // (por ejemplo, había página 2 y el nuevo filtro solo tiene 1 página),
+      // volvemos a pedir la última página válida.
+      if (items.length === 0 && total > 0 && impagosMesModalState.page > 0) {
+        impagosMesModalState.page = totalPages - 1;
+        await cargarListadoImpagosMesModal();
+        return;
+      }
 
       if (!items.length) {
         body.innerHTML = '<div class="muted">No hay socios impagos con este filtro.</div>';
+        $('modalImpagosMesPagerTop').innerHTML = '';
+        $('modalImpagosMesPagerBottom').innerHTML = '';
         return;
       }
 
@@ -2812,8 +2873,9 @@ if (payload.es_menor && !payload.tutor_nombre) {
             `).join('')}
           </tbody>
         </table>
-        ${total > items.length ? `<div class="muted small" style="margin-top:8px;">Mostrando ${items.length} de ${total} socios impagos.</div>` : ''}
       `;
+
+      renderImpagosMesPager({ page: impagosMesModalState.page, totalPages, total });
     } catch (e) {
       console.warn('Error abriendo listado de impagos del mes:', e);
       body.innerHTML = '<div class="muted" style="color:#b91c1c;">Error inesperado cargando el listado.</div>';
@@ -2832,6 +2894,7 @@ if (payload.es_menor && !payload.tutor_nombre) {
     const now = new Date();
     impagosMesModalState.anio = now.getFullYear();
     impagosMesModalState.mes = now.getMonth() + 1;
+    impagosMesModalState.page = 0;
     // El filtro de Actividad/Categoría se mantiene entre aperturas del modal
     // (no se resetea), para no perder la selección del admin.
 
