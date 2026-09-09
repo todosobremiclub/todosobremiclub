@@ -192,6 +192,40 @@
       background:#f7f7f7;
     }
 
+    /* ------------------------------------
+       TABLA DE GASTOS: columnas angostas
+       + columna de Observación con wrap,
+       para que todo entre sin scroll horizontal
+    ------------------------------------ */
+    .table-gastos{
+      table-layout:fixed;
+    }
+
+    .table-gastos .col-tipo{ width:16%; }
+    .table-gastos .col-responsable{ width:16%; }
+    .table-gastos .col-monto{ width:12%; }
+    .table-gastos .col-observacion{ width:46%; }
+    .table-gastos .col-accion{ width:10%; }
+
+    .table-gastos th,
+    .table-gastos td{
+      padding:6px 8px;
+      font-size:13px;
+    }
+
+    .table-gastos td.col-observacion,
+    .table-gastos th:nth-child(4){
+      white-space:normal;
+      word-break:break-word;
+      overflow-wrap:break-word;
+    }
+
+    .table-gastos td:nth-child(1),
+    .table-gastos td:nth-child(2){
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
 
     /* ------------------------------------
        TOTAL PERÍODO

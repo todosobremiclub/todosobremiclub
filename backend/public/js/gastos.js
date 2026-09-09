@@ -248,6 +248,7 @@ function renderGastosGrouped(gastos = []) {
   <td>${escapeHtml(g.tipo_gasto ?? g.tipo ?? '')}</td>
   <td>${escapeHtml(g.responsable ?? '')}</td>
   <td><strong>${money.format(Number(g.monto || 0))}</strong></td>
+  <td class="col-observacion">${escapeHtml(g.descripcion ?? '')}</td>
   <td style="text-align:right;">
     <button class="btn-del" data-act="del" data-id="${g.id}" title="Eliminar">🗑️</button>
   </td>
@@ -266,18 +267,26 @@ function renderGastosGrouped(gastos = []) {
 
         <div id="${accId}" class="accordion-body ${idx === 0 ? '' : 'hidden'}">
           <div class="table-container">
-            <table class="table">
+            <table class="table table-gastos">
+              <colgroup>
+                <col class="col-tipo">
+                <col class="col-responsable">
+                <col class="col-monto">
+                <col class="col-observacion">
+                <col class="col-accion">
+              </colgroup>
               <thead>
                 <tr>
                   <th>Tipo de gasto</th>
 <th>Responsable de cuenta</th>
 <th>Monto</th>
+<th>Observación</th>
 <th>Acción</th>
                 </tr>
               </thead>
               <tbody>
                 ${rowsHtml || `<tr>
-  <td colspan="3" class="muted">Sin gastos</td>
+  <td colspan="5" class="muted">Sin gastos</td>
 </tr>`}
               </tbody>
             </table>
