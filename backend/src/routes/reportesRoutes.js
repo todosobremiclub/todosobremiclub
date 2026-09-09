@@ -1096,6 +1096,7 @@ router.get(
             FROM socios
             WHERE club_id = $1
               AND activo = true
+              AND becado = false
               AND ($3::text IS NULL OR actividad = $3)
               AND ($4::text IS NULL OR categoria = $4)
           ),
@@ -1173,6 +1174,7 @@ router.get(
          AND pm.mes = $3
         WHERE s.club_id = $1
           AND s.activo = true
+          AND s.becado = false
           AND (
             s.fecha_ingreso IS NULL
             OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
@@ -1254,6 +1256,7 @@ router.get(
             FROM socios
             WHERE club_id = $1
               AND activo = true
+              AND becado = false
               AND ($3::text IS NULL OR actividad = $3)
               AND ($4::text IS NULL OR categoria = $4)
           ),
@@ -1332,6 +1335,7 @@ router.get(
          AND pm.mes = $3
         WHERE s.club_id = $1
           AND s.activo = true
+          AND s.becado = false
           AND (
             s.fecha_ingreso IS NULL
             OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
