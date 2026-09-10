@@ -544,15 +544,29 @@ let planCuotasCuotasActuales = [];     // cuotas en pantalla (editable)
 // Acá solo se arma/edita el plan y, si hace falta corregir algo, se puede
 // deshacer un pago ya cobrado.
 
+// El value de cada <option> es "tipo:id" (ej: "adicional:5" o "deportiva:3")
+// porque el id puede repetirse entre las dos tablas de actividades.
 function fillPlanCuotasActividadSelect() {
   const sel = $('planCuotasActividad');
   if (!sel) return;
   const valorPrevio = sel.value;
+  const optsAdicionales = actividadesAdicionalesConfigCache.map(a =>
+    `<option value="adicional:${escapeHtml(String(a.id))}">${escapeHtml(a.nombre || '')}</option>`
+  ).join('');
+  const optsDeportivas = actividadesConfigCache.map(a =>
+    `<option value="deportiva:${escapeHtml(String(a.id))}">${escapeHtml(a.nombre || '')}</option>`
+  ).join('');
   sel.innerHTML = '<option value="">Seleccionar actividad…</option>' +
-    actividadesAdicionalesConfigCache.map(a =>
-      `<option value="${escapeHtml(String(a.id))}">${escapeHtml(a.nombre || '')}</option>`
-    ).join('');
+    (optsAdicionales ? `<optgroup label="Actividades adicionales">${optsAdicionales}</optgroup>` : '') +
+    (optsDeportivas ? `<optgroup label="Actividades deportivas">${optsDeportivas}</optgroup>` : '');
   if (valorPrevio) sel.value = valorPrevio;
+}
+
+function parsePlanCuotasActividadValue(v) {
+  if (!v) return { tipo: null, id: null };
+  const idx = v.indexOf(':');
+  if (idx === -1) return { tipo: 'adicional', id: v }; // compat por si quedó un value viejo sin prefijo
+  return { tipo: v.slice(0, idx), id: v.slice(idx + 1) };
 }
 
 async function abrirModalPlanCuotas() {
@@ -567,6 +581,9 @@ async function abrirModalPlanCuotas() {
 
   if (!actividadesAdicionalesConfigCache.length) {
     await loadActividadesAdicionalesConfig().catch(() => {});
+  }
+  if (!actividadesConfigCache.length) {
+    await loadActividadesConfig().catch(() => {});
   }
   fillPlanCuotasActividadSelect();
 
@@ -617,10 +634,13 @@ function actualizarEstadoPlanCuotasFicha() {
 }
 
 function onPlanCuotasActividadChange() {
-  const actividadId = $('planCuotasActividad').value;
-  const plan = planCuotasPlanesSocio.find(p => String(p.actividad_id) === String(actividadId));
+  const actividadRaw = $('planCuotasActividad').value;
+  const { tipo, id: actividadId } = parsePlanCuotasActividadValue(actividadRaw);
+  const plan = planCuotasPlanesSocio.find(
+    p => String(p.actividad_id) === String(actividadId) && (p.tipo_actividad || 'adicional') === tipo
+  );
 
-  if (!actividadId) {
+  if (!actividadRaw) {
     planCuotasPlanIdActual = null;
     planCuotasCuotasActuales = [];
     $('planCuotasEstado').textContent = 'Elegí una actividad.';
@@ -796,8 +816,9 @@ function agregarCuotaManualUI() {
 }
 
 async function guardarPlanCuotasUI() {
-  const actividadId = $('planCuotasActividad').value;
-  if (!actividadId) {
+  const actividadRaw = $('planCuotasActividad').value;
+  const { tipo: tipoActividad, id: actividadId } = parsePlanCuotasActividadValue(actividadRaw);
+  if (!actividadRaw) {
     alert('Elegí la actividad.');
     return;
   }
@@ -834,7 +855,7 @@ async function guardarPlanCuotasUI() {
     } else {
       res = await fetchAuth(`/club/${clubId}/socios/${planCuotasSocioId}/planes-actividad`, {
         method: 'POST',
-        body: JSON.stringify({ actividad_id: actividadId, cuotas: cuotasPayload }),
+        body: JSON.stringify({ actividad_id: actividadId, tipo_actividad: tipoActividad, cuotas: cuotasPayload }),
         json: true
       });
     }
@@ -1636,34 +1657,6 @@ let grupoFamiliarOriginalEraJefe = false;
     }
   }
 
-  // ✅ Después de eliminar un adjunto/comentario, actualiza en el momento el
-  // ícono 📎/💬 de la fila del socio en la tabla (sin recargar toda la
-  // tabla ni perder la página/scroll actual).
-  async function refreshSocioFlagsIcon(socioId) {
-    await loadSocioEstadosFromBackend();
-    const tr = document.querySelector(`tr[data-id="${CSS.escape(String(socioId))}"]`);
-    if (!tr) return;
-    const icons = getEstadoIconosForSocio(socioId);
-    let flagsEl = tr.querySelector('.socio-flags');
-    if (icons) {
-      if (flagsEl) {
-        flagsEl.textContent = icons;
-      } else {
-        const td = tr.querySelector('td:last-child');
-        if (td) {
-          const span = document.createElement('span');
-          span.className = 'socio-flags';
-          span.title = 'Adjuntos / comentarios';
-          span.style.marginLeft = '6px';
-          span.textContent = icons;
-          td.appendChild(span);
-        }
-      }
-    } else if (flagsEl) {
-      flagsEl.remove();
-    }
-  }
-
   // =============================
   // Orden + paginación
   // =============================
@@ -1750,7 +1743,6 @@ let totalSociosCache = 0; // total real (del backend) para paginar
         return;
       }
       await cargarAdjuntosEnModal(socioId);
-      await refreshSocioFlagsIcon(socioId);
     });
 
     cont.appendChild(row);
@@ -1787,33 +1779,14 @@ async function cargarComentariosEnModal(socioId) {
 
   comentarios.forEach(c => {
     const row = document.createElement('div');
-    row.className = 'd-flex justify-content-between align-items-start border-bottom py-1';
+    row.className = 'border-bottom py-1';
 
     const fecha = fmtDMYShort(c.created_at);
 
     row.innerHTML = `
-      <div>
-        <div><b>${fecha}</b></div>
-        <div>${escapeHtml(c.comentario)}</div>
-      </div>
-      <button class="btn btn-sm btn-danger">Eliminar</button>
+      <div><b>${fecha}</b></div>
+      <div>${escapeHtml(c.comentario)}</div>
     `;
-
-    row.querySelector('button')?.addEventListener('click', async () => {
-      if (!confirm('¿Eliminar este comentario?')) return;
-
-      const res = await fetchAuth(
-        `/club/${clubId}/socios/${socioId}/comentarios/${c.id}`,
-        { method: 'DELETE' }
-      );
-      const data = await safeJson(res);
-      if (!res.ok || !data.ok) {
-        alert(data.error || 'Error eliminando comentario');
-        return;
-      }
-      await cargarComentariosEnModal(socioId);
-      await refreshSocioFlagsIcon(socioId);
-    });
 
     cont.appendChild(row);
   });
@@ -1822,11 +1795,6 @@ async function cargarComentariosEnModal(socioId) {
 // =============================
   // VISOR SIMPLE DE ADJUNTOS / COMENTARIOS
   // =============================
-  // Contexto del visor abierto actualmente (para que los botones "Eliminar"
-  // sepan a qué socio/club pertenecen y para poder refrescar el contenido
-  // después de borrar, sin cerrar el popup).
-  let docsViewerCtx = { clubId: null, socioId: null, showAdjuntos: false, showComentarios: false };
-
   function ensureDocsViewerModal() {
     let modal = document.getElementById('docsViewerModal');
     if (modal) return modal;
@@ -1879,52 +1847,25 @@ async function cargarComentariosEnModal(socioId) {
       }
     });
 
-    // Un solo listener delegado (el modal se crea una sola vez) para los
-    // botones "Eliminar" de adjuntos y comentarios que arma renderDocsViewerBody().
-    const bodyEl = modal.querySelector('#docsViewerBody');
-    bodyEl.addEventListener('click', async (ev) => {
-      const btnAdj = ev.target.closest('[data-del-adjunto]');
-      const btnCom = ev.target.closest('[data-del-comentario]');
-      if (!btnAdj && !btnCom) return;
-
-      const { clubId, socioId } = docsViewerCtx;
-      if (!clubId || !socioId) return;
-
-      if (btnAdj) {
-        if (!confirm('¿Eliminar este adjunto?')) return;
-        const res = await fetchAuth(
-          `/club/${clubId}/socios/${socioId}/adjuntos/${btnAdj.dataset.delAdjunto}`,
-          { method: 'DELETE' }
-        );
-        const data = await safeJson(res);
-        if (!res.ok || !data.ok) {
-          alert(data.error || 'Error eliminando adjunto');
-          return;
-        }
-      } else if (btnCom) {
-        if (!confirm('¿Eliminar este comentario?')) return;
-        const res = await fetchAuth(
-          `/club/${clubId}/socios/${socioId}/comentarios/${btnCom.dataset.delComentario}`,
-          { method: 'DELETE' }
-        );
-        const data = await safeJson(res);
-        if (!res.ok || !data.ok) {
-          alert(data.error || 'Error eliminando comentario');
-          return;
-        }
-      }
-
-      await renderDocsViewerBody();
-      await refreshSocioFlagsIcon(socioId);
-    });
-
     return modal;
   }
 
-  async function renderDocsViewerBody() {
-    const { clubId, socioId, showAdjuntos, showComentarios } = docsViewerCtx;
+  async function openDocsViewer({ socioId, showAdjuntos, showComentarios }) {
+    const clubId = getActiveClubId();
+    const modal = ensureDocsViewerModal();
+    if (!modal) return;
+
+    const titleEl = document.getElementById('docsViewerTitle');
     const bodyEl = document.getElementById('docsViewerBody');
-    if (!bodyEl) return;
+    if (!titleEl || !bodyEl) return;
+
+    const partesTitulo = [];
+if (showAdjuntos) partesTitulo.push('Adjuntos');
+if (showComentarios) partesTitulo.push('Comentarios');
+
+// Si partesTitulo queda vacío, join() devuelve '', así que usamos 'Documentación' por defecto
+titleEl.textContent = partesTitulo.join(' y ') || 'Documentación';
+
 
     let html = '';
 
@@ -1939,22 +1880,19 @@ async function cargarComentariosEnModal(socioId) {
           const fecha = fmtDMYShort(a.created_at);
           const nombreArchivo = a.filename || '(sin archivo)';
           html += `
-            <div style="padding:6px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div style="padding:6px 0; border-bottom:1px solid #eee;">
               <div>
-                <div>
-                  <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
-                    <b>${escapeHtml(nombreArchivo)}</b>
-                  </a>
-                </div>
-                <div>
-                  <small>
-                    ${fecha || ''}${fecha && a.size_bytes ? ' · ' : ''}
-                    ${a.size_bytes ? formatBytes(a.size_bytes) : ''}
-                  </small>
-                </div>
-                ${a.comentario ? `<div><small>${escapeHtml(a.comentario)}</small></div>` : ''}
+                <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
+                  <b>${escapeHtml(nombreArchivo)}</b>
+                </a>
               </div>
-              <button type="button" class="btn btn-sm btn-danger" data-del-adjunto="${a.id}" style="flex-shrink:0;">Eliminar</button>
+              <div>
+                <small>
+                  ${fecha || ''}${fecha && a.size_bytes ? ' · ' : ''}
+                  ${a.size_bytes ? formatBytes(a.size_bytes) : ''}
+                </small>
+              </div>
+              ${a.comentario ? `<div><small>${escapeHtml(a.comentario)}</small></div>` : ''}
             </div>
           `;
         });
@@ -1971,12 +1909,9 @@ async function cargarComentariosEnModal(socioId) {
         comentarios.forEach((c) => {
           const fecha = fmtDMYShort(c.created_at);
           html += `
-            <div style="padding:6px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-              <div>
-                <div><b>${fecha}</b></div>
-                <div>${escapeHtml(c.comentario)}</div>
-              </div>
-              <button type="button" class="btn btn-sm btn-danger" data-del-comentario="${c.id}" style="flex-shrink:0;">Eliminar</button>
+            <div style="padding:6px 0; border-bottom:1px solid #eee;">
+              <div><b>${fecha}</b></div>
+              <div>${escapeHtml(c.comentario)}</div>
             </div>
           `;
         });
@@ -1988,27 +1923,6 @@ async function cargarComentariosEnModal(socioId) {
     }
 
     bodyEl.innerHTML = html;
-  }
-
-  async function openDocsViewer({ socioId, showAdjuntos, showComentarios }) {
-    const clubId = getActiveClubId();
-    const modal = ensureDocsViewerModal();
-    if (!modal) return;
-
-    docsViewerCtx = { clubId, socioId, showAdjuntos, showComentarios };
-
-    const titleEl = document.getElementById('docsViewerTitle');
-    if (!titleEl) return;
-
-    const partesTitulo = [];
-    if (showAdjuntos) partesTitulo.push('Adjuntos');
-    if (showComentarios) partesTitulo.push('Comentarios');
-
-    // Si partesTitulo queda vacío, join() devuelve '', así que usamos 'Documentación' por defecto
-    titleEl.textContent = partesTitulo.join(' y ') || 'Documentación';
-
-    await renderDocsViewerBody();
-
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
   }
@@ -2852,7 +2766,11 @@ tr.innerHTML = `
   <td>${escapeHtml(fmtDni(s.dni))}</td>
 
   <td class="socio-nombre-completo" title="${escapeHtml(`${String(s.apellido ?? '').trim()}, ${String(s.nombre ?? '').trim()}`)}">
-    ${escapeHtml(nombreCompleto)}
+    ${
+      s.falta_plan_clases
+        ? '<span title="Tiene una actividad por paquete de clases sin plan configurado" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#dc2626; margin-right:5px;"></span>'
+        : ''
+    }${escapeHtml(nombreCompleto)}
     ${s.es_jefe_plan_familiar ? ' 👑' : ''}
     ${s.es_miembro_plan_familiar ? ' 👨‍👩‍👧' : ''}
   </td>

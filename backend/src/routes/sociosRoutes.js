@@ -435,10 +435,13 @@ router.get('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClub
   try {
     const rPlanes = await db.query(
       `
-      SELECT p.id, p.actividad_id, p.activo, p.created_at,
-             a.nombre AS actividad_nombre
+      SELECT p.id, p.actividad_id, p.tipo_actividad, p.activo, p.created_at,
+             COALESCE(aa.nombre, ad.nombre) AS actividad_nombre
       FROM planes_actividad_socio p
-      JOIN actividades_adicionales a ON a.id = p.actividad_id
+      LEFT JOIN actividades_adicionales aa
+        ON aa.id = p.actividad_id AND p.tipo_actividad = 'adicional'
+      LEFT JOIN actividades ad
+        ON ad.id = p.actividad_id AND p.tipo_actividad = 'deportiva'
       WHERE p.club_id = $1 AND p.socio_id = $2
       ORDER BY p.created_at DESC
       `,
@@ -491,7 +494,8 @@ router.post('/:clubId/planes-actividad/sugerir-cuotas', requireAuth, requireClub
 // detalle de cuotas ya definitivo (el que el admin confirmó, editado o no).
 router.post('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, socioId } = req.params;
-  const { actividad_id, cuotas } = req.body;
+  const { actividad_id, tipo_actividad, cuotas } = req.body;
+  const tipoActividadVal = (tipo_actividad === 'deportiva') ? 'deportiva' : 'adicional';
 
   if (!actividad_id || !Array.isArray(cuotas) || !cuotas.length) {
     return res.status(400).json({ ok: false, error: 'Falta la actividad o el detalle de cuotas.' });
@@ -504,14 +508,25 @@ router.post('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClu
   }
 
   try {
+    // La actividad puede ser una adicional o una deportiva: validamos que
+    // exista en la tabla que corresponda según el tipo elegido.
+    const tablaActividad = tipoActividadVal === 'deportiva' ? 'actividades' : 'actividades_adicionales';
+    const rAct = await db.query(
+      `SELECT id FROM ${tablaActividad} WHERE id = $1 AND club_id = $2`,
+      [actividad_id, clubId]
+    );
+    if (!rAct.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Actividad no encontrada.' });
+    }
+
     await db.query('BEGIN');
 
-    // ¿ya existe un plan (activo o no) para este socio+actividad? Por el
-    // UNIQUE (club_id, socio_id, actividad_id) no podemos insertar otro:
-    // si existe, lo reactivamos y le reemplazamos las cuotas.
+    // ¿ya existe un plan (activo o no) para este socio+actividad+tipo? Por el
+    // UNIQUE (club_id, socio_id, actividad_id, tipo_actividad) no podemos
+    // insertar otro: si existe, lo reactivamos y le reemplazamos las cuotas.
     const rExiste = await db.query(
-      `SELECT id FROM planes_actividad_socio WHERE club_id = $1 AND socio_id = $2 AND actividad_id = $3`,
-      [clubId, socioId, actividad_id]
+      `SELECT id FROM planes_actividad_socio WHERE club_id = $1 AND socio_id = $2 AND actividad_id = $3 AND tipo_actividad = $4`,
+      [clubId, socioId, actividad_id, tipoActividadVal]
     );
 
     let planId;
@@ -525,11 +540,11 @@ router.post('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClu
     } else {
       const rNew = await db.query(
         `
-        INSERT INTO planes_actividad_socio (id, club_id, socio_id, actividad_id, activo, created_at, updated_at)
-        VALUES (gen_random_uuid(), $1, $2, $3, true, NOW(), NOW())
+        INSERT INTO planes_actividad_socio (id, club_id, socio_id, actividad_id, tipo_actividad, activo, created_at, updated_at)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, true, NOW(), NOW())
         RETURNING id
         `,
-        [clubId, socioId, actividad_id]
+        [clubId, socioId, actividad_id, tipoActividadVal]
       );
       planId = rNew.rows[0].id;
     }
@@ -1392,6 +1407,7 @@ DATE_PART('year', AGE(s.fecha_nacimiento))::int AS edad,
     AND pm.pago_completo = false
 ) AS tiene_pagos_parciales,
 
+act_dep.id AS actividad_deportiva_id,
 act_dep.modalidad_pago AS actividad_modalidad_pago,
 
 CASE
@@ -1508,6 +1524,31 @@ for (const p of rPagos.rows) {
   if (!pagosMap.has(key)) pagosMap.set(key, []);
   pagosMap.get(key).push(p);
 }
+
+// ✅ Marca roja: socio con una actividad (deportiva o adicional) marcada
+// "por paquete de clases" en Configuración pero sin un paquete activo
+// cargado en su ficha (Plan de clases). Dos consultas chicas en bloque
+// para no hacer N+1 queries por socio:
+//  - actividades_adicionales del club, para saber cuáles son "por_clases"
+//    (las adicionales del socio se guardan por nombre, no por id).
+//  - planes_clases_socio activos del club, para saber qué paquetes ya
+//    tiene cargados cada socio.
+const rAdicionalesPorClases = await db.query(
+  `SELECT id, nombre, modalidad_pago FROM actividades_adicionales WHERE club_id = $1`,
+  [clubId]
+);
+const adicionalesPorNombre = new Map();
+for (const a of rAdicionalesPorClases.rows) {
+  adicionalesPorNombre.set(String(a.nombre || '').trim(), a);
+}
+
+const rPlanesClasesActivos = await db.query(
+  `SELECT socio_id, actividad_id, tipo_actividad FROM planes_clases_socio WHERE club_id = $1 AND activo = true`,
+  [clubId]
+);
+const planesClasesSet = new Set(
+  rPlanesClasesActivos.rows.map(p => `${p.socio_id}::${p.tipo_actividad}::${p.actividad_id}`)
+);
 
 function parseDetalle(d) {
   try {
@@ -1635,11 +1676,34 @@ else {
 
 }
 
+// ✅ ¿Le falta configurar el paquete de clases de alguna de sus actividades
+// "por_clases"? (deportiva y/o adicionales)
+let faltaPlanClases = false;
+
+if (s.actividad_modalidad_pago === 'por_clases' && s.actividad_deportiva_id) {
+  const key = `${s.id}::deportiva::${s.actividad_deportiva_id}`;
+  if (!planesClasesSet.has(key)) faltaPlanClases = true;
+}
+
+if (!faltaPlanClases) {
+  for (const nombreAdic of adicionalesConfig) {
+    const info = adicionalesPorNombre.get(String(nombreAdic || '').trim());
+    if (info && info.modalidad_pago === 'por_clases') {
+      const key = `${s.id}::adicional::${info.id}`;
+      if (!planesClasesSet.has(key)) {
+        faltaPlanClases = true;
+        break;
+      }
+    }
+  }
+}
+
   return {
     ...s,
     pago_al_dia: pagoAlDia,
     tiene_pagos_parciales: esParcial,
-    pago_completo: pagoAlDia && !esParcial
+    pago_completo: pagoAlDia && !esParcial,
+    falta_plan_clases: faltaPlanClases
   };
 });
 
@@ -2714,32 +2778,6 @@ router.post(
         ok: false,
         error: e.message
       });
-    }
-  }
-);
-
-// ===============================
-// COMENTARIOS DE SOCIO – ELIMINAR
-// DELETE /club/:clubId/socios/:id/comentarios/:comentarioId
-// ===============================
-router.delete(
-  '/:clubId/socios/:id/comentarios/:comentarioId',
-  requireAuth,
-  requireClubAccess,
-  async (req, res) => {
-    const { clubId, id: socioId, comentarioId } = req.params;
-    try {
-      const r = await db.query(
-        `DELETE FROM socios_comentarios WHERE id = $1 AND club_id = $2 AND socio_id = $3`,
-        [comentarioId, clubId, socioId]
-      );
-      if (!r.rowCount) {
-        return res.status(404).json({ ok: false, error: 'Comentario no encontrado' });
-      }
-      return res.json({ ok: true });
-    } catch (e) {
-      console.error('❌ delete socio comentario', e);
-      return res.status(500).json({ ok: false, error: e.message });
     }
   }
 );
