@@ -544,15 +544,29 @@ let planCuotasCuotasActuales = [];     // cuotas en pantalla (editable)
 // Acá solo se arma/edita el plan y, si hace falta corregir algo, se puede
 // deshacer un pago ya cobrado.
 
+// El value de cada <option> es "tipo:id" (ej: "adicional:5" o "deportiva:3")
+// porque el id puede repetirse entre las dos tablas de actividades.
 function fillPlanCuotasActividadSelect() {
   const sel = $('planCuotasActividad');
   if (!sel) return;
   const valorPrevio = sel.value;
+  const optsAdicionales = actividadesAdicionalesConfigCache.map(a =>
+    `<option value="adicional:${escapeHtml(String(a.id))}">${escapeHtml(a.nombre || '')}</option>`
+  ).join('');
+  const optsDeportivas = actividadesConfigCache.map(a =>
+    `<option value="deportiva:${escapeHtml(String(a.id))}">${escapeHtml(a.nombre || '')}</option>`
+  ).join('');
   sel.innerHTML = '<option value="">Seleccionar actividad…</option>' +
-    actividadesAdicionalesConfigCache.map(a =>
-      `<option value="${escapeHtml(String(a.id))}">${escapeHtml(a.nombre || '')}</option>`
-    ).join('');
+    (optsAdicionales ? `<optgroup label="Actividades adicionales">${optsAdicionales}</optgroup>` : '') +
+    (optsDeportivas ? `<optgroup label="Actividades deportivas">${optsDeportivas}</optgroup>` : '');
   if (valorPrevio) sel.value = valorPrevio;
+}
+
+function parsePlanCuotasActividadValue(v) {
+  if (!v) return { tipo: null, id: null };
+  const idx = v.indexOf(':');
+  if (idx === -1) return { tipo: 'adicional', id: v }; // compat por si quedó un value viejo sin prefijo
+  return { tipo: v.slice(0, idx), id: v.slice(idx + 1) };
 }
 
 async function abrirModalPlanCuotas() {
@@ -567,6 +581,9 @@ async function abrirModalPlanCuotas() {
 
   if (!actividadesAdicionalesConfigCache.length) {
     await loadActividadesAdicionalesConfig().catch(() => {});
+  }
+  if (!actividadesConfigCache.length) {
+    await loadActividadesConfig().catch(() => {});
   }
   fillPlanCuotasActividadSelect();
 
@@ -617,10 +634,13 @@ function actualizarEstadoPlanCuotasFicha() {
 }
 
 function onPlanCuotasActividadChange() {
-  const actividadId = $('planCuotasActividad').value;
-  const plan = planCuotasPlanesSocio.find(p => String(p.actividad_id) === String(actividadId));
+  const actividadRaw = $('planCuotasActividad').value;
+  const { tipo, id: actividadId } = parsePlanCuotasActividadValue(actividadRaw);
+  const plan = planCuotasPlanesSocio.find(
+    p => String(p.actividad_id) === String(actividadId) && (p.tipo_actividad || 'adicional') === tipo
+  );
 
-  if (!actividadId) {
+  if (!actividadRaw) {
     planCuotasPlanIdActual = null;
     planCuotasCuotasActuales = [];
     $('planCuotasEstado').textContent = 'Elegí una actividad.';
@@ -796,8 +816,9 @@ function agregarCuotaManualUI() {
 }
 
 async function guardarPlanCuotasUI() {
-  const actividadId = $('planCuotasActividad').value;
-  if (!actividadId) {
+  const actividadRaw = $('planCuotasActividad').value;
+  const { tipo: tipoActividad, id: actividadId } = parsePlanCuotasActividadValue(actividadRaw);
+  if (!actividadRaw) {
     alert('Elegí la actividad.');
     return;
   }
@@ -834,7 +855,7 @@ async function guardarPlanCuotasUI() {
     } else {
       res = await fetchAuth(`/club/${clubId}/socios/${planCuotasSocioId}/planes-actividad`, {
         method: 'POST',
-        body: JSON.stringify({ actividad_id: actividadId, cuotas: cuotasPayload }),
+        body: JSON.stringify({ actividad_id: actividadId, tipo_actividad: tipoActividad, cuotas: cuotasPayload }),
         json: true
       });
     }

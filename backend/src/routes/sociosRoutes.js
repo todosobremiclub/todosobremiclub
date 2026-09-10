@@ -435,10 +435,13 @@ router.get('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClub
   try {
     const rPlanes = await db.query(
       `
-      SELECT p.id, p.actividad_id, p.activo, p.created_at,
-             a.nombre AS actividad_nombre
+      SELECT p.id, p.actividad_id, p.tipo_actividad, p.activo, p.created_at,
+             COALESCE(aa.nombre, ad.nombre) AS actividad_nombre
       FROM planes_actividad_socio p
-      JOIN actividades_adicionales a ON a.id = p.actividad_id
+      LEFT JOIN actividades_adicionales aa
+        ON aa.id = p.actividad_id AND p.tipo_actividad = 'adicional'
+      LEFT JOIN actividades ad
+        ON ad.id = p.actividad_id AND p.tipo_actividad = 'deportiva'
       WHERE p.club_id = $1 AND p.socio_id = $2
       ORDER BY p.created_at DESC
       `,
@@ -491,7 +494,8 @@ router.post('/:clubId/planes-actividad/sugerir-cuotas', requireAuth, requireClub
 // detalle de cuotas ya definitivo (el que el admin confirmó, editado o no).
 router.post('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, socioId } = req.params;
-  const { actividad_id, cuotas } = req.body;
+  const { actividad_id, tipo_actividad, cuotas } = req.body;
+  const tipoActividadVal = (tipo_actividad === 'deportiva') ? 'deportiva' : 'adicional';
 
   if (!actividad_id || !Array.isArray(cuotas) || !cuotas.length) {
     return res.status(400).json({ ok: false, error: 'Falta la actividad o el detalle de cuotas.' });
@@ -504,14 +508,25 @@ router.post('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClu
   }
 
   try {
+    // La actividad puede ser una adicional o una deportiva: validamos que
+    // exista en la tabla que corresponda según el tipo elegido.
+    const tablaActividad = tipoActividadVal === 'deportiva' ? 'actividades' : 'actividades_adicionales';
+    const rAct = await db.query(
+      `SELECT id FROM ${tablaActividad} WHERE id = $1 AND club_id = $2`,
+      [actividad_id, clubId]
+    );
+    if (!rAct.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Actividad no encontrada.' });
+    }
+
     await db.query('BEGIN');
 
-    // ¿ya existe un plan (activo o no) para este socio+actividad? Por el
-    // UNIQUE (club_id, socio_id, actividad_id) no podemos insertar otro:
-    // si existe, lo reactivamos y le reemplazamos las cuotas.
+    // ¿ya existe un plan (activo o no) para este socio+actividad+tipo? Por el
+    // UNIQUE (club_id, socio_id, actividad_id, tipo_actividad) no podemos
+    // insertar otro: si existe, lo reactivamos y le reemplazamos las cuotas.
     const rExiste = await db.query(
-      `SELECT id FROM planes_actividad_socio WHERE club_id = $1 AND socio_id = $2 AND actividad_id = $3`,
-      [clubId, socioId, actividad_id]
+      `SELECT id FROM planes_actividad_socio WHERE club_id = $1 AND socio_id = $2 AND actividad_id = $3 AND tipo_actividad = $4`,
+      [clubId, socioId, actividad_id, tipoActividadVal]
     );
 
     let planId;
@@ -525,11 +540,11 @@ router.post('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClu
     } else {
       const rNew = await db.query(
         `
-        INSERT INTO planes_actividad_socio (id, club_id, socio_id, actividad_id, activo, created_at, updated_at)
-        VALUES (gen_random_uuid(), $1, $2, $3, true, NOW(), NOW())
+        INSERT INTO planes_actividad_socio (id, club_id, socio_id, actividad_id, tipo_actividad, activo, created_at, updated_at)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, true, NOW(), NOW())
         RETURNING id
         `,
-        [clubId, socioId, actividad_id]
+        [clubId, socioId, actividad_id, tipoActividadVal]
       );
       planId = rNew.rows[0].id;
     }
