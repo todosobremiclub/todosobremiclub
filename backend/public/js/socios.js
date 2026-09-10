@@ -347,16 +347,11 @@ function ensureExcepcionOption(value, labelHint) {
     }
     delete sel.dataset.pendingValue;
 
-    // llenar filtro preservando selección previa
-    const current = filtro.value;
-    filtro.innerHTML = `<option value="">Todas las categorías</option>`;
-    items.forEach((c) => {
-      const opt = document.createElement('option');
-      opt.value = c.nombre;
-      opt.textContent = c.nombre;
-      filtro.appendChild(opt);
-    });
-    filtro.value = current || '';
+    // ✅ El filtro de categorías de la toolbar (#filtroCategoria) YA NO se
+    // llena acá con todas las categorías configuradas: ahora se arma en
+    // refreshFiltroCategoriaDesdeCache(), mostrando solo las categorías que
+    // tienen socios en la Actividad actualmente filtrada (ver más abajo,
+    // sección "Filtros dependientes").
   }
 
   // Si al editar viene una categoría que no existe más en config
@@ -2989,16 +2984,79 @@ if (countEl) {
   }
 
   // =============================
-  // Filtros dropdown
+  // Filtros dependientes (Categoría / Año) según Actividad
   // =============================
+  // #filtroCategoria y #filtroAnio (toolbar de Socios) ya no muestran TODAS
+  // las categorías configuradas ni un rango fijo de años: se recalculan a
+  // partir de los socios que realmente existen para la Actividad (y,
+  // en el caso de los años, también la Categoría) actualmente elegida en
+  // los filtros de arriba. Para eso se trae un listado completo (no
+  // paginado) de socios que matchean Actividad + Ver inactivos, y de ahí
+  // se sacan los valores distintos de categoría/año. Se vuelve a pedir
+  // cada vez que cambia Actividad o "Ver inactivos" (loadFiltrosSociosCache);
+  // un cambio de Categoría no necesita volver a pedir nada, solo recalcula
+  // los años a partir del mismo cache (refreshFiltroAnioDesdeCache).
+  let filtrosSociosCache = [];
 
-  function refreshAnioOptions(socios) {
+  async function loadFiltrosSociosCache() {
+    const clubId = getActiveClubId();
+    const actividad = $('filtroActividad')?.value || '';
+    const verInactivos = $('verInactivos')?.checked;
+
+    const q = new URLSearchParams();
+    if (actividad) q.set('actividad', actividad);
+    if (!verInactivos) q.set('activo', '1');
+    q.set('limit', '5000');
+    q.set('offset', '0');
+
+    try {
+      const res = await fetchAuth(`/club/${clubId}/socios?${q.toString()}`);
+      const data = await safeJson(res);
+      filtrosSociosCache = (res.ok && data.ok) ? (data.socios || []) : [];
+    } catch (e) {
+      console.warn('No se pudo cargar el cache de filtros (categoría/año):', e);
+      filtrosSociosCache = [];
+    }
+  }
+
+  // Repuebla #filtroCategoria con solo las categorías que tienen al menos
+  // un socio dentro de la Actividad actualmente filtrada (o de todo el club
+  // si no hay Actividad elegida).
+  function refreshFiltroCategoriaDesdeCache() {
+    const sel = $('filtroCategoria');
+    if (!sel) return;
+    const current = sel.value;
+
+    const nombres = [...new Set(
+      filtrosSociosCache.map((s) => String(s.categoria || '').trim()).filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b, 'es'));
+
+    sel.innerHTML = `<option value="">Todas las categorías</option>`;
+    nombres.forEach((nombre) => {
+      const opt = document.createElement('option');
+      opt.value = nombre;
+      opt.textContent = nombre;
+      sel.appendChild(opt);
+    });
+
+    sel.value = nombres.includes(current) ? current : '';
+  }
+
+  // Repuebla #filtroAnio con los años de nacimiento presentes entre los
+  // socios de la Actividad (y, si hay una elegida, también la Categoría)
+  // actualmente filtradas.
+  function refreshFiltroAnioDesdeCache() {
     const sel = $('filtroAnio');
     if (!sel) return;
-
     const current = sel.value;
+
+    const categoria = $('filtroCategoria')?.value || '';
+    const base = categoria
+      ? filtrosSociosCache.filter((s) => String(s.categoria || '').trim() === categoria)
+      : filtrosSociosCache;
+
     const years = [...new Set(
-      (socios || [])
+      base
         .map((s) =>
           s.anio_nacimiento ||
           (s.fecha_nacimiento ? Number(String(s.fecha_nacimiento).slice(0, 4)) : null)
@@ -3015,6 +3073,14 @@ if (countEl) {
     });
 
     if (years.map(String).includes(current)) sel.value = current;
+  }
+
+  // Refresca ambos combos de una: primero trae el cache (depende de
+  // Actividad + Ver inactivos) y con eso recalcula Categoría y Año.
+  async function actualizarFiltrosDependientes() {
+    await loadFiltrosSociosCache();
+    refreshFiltroCategoriaDesdeCache();
+    refreshFiltroAnioDesdeCache();
   }
 
   // =============================
@@ -3086,9 +3152,6 @@ async function loadSociosGrupoFamiliarCache() {
     } else {
       socioEstados = {};
     }
-
-   // ⚠️ OJO: refreshAnioOptions con paginación real deja de ser confiable (ver nota más abajo)
-refreshAnioOptions(data.socios ?? []);
 
 totalSociosCache = data.total ?? 0;
 const totalPages = Math.max(1, Math.ceil(totalSociosCache / pageSize));
@@ -3785,7 +3848,14 @@ if (payload.es_menor && !payload.tutor_nombre) {
     $('btnStatImpagosMes')?.addEventListener('click', openImpagosMesModal);
     $('btnStatPendientes')?.addEventListener('click', goToPendientes);
 
-$('filtroActividad')?.addEventListener('change', loadSocios);
+// ✅ Al cambiar Actividad, las categorías/años disponibles pueden cambiar
+// (solo se muestran las que tienen socios en la Actividad elegida), así que
+// se recalculan antes de recargar la tabla.
+$('filtroActividad')?.addEventListener('change', async () => {
+  currentPage = 1;
+  await actualizarFiltrosDependientes();
+  await loadSocios();
+});
 
     // ✅ NUEVO: el campo DNI no admite puntos (ni ningún otro carácter que no
     // sea número) — se limpia a medida que se escribe o se pega, tanto al
@@ -3946,9 +4016,21 @@ $('sociosSearch')?.addEventListener('input', debouncedLoadSocios);
       if (e.key === 'Enter') loadSocios();
     });
 
-    $('filtroCategoria')?.addEventListener('change', () => { currentPage = 1; loadSocios(); });
+    // ✅ Cambiar Categoría no requiere volver a pedir el cache: solo
+    // recalcula qué años quedan disponibles dentro de esa categoría.
+    $('filtroCategoria')?.addEventListener('change', () => {
+      currentPage = 1;
+      refreshFiltroAnioDesdeCache();
+      loadSocios();
+    });
     $('filtroAnio')?.addEventListener('change', loadSocios);
-    $('verInactivos')?.addEventListener('change', loadSocios);
+    // ✅ "Ver inactivos" cambia qué socios cuentan para el cache de
+    // categorías/años, así que también hay que recalcularlo.
+    $('verInactivos')?.addEventListener('change', async () => {
+      currentPage = 1;
+      await actualizarFiltrosDependientes();
+      await loadSocios();
+    });
 
    // SUBIR ADJUNTO (solo archivo, sin comentario)
 $('btnSubirAdjunto')?.addEventListener('click', async () => {
@@ -4338,6 +4420,7 @@ root.addEventListener('dblclick', (ev) => {
   await loadActividadesConfig().catch(() => {});
   await loadExcepcionesCuotaConfig().catch(() => {});
   await loadSociosGrupoFamiliarCache().catch(() => {});
+  await actualizarFiltrosDependientes().catch(() => {});
   await loadSocios();
   await refreshQuickStatsSocios().catch(() => {});
 }
