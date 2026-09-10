@@ -2113,13 +2113,22 @@ async function cargarComentariosEnModal(socioId) {
       </div>
     `;
 
-    const actions = modalContent.querySelector('.modal-actions.footer');
+    // ✅ La foto va solo dentro de la pestaña "Datos personales", no como
+    // franja fija visible en todas las pestañas. Si existe el panel de tabs
+    // la insertamos ahí al final; si no (por compatibilidad) usamos el
+    // comportamiento anterior (antes del footer de acciones).
+    const datosPanel = modalContent.querySelector('.socio-tab-panel[data-tab-panel="datos"]');
 
-if (actions && actions.parentNode === modalContent) {
-  modalContent.insertBefore(box, actions);
-} else {
-  modalContent.appendChild(box);
-}
+    if (datosPanel) {
+      datosPanel.appendChild(box);
+    } else {
+      const actions = modalContent.querySelector('.modal-actions.footer');
+      if (actions && actions.parentNode === modalContent) {
+        modalContent.insertBefore(box, actions);
+      } else {
+        modalContent.appendChild(box);
+      }
+    }
 
 
     box.querySelector('#btnSocioPickFoto').addEventListener('click', () => draftPhotoInput.click());
