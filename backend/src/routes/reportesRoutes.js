@@ -3769,6 +3769,27 @@ router.get(
         sociosCount++;
       }
 
+      // 2.b) Paquetes de clases que arrancan este mes/año (por su fecha de
+      // inicio): el monto total del paquete se suma como esperado de ese
+      // mes puntual.
+      const rPlanClases = await db.query(
+        `
+        SELECT p.monto_total
+        FROM planes_clases_socio p
+        JOIN socios s ON s.id = p.socio_id
+        WHERE p.club_id = $1
+          AND p.activo = true
+          AND s.activo = true
+          AND p.fecha_inicio IS NOT NULL
+          AND EXTRACT(YEAR FROM p.fecha_inicio) = $2
+          AND EXTRACT(MONTH FROM p.fecha_inicio) = $3
+        `,
+        [clubId, anio, mes]
+      );
+      for (const pc of rPlanClases.rows) {
+        totalEsperado += Number(pc.monto_total) || 0;
+      }
+
       // 3) Guardar SOLO si el mes ya cerró
       if (closedMonth) {
         await db.query(
@@ -4017,6 +4038,26 @@ const rPlanEsperado = await db.query(
 );
 esperado += Number(rPlanEsperado.rows[0]?.total || 0);
 
+// ✅ Sumar lo esperado de los paquetes de clases (ej: clases sueltas) cuya
+// fecha de inicio cae en este mes/año: se cuenta el monto total del
+// paquete como esperado de ese mes puntual (no se repite los meses
+// siguientes).
+const rPlanClasesEsperado = await db.query(
+  `
+  SELECT COALESCE(SUM(p.monto_total), 0) AS total
+  FROM planes_clases_socio p
+  JOIN socios s ON s.id = p.socio_id
+  WHERE p.club_id = $1
+    AND p.activo = true
+    AND s.activo = true
+    AND p.fecha_inicio IS NOT NULL
+    AND EXTRACT(YEAR FROM p.fecha_inicio) = $2
+    AND EXTRACT(MONTH FROM p.fecha_inicio) = $3
+  `,
+  [clubId, anio, mes]
+);
+esperado += Number(rPlanClasesEsperado.rows[0]?.total || 0);
+
         // Guardar/actualizar snapshot SOLO si el mes cerró
         if (closedMonth) {
           await db.query(
@@ -4199,6 +4240,26 @@ plan_conceptos AS (
     AND s.activo = true
     AND c.anio = $2
     AND c.mes = $3
+),
+plan_clases_conceptos AS (
+  -- ✅ Paquetes de clases (ej: clases sueltas) que arrancan este mes/año
+  -- (según su fecha de inicio): se cuenta el monto total del paquete como
+  -- esperado de ese mes puntual (no se repite los meses siguientes).
+  SELECT
+    COALESCE(aa.nombre, ad.nombre) || ' - Paquete de clases' AS actividad,
+    p.monto_total AS esperado
+  FROM planes_clases_socio p
+  LEFT JOIN actividades_adicionales aa
+    ON aa.id = p.actividad_id AND p.tipo_actividad = 'adicional'
+  LEFT JOIN actividades ad
+    ON ad.id = p.actividad_id AND p.tipo_actividad = 'deportiva'
+  JOIN socios s ON s.id = p.socio_id
+  WHERE p.club_id = $1
+    AND p.activo = true
+    AND s.activo = true
+    AND p.fecha_inicio IS NOT NULL
+    AND EXTRACT(YEAR FROM p.fecha_inicio) = $2
+    AND EXTRACT(MONTH FROM p.fecha_inicio) = $3
 )
 SELECT
   actividad,
@@ -4209,6 +4270,8 @@ FROM (
   SELECT actividad, esperado FROM adicionales_conceptos
   UNION ALL
   SELECT actividad, esperado FROM plan_conceptos
+  UNION ALL
+  SELECT actividad, esperado FROM plan_clases_conceptos
 ) t
 WHERE actividad IS NOT NULL
 GROUP BY actividad

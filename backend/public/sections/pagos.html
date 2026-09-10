@@ -204,6 +204,22 @@
         </div>
       </div>
 
+      <!-- Paquetes de clases con saldo pendiente (ej: clases sueltas de equitación). Independiente de "Meses a pagar": el pago se registra con la fecha de hoy, no queda atado a un mes fijo. -->
+      <div class="modal-block" id="planClasesPagoWrap" style="display:none;">
+        <label>Paquetes de clases con saldo pendiente</label>
+        <div id="planClasesPagoLista"
+             style="
+               border:1px solid #bfdbfe;
+               border-radius:8px;
+               padding:10px;
+               background:#eff6ff;
+               min-height:40px;
+             "></div>
+        <div class="muted small" style="margin-top:4px;">
+          Tildá el paquete y ajustá el monto si es un pago parcial. Se cobra con la fecha y la cuenta de este pago (no depende de "Meses a pagar").
+        </div>
+      </div>
+
       <div class="modal-block">
         <label>Meses a pagar</label>
         <div id="mesesGrid" class="meses-grid"></div>

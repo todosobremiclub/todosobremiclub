@@ -85,6 +85,12 @@ let detallePagosPorMes = new Map(); // 🔥 CLAVE
 let planCuotasPendientesSocio = [];   // [{cuotaId, planId, actividadNombre, numeroCuota, totalCuotas, anio, mes, monto}]
 let planCuotasSeleccionadasPago = new Set(); // cuotaId de las tildadas para pagar ahora
 
+// ✅ Paquetes de clases (ej: clases sueltas) con saldo pendiente, del socio
+// seleccionado. No tienen mes/año fijo (a diferencia de las cuotas de plan
+// de cuotas), así que el pago se registra con la fecha de este pago.
+let planClasesPendientesSocio = [];   // [{planId, actividadNombre, saldoPendiente}]
+let planClasesSeleccionadasPago = new Map(); // planId -> monto a pagar ahora (editable, default = saldo)
+
 
   // Ingresos generales
   let tiposIngresoCache = [];
@@ -344,6 +350,93 @@ function renderPlanCuotasPago() {
   });
 }
 
+async function loadPlanClasesPendientesSocio(socioId) {
+  planClasesPendientesSocio = [];
+  planClasesSeleccionadasPago = new Map();
+
+  if (!socioId) {
+    renderPlanClasesPago();
+    return;
+  }
+
+  const clubId = getActiveClubId();
+  try {
+    const { res, data } = await fetchAuth(`/club/${clubId}/socios/${socioId}/planes-clases`);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Error cargando paquetes de clases');
+
+    const planes = (data.planes || []).filter(p => p.activo);
+    planes.forEach((p) => {
+      const saldo = Math.round((Number(p.monto_total) - Number(p.monto_pagado || 0)) * 100) / 100;
+      if (saldo > 0) {
+        planClasesPendientesSocio.push({
+          planId: p.id,
+          actividadNombre: p.actividad_nombre,
+          saldoPendiente: saldo
+        });
+      }
+    });
+  } catch (e) {
+    console.error('❌ loadPlanClasesPendientesSocio', e);
+    planClasesPendientesSocio = [];
+  }
+
+  renderPlanClasesPago();
+}
+
+function renderPlanClasesPago() {
+  const wrap = $('planClasesPagoWrap');
+  const cont = $('planClasesPagoLista');
+  if (!wrap || !cont) return;
+
+  if (!planClasesPendientesSocio.length) {
+    wrap.style.display = 'none';
+    cont.innerHTML = '';
+    return;
+  }
+
+  wrap.style.display = 'block';
+
+  cont.innerHTML = planClasesPendientesSocio.map((p, i) => {
+    const marcado = planClasesSeleccionadasPago.has(p.planId);
+    const montoActual = marcado ? planClasesSeleccionadasPago.get(p.planId) : p.saldoPendiente;
+    return `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; padding:6px 0; border-bottom:1px solid #bfdbfe; flex-wrap:wrap;">
+      <label style="display:flex; align-items:center; gap:8px; flex:1 1 auto;">
+        <input type="checkbox" data-plan-clase-idx="${i}" ${marcado ? 'checked' : ''}>
+        <span>${escapeHtmlPagos(p.actividadNombre)} - Paquete de clases (saldo ${moneyARS(p.saldoPendiente)})</span>
+      </label>
+      <input type="number" min="0" step="0.01" data-plan-clase-monto-idx="${i}"
+             value="${montoActual}" style="width:120px;" ${marcado ? '' : 'disabled'}>
+    </div>`;
+  }).join('');
+
+  cont.querySelectorAll('input[type="checkbox"]').forEach((chk) => {
+    chk.addEventListener('change', () => {
+      const idx = Number(chk.dataset.planClaseIdx);
+      const plan = planClasesPendientesSocio[idx];
+      if (!plan) return;
+      const montoInput = cont.querySelector(`input[data-plan-clase-monto-idx="${idx}"]`);
+      if (chk.checked) {
+        const monto = Number(montoInput?.value) || plan.saldoPendiente;
+        planClasesSeleccionadasPago.set(plan.planId, monto);
+        if (montoInput) montoInput.disabled = false;
+      } else {
+        planClasesSeleccionadasPago.delete(plan.planId);
+        if (montoInput) montoInput.disabled = true;
+      }
+    });
+  });
+
+  cont.querySelectorAll('input[type="number"]').forEach((inp) => {
+    inp.addEventListener('input', () => {
+      const idx = Number(inp.dataset.planClaseMontoIdx);
+      const plan = planClasesPendientesSocio[idx];
+      if (!plan || !planClasesSeleccionadasPago.has(plan.planId)) return;
+      planClasesSeleccionadasPago.set(plan.planId, Number(inp.value) || 0);
+    });
+  });
+}
+
 function getConceptosPendientesDelMes(mesNum) {
   const detalle = detallePagosPorMes.get(Number(mesNum)) || [];
 
@@ -392,6 +485,7 @@ if (selectedSocioTarifa?.tipo === 'grupo_familiar_miembro') {
 
   renderConceptosPago(conceptosBaseSocio);
   await loadPlanCuotasPendientesSocio(s.id);
+  await loadPlanClasesPendientesSocio(s.id);
 
   $('modalElegirSocio')?.classList.add('hidden');
   await refreshMesesPagados();
@@ -413,6 +507,7 @@ if (selectedSocioTarifa?.tipo === 'grupo_familiar_miembro') {
   conceptosBaseSocio = conceptos.map(c => ({ ...c })); // ✅ guardar copia base completa
   renderConceptosPago(conceptosBaseSocio);
   await loadPlanCuotasPendientesSocio(s.id);
+  await loadPlanClasesPendientesSocio(s.id);
 
   $('modalElegirSocio')?.classList.add('hidden');
   await refreshMesesPagados();
@@ -680,6 +775,10 @@ function openModal() {
   planCuotasPendientesSocio = [];
   planCuotasSeleccionadasPago = new Set();
   renderPlanCuotasPago();
+
+  planClasesPendientesSocio = [];
+  planClasesSeleccionadasPago = new Map();
+  renderPlanClasesPago();
 
   const conceptosLista = $('conceptosPagoLista');
   if (conceptosLista) {
@@ -983,12 +1082,22 @@ async function savePago() {
   if (!selectedSocioId) return alert('Seleccioná un socio');
 
   // ✅ Ahora se puede guardar SOLO cuota social (con meses), SOLO cuotas de
-  // un plan personalizado, o ambas cosas juntas en el mismo pago.
+  // un plan personalizado, SOLO pagos de paquetes de clases, o cualquier
+  // combinación de las tres cosas en el mismo pago.
   const hayMesesCuotaSocial = mesesSeleccionados.size > 0;
   const hayCuotasPlan = planCuotasSeleccionadasPago.size > 0;
+  const hayPagosClases = planClasesSeleccionadasPago.size > 0;
 
-  if (!hayMesesCuotaSocial && !hayCuotasPlan) {
-    return alert('Seleccioná al menos un mes de la cuota social o una cuota de un plan personalizado.');
+  if (!hayMesesCuotaSocial && !hayCuotasPlan && !hayPagosClases) {
+    return alert('Seleccioná al menos un mes de la cuota social, una cuota de un plan personalizado, o un paquete de clases.');
+  }
+
+  if (hayPagosClases) {
+    for (const [, monto] of planClasesSeleccionadasPago) {
+      if (!Number.isFinite(monto) || monto <= 0) {
+        return alert('Revisá los montos de los paquetes de clases tildados: tienen que ser mayores a 0.');
+      }
+    }
   }
 
   const fecha = $('modalFechaPago')?.value;
@@ -1013,6 +1122,7 @@ async function savePago() {
   try {
     let insertedCount = 0;
     let cuotasPlanPagadas = 0;
+    let paquetesClasesPagados = 0;
 
     // ------------------------------
     // 1) Cuota social / adicionales (flujo de siempre)
@@ -1104,8 +1214,30 @@ async function savePago() {
       }
     }
 
+    // ------------------------------
+    // 3) Pagos de paquetes de clases (misma cuenta y fecha). Cada paquete
+    //    tiene su propio monto (puede ser parcial), y su propio endpoint.
+    // ------------------------------
+    if (hayPagosClases) {
+      for (const [planId, monto] of planClasesSeleccionadasPago.entries()) {
+        const { res, data } = await fetchAuth(`/club/${clubId}/planes-clases/${planId}/registrar-pago`, {
+          method: 'POST',
+          body: JSON.stringify({ monto, cuenta_id: cuentaId, fecha_pago: fecha }),
+          json: true
+        });
+
+        if (!res.ok || !data?.ok) {
+          alert(data?.error || 'Error registrando el pago de un paquete de clases');
+          return;
+        }
+
+        paquetesClasesPagados++;
+      }
+    }
+
     const partes = [];
     if (insertedCount) partes.push(`${insertedCount} mes(es) de cuota social`);
+    if (paquetesClasesPagados) partes.push(`${paquetesClasesPagados} paquete(s) de clases`);
     if (cuotasPlanPagadas) partes.push(`${cuotasPlanPagadas} cuota(s) de plan personalizado`);
     alert(`✅ Pago guardado: ${partes.join(' + ')}`);
 

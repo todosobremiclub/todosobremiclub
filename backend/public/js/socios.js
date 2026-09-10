@@ -883,8 +883,7 @@ let planClasesSocioId = null;          // socio para el que está abierto el mod
 let planClasesPlanesSocio = [];        // todos los paquetes activos del socio, cacheados al abrir
 let planClasesPlanIdActual = null;     // id del paquete que se está viendo/editando (null = todavía no existe)
 let planClasesRegistroActual = [];     // clases tomadas del paquete actual
-let planClasesPagosActual = [];        // pagos parciales del paquete actual
-let planClasesCuentasCache = [];       // cuentas $ (responsables) para el select de pago
+let planClasesPagosActual = [];        // pagos parciales del paquete actual (solo lectura acá; se registran desde Pagos)
 let planClasesModoActividad = null;    // 'deportiva' | 'adicional'
 let planClasesActividadIdActual = null;    // id de la actividad (deportiva o adicional) en uso
 let planClasesActividadNombreActual = '';  // nombre de esa actividad, para mostrar
@@ -899,24 +898,6 @@ function fillPlanClasesActividadSelect() {
       `<option value="${escapeHtml(String(a.id))}">${escapeHtml(a.nombre || '')}</option>`
     ).join('');
   if (valorPrevio) sel.value = valorPrevio;
-}
-
-async function loadCuentasPlanClases() {
-  const clubId = getActiveClubId();
-  try {
-    const res = await fetchAuth(`/club/${clubId}/config/responsables`);
-    const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudieron cargar las cuentas.');
-    planClasesCuentasCache = data.responsables || data.items || [];
-  } catch (e) {
-    console.error('❌ loadCuentasPlanClases', e);
-    planClasesCuentasCache = [];
-  }
-  const sel = $('planClasesPagoCuenta');
-  if (sel) {
-    sel.innerHTML = '<option value="">Seleccionar…</option>' +
-      planClasesCuentasCache.map(c => `<option value="${escapeHtml(String(c.id))}">${escapeHtml(c.nombre || '')}</option>`).join('');
-  }
 }
 
 async function abrirModalPlanClases() {
@@ -948,15 +929,10 @@ async function abrirModalPlanClases() {
     ensureActividadOption(actividadFichaPrevia);
     $('socioActividad').value = actividadFichaPrevia;
   }
-  await loadCuentasPlanClases().catch(() => {});
-
   $('planClasesCantidad').value = '';
   $('planClasesMonto').value = '';
   $('planClasesFechaInicio').value = '';
   $('planClasesActividad').value = '';
-  $('planClasesPagoMonto').value = '';
-  $('planClasesPagoCuenta').value = '';
-  $('planClasesPagoFecha').value = '';
 
   $('planClasesEstado').textContent = 'Elegí una actividad.';
   renderPlanClasesRegistroTabla([]);
@@ -964,7 +940,6 @@ async function abrirModalPlanClases() {
   $('planClasesSaldo').textContent = '';
   $('btnEliminarPlanClases').style.display = 'none';
   $('btnRegistrarClaseTomada').disabled = true;
-  $('btnRegistrarPagoClases').disabled = true;
 
   await cargarPlanesClasesSocio();
 
@@ -1071,7 +1046,6 @@ function aplicarActividadClasesSeleccionada(actividadId, tipoActividad, nombreAc
     $('planClasesSaldo').textContent = '';
     $('btnEliminarPlanClases').style.display = 'none';
     $('btnRegistrarClaseTomada').disabled = true;
-    $('btnRegistrarPagoClases').disabled = true;
     return;
   }
 
@@ -1092,7 +1066,6 @@ function aplicarActividadClasesSeleccionada(actividadId, tipoActividad, nombreAc
 
     $('btnEliminarPlanClases').style.display = '';
     $('btnRegistrarClaseTomada').disabled = false;
-    $('btnRegistrarPagoClases').disabled = false;
   } else {
     planClasesPlanIdActual = null;
     planClasesRegistroActual = [];
@@ -1103,7 +1076,6 @@ function aplicarActividadClasesSeleccionada(actividadId, tipoActividad, nombreAc
     $('planClasesEstado').textContent = 'Sin paquete para esta actividad todavía.';
     $('btnEliminarPlanClases').style.display = 'none';
     $('btnRegistrarClaseTomada').disabled = true;
-    $('btnRegistrarPagoClases').disabled = true;
   }
 
   renderPlanClasesRegistroTabla(planClasesRegistroActual);
@@ -1259,7 +1231,6 @@ function nuevoPaqueteClasesUI() {
   $('planClasesEstado').textContent = 'Nuevo paquete (renovación): completá los datos y guardá.';
   $('btnEliminarPlanClases').style.display = 'none';
   $('btnRegistrarClaseTomada').disabled = true;
-  $('btnRegistrarPagoClases').disabled = true;
   renderPlanClasesRegistroTabla([]);
   renderPlanClasesPagosTabla([]);
   $('planClasesSaldo').textContent = '';
@@ -1304,46 +1275,9 @@ async function deshacerClaseUI(registroId) {
   }
 }
 
-async function registrarPagoClasesUI() {
-  if (!planClasesPlanIdActual) {
-    alert('Guardá el paquete primero para poder registrar un pago.');
-    return;
-  }
-  const monto = Number($('planClasesPagoMonto').value);
-  const cuentaId = $('planClasesPagoCuenta').value;
-  const fechaPago = $('planClasesPagoFecha').value || null;
-
-  if (!monto || monto <= 0) {
-    alert('Ingresá un monto válido.');
-    return;
-  }
-  if (!cuentaId) {
-    alert('Elegí la cuenta con la que se cobró.');
-    return;
-  }
-
-  const clubId = getActiveClubId();
-  try {
-    const res = await fetchAuth(`/club/${clubId}/planes-clases/${planClasesPlanIdActual}/registrar-pago`, {
-      method: 'POST',
-      body: JSON.stringify({ monto, cuenta_id: cuentaId, fecha_pago: fechaPago }),
-      json: true
-    });
-    const data = await safeJson(res);
-    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo registrar el pago.');
-
-    $('planClasesPagoMonto').value = '';
-    $('planClasesPagoCuenta').value = '';
-    $('planClasesPagoFecha').value = '';
-
-    await cargarPlanesClasesSocio();
-    aplicarActividadClasesSeleccionada(planClasesActividadIdActual, planClasesModoActividad, planClasesActividadNombreActual);
-  } catch (e) {
-    console.error('❌ registrarPagoClasesUI', e);
-    alert(e.message || 'No se pudo registrar el pago.');
-  }
-}
-
+// ✅ El pago del paquete se registra desde Pagos → Registrar Pago (no
+// acá), igual que las cuotas del plan de cuotas personalizado. Acá solo
+// se puede deshacer un pago ya cargado.
 async function deshacerPagoClasesUI(pagoId) {
   if (!planClasesPlanIdActual) return;
   if (!confirm('¿Deshacer este pago? Se va a sacar de la recaudación del club.')) return;
@@ -2257,6 +2191,17 @@ setActividadesAdicionalesSeleccionadas([]);
   const estadoPlanClases = $('socioPlanClasesEstado');
   if (estadoPlanClases) estadoPlanClases.textContent = 'Guardá el socio para poder configurar un paquete.';
 
+  // ✅ Grupos "Excepciones" y "Planes": reset del check maestro y su wrap
+  const chkExcepciones = $('socioTieneExcepciones');
+  if (chkExcepciones) chkExcepciones.checked = false;
+  const wrapExcepciones = $('socioExcepcionesGrupoWrap');
+  if (wrapExcepciones) wrapExcepciones.style.display = 'none';
+
+  const chkPlanes = $('socioTienePlanes');
+  if (chkPlanes) chkPlanes.checked = false;
+  const wrapPlanes = $('socioPlanesGrupoWrap');
+  if (wrapPlanes) wrapPlanes.style.display = 'none';
+
   $('modalSocio').classList.remove('hidden');
 }
 
@@ -2428,6 +2373,24 @@ setActividadesAdicionalesSeleccionadas(adicionales);
   const tienePlanClases = planClasesPlanesSocio.length > 0;
   if (chkPlanClases) chkPlanClases.checked = tienePlanClases;
   if (wrapPlanClases) wrapPlanClases.style.display = tienePlanClases ? 'block' : 'none';
+
+  // ✅ Grupos "Excepciones" y "Planes": el check maestro se tilda solo (y
+  // el grupo se muestra) si el socio ya tiene algo configurado adentro,
+  // igual que ya pasa con los checks individuales de plan de cuotas/clases.
+  const tieneExcepciones =
+    !!$('socioTieneAdicionales')?.checked ||
+    !!$('socioUsaExcepcion')?.checked ||
+    !!$('socioEsJefePlanFamiliar')?.checked;
+  const chkExcepciones = $('socioTieneExcepciones');
+  const wrapExcepciones = $('socioExcepcionesGrupoWrap');
+  if (chkExcepciones) chkExcepciones.checked = tieneExcepciones;
+  if (wrapExcepciones) wrapExcepciones.style.display = tieneExcepciones ? 'block' : 'none';
+
+  const tienePlanes = tienePlan || tienePlanClases;
+  const chkPlanes = $('socioTienePlanes');
+  const wrapPlanes = $('socioPlanesGrupoWrap');
+  if (chkPlanes) chkPlanes.checked = tienePlanes;
+  if (wrapPlanes) wrapPlanes.style.display = tienePlanes ? 'block' : 'none';
 
   $('modalSocio').classList.remove('hidden');
 }
@@ -3659,6 +3622,21 @@ $('socioUsaExcepcion')?.addEventListener('change', () => {
   setExcepcionUI($('socioUsaExcepcion').checked);
 });
 
+// ✅ Grupo "Excepciones" (adicionales + excepción de cuota + jefe/a plan
+// familiar): el check maestro solo muestra/oculta el grupo. Los checks de
+// adentro siguen funcionando exactamente igual que antes.
+$('socioTieneExcepciones')?.addEventListener('change', function () {
+  const wrap = $('socioExcepcionesGrupoWrap');
+  if (wrap) wrap.style.display = this.checked ? 'block' : 'none';
+});
+
+// ✅ Grupo "Planes" (plan de cuotas + plan de clases): idem, solo
+// muestra/oculta.
+$('socioTienePlanes')?.addEventListener('change', function () {
+  const wrap = $('socioPlanesGrupoWrap');
+  if (wrap) wrap.style.display = this.checked ? 'block' : 'none';
+});
+
 $('socioTieneAdicionales')?.addEventListener('change', async function () {
   const wrap = $('socioAdicionalesWrap');
   if (!wrap) return;
@@ -3714,7 +3692,6 @@ $('btnGuardarPaqueteClases')?.addEventListener('click', guardarPaqueteClasesUI);
 $('btnNuevoPaqueteClases')?.addEventListener('click', nuevoPaqueteClasesUI);
 $('btnEliminarPlanClases')?.addEventListener('click', eliminarPlanClasesUI);
 $('btnRegistrarClaseTomada')?.addEventListener('click', registrarClaseTomadaUI);
-$('btnRegistrarPagoClases')?.addEventListener('click', registrarPagoClasesUI);
 $('planClasesMonto')?.addEventListener('input', actualizarSaldoPlanClases);
 
 $('grupoFamiliarSearch')?.addEventListener('input', (e) => {

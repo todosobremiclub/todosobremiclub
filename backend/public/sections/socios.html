@@ -161,6 +161,21 @@
           </div>
 
 <!-- =========================
+   EXCEPCIONES (agrupa: adicionales, excepción de cuota, jefe/a plan familiar)
+========================= -->
+<div class="col-span-4" style="margin-top:4px;">
+  <label class="checkbox-inline" style="display:flex; align-items:center; gap:8px;">
+    <input type="checkbox" id="socioTieneExcepciones">
+    Excepciones
+  </label>
+  <div class="muted small" style="margin-top:4px;">
+    Actividades adicionales, excepción de cuota y/o Jefe/a de Plan Familiar.
+  </div>
+</div>
+
+<div id="socioExcepcionesGrupoWrap" class="col-span-4" style="display:none;">
+
+<!-- =========================
    ACTIVIDADES ADICIONALES
 ========================= -->
 
@@ -265,6 +280,24 @@
   </div>
 </div>
 
+</div>
+<!-- fin #socioExcepcionesGrupoWrap -->
+
+<!-- =========================
+   PLANES (agrupa: plan de cuotas personalizado, plan de clases)
+========================= -->
+<div class="col-span-4" style="margin-top:4px;">
+  <label class="checkbox-inline" style="display:flex; align-items:center; gap:8px;">
+    <input type="checkbox" id="socioTienePlanes">
+    Planes
+  </label>
+  <div class="muted small" style="margin-top:4px;">
+    Plan de cuotas personalizado y/o plan de clases (paquete), para actividades con pago fuera de la cuota normal del club.
+  </div>
+</div>
+
+<div id="socioPlanesGrupoWrap" class="col-span-4" style="display:none;">
+
 <!-- =========================
    PLAN DE CUOTAS PERSONALIZADO
    (actividades con pago en cuotas irregulares, ej: curso de equitación)
@@ -311,6 +344,9 @@
     <span id="socioPlanClasesEstado" class="muted small">Guardá el socio para poder configurar un paquete.</span>
   </div>
 </div>
+
+</div>
+<!-- fin #socioPlanesGrupoWrap -->
 
           <!-- Categoría -->
           <div class="col-span-2">
@@ -639,27 +675,8 @@
 
         <div style="margin-top:16px; margin-bottom:16px;">
           <label style="margin:0;">Pagos del paquete</label>
-
-          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px; align-items:end;">
-            <div>
-              <label>Monto</label>
-              <input id="planClasesPagoMonto" type="number" min="0" step="0.01" placeholder="Ej: 10000">
-            </div>
-            <div>
-              <label>Cuenta</label>
-              <select id="planClasesPagoCuenta">
-                <option value="">Seleccionar…</option>
-              </select>
-            </div>
-            <div>
-              <label>Fecha de pago</label>
-              <input id="planClasesPagoFecha" type="date">
-            </div>
-            <div>
-              <button type="button" id="btnRegistrarPagoClases" class="btn btn-primary" style="width:100%;" disabled>
-                Registrar pago
-              </button>
-            </div>
+          <div class="muted small" style="margin-top:6px;">
+            El pago se registra desde <strong>Pagos → Registrar Pago</strong>, junto con la cuota social. Acá solo se ve el historial y se puede deshacer un pago cargado por error.
           </div>
 
           <div style="margin-top:10px; border:1px solid #e5e7eb; border-radius:8px; overflow-x:auto; max-height:220px; overflow-y:auto;">
