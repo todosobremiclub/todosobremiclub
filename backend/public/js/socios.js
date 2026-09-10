@@ -2874,7 +2874,11 @@ tr.innerHTML = `
   <td>${escapeHtml(fmtDni(s.dni))}</td>
 
   <td class="socio-nombre-completo" title="${escapeHtml(`${String(s.apellido ?? '').trim()}, ${String(s.nombre ?? '').trim()}`)}">
-    ${escapeHtml(nombreCompleto)}
+    ${
+      s.falta_plan_clases
+        ? '<span title="Tiene una actividad por paquete de clases sin plan configurado" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#dc2626; margin-right:5px;"></span>'
+        : ''
+    }${escapeHtml(nombreCompleto)}
     ${s.es_jefe_plan_familiar ? ' 👑' : ''}
     ${s.es_miembro_plan_familiar ? ' 👨‍👩‍👧' : ''}
   </td>
