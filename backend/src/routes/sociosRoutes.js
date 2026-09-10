@@ -407,27 +407,17 @@ router.delete('/:clubId/grupo-familiar/:jefeSocioId', requireAuth, requireClubAc
 // (para actividades con esquema de pago irregular, ej: equitación)
 // ===============================
 
-// Arma la sugerencia de cuotas en partes iguales (el admin la puede
-// editar antes de guardar). El resto de redondeo va todo en la última
-// cuota para que la suma cierre exacto contra montoTotal.
-function generarCuotasSugeridas({ montoTotal, cantidadCuotas, mesInicio, anioInicio }) {
-  const total = Number(montoTotal);
+// Arma la sugerencia de cuotas repitiendo el mismo monto mensual en cada
+// una (el admin la puede editar antes de guardar).
+function generarCuotasSugeridas({ montoPorMes, cantidadCuotas, mesInicio, anioInicio }) {
+  const monto = Math.round(Number(montoPorMes) * 100) / 100;
   const cant = parseInt(cantidadCuotas, 10);
-  const montoBase = Math.floor((total / cant) * 100) / 100;
   const cuotas = [];
 
   let mes = parseInt(mesInicio, 10);
   let anio = parseInt(anioInicio, 10);
-  let acumulado = 0;
 
   for (let i = 1; i <= cant; i++) {
-    let monto = montoBase;
-    if (i === cant) {
-      // última cuota: se lleva el resto para que la suma cierre exacto
-      monto = Math.round((total - acumulado) * 100) / 100;
-    }
-    acumulado += monto;
-
     cuotas.push({ numero_cuota: i, anio, mes, monto });
 
     mes++;
@@ -480,14 +470,14 @@ router.get('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClub
 // POST: sugiere cuotas en partes iguales, SIN guardar nada todavía.
 // El frontend usa esto para prellenar la tabla editable antes de confirmar.
 router.post('/:clubId/planes-actividad/sugerir-cuotas', requireAuth, requireClubAccess, async (req, res) => {
-  const { montoTotal, cantidadCuotas, mesInicio, anioInicio } = req.body;
+  const { montoPorMes, cantidadCuotas, mesInicio, anioInicio } = req.body;
 
-  if (!montoTotal || !cantidadCuotas || !mesInicio || !anioInicio) {
+  if (!montoPorMes || !cantidadCuotas || !mesInicio || !anioInicio) {
     return res.status(400).json({ ok: false, error: 'Faltan datos para sugerir las cuotas.' });
   }
 
   try {
-    const cuotas = generarCuotasSugeridas({ montoTotal, cantidadCuotas, mesInicio, anioInicio });
+    const cuotas = generarCuotasSugeridas({ montoPorMes, cantidadCuotas, mesInicio, anioInicio });
     res.json({ ok: true, cuotas });
   } catch (e) {
     console.error('❌ POST sugerir-cuotas', e);

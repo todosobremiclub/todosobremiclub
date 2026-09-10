@@ -570,7 +570,7 @@ async function abrirModalPlanCuotas() {
   }
   fillPlanCuotasActividadSelect();
 
-  $('planCuotasMontoTotal').value = '';
+  $('planCuotasMontoMensual').value = '';
   $('planCuotasCantidad').value = '';
   $('planCuotasMesInicio').value = '';
   $('planCuotasAnioInicio').value = '';
@@ -761,13 +761,13 @@ async function generarCuotasSugeridasUI() {
     return;
   }
 
-  const montoTotal = Number($('planCuotasMontoTotal').value);
+  const montoPorMes = Number($('planCuotasMontoMensual').value);
   const cantidadCuotas = Number($('planCuotasCantidad').value);
   const mesInicio = Number($('planCuotasMesInicio').value);
   const anioInicio = Number($('planCuotasAnioInicio').value);
 
-  if (!montoTotal || !cantidadCuotas || !mesInicio || !anioInicio) {
-    alert('Completá monto total, cantidad de cuotas, mes y año de la primera cuota.');
+  if (!montoPorMes || !cantidadCuotas || !mesInicio || !anioInicio) {
+    alert('Completá monto por mes, cantidad de cuotas, mes y año de la primera cuota.');
     return;
   }
 
@@ -775,7 +775,7 @@ async function generarCuotasSugeridasUI() {
   try {
     const res = await fetchAuth(`/club/${clubId}/planes-actividad/sugerir-cuotas`, {
       method: 'POST',
-      body: JSON.stringify({ montoTotal, cantidadCuotas, mesInicio, anioInicio }),
+      body: JSON.stringify({ montoPorMes, cantidadCuotas, mesInicio, anioInicio }),
       json: true
     });
     const data = await safeJson(res);
