@@ -869,6 +869,23 @@ async function eliminarPlanCuotasUI() {
   }
 }
 
+// ✅ Se dispara desde saveSocio() cuando el admin destilda "Tiene plan de
+// cuotas personalizado" habiendo entrado con al menos un plan activo:
+// borra TODOS los planes de cuotas activos del socio (puede haber uno por
+// cada actividad adicional con excepción propia), en vez de solo ocultar
+// el bloque como pasaba antes.
+async function eliminarTodosPlanesCuotasDelSocio() {
+  const clubId = getActiveClubId();
+  for (const p of planCuotasPlanesSocio) {
+    if (!p?.id) continue;
+    try {
+      await fetchAuth(`/club/${clubId}/planes-actividad/${p.id}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error('❌ eliminarTodosPlanesCuotasDelSocio', e);
+    }
+  }
+}
+
 // =============================
 // PLAN DE CLASES (PAQUETE) — por socio + actividad
 // =============================
@@ -1317,6 +1334,21 @@ async function eliminarPlanClasesUI() {
   }
 }
 
+// ✅ Se dispara desde saveSocio() cuando el admin destilda "Tiene plan de
+// clases (paquete)" habiendo entrado con al menos un paquete activo: borra
+// TODOS los paquetes activos del socio (deportiva y/o adicionales).
+async function eliminarTodosPlanesClasesDelSocio() {
+  const clubId = getActiveClubId();
+  for (const p of planClasesPlanesSocio) {
+    if (!p?.id) continue;
+    try {
+      await fetchAuth(`/club/${clubId}/planes-clases/${p.id}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error('❌ eliminarTodosPlanesClasesDelSocio', e);
+    }
+  }
+}
+
 async function openGrupoFamiliarModal() {
   const modal = $('modalGrupoFamiliar');
   if (!modal) return;
@@ -1591,6 +1623,13 @@ let bienvenidaPendientesCache = []; // ✅ NUEVO: socios pendientes de bienvenid
 let grupoFamiliarSeleccionados = [];
 let grupoFamiliarSeleccionadosDraft = [];
 let grupoFamiliarOriginalEraJefe = false;
+
+// ✅ Estado con el que se abrió el modal, para saber si el admin destildó
+// "Tiene plan de cuotas personalizado" / "Tiene plan de clases (paquete)"
+// (que se autotildan solos si ya existe un plan real) y así, al Guardar,
+// eliminar el/los plan(es) existentes en vez de solo ocultar el bloque.
+let planCuotasEstabaActivoAlAbrir = false;
+let planClasesEstabaActivoAlAbrir = false;
 
 
   // Estados de adjuntos/comentarios por socio
@@ -2248,6 +2287,9 @@ function setExcepcionUI(usa) {
 
 resetGrupoFamiliarState();
 
+  planCuotasEstabaActivoAlAbrir = false;
+  planClasesEstabaActivoAlAbrir = false;
+
   const chkJefe = $('socioEsJefePlanFamiliar');
   if (chkJefe) chkJefe.disabled = false;
 
@@ -2487,6 +2529,7 @@ setActividadesAdicionalesSeleccionadas(adicionales);
   const tienePlan = planCuotasPlanesSocio.length > 0;
   if (chkPlanCuotas) chkPlanCuotas.checked = tienePlan;
   if (wrapPlanCuotas) wrapPlanCuotas.style.display = tienePlan ? 'block' : 'none';
+  planCuotasEstabaActivoAlAbrir = tienePlan;
 
   // ✅ Plan de clases (paquete): ya se puede configurar (el socio existe)
   planClasesSocioId = socio.id;
@@ -2503,6 +2546,7 @@ setActividadesAdicionalesSeleccionadas(adicionales);
   const tienePlanClases = planClasesPlanesSocio.length > 0;
   if (chkPlanClases) chkPlanClases.checked = tienePlanClases;
   if (wrapPlanClases) wrapPlanClases.style.display = tienePlanClases ? 'block' : 'none';
+  planClasesEstabaActivoAlAbrir = tienePlanClases;
 
   // ✅ Grupos "Excepciones" y "Planes": el check maestro se tilda solo (y
   // el grupo se muestra) si el socio ya tiene algo configurado adentro,
@@ -3153,6 +3197,23 @@ if (payload.es_menor && !payload.tutor_nombre) {
 
       if (!quiereSerJefe && grupoFamiliarOriginalEraJefe && socioId) {
         await deleteGrupoFamiliar(socioId);
+      }
+
+      // =========================
+      // PLAN DE CUOTAS PERSONALIZADO / PLAN DE CLASES (PAQUETE)
+      // =========================
+      // Estos checks se autotildan solos si el socio ya tiene un plan real
+      // cargado (ver openModalEdit). Si al abrir el modal estaba tildado y
+      // el admin lo destildó a propósito, al Guardar se elimina el/los
+      // plan(es) existente(s); si sigue tildado no se toca nada.
+      const quierePlanCuotas = $('socioTienePlanCuotas')?.checked === true;
+      if (!quierePlanCuotas && planCuotasEstabaActivoAlAbrir && socioId) {
+        await eliminarTodosPlanesCuotasDelSocio();
+      }
+
+      const quierePlanClases = $('socioTienePlanClases')?.checked === true;
+      if (!quierePlanClases && planClasesEstabaActivoAlAbrir && socioId) {
+        await eliminarTodosPlanesClasesDelSocio();
       }
 
       setDraftPhoto(null);
