@@ -575,9 +575,12 @@ window.actualizarBadgePendientes = async function () {
 
     const headers = { Authorization: 'Bearer ' + token };
 
+    // Solo cuentan para el badge las transferencias con comprobante ya
+    // enviado (estado 'comprobante_subido'), no las recién "iniciadas"
+    // (que se crean apenas el socio abre el diálogo, antes de tocar "Enviar").
     const [rSocios, rTransfers] = await Promise.all([
       fetch(`/club/${clubId}/pendientes`, { headers }),
-      fetch(`/club/${clubId}/payments/transfer/pending?estado=all`, { headers })
+      fetch(`/club/${clubId}/payments/transfer/pending?estado=comprobante_subido`, { headers })
     ]);
 
     const [dSocios, dTransfers] = await Promise.all([

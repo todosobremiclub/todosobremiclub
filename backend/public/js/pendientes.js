@@ -275,7 +275,13 @@ tr.innerHTML = `
 
   async function loadTransferPendientes() {
     const clubId = getActiveClubId();
-    const { res, data } = await fetchAuth(`/club/${clubId}/payments/transfer/pending?estado=all`);
+    // Solo mostramos transferencias con comprobante ya enviado por el socio
+    // (estado 'comprobante_subido'). El estado 'iniciado' se crea apenas el
+    // socio toca "Informar transferencia realizada" (antes de completar el
+    // formulario y tocar "Enviar"), y todavía no tiene cuenta de origen ni
+    // conceptos declarados, así que no debe aparecer acá como algo para
+    // Aceptar/Rechazar.
+    const { res, data } = await fetchAuth(`/club/${clubId}/payments/transfer/pending?estado=comprobante_subido`);
     if (!res.ok || !data.ok) {
       console.warn('No se pudieron cargar transferencias:', data.error);
       renderTransferPendientes([]);
