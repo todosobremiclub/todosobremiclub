@@ -407,11 +407,13 @@ router.delete('/:clubId/grupo-familiar/:jefeSocioId', requireAuth, requireClubAc
 // (para actividades con esquema de pago irregular, ej: equitación)
 // ===============================
 
-// Arma la sugerencia de cuotas repitiendo el mismo monto mensual en cada
-// una (el admin la puede editar antes de guardar).
-function generarCuotasSugeridas({ montoPorMes, cantidadCuotas, mesInicio, anioInicio }) {
+// Arma la sugerencia de cuotas repitiendo el mismo monto cada tanto (1, 2, 3
+// o 6 meses según la periodicidad elegida: mensual, bimestral, trimestral o
+// semestral). El admin la puede editar antes de guardar.
+function generarCuotasSugeridas({ montoPorMes, cantidadCuotas, periodicidadMeses, mesInicio, anioInicio }) {
   const monto = Math.round(Number(montoPorMes) * 100) / 100;
   const cant = parseInt(cantidadCuotas, 10);
+  const paso = parseInt(periodicidadMeses, 10) || 1; // 1=mensual, 2=bimestral, 3=trimestral, 6=semestral
   const cuotas = [];
 
   let mes = parseInt(mesInicio, 10);
@@ -420,8 +422,8 @@ function generarCuotasSugeridas({ montoPorMes, cantidadCuotas, mesInicio, anioIn
   for (let i = 1; i <= cant; i++) {
     cuotas.push({ numero_cuota: i, anio, mes, monto });
 
-    mes++;
-    if (mes > 12) { mes = 1; anio++; }
+    mes += paso;
+    while (mes > 12) { mes -= 12; anio++; }
   }
 
   return cuotas;
@@ -470,14 +472,14 @@ router.get('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClub
 // POST: sugiere cuotas en partes iguales, SIN guardar nada todavía.
 // El frontend usa esto para prellenar la tabla editable antes de confirmar.
 router.post('/:clubId/planes-actividad/sugerir-cuotas', requireAuth, requireClubAccess, async (req, res) => {
-  const { montoPorMes, cantidadCuotas, mesInicio, anioInicio } = req.body;
+  const { montoPorMes, cantidadCuotas, periodicidadMeses, mesInicio, anioInicio } = req.body;
 
   if (!montoPorMes || !cantidadCuotas || !mesInicio || !anioInicio) {
     return res.status(400).json({ ok: false, error: 'Faltan datos para sugerir las cuotas.' });
   }
 
   try {
-    const cuotas = generarCuotasSugeridas({ montoPorMes, cantidadCuotas, mesInicio, anioInicio });
+    const cuotas = generarCuotasSugeridas({ montoPorMes, cantidadCuotas, periodicidadMeses, mesInicio, anioInicio });
     res.json({ ok: true, cuotas });
   } catch (e) {
     console.error('❌ POST sugerir-cuotas', e);
