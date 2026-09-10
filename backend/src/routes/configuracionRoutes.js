@@ -211,7 +211,8 @@ router.get('/:clubId/config/actividades', requireAuth, requireClubAccess, async 
       SELECT
         id,
         nombre,
-        precio_mensual
+        precio_mensual,
+        modalidad_pago
       FROM actividades
       WHERE club_id = $1 AND activo = true
       ORDER BY nombre ASC
@@ -228,7 +229,7 @@ router.get('/:clubId/config/actividades', requireAuth, requireClubAccess, async 
 
 router.post('/:clubId/config/actividades', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { nombre, precio_mensual } = req.body ?? {};
+  const { nombre, precio_mensual, modalidad_pago } = req.body ?? {};
   try {
     if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
 
@@ -248,6 +249,8 @@ if (precio_mensual !== undefined && precio_mensual !== null && String(precio_men
   precioNum = parsed;
 }
 
+const modalidadPagoVal = (modalidad_pago === 'por_clases') ? 'por_clases' : 'mensual';
+
     const r = await db.query(
   `
   INSERT INTO actividades (
@@ -255,6 +258,7 @@ if (precio_mensual !== undefined && precio_mensual !== null && String(precio_men
     club_id,
     nombre,
     precio_mensual,
+    modalidad_pago,
     activo,
     updated_at
   )
@@ -263,15 +267,17 @@ if (precio_mensual !== undefined && precio_mensual !== null && String(precio_men
     $1,
     $2,
     $3,
+    $4,
     true,
     NOW()
   )
   RETURNING
     id,
     nombre,
-    precio_mensual
+    precio_mensual,
+    modalidad_pago
   `,
-  [clubId, nombre.trim(), precioNum]
+  [clubId, nombre.trim(), precioNum, modalidadPagoVal]
 );
     res.json({ ok: true, actividad: r.rows[0] });
   } catch (e) {
@@ -288,7 +294,7 @@ if (precio_mensual !== undefined && precio_mensual !== null && String(precio_men
 
 router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
-  const { nombre, precio_mensual } = req.body ?? {};
+  const { nombre, precio_mensual, modalidad_pago } = req.body ?? {};
 
   try {
     let precioNum = null;
@@ -302,6 +308,8 @@ router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, as
       }
       precioNum = parsed;
     }
+
+    const modalidadPagoVal = (modalidad_pago === 'por_clases') ? 'por_clases' : 'mensual';
 
     const rPrev = await db.query(
       `SELECT nombre FROM actividades WHERE id = $1 AND club_id = $2 LIMIT 1`,
@@ -322,7 +330,7 @@ router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, as
         SET precio_mensual = $1,
             updated_at = NOW()
         WHERE id = $2 AND club_id = $3
-        RETURNING id, nombre, precio_mensual
+        RETURNING id, nombre, precio_mensual, modalidad_pago
         `,
         [precioNum, id, clubId]
       );
@@ -353,11 +361,12 @@ router.put('/:clubId/config/actividades/:id', requireAuth, requireClubAccess, as
       UPDATE actividades
       SET nombre = $1,
           precio_mensual = $2,
+          modalidad_pago = $3,
           updated_at = NOW()
-      WHERE id = $3 AND club_id = $4
-      RETURNING id, nombre, precio_mensual
+      WHERE id = $4 AND club_id = $5
+      RETURNING id, nombre, precio_mensual, modalidad_pago
       `,
-      [nuevoNombre, precioNum, id, clubId]
+      [nuevoNombre, precioNum, modalidadPagoVal, id, clubId]
     );
 
     const rSocios = await db.query(

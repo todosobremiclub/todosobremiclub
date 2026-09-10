@@ -261,7 +261,7 @@ async function loadActividades() {
   if (!res.ok || !data.ok) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="3" class="muted">Error cargando actividades.</td>
+        <td colspan="4" class="muted">Error cargando actividades.</td>
       </tr>`;
     alert(data.error ?? 'Error cargando actividades');
     return;
@@ -333,6 +333,16 @@ function renderActividades(items) {
           </span>
         </div>
       </td>
+      <td>
+        ${
+          esGrupoFamiliar
+            ? '<span class="muted" style="font-size:12px;">—</span>'
+            : `<select id="act_modalidad_${a.id}" style="width:190px;">
+                <option value="mensual" ${a.modalidad_pago !== 'por_clases' ? 'selected' : ''}>Mensual</option>
+                <option value="por_clases" ${a.modalidad_pago === 'por_clases' ? 'selected' : ''}>Por paquete de clases</option>
+              </select>`
+        }
+      </td>
       <td style="text-align:center">
         <button class="btn-save" data-act="save-act" data-id="${a.id}">💾</button>
       </td>
@@ -362,13 +372,14 @@ function renderActividades(items) {
   });
 }
 
-async function createActividad(nombre, precio_mensual) {
+async function createActividad(nombre, precio_mensual, modalidad_pago) {
   const payload = {
     nombre,
     precio_mensual: (
       precio_mensual === '' ||
       precio_mensual == null
-    ) ? null : Number(precio_mensual)
+    ) ? null : Number(precio_mensual),
+    modalidad_pago: modalidad_pago === 'por_clases' ? 'por_clases' : 'mensual'
   };
 
   const res = await fetchAuth(actividadesUrl(), {
@@ -380,13 +391,14 @@ async function createActividad(nombre, precio_mensual) {
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando actividad');
 }
 
-async function updateActividad(id, nombre, precio_mensual) {
+async function updateActividad(id, nombre, precio_mensual, modalidad_pago) {
   const payload = {
     nombre,
     precio_mensual: (
       precio_mensual === '' ||
       precio_mensual == null
-    ) ? null : Number(precio_mensual)
+    ) ? null : Number(precio_mensual),
+    modalidad_pago: modalidad_pago === 'por_clases' ? 'por_clases' : 'mensual'
   };
 
   const res = await fetchAuth(`${actividadesUrl()}/${id}`, {
@@ -1135,6 +1147,7 @@ function bindEvents() {
         const nombre = (document.getElementById(`act_${id}`)?.value ?? '').trim();
         const precioStr = document.getElementById(`act_precio_${id}`)?.value ?? '';
         const precioNum = precioStr === '' ? null : Number(precioStr);
+        const modalidad = document.getElementById(`act_modalidad_${id}`)?.value ?? 'mensual';
 
         if (!nombre) return alert('Nombre vacío');
         if (precioStr !== '' && (Number.isNaN(precioNum) || precioNum < 0)) {
@@ -1143,7 +1156,7 @@ function bindEvents() {
 
         btn.disabled = true;
         try {
-          await updateActividad(id, nombre, precioStr);
+          await updateActividad(id, nombre, precioStr, modalidad);
           await loadActividades();
         } catch (err) {
           alert(err.message ?? 'Error');
@@ -1172,10 +1185,12 @@ function bindEvents() {
     ?.addEventListener('click', async () => {
       const inputNombre = document.getElementById('newActividadNombre');
       const inputPrecio = document.getElementById('newActividadPrecio');
+      const inputModalidad = document.getElementById('newActividadModalidad');
 
       const nombre = (inputNombre?.value ?? '').trim();
       const precioStr = (inputPrecio?.value ?? '').trim();
       const precioNum = precioStr === '' ? null : Number(precioStr);
+      const modalidad = inputModalidad?.value ?? 'mensual';
 
       if (!nombre) return alert('Ingresá un nombre para la actividad');
       if (precioStr !== '' && (Number.isNaN(precioNum) || precioNum < 0)) {
@@ -1183,9 +1198,10 @@ function bindEvents() {
       }
 
       try {
-        await createActividad(nombre, precioStr);
+        await createActividad(nombre, precioStr, modalidad);
         if (inputNombre) inputNombre.value = '';
         if (inputPrecio) inputPrecio.value = '';
+        if (inputModalidad) inputModalidad.value = 'mensual';
         await loadActividades();
       } catch (err) {
         alert(err.message ?? 'Error creando actividad');

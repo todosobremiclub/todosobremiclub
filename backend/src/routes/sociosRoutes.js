@@ -867,11 +867,14 @@ router.get('/:clubId/socios/:socioId/planes-clases', requireAuth, requireClubAcc
   try {
     const rPlanes = await db.query(
       `
-      SELECT p.id, p.actividad_id, p.cantidad_clases, p.monto_total,
+      SELECT p.id, p.actividad_id, p.tipo_actividad, p.cantidad_clases, p.monto_total,
              p.activo, p.fecha_inicio, p.created_at,
-             a.nombre AS actividad_nombre
+             COALESCE(aa.nombre, ad.nombre) AS actividad_nombre
       FROM planes_clases_socio p
-      JOIN actividades_adicionales a ON a.id = p.actividad_id
+      LEFT JOIN actividades_adicionales aa
+        ON aa.id = p.actividad_id AND p.tipo_actividad = 'adicional'
+      LEFT JOIN actividades ad
+        ON ad.id = p.actividad_id AND p.tipo_actividad = 'deportiva'
       WHERE p.club_id = $1 AND p.socio_id = $2
       ORDER BY p.created_at DESC
       `,
@@ -924,10 +927,11 @@ router.get('/:clubId/socios/:socioId/planes-clases', requireAuth, requireClubAcc
 // paquete comprado por separado.
 router.post('/:clubId/socios/:socioId/planes-clases', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, socioId } = req.params;
-  const { actividad_id, cantidad_clases, monto_total, fecha_inicio } = req.body;
+  const { actividad_id, tipo_actividad, cantidad_clases, monto_total, fecha_inicio } = req.body;
 
   const cantidadNum = Number(cantidad_clases);
   const montoNum = Number(monto_total);
+  const tipoActividadVal = (tipo_actividad === 'deportiva') ? 'deportiva' : 'adicional';
 
   if (!actividad_id) {
     return res.status(400).json({ ok: false, error: 'Elegí la actividad.' });
@@ -940,8 +944,9 @@ router.post('/:clubId/socios/:socioId/planes-clases', requireAuth, requireClubAc
   }
 
   try {
+    const tablaActividad = tipoActividadVal === 'deportiva' ? 'actividades' : 'actividades_adicionales';
     const rAct = await db.query(
-      `SELECT id, nombre FROM actividades_adicionales WHERE id = $1 AND club_id = $2 AND activo = true`,
+      `SELECT id, nombre FROM ${tablaActividad} WHERE id = $1 AND club_id = $2 AND activo = true`,
       [actividad_id, clubId]
     );
     if (!rAct.rowCount) {
@@ -951,12 +956,12 @@ router.post('/:clubId/socios/:socioId/planes-clases', requireAuth, requireClubAc
     const rIns = await db.query(
       `
       INSERT INTO planes_clases_socio
-        (id, club_id, socio_id, actividad_id, cantidad_clases, monto_total, activo, fecha_inicio, created_at, updated_at)
+        (id, club_id, socio_id, actividad_id, tipo_actividad, cantidad_clases, monto_total, activo, fecha_inicio, created_at, updated_at)
       VALUES
-        (gen_random_uuid(), $1, $2, $3, $4, $5, true, $6, NOW(), NOW())
+        (gen_random_uuid(), $1, $2, $3, $4, $5, $6, true, $7, NOW(), NOW())
       RETURNING id
       `,
-      [clubId, socioId, actividad_id, cantidadNum, montoNum, fecha_inicio || null]
+      [clubId, socioId, actividad_id, tipoActividadVal, cantidadNum, montoNum, fecha_inicio || null]
     );
 
     res.json({ ok: true, planId: rIns.rows[0].id });
@@ -1103,10 +1108,13 @@ router.post('/:clubId/planes-clases/:planId/registrar-pago', requireAuth, requir
   try {
     const rPlan = await db.query(
       `
-      SELECT p.id, p.socio_id, p.actividad_id, a.nombre AS actividad_nombre,
+      SELECT p.id, p.socio_id, p.actividad_id, COALESCE(aa.nombre, ad.nombre) AS actividad_nombre,
              s.nombre AS socio_nombre, s.apellido AS socio_apellido, s.numero_socio
       FROM planes_clases_socio p
-      JOIN actividades_adicionales a ON a.id = p.actividad_id
+      LEFT JOIN actividades_adicionales aa
+        ON aa.id = p.actividad_id AND p.tipo_actividad = 'adicional'
+      LEFT JOIN actividades ad
+        ON ad.id = p.actividad_id AND p.tipo_actividad = 'deportiva'
       JOIN socios s ON s.id = p.socio_id
       WHERE p.id = $1 AND p.club_id = $2
       `,
@@ -1382,8 +1390,11 @@ DATE_PART('year', AGE(s.fecha_nacimiento))::int AS edad,
     AND pm.pago_completo = false
 ) AS tiene_pagos_parciales,
 
+act_dep.modalidad_pago AS actividad_modalidad_pago,
+
 CASE
   WHEN s.becado = true THEN true
+  WHEN COALESCE(act_dep.modalidad_pago, 'mensual') = 'por_clases' THEN true
   ELSE
     COALESCE((
       SELECT MAX((pm.anio::int * 100) + (pm.mes::int))
@@ -1413,6 +1424,10 @@ END AS pago_al_dia
        AND ec.club_id = s.club_id
       LEFT JOIN clubs c
         ON c.id = s.club_id
+      LEFT JOIN actividades act_dep
+        ON act_dep.club_id = s.club_id
+       AND act_dep.nombre = s.actividad
+       AND act_dep.activo = true
 LEFT JOIN grupos_familiares gf_jefe
   ON gf_jefe.club_id = s.club_id
  AND gf_jefe.jefe_socio_id = s.id
@@ -1554,6 +1569,11 @@ const pagoMesExigibleBase = pagosBase.some(
 let baseCubierta = false;
 
 if (s.becado) {
+  baseCubierta = true;
+}
+else if (s.actividad_modalidad_pago === 'por_clases') {
+  // ✅ Actividad deportiva "por paquete de clases": no genera cuota social
+  // mensual, se paga aparte con el paquete de clases (ficha del socio).
   baseCubierta = true;
 }
 else if (pagoMesActualBase) {

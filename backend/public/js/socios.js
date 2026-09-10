@@ -870,12 +870,24 @@ async function eliminarPlanCuotasUI() {
 // =============================
 // PLAN DE CLASES (PAQUETE) — por socio + actividad
 // =============================
+// Puede aplicarse a la Actividad deportiva del socio (si esa actividad está
+// configurada como "por paquete de clases" en Configuración, en cuyo caso
+// reemplaza a la cuota social mensual) o a una Actividad adicional marcada
+// con la misma modalidad (checkboxes de la ficha). Solo una de las dos
+// modalidades se usa a la vez, según cuál esté marcada "por_clases":
+// - "deportiva": no hay selector, se gestiona directo el paquete de la
+//   actividad deportiva del socio.
+// - "adicional": se elige la actividad adicional entre las marcadas
+//   "por_clases" (comportamiento anterior, sin cambios).
 let planClasesSocioId = null;          // socio para el que está abierto el modal
 let planClasesPlanesSocio = [];        // todos los paquetes activos del socio, cacheados al abrir
 let planClasesPlanIdActual = null;     // id del paquete que se está viendo/editando (null = todavía no existe)
 let planClasesRegistroActual = [];     // clases tomadas del paquete actual
 let planClasesPagosActual = [];        // pagos parciales del paquete actual
 let planClasesCuentasCache = [];       // cuentas $ (responsables) para el select de pago
+let planClasesModoActividad = null;    // 'deportiva' | 'adicional'
+let planClasesActividadIdActual = null;    // id de la actividad (deportiva o adicional) en uso
+let planClasesActividadNombreActual = '';  // nombre de esa actividad, para mostrar
 
 function fillPlanClasesActividadSelect() {
   const sel = $('planClasesActividad');
@@ -917,11 +929,16 @@ async function abrirModalPlanClases() {
   planClasesPlanIdActual = null;
   planClasesRegistroActual = [];
   planClasesPagosActual = [];
+  planClasesModoActividad = null;
+  planClasesActividadIdActual = null;
+  planClasesActividadNombreActual = '';
 
   if (!actividadesAdicionalesConfigCache.length) {
     await loadActividadesAdicionalesConfig().catch(() => {});
   }
-  fillPlanClasesActividadSelect();
+  if (!actividadesConfigCache.length) {
+    await loadActividadesConfig().catch(() => {});
+  }
   await loadCuentasPlanClases().catch(() => {});
 
   $('planClasesCantidad').value = '';
@@ -941,6 +958,41 @@ async function abrirModalPlanClases() {
   $('btnRegistrarPagoClases').disabled = true;
 
   await cargarPlanesClasesSocio();
+
+  // ✅ ¿La actividad deportiva del socio está configurada "por paquete de
+  // clases"? Si es así, se gestiona directo (sin selector) porque el socio
+  // solo tiene una actividad deportiva.
+  const nombreDeportiva = ($('socioActividad')?.value || '').trim();
+  const deportivaObj = actividadesConfigCache.find(
+    a => String(a.nombre || '').trim() === nombreDeportiva
+  );
+  const esDeportivaPorClases = !!deportivaObj && deportivaObj.modalidad_pago === 'por_clases';
+
+  const selectWrap = $('planClasesActividadSelectWrap');
+  const fijaWrap = $('planClasesActividadFijaWrap');
+
+  const intro = $('planClasesIntro');
+
+  if (esDeportivaPorClases) {
+    planClasesModoActividad = 'deportiva';
+    if (selectWrap) selectWrap.style.display = 'none';
+    if (fijaWrap) fijaWrap.style.display = '';
+    if ($('planClasesActividadFija')) {
+      $('planClasesActividadFija').textContent = `${deportivaObj.nombre} (actividad deportiva)`;
+    }
+    if (intro) {
+      intro.textContent = `La actividad deportiva "${deportivaObj.nombre}" de este socio se paga por paquete de clases: reemplaza a la cuota social mensual (no genera mora por cuota social). El "quedan disponibles" es solo informativo: no bloquea nada.`;
+    }
+    aplicarActividadClasesSeleccionada(deportivaObj.id, 'deportiva', deportivaObj.nombre);
+  } else {
+    planClasesModoActividad = 'adicional';
+    if (selectWrap) selectWrap.style.display = '';
+    if (fijaWrap) fijaWrap.style.display = 'none';
+    if (intro) {
+      intro.textContent = 'Para actividades adicionales que se pagan por paquete de clases (ej: clases sueltas, sin fecha fija). Es un paquete aparte, específico de este socio y esta actividad: no modifica la cuota normal del club. El "quedan disponibles" es solo informativo: no bloquea nada.';
+    }
+    fillPlanClasesActividadSelect();
+  }
 
   $('modalPlanClases').classList.remove('hidden');
 }
@@ -966,9 +1018,9 @@ async function cargarPlanesClasesSocio() {
 // El "paquete vigente" de una actividad es el más nuevo (por si hubo
 // renovaciones); los anteriores quedan en la base como historial pero
 // no se muestran acá.
-function paqueteVigentePorActividad(actividadId) {
+function paqueteVigentePorActividad(actividadId, tipoActividad) {
   const planes = planClasesPlanesSocio
-    .filter(p => String(p.actividad_id) === String(actividadId))
+    .filter(p => String(p.actividad_id) === String(actividadId) && p.tipo_actividad === tipoActividad)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   return planes[0] || null;
 }
@@ -981,16 +1033,21 @@ function actualizarEstadoPlanClasesFicha() {
     el.textContent = 'Sin plan de clases.';
     return;
   }
-  const actividadIds = [...new Set(planClasesPlanesSocio.map(p => String(p.actividad_id)))];
-  const resumen = actividadIds.map(id => {
-    const p = paqueteVigentePorActividad(id);
+  const claves = [...new Set(planClasesPlanesSocio.map(p => `${p.tipo_actividad}:${p.actividad_id}`))];
+  const resumen = claves.map(clave => {
+    const [tipo, id] = clave.split(':');
+    const p = paqueteVigentePorActividad(id, tipo);
     return `${p.actividad_nombre}: ${p.clases_restantes} de ${p.cantidad_clases} clases restantes`;
   }).join(' · ');
   el.textContent = `Plan de clases — ${resumen}.`;
 }
 
-function onPlanClasesActividadChange() {
-  const actividadId = $('planClasesActividad').value;
+// Lógica común para mostrar el paquete de una actividad (deportiva o
+// adicional) puntual, ya sea porque se seleccionó del select (modo
+// "adicional") o porque se resolvió automáticamente (modo "deportiva").
+function aplicarActividadClasesSeleccionada(actividadId, tipoActividad, nombreActividad) {
+  planClasesActividadIdActual = actividadId || null;
+  planClasesActividadNombreActual = nombreActividad || '';
 
   if (!actividadId) {
     planClasesPlanIdActual = null;
@@ -1009,7 +1066,7 @@ function onPlanClasesActividadChange() {
     return;
   }
 
-  const plan = paqueteVigentePorActividad(actividadId);
+  const plan = paqueteVigentePorActividad(actividadId, tipoActividad);
 
   if (plan) {
     planClasesPlanIdActual = plan.id;
@@ -1043,6 +1100,14 @@ function onPlanClasesActividadChange() {
   renderPlanClasesRegistroTabla(planClasesRegistroActual);
   renderPlanClasesPagosTabla(planClasesPagosActual);
   actualizarSaldoPlanClases();
+}
+
+// Handler del <select> (modo "adicional" únicamente)
+function onPlanClasesActividadChange() {
+  const sel = $('planClasesActividad');
+  const actividadId = sel?.value || '';
+  const nombre = sel?.selectedOptions?.[0]?.textContent || '';
+  aplicarActividadClasesSeleccionada(actividadId, 'adicional', nombre);
 }
 
 function actualizarSaldoPlanClases() {
@@ -1118,7 +1183,7 @@ function renderPlanClasesPagosTabla(pagos) {
 }
 
 async function guardarPaqueteClasesUI() {
-  const actividadId = $('planClasesActividad').value;
+  const actividadId = planClasesActividadIdActual;
   if (!actividadId) {
     alert('Elegí la actividad.');
     return;
@@ -1148,7 +1213,13 @@ async function guardarPaqueteClasesUI() {
     } else {
       res = await fetchAuth(`/club/${clubId}/socios/${planClasesSocioId}/planes-clases`, {
         method: 'POST',
-        body: JSON.stringify({ actividad_id: actividadId, cantidad_clases: cantidad, monto_total: monto, fecha_inicio: fechaInicio }),
+        body: JSON.stringify({
+          actividad_id: actividadId,
+          tipo_actividad: planClasesModoActividad,
+          cantidad_clases: cantidad,
+          monto_total: monto,
+          fecha_inicio: fechaInicio
+        }),
         json: true
       });
     }
@@ -1157,7 +1228,7 @@ async function guardarPaqueteClasesUI() {
 
     alert('Paquete guardado.');
     await cargarPlanesClasesSocio();
-    onPlanClasesActividadChange();
+    aplicarActividadClasesSeleccionada(planClasesActividadIdActual, planClasesModoActividad, planClasesActividadNombreActual);
   } catch (e) {
     console.error('❌ guardarPaqueteClasesUI', e);
     alert(e.message || 'No se pudo guardar el paquete.');
@@ -1165,7 +1236,7 @@ async function guardarPaqueteClasesUI() {
 }
 
 function nuevoPaqueteClasesUI() {
-  const actividadId = $('planClasesActividad').value;
+  const actividadId = planClasesActividadIdActual;
   if (!actividadId) {
     alert('Elegí primero la actividad.');
     return;
@@ -1199,7 +1270,7 @@ async function registrarClaseTomadaUI() {
     if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo registrar la clase.');
 
     await cargarPlanesClasesSocio();
-    onPlanClasesActividadChange();
+    aplicarActividadClasesSeleccionada(planClasesActividadIdActual, planClasesModoActividad, planClasesActividadNombreActual);
   } catch (e) {
     console.error('❌ registrarClaseTomadaUI', e);
     alert(e.message || 'No se pudo registrar la clase.');
@@ -1217,7 +1288,7 @@ async function deshacerClaseUI(registroId) {
     if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo deshacer la clase.');
 
     await cargarPlanesClasesSocio();
-    onPlanClasesActividadChange();
+    aplicarActividadClasesSeleccionada(planClasesActividadIdActual, planClasesModoActividad, planClasesActividadNombreActual);
   } catch (e) {
     console.error('❌ deshacerClaseUI', e);
     alert(e.message || 'No se pudo deshacer la clase.');
@@ -1257,7 +1328,7 @@ async function registrarPagoClasesUI() {
     $('planClasesPagoFecha').value = '';
 
     await cargarPlanesClasesSocio();
-    onPlanClasesActividadChange();
+    aplicarActividadClasesSeleccionada(planClasesActividadIdActual, planClasesModoActividad, planClasesActividadNombreActual);
   } catch (e) {
     console.error('❌ registrarPagoClasesUI', e);
     alert(e.message || 'No se pudo registrar el pago.');
@@ -1275,7 +1346,7 @@ async function deshacerPagoClasesUI(pagoId) {
     if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo deshacer el pago.');
 
     await cargarPlanesClasesSocio();
-    onPlanClasesActividadChange();
+    aplicarActividadClasesSeleccionada(planClasesActividadIdActual, planClasesModoActividad, planClasesActividadNombreActual);
   } catch (e) {
     console.error('❌ deshacerPagoClasesUI', e);
     alert(e.message || 'No se pudo deshacer el pago.');
@@ -1294,7 +1365,7 @@ async function eliminarPlanClasesUI() {
 
     alert('Paquete eliminado.');
     await cargarPlanesClasesSocio();
-    onPlanClasesActividadChange();
+    aplicarActividadClasesSeleccionada(planClasesActividadIdActual, planClasesModoActividad, planClasesActividadNombreActual);
   } catch (e) {
     console.error('❌ eliminarPlanClasesUI', e);
     alert(e.message || 'No se pudo eliminar el paquete.');

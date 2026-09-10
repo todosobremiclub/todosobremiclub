@@ -17,6 +17,7 @@
           <tr>
             <th>Actividad</th>
             <th>Precio mensual</th>
+            <th>Modalidad de pago</th>
             <th>Guardar</th>
             <th>Eliminar</th>
           </tr>
@@ -37,10 +38,17 @@
 
 
 
-      <div class="config-add" style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+      <div class="config-add" style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <input id="newActividadNombre" type="text" placeholder="Nueva actividad..." style="flex:1;" />
         <input id="newActividadPrecio" type="number" min="0" step="0.01" placeholder="Precio mensual" style="width:150px;" />
+        <select id="newActividadModalidad" style="width:210px;">
+          <option value="mensual">Mensual</option>
+          <option value="por_clases">Por paquete de clases</option>
+        </select>
         <button id="btnActividadAdd" class="btn btn-primary">Agregar</button>
+      </div>
+      <div class="muted small" style="margin-top:6px;">
+        "Por paquete de clases": el socio con esta actividad principal deja de generar cuota social mensual y paga a través de un paquete de clases (se gestiona desde su ficha).
       </div>
     </div>
   </div>

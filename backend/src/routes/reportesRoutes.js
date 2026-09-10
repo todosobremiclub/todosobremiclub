@@ -761,13 +761,20 @@ WITH meses AS (
   SELECT generate_series(1,12)::int AS mes_num
 ),
 socios_activos AS (
-  SELECT id, fecha_ingreso
-  FROM socios
-  WHERE club_id = $1
-    AND activo = true
-    AND becado = false
-    AND ($3::text IS NULL OR actividad = $3)
-    AND ($4::text IS NULL OR categoria = $4)
+  SELECT s.id, s.fecha_ingreso
+  FROM socios s
+  WHERE s.club_id = $1
+    AND s.activo = true
+    AND s.becado = false
+    AND ($3::text IS NULL OR s.actividad = $3)
+    AND ($4::text IS NULL OR s.categoria = $4)
+    AND NOT EXISTS (
+      SELECT 1 FROM actividades act
+      WHERE act.club_id = s.club_id
+        AND act.nombre = s.actividad
+        AND act.activo = true
+        AND act.modalidad_pago = 'por_clases'
+    )
 ),
 base AS (
   SELECT
@@ -939,6 +946,7 @@ LEFT JOIN LATERAL (
 WHERE s.club_id = $1
   AND s.activo = true
   AND s.becado = false
+  AND COALESCE(act.modalidad_pago, 'mensual') <> 'por_clases'
   AND (
     s.fecha_ingreso IS NULL
     OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
@@ -1018,6 +1026,7 @@ LEFT JOIN LATERAL (
 WHERE s.club_id = $1
   AND s.activo = true
   AND s.becado = false
+  AND COALESCE(act.modalidad_pago, 'mensual') <> 'por_clases'
   AND (
     s.fecha_ingreso IS NULL
     OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
@@ -1092,13 +1101,20 @@ router.get(
             SELECT generate_series(1,12)::int AS mes_num
           ),
           socios_activos AS (
-            SELECT id, fecha_ingreso
-            FROM socios
-            WHERE club_id = $1
-              AND activo = true
-              AND becado = false
-              AND ($3::text IS NULL OR actividad = $3)
-              AND ($4::text IS NULL OR categoria = $4)
+            SELECT s.id, s.fecha_ingreso
+            FROM socios s
+            WHERE s.club_id = $1
+              AND s.activo = true
+              AND s.becado = false
+              AND ($3::text IS NULL OR s.actividad = $3)
+              AND ($4::text IS NULL OR s.categoria = $4)
+              AND NOT EXISTS (
+                SELECT 1 FROM actividades act
+                WHERE act.club_id = s.club_id
+                  AND act.nombre = s.actividad
+                  AND act.activo = true
+                  AND act.modalidad_pago = 'por_clases'
+              )
           ),
           base AS (
             SELECT
@@ -1172,9 +1188,14 @@ router.get(
          AND pm.club_id = $1
          AND pm.anio = $2
          AND pm.mes = $3
+        LEFT JOIN actividades act
+          ON act.club_id = s.club_id
+         AND act.nombre = s.actividad
+         AND act.activo = true
         WHERE s.club_id = $1
           AND s.activo = true
           AND s.becado = false
+          AND COALESCE(act.modalidad_pago, 'mensual') <> 'por_clases'
           AND (
             s.fecha_ingreso IS NULL
             OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
@@ -1252,13 +1273,20 @@ router.get(
             SELECT generate_series(1,12)::int AS mes_num
           ),
           socios_activos AS (
-            SELECT id, fecha_ingreso
-            FROM socios
-            WHERE club_id = $1
-              AND activo = true
-              AND becado = false
-              AND ($3::text IS NULL OR actividad = $3)
-              AND ($4::text IS NULL OR categoria = $4)
+            SELECT s.id, s.fecha_ingreso
+            FROM socios s
+            WHERE s.club_id = $1
+              AND s.activo = true
+              AND s.becado = false
+              AND ($3::text IS NULL OR s.actividad = $3)
+              AND ($4::text IS NULL OR s.categoria = $4)
+              AND NOT EXISTS (
+                SELECT 1 FROM actividades act
+                WHERE act.club_id = s.club_id
+                  AND act.nombre = s.actividad
+                  AND act.activo = true
+                  AND act.modalidad_pago = 'por_clases'
+              )
           ),
           base AS (
             SELECT
@@ -1333,9 +1361,14 @@ router.get(
          AND pm.club_id = $1
          AND pm.anio = $2
          AND pm.mes = $3
+        LEFT JOIN actividades act
+          ON act.club_id = s.club_id
+         AND act.nombre = s.actividad
+         AND act.activo = true
         WHERE s.club_id = $1
           AND s.activo = true
           AND s.becado = false
+          AND COALESCE(act.modalidad_pago, 'mensual') <> 'por_clases'
           AND (
             s.fecha_ingreso IS NULL
             OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
@@ -3692,10 +3725,11 @@ router.get(
 
       // 2) Calcular esperado en vivo
       const q = `
-        SELECT 
+        SELECT
           s.becado,
           ec.monto AS excepcion_monto,
-          a.precio_mensual
+          a.precio_mensual,
+          a.modalidad_pago
         FROM socios s
         LEFT JOIN excepciones_cuota ec
           ON ec.id = s.excepcion_cuota_id
@@ -3724,6 +3758,7 @@ router.get(
 
       for (const s of r.rows) {
         if (s.becado) continue;
+        if (s.modalidad_pago === 'por_clases') continue;
 
         const monto =
           s.excepcion_monto !== null && s.excepcion_monto !== undefined
@@ -3899,6 +3934,7 @@ const q = `
     ) AS es_miembro_plan_familiar,
     ec.monto AS excepcion_monto,
     a.precio_mensual AS actividad_monto,
+    a.modalidad_pago AS actividad_modalidad_pago,
     agf.precio_mensual AS grupo_familiar_monto,
     COALESCE(adic.adicionales_monto, 0) AS adicionales_monto
   FROM socios s
@@ -3943,6 +3979,7 @@ const q = `
 
 for (const s of r.rows) {
   if (s.becado) continue;
+  if (s.actividad_modalidad_pago === 'por_clases') continue;
 
   if (s.es_miembro_plan_familiar) continue;
 
@@ -4051,6 +4088,7 @@ WITH base_conceptos AS (
   SELECT
     CASE
       WHEN s.becado THEN NULL
+      WHEN COALESCE(a.modalidad_pago, 'mensual') = 'por_clases' THEN NULL
       WHEN EXISTS (
         SELECT 1
         FROM grupos_familiares gf
@@ -4070,6 +4108,7 @@ WITH base_conceptos AS (
     END AS actividad,
     CASE
       WHEN s.becado THEN 0
+      WHEN COALESCE(a.modalidad_pago, 'mensual') = 'por_clases' THEN 0
       WHEN EXISTS (
         SELECT 1
         FROM grupos_familiares gf
