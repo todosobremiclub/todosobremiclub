@@ -450,7 +450,8 @@ router.get('/:clubId/config/actividades-adicionales', requireAuth, requireClubAc
       SELECT
         id,
         nombre,
-        precio_mensual
+        precio_mensual,
+        modalidad_pago
       FROM actividades_adicionales
       WHERE club_id = $1 AND activo = true
       ORDER BY nombre ASC
@@ -467,7 +468,7 @@ router.get('/:clubId/config/actividades-adicionales', requireAuth, requireClubAc
 
 router.post('/:clubId/config/actividades-adicionales', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { nombre, precio_mensual } = req.body ?? {};
+  const { nombre, precio_mensual, modalidad_pago } = req.body ?? {};
 
   try {
     if (!nombre?.trim()) {
@@ -486,6 +487,8 @@ router.post('/:clubId/config/actividades-adicionales', requireAuth, requireClubA
       precioNum = parsed;
     }
 
+    const modalidadPagoVal = (modalidad_pago === 'por_clases') ? 'por_clases' : 'mensual';
+
     const r = await db.query(
       `
       INSERT INTO actividades_adicionales (
@@ -493,6 +496,7 @@ router.post('/:clubId/config/actividades-adicionales', requireAuth, requireClubA
         club_id,
         nombre,
         precio_mensual,
+        modalidad_pago,
         activo,
         updated_at
       )
@@ -501,15 +505,17 @@ router.post('/:clubId/config/actividades-adicionales', requireAuth, requireClubA
         $1,
         $2,
         $3,
+        $4,
         true,
         NOW()
       )
       RETURNING
         id,
         nombre,
-        precio_mensual
+        precio_mensual,
+        modalidad_pago
       `,
-      [clubId, nombre.trim(), precioNum]
+      [clubId, nombre.trim(), precioNum, modalidadPagoVal]
     );
 
     res.json({ ok: true, actividad: r.rows[0] });
@@ -527,7 +533,7 @@ router.post('/:clubId/config/actividades-adicionales', requireAuth, requireClubA
 
 router.put('/:clubId/config/actividades-adicionales/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
-  const { nombre, precio_mensual } = req.body ?? {};
+  const { nombre, precio_mensual, modalidad_pago } = req.body ?? {};
 
   try {
     const nuevoNombre = (nombre ?? '').trim();
@@ -547,16 +553,19 @@ router.put('/:clubId/config/actividades-adicionales/:id', requireAuth, requireCl
       precioNum = parsed;
     }
 
+    const modalidadPagoVal = (modalidad_pago === 'por_clases') ? 'por_clases' : 'mensual';
+
     const r = await db.query(
       `
       UPDATE actividades_adicionales
       SET nombre = $1,
           precio_mensual = $2,
+          modalidad_pago = $3,
           updated_at = NOW()
-      WHERE id = $3 AND club_id = $4
-      RETURNING id, nombre, precio_mensual
+      WHERE id = $4 AND club_id = $5
+      RETURNING id, nombre, precio_mensual, modalidad_pago
       `,
-      [nuevoNombre, precioNum, id, clubId]
+      [nuevoNombre, precioNum, modalidadPagoVal, id, clubId]
     );
 
     if (!r.rowCount) {

@@ -419,7 +419,7 @@ async function loadActividadesAdicionales() {
   if (!res.ok || !data.ok) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="4" class="muted">Error cargando actividades adicionales.</td>
+        <td colspan="5" class="muted">Error cargando actividades adicionales.</td>
       </tr>`;
     alert(data.error ?? 'Error cargando actividades adicionales');
     return;
@@ -479,6 +479,12 @@ function renderActividadesAdicionales(items) {
           </span>
         </div>
       </td>
+      <td>
+        <select id="act_adic_modalidad_${a.id}" style="width:190px;">
+          <option value="mensual" ${a.modalidad_pago !== 'por_clases' ? 'selected' : ''}>Mensual</option>
+          <option value="por_clases" ${a.modalidad_pago === 'por_clases' ? 'selected' : ''}>Por paquete de clases</option>
+        </select>
+      </td>
       <td style="text-align:center">
         <button class="btn-save" data-act="save-act-adic" data-id="${a.id}">💾</button>
       </td>
@@ -504,13 +510,14 @@ function renderActividadesAdicionales(items) {
   });
 }
 
-async function createActividadAdicional(nombre, precio_mensual) {
+async function createActividadAdicional(nombre, precio_mensual, modalidad_pago) {
   const payload = {
     nombre,
     precio_mensual: (
       precio_mensual === '' ||
       precio_mensual == null
-    ) ? null : Number(precio_mensual)
+    ) ? null : Number(precio_mensual),
+    modalidad_pago: modalidad_pago === 'por_clases' ? 'por_clases' : 'mensual'
   };
 
   const res = await fetchAuth(actividadesAdicionalesUrl(), {
@@ -522,13 +529,14 @@ async function createActividadAdicional(nombre, precio_mensual) {
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando actividad adicional');
 }
 
-async function updateActividadAdicional(id, nombre, precio_mensual) {
+async function updateActividadAdicional(id, nombre, precio_mensual, modalidad_pago) {
   const payload = {
     nombre,
     precio_mensual: (
       precio_mensual === '' ||
       precio_mensual == null
-    ) ? null : Number(precio_mensual)
+    ) ? null : Number(precio_mensual),
+    modalidad_pago: modalidad_pago === 'por_clases' ? 'por_clases' : 'mensual'
   };
 
   const res = await fetchAuth(`${actividadesAdicionalesUrl()}/${id}`, {
@@ -1198,6 +1206,7 @@ function bindEvents() {
         const nombre = (document.getElementById(`act_adic_${id}`)?.value ?? '').trim();
         const precioStr = document.getElementById(`act_adic_precio_${id}`)?.value ?? '';
         const precioNum = precioStr === '' ? null : Number(precioStr);
+        const modalidad = document.getElementById(`act_adic_modalidad_${id}`)?.value ?? 'mensual';
 
         if (!nombre) return alert('Nombre vacío');
         if (precioStr !== '' && (Number.isNaN(precioNum) || precioNum < 0)) {
@@ -1206,7 +1215,7 @@ function bindEvents() {
 
         btn.disabled = true;
         try {
-          await updateActividadAdicional(id, nombre, precioStr);
+          await updateActividadAdicional(id, nombre, precioStr, modalidad);
           await loadActividadesAdicionales();
         } catch (err) {
           alert(err.message ?? 'Error');
@@ -1236,10 +1245,12 @@ function bindEvents() {
     ?.addEventListener('click', async () => {
       const inputNombre = document.getElementById('newActividadAdicionalNombre');
       const inputPrecio = document.getElementById('newActividadAdicionalPrecio');
+      const inputModalidad = document.getElementById('newActividadAdicionalModalidad');
 
       const nombre = (inputNombre?.value ?? '').trim();
       const precioStr = (inputPrecio?.value ?? '').trim();
       const precioNum = precioStr === '' ? null : Number(precioStr);
+      const modalidad = inputModalidad?.value ?? 'mensual';
 
       if (!nombre) return alert('Ingresá un nombre para la actividad adicional');
       if (precioStr !== '' && (Number.isNaN(precioNum) || precioNum < 0)) {
@@ -1247,9 +1258,10 @@ function bindEvents() {
       }
 
       try {
-        await createActividadAdicional(nombre, precioStr);
+        await createActividadAdicional(nombre, precioStr, modalidad);
         if (inputNombre) inputNombre.value = '';
         if (inputPrecio) inputPrecio.value = '';
+        if (inputModalidad) inputModalidad.value = 'mensual';
         await loadActividadesAdicionales();
       } catch (err) {
         alert(err.message ?? 'Error creando actividad adicional');

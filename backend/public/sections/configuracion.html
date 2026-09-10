@@ -60,6 +60,7 @@
         <tr>
           <th>Actividad</th>
           <th>Precio mensual</th>
+          <th>Modalidad de pago</th>
           <th>Guardar</th>
           <th>Eliminar</th>
         </tr>
@@ -67,10 +68,17 @@
       <tbody id="actividadesAdicionalesTableBody"></tbody>
     </table>
 
-    <div class="config-add" style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+    <div class="config-add" style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <input id="newActividadAdicionalNombre" type="text" placeholder="Nueva actividad adicional..." style="flex:1;" />
       <input id="newActividadAdicionalPrecio" type="number" min="0" step="0.01" placeholder="Precio mensual" style="width:150px;" />
+      <select id="newActividadAdicionalModalidad" style="width:210px;">
+        <option value="mensual">Mensual</option>
+        <option value="por_clases">Por paquete de clases</option>
+      </select>
       <button id="btnActividadAdicionalAdd" class="btn btn-primary">Agregar</button>
+    </div>
+    <div class="muted small" style="margin-top:6px;">
+      "Por paquete de clases": el socio compra un paquete de N clases (no atado a meses). Se gestiona desde la ficha del socio.
     </div>
   </div>
 </div>

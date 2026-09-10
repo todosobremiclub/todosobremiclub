@@ -855,6 +855,426 @@ router.delete('/:clubId/planes-actividad/:planId', requireAuth, requireClubAcces
 });
 
 // ===============================
+// PLAN DE CLASES POR SOCIO + ACTIVIDAD
+// (para actividades que se pagan por paquete de clases, no por mes,
+// ej: clases sueltas de equitación que no son fijas en el calendario)
+// ===============================
+
+// GET: lista los paquetes (activos e inactivos) de un socio, con su
+// historial de clases tomadas y de pagos parciales ya calculados.
+router.get('/:clubId/socios/:socioId/planes-clases', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, socioId } = req.params;
+  try {
+    const rPlanes = await db.query(
+      `
+      SELECT p.id, p.actividad_id, p.cantidad_clases, p.monto_total,
+             p.activo, p.fecha_inicio, p.created_at,
+             a.nombre AS actividad_nombre
+      FROM planes_clases_socio p
+      JOIN actividades_adicionales a ON a.id = p.actividad_id
+      WHERE p.club_id = $1 AND p.socio_id = $2
+      ORDER BY p.created_at DESC
+      `,
+      [clubId, socioId]
+    );
+
+    const planes = rPlanes.rows;
+    if (planes.length) {
+      const ids = planes.map(p => p.id);
+
+      const rRegistro = await db.query(
+        `
+        SELECT id, plan_id, fecha
+        FROM planes_clases_registro
+        WHERE plan_id = ANY($1::uuid[])
+        ORDER BY fecha ASC
+        `,
+        [ids]
+      );
+
+      const rPagos = await db.query(
+        `
+        SELECT id, plan_id, monto, fecha_pago, cuenta
+        FROM planes_clases_pagos
+        WHERE plan_id = ANY($1::uuid[])
+        ORDER BY fecha_pago ASC NULLS LAST, created_at ASC
+        `,
+        [ids]
+      );
+
+      for (const plan of planes) {
+        plan.registro = rRegistro.rows.filter(r => r.plan_id === plan.id);
+        plan.pagos = rPagos.rows.filter(pg => pg.plan_id === plan.id);
+        plan.clases_tomadas = plan.registro.length;
+        plan.clases_restantes = Number(plan.cantidad_clases) - plan.clases_tomadas;
+        plan.monto_pagado = plan.pagos.reduce((acc, pg) => acc + Number(pg.monto || 0), 0);
+        plan.saldo_pendiente = Math.round((Number(plan.monto_total) - plan.monto_pagado) * 100) / 100;
+      }
+    }
+
+    res.json({ ok: true, planes });
+  } catch (e) {
+    console.error('❌ GET planes-clases', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST: crea un paquete nuevo (compra inicial o renovación). Cada
+// renovación es un plan nuevo, para conservar el historial de cada
+// paquete comprado por separado.
+router.post('/:clubId/socios/:socioId/planes-clases', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, socioId } = req.params;
+  const { actividad_id, cantidad_clases, monto_total, fecha_inicio } = req.body;
+
+  const cantidadNum = Number(cantidad_clases);
+  const montoNum = Number(monto_total);
+
+  if (!actividad_id) {
+    return res.status(400).json({ ok: false, error: 'Elegí la actividad.' });
+  }
+  if (!Number.isFinite(cantidadNum) || cantidadNum <= 0) {
+    return res.status(400).json({ ok: false, error: 'La cantidad de clases debe ser mayor a 0.' });
+  }
+  if (!Number.isFinite(montoNum) || montoNum < 0) {
+    return res.status(400).json({ ok: false, error: 'El monto del paquete no es válido.' });
+  }
+
+  try {
+    const rAct = await db.query(
+      `SELECT id, nombre FROM actividades_adicionales WHERE id = $1 AND club_id = $2 AND activo = true`,
+      [actividad_id, clubId]
+    );
+    if (!rAct.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Actividad no encontrada.' });
+    }
+
+    const rIns = await db.query(
+      `
+      INSERT INTO planes_clases_socio
+        (id, club_id, socio_id, actividad_id, cantidad_clases, monto_total, activo, fecha_inicio, created_at, updated_at)
+      VALUES
+        (gen_random_uuid(), $1, $2, $3, $4, $5, true, $6, NOW(), NOW())
+      RETURNING id
+      `,
+      [clubId, socioId, actividad_id, cantidadNum, montoNum, fecha_inicio || null]
+    );
+
+    res.json({ ok: true, planId: rIns.rows[0].id });
+  } catch (e) {
+    console.error('❌ POST planes-clases', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// PUT: edita cantidad de clases / monto / fecha de inicio de un paquete
+// ya creado (por ejemplo, si se cargó mal).
+router.put('/:clubId/planes-clases/:planId', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId } = req.params;
+  const { cantidad_clases, monto_total, fecha_inicio } = req.body;
+
+  const cantidadNum = Number(cantidad_clases);
+  const montoNum = Number(monto_total);
+
+  if (!Number.isFinite(cantidadNum) || cantidadNum <= 0) {
+    return res.status(400).json({ ok: false, error: 'La cantidad de clases debe ser mayor a 0.' });
+  }
+  if (!Number.isFinite(montoNum) || montoNum < 0) {
+    return res.status(400).json({ ok: false, error: 'El monto del paquete no es válido.' });
+  }
+
+  try {
+    const r = await db.query(
+      `
+      UPDATE planes_clases_socio
+      SET cantidad_clases = $1, monto_total = $2, fecha_inicio = $3, updated_at = NOW()
+      WHERE id = $4 AND club_id = $5
+      RETURNING id
+      `,
+      [cantidadNum, montoNum, fecha_inicio || null, planId, clubId]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Paquete no encontrado.' });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ PUT planes-clases', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// DELETE: da de baja el paquete (soft-delete, igual que el plan de cuotas)
+router.delete('/:clubId/planes-clases/:planId', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId } = req.params;
+  try {
+    const r = await db.query(
+      `UPDATE planes_clases_socio SET activo = false, updated_at = NOW() WHERE id = $1 AND club_id = $2`,
+      [planId, clubId]
+    );
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Paquete no encontrado.' });
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ DELETE planes-clases', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST: registra que el socio tomó una clase (botón manual). No bloquea
+// nada si no quedan clases disponibles o el paquete no está pagado: solo
+// se informa en la ficha, y el admin decide si hay que renovar/cobrar.
+router.post('/:clubId/planes-clases/:planId/registrar-clase', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId } = req.params;
+  const { fecha } = req.body || {};
+
+  try {
+    const rPlan = await db.query(
+      `SELECT id FROM planes_clases_socio WHERE id = $1 AND club_id = $2`,
+      [planId, clubId]
+    );
+    if (!rPlan.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Paquete no encontrado.' });
+    }
+
+    const fechaFinal = fecha || new Date().toISOString();
+
+    const rIns = await db.query(
+      `INSERT INTO planes_clases_registro (id, plan_id, fecha, created_at)
+       VALUES (gen_random_uuid(), $1, $2, NOW())
+       RETURNING id, fecha`,
+      [planId, fechaFinal]
+    );
+
+    res.json({ ok: true, registro: rIns.rows[0] });
+  } catch (e) {
+    console.error('❌ POST registrar-clase', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// DELETE: deshace una clase registrada por error.
+router.delete('/:clubId/planes-clases/:planId/registro/:registroId', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId, registroId } = req.params;
+  try {
+    const r = await db.query(
+      `
+      DELETE FROM planes_clases_registro
+      WHERE id = $1 AND plan_id = $2
+        AND plan_id IN (SELECT id FROM planes_clases_socio WHERE club_id = $3)
+      `,
+      [registroId, planId, clubId]
+    );
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Registro no encontrado.' });
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ DELETE registro plan-clases', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST: registra un pago parcial (o total) del paquete. Igual que en el
+// plan de cuotas, el monto se suma como un concepto más dentro de
+// pagos_mensuales (para que aparezca en recaudación y reportes), en el
+// mes de la fecha de pago elegida, pero SIN participar del cálculo de
+// "pago_completo" de la cuota social (no afecta la mora del club).
+router.post('/:clubId/planes-clases/:planId/registrar-pago', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId } = req.params;
+  const { monto, cuenta, cuenta_id, fecha_pago } = req.body;
+
+  const montoNum = Number(monto);
+  if (!Number.isFinite(montoNum) || montoNum <= 0) {
+    return res.status(400).json({ ok: false, error: 'Ingresá un monto válido.' });
+  }
+
+  const cuentaFinal = await resolverCuentaPlanCuotas({ clubId, cuenta, cuenta_id });
+  if (!cuentaFinal) {
+    return res.status(400).json({ ok: false, error: 'Elegí la cuenta con la que se cobró.' });
+  }
+
+  const fechaPagoFinal = fecha_pago || new Date().toISOString().slice(0, 10);
+  const [anioStr, mesStr] = fechaPagoFinal.slice(0, 7).split('-');
+  const anio = Number(anioStr);
+  const mes = Number(mesStr);
+
+  try {
+    const rPlan = await db.query(
+      `
+      SELECT p.id, p.socio_id, p.actividad_id, a.nombre AS actividad_nombre,
+             s.nombre AS socio_nombre, s.apellido AS socio_apellido, s.numero_socio
+      FROM planes_clases_socio p
+      JOIN actividades_adicionales a ON a.id = p.actividad_id
+      JOIN socios s ON s.id = p.socio_id
+      WHERE p.id = $1 AND p.club_id = $2
+      `,
+      [planId, clubId]
+    );
+    if (!rPlan.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Paquete no encontrado.' });
+    }
+    const plan = rPlan.rows[0];
+
+    await db.query('BEGIN');
+
+    const rPago = await db.query(
+      `INSERT INTO planes_clases_pagos (id, plan_id, monto, fecha_pago, cuenta, created_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
+       RETURNING id`,
+      [planId, montoNum, fechaPagoFinal, cuentaFinal]
+    );
+    const pagoId = rPago.rows[0].id;
+
+    const item = {
+      tipo: 'plan_clases',
+      nombre: `${plan.actividad_nombre} - Paquete de clases`,
+      monto: montoNum,
+      seleccionado: true,
+      plan_clases_pago_id: pagoId
+    };
+
+    const rPrev = await db.query(
+      `
+      SELECT id, detalle_pago, monto_total_teorico
+      FROM pagos_mensuales
+      WHERE club_id = $1 AND socio_id = $2 AND anio = $3 AND mes = $4
+      LIMIT 1
+      `,
+      [clubId, plan.socio_id, anio, mes]
+    );
+
+    if (!rPrev.rowCount) {
+      await db.query(
+        `
+        INSERT INTO pagos_mensuales
+        (club_id, socio_id, socio_nombre, socio_apellido, socio_numero, anio, mes,
+         monto, fecha_pago, cuenta, detalle_pago, monto_total_teorico, monto_pagado, pago_completo)
+        VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false)
+        `,
+        [
+          clubId, plan.socio_id, plan.socio_nombre, plan.socio_apellido, plan.numero_socio,
+          anio, mes,
+          item.monto, fechaPagoFinal, cuentaFinal, JSON.stringify([item]), item.monto, item.monto
+        ]
+      );
+    } else {
+      const prev = rPrev.rows[0];
+      const prevDetalle = Array.isArray(prev.detalle_pago) ? prev.detalle_pago : [];
+      const mergedDetalle = [...prevDetalle, item];
+
+      const montoPagado = mergedDetalle
+        .filter(d => d.seleccionado === true)
+        .reduce((acc, d) => acc + Number(d.monto || 0), 0);
+
+      // ✅ Mismo criterio que el plan de cuotas: "pago_completo" solo
+      // depende de los conceptos que NO son de un plan de clases/cuotas.
+      const itemsCuotaSocial = mergedDetalle.filter(d => d.tipo !== 'plan_clases' && d.tipo !== 'plan_actividad');
+      const pagoCompleto = itemsCuotaSocial.length > 0
+        ? itemsCuotaSocial.every(d => d.seleccionado === true)
+        : false;
+
+      const montoTeoricoNuevo = Number(prev.monto_total_teorico || 0) + item.monto;
+
+      await db.query(
+        `
+        UPDATE pagos_mensuales
+        SET monto = $1, fecha_pago = $2, cuenta = $3, detalle_pago = $4,
+            monto_total_teorico = $5, monto_pagado = $1, pago_completo = $6
+        WHERE id = $7
+        `,
+        [montoPagado, fechaPagoFinal, cuentaFinal, JSON.stringify(mergedDetalle), montoTeoricoNuevo, pagoCompleto, prev.id]
+      );
+    }
+
+    await db.query('COMMIT');
+    res.json({ ok: true, pagoId });
+  } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ POST registrar-pago plan-clases', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST: deshace un pago parcial cargado por error.
+router.post('/:clubId/planes-clases/:planId/pagos/:pagoId/revertir-pago', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, planId, pagoId } = req.params;
+
+  try {
+    const rPlan = await db.query(
+      `SELECT id, socio_id FROM planes_clases_socio WHERE id = $1 AND club_id = $2`,
+      [planId, clubId]
+    );
+    if (!rPlan.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Paquete no encontrado.' });
+    }
+    const socioId = rPlan.rows[0].socio_id;
+
+    const rPago = await db.query(
+      `SELECT id, monto, fecha_pago FROM planes_clases_pagos WHERE id = $1 AND plan_id = $2`,
+      [pagoId, planId]
+    );
+    if (!rPago.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Pago no encontrado.' });
+    }
+    const pago = rPago.rows[0];
+    const fechaPago = new Date(pago.fecha_pago);
+    const anio = fechaPago.getUTCFullYear();
+    const mes = fechaPago.getUTCMonth() + 1;
+
+    await db.query('BEGIN');
+
+    const rPrev = await db.query(
+      `
+      SELECT id, detalle_pago, monto_total_teorico
+      FROM pagos_mensuales
+      WHERE club_id = $1 AND socio_id = $2 AND anio = $3 AND mes = $4
+      LIMIT 1
+      `,
+      [clubId, socioId, anio, mes]
+    );
+
+    if (rPrev.rowCount) {
+      const prev = rPrev.rows[0];
+      const prevDetalle = Array.isArray(prev.detalle_pago) ? prev.detalle_pago : [];
+      const mergedDetalle = prevDetalle.filter(d => d.plan_clases_pago_id !== pagoId);
+
+      const montoPagado = mergedDetalle
+        .filter(d => d.seleccionado === true)
+        .reduce((acc, d) => acc + Number(d.monto || 0), 0);
+
+      const itemsCuotaSocial = mergedDetalle.filter(d => d.tipo !== 'plan_clases' && d.tipo !== 'plan_actividad');
+      const pagoCompleto = itemsCuotaSocial.length > 0
+        ? itemsCuotaSocial.every(d => d.seleccionado === true)
+        : false;
+
+      const montoTeoricoNuevo = Math.max(0, Number(prev.monto_total_teorico || 0) - Number(pago.monto));
+
+      await db.query(
+        `
+        UPDATE pagos_mensuales
+        SET monto = $1, detalle_pago = $2, monto_total_teorico = $3,
+            monto_pagado = $1, pago_completo = $4
+        WHERE id = $5
+        `,
+        [montoPagado, JSON.stringify(mergedDetalle), montoTeoricoNuevo, pagoCompleto, prev.id]
+      );
+    }
+
+    await db.query(`DELETE FROM planes_clases_pagos WHERE id = $1`, [pagoId]);
+
+    await db.query('COMMIT');
+    res.json({ ok: true });
+  } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ POST revertir-pago plan-clases', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ===============================
 // LISTAR / BUSCAR / FILTRAR (+ pago_al_dia)
 // ===============================
 router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) => {

@@ -867,6 +867,440 @@ async function eliminarPlanCuotasUI() {
   }
 }
 
+// =============================
+// PLAN DE CLASES (PAQUETE) — por socio + actividad
+// =============================
+let planClasesSocioId = null;          // socio para el que está abierto el modal
+let planClasesPlanesSocio = [];        // todos los paquetes activos del socio, cacheados al abrir
+let planClasesPlanIdActual = null;     // id del paquete que se está viendo/editando (null = todavía no existe)
+let planClasesRegistroActual = [];     // clases tomadas del paquete actual
+let planClasesPagosActual = [];        // pagos parciales del paquete actual
+let planClasesCuentasCache = [];       // cuentas $ (responsables) para el select de pago
+
+function fillPlanClasesActividadSelect() {
+  const sel = $('planClasesActividad');
+  if (!sel) return;
+  const valorPrevio = sel.value;
+  const actividadesPorClases = actividadesAdicionalesConfigCache.filter(a => a.modalidad_pago === 'por_clases');
+  sel.innerHTML = '<option value="">Seleccionar actividad…</option>' +
+    actividadesPorClases.map(a =>
+      `<option value="${escapeHtml(String(a.id))}">${escapeHtml(a.nombre || '')}</option>`
+    ).join('');
+  if (valorPrevio) sel.value = valorPrevio;
+}
+
+async function loadCuentasPlanClases() {
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(`/club/${clubId}/config/responsables`);
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudieron cargar las cuentas.');
+    planClasesCuentasCache = data.responsables || data.items || [];
+  } catch (e) {
+    console.error('❌ loadCuentasPlanClases', e);
+    planClasesCuentasCache = [];
+  }
+  const sel = $('planClasesPagoCuenta');
+  if (sel) {
+    sel.innerHTML = '<option value="">Seleccionar…</option>' +
+      planClasesCuentasCache.map(c => `<option value="${escapeHtml(String(c.id))}">${escapeHtml(c.nombre || '')}</option>`).join('');
+  }
+}
+
+async function abrirModalPlanClases() {
+  if (!editingId) {
+    alert('Guardá el socio primero para poder configurar un plan de clases.');
+    return;
+  }
+
+  planClasesSocioId = editingId;
+  planClasesPlanIdActual = null;
+  planClasesRegistroActual = [];
+  planClasesPagosActual = [];
+
+  if (!actividadesAdicionalesConfigCache.length) {
+    await loadActividadesAdicionalesConfig().catch(() => {});
+  }
+  fillPlanClasesActividadSelect();
+  await loadCuentasPlanClases().catch(() => {});
+
+  $('planClasesCantidad').value = '';
+  $('planClasesMonto').value = '';
+  $('planClasesFechaInicio').value = '';
+  $('planClasesActividad').value = '';
+  $('planClasesPagoMonto').value = '';
+  $('planClasesPagoCuenta').value = '';
+  $('planClasesPagoFecha').value = '';
+
+  $('planClasesEstado').textContent = 'Elegí una actividad.';
+  renderPlanClasesRegistroTabla([]);
+  renderPlanClasesPagosTabla([]);
+  $('planClasesSaldo').textContent = '';
+  $('btnEliminarPlanClases').style.display = 'none';
+  $('btnRegistrarClaseTomada').disabled = true;
+  $('btnRegistrarPagoClases').disabled = true;
+
+  await cargarPlanesClasesSocio();
+
+  $('modalPlanClases').classList.remove('hidden');
+}
+
+function cerrarModalPlanClases() {
+  $('modalPlanClases').classList.add('hidden');
+}
+
+async function cargarPlanesClasesSocio() {
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(`/club/${clubId}/socios/${planClasesSocioId}/planes-clases`);
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudieron cargar los paquetes.');
+    planClasesPlanesSocio = (data.planes || []).filter(p => p.activo);
+    actualizarEstadoPlanClasesFicha();
+  } catch (e) {
+    console.error('❌ cargarPlanesClasesSocio', e);
+    planClasesPlanesSocio = [];
+  }
+}
+
+// El "paquete vigente" de una actividad es el más nuevo (por si hubo
+// renovaciones); los anteriores quedan en la base como historial pero
+// no se muestran acá.
+function paqueteVigentePorActividad(actividadId) {
+  const planes = planClasesPlanesSocio
+    .filter(p => String(p.actividad_id) === String(actividadId))
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  return planes[0] || null;
+}
+
+// Texto resumen que se ve en la ficha del socio (fuera del modal)
+function actualizarEstadoPlanClasesFicha() {
+  const el = $('socioPlanClasesEstado');
+  if (!el) return;
+  if (!planClasesPlanesSocio.length) {
+    el.textContent = 'Sin plan de clases.';
+    return;
+  }
+  const actividadIds = [...new Set(planClasesPlanesSocio.map(p => String(p.actividad_id)))];
+  const resumen = actividadIds.map(id => {
+    const p = paqueteVigentePorActividad(id);
+    return `${p.actividad_nombre}: ${p.clases_restantes} de ${p.cantidad_clases} clases restantes`;
+  }).join(' · ');
+  el.textContent = `Plan de clases — ${resumen}.`;
+}
+
+function onPlanClasesActividadChange() {
+  const actividadId = $('planClasesActividad').value;
+
+  if (!actividadId) {
+    planClasesPlanIdActual = null;
+    planClasesRegistroActual = [];
+    planClasesPagosActual = [];
+    $('planClasesEstado').textContent = 'Elegí una actividad.';
+    $('planClasesCantidad').value = '';
+    $('planClasesMonto').value = '';
+    $('planClasesFechaInicio').value = '';
+    renderPlanClasesRegistroTabla([]);
+    renderPlanClasesPagosTabla([]);
+    $('planClasesSaldo').textContent = '';
+    $('btnEliminarPlanClases').style.display = 'none';
+    $('btnRegistrarClaseTomada').disabled = true;
+    $('btnRegistrarPagoClases').disabled = true;
+    return;
+  }
+
+  const plan = paqueteVigentePorActividad(actividadId);
+
+  if (plan) {
+    planClasesPlanIdActual = plan.id;
+    planClasesRegistroActual = (plan.registro || []).map(r => ({ ...r }));
+    planClasesPagosActual = (plan.pagos || []).map(pg => ({ ...pg }));
+
+    $('planClasesCantidad').value = plan.cantidad_clases ?? '';
+    $('planClasesMonto').value = plan.monto_total ?? '';
+    $('planClasesFechaInicio').value = plan.fecha_inicio ? String(plan.fecha_inicio).slice(0, 10) : '';
+
+    $('planClasesEstado').textContent =
+      `Paquete vigente: ${plan.clases_restantes} de ${plan.cantidad_clases} clases restantes. ` +
+      `Pagado $ ${Number(plan.monto_pagado || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })} de $ ${Number(plan.monto_total || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`;
+
+    $('btnEliminarPlanClases').style.display = '';
+    $('btnRegistrarClaseTomada').disabled = false;
+    $('btnRegistrarPagoClases').disabled = false;
+  } else {
+    planClasesPlanIdActual = null;
+    planClasesRegistroActual = [];
+    planClasesPagosActual = [];
+    $('planClasesCantidad').value = '';
+    $('planClasesMonto').value = '';
+    $('planClasesFechaInicio').value = '';
+    $('planClasesEstado').textContent = 'Sin paquete para esta actividad todavía.';
+    $('btnEliminarPlanClases').style.display = 'none';
+    $('btnRegistrarClaseTomada').disabled = true;
+    $('btnRegistrarPagoClases').disabled = true;
+  }
+
+  renderPlanClasesRegistroTabla(planClasesRegistroActual);
+  renderPlanClasesPagosTabla(planClasesPagosActual);
+  actualizarSaldoPlanClases();
+}
+
+function actualizarSaldoPlanClases() {
+  const el = $('planClasesSaldo');
+  if (!el) return;
+  if (!planClasesPlanIdActual) {
+    el.textContent = '';
+    return;
+  }
+  const monto = Number($('planClasesMonto').value) || 0;
+  const pagado = planClasesPagosActual.reduce((acc, pg) => acc + Number(pg.monto || 0), 0);
+  const saldo = Math.round((monto - pagado) * 100) / 100;
+  el.textContent = `Pagado $ ${pagado.toLocaleString('es-AR', { minimumFractionDigits: 2 })} — Saldo pendiente $ ${saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`;
+}
+
+function renderPlanClasesRegistroTabla(registro) {
+  const body = $('planClasesRegistroTablaBody');
+  if (!body) return;
+
+  if (!registro.length) {
+    body.innerHTML = '<tr><td colspan="3" class="muted small" style="padding:10px;">Sin clases registradas.</td></tr>';
+    return;
+  }
+
+  const ordenadas = [...registro].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+  body.innerHTML = ordenadas.map((r, idx) => `
+    <tr data-idx="${idx}">
+      <td style="padding:4px 8px;">${idx + 1}</td>
+      <td style="padding:4px 8px;">${escapeHtml(String(r.fecha || '').slice(0, 10))}</td>
+      <td style="padding:4px 8px;">
+        <button type="button" class="btn btn-secondary" data-accion="deshacer" style="padding:2px 8px; font-size:11px;">Deshacer</button>
+      </td>
+    </tr>
+  `).join('');
+
+  body.querySelectorAll('tr[data-idx]').forEach(tr => {
+    const idx = Number(tr.dataset.idx);
+    tr.querySelector('[data-accion="deshacer"]')?.addEventListener('click', () => {
+      deshacerClaseUI(ordenadas[idx].id);
+    });
+  });
+}
+
+function renderPlanClasesPagosTabla(pagos) {
+  const body = $('planClasesPagosTablaBody');
+  if (!body) return;
+
+  if (!pagos.length) {
+    body.innerHTML = '<tr><td colspan="4" class="muted small" style="padding:10px;">Sin pagos registrados.</td></tr>';
+    return;
+  }
+
+  const ordenados = [...pagos].sort((a, b) => new Date(a.fecha_pago) - new Date(b.fecha_pago));
+
+  body.innerHTML = ordenados.map((pg, idx) => `
+    <tr data-idx="${idx}">
+      <td style="padding:4px 8px;">${escapeHtml(String(pg.fecha_pago || '').slice(0, 10))}</td>
+      <td style="padding:4px 8px;">${escapeHtml(pg.cuenta || '')}</td>
+      <td style="padding:4px 8px;">$ ${Number(pg.monto || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+      <td style="padding:4px 8px;">
+        <button type="button" class="btn btn-secondary" data-accion="deshacer" style="padding:2px 8px; font-size:11px;">Deshacer</button>
+      </td>
+    </tr>
+  `).join('');
+
+  body.querySelectorAll('tr[data-idx]').forEach(tr => {
+    const idx = Number(tr.dataset.idx);
+    tr.querySelector('[data-accion="deshacer"]')?.addEventListener('click', () => {
+      deshacerPagoClasesUI(ordenados[idx].id);
+    });
+  });
+}
+
+async function guardarPaqueteClasesUI() {
+  const actividadId = $('planClasesActividad').value;
+  if (!actividadId) {
+    alert('Elegí la actividad.');
+    return;
+  }
+  const cantidad = Number($('planClasesCantidad').value);
+  const monto = Number($('planClasesMonto').value);
+  const fechaInicio = $('planClasesFechaInicio').value || null;
+
+  if (!cantidad || cantidad <= 0) {
+    alert('Ingresá la cantidad de clases del paquete.');
+    return;
+  }
+  if (monto === '' || monto == null || isNaN(monto) || monto < 0) {
+    alert('Ingresá el monto del paquete.');
+    return;
+  }
+
+  const clubId = getActiveClubId();
+  try {
+    let res;
+    if (planClasesPlanIdActual) {
+      res = await fetchAuth(`/club/${clubId}/planes-clases/${planClasesPlanIdActual}`, {
+        method: 'PUT',
+        body: JSON.stringify({ cantidad_clases: cantidad, monto_total: monto, fecha_inicio: fechaInicio }),
+        json: true
+      });
+    } else {
+      res = await fetchAuth(`/club/${clubId}/socios/${planClasesSocioId}/planes-clases`, {
+        method: 'POST',
+        body: JSON.stringify({ actividad_id: actividadId, cantidad_clases: cantidad, monto_total: monto, fecha_inicio: fechaInicio }),
+        json: true
+      });
+    }
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo guardar el paquete.');
+
+    alert('Paquete guardado.');
+    await cargarPlanesClasesSocio();
+    onPlanClasesActividadChange();
+  } catch (e) {
+    console.error('❌ guardarPaqueteClasesUI', e);
+    alert(e.message || 'No se pudo guardar el paquete.');
+  }
+}
+
+function nuevoPaqueteClasesUI() {
+  const actividadId = $('planClasesActividad').value;
+  if (!actividadId) {
+    alert('Elegí primero la actividad.');
+    return;
+  }
+  planClasesPlanIdActual = null;
+  planClasesRegistroActual = [];
+  planClasesPagosActual = [];
+  $('planClasesCantidad').value = '';
+  $('planClasesMonto').value = '';
+  $('planClasesFechaInicio').value = '';
+  $('planClasesEstado').textContent = 'Nuevo paquete (renovación): completá los datos y guardá.';
+  $('btnEliminarPlanClases').style.display = 'none';
+  $('btnRegistrarClaseTomada').disabled = true;
+  $('btnRegistrarPagoClases').disabled = true;
+  renderPlanClasesRegistroTabla([]);
+  renderPlanClasesPagosTabla([]);
+  $('planClasesSaldo').textContent = '';
+}
+
+async function registrarClaseTomadaUI() {
+  if (!planClasesPlanIdActual) return;
+
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(`/club/${clubId}/planes-clases/${planClasesPlanIdActual}/registrar-clase`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+      json: true
+    });
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo registrar la clase.');
+
+    await cargarPlanesClasesSocio();
+    onPlanClasesActividadChange();
+  } catch (e) {
+    console.error('❌ registrarClaseTomadaUI', e);
+    alert(e.message || 'No se pudo registrar la clase.');
+  }
+}
+
+async function deshacerClaseUI(registroId) {
+  if (!planClasesPlanIdActual) return;
+  if (!confirm('¿Deshacer esta clase registrada?')) return;
+
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(`/club/${clubId}/planes-clases/${planClasesPlanIdActual}/registro/${registroId}`, { method: 'DELETE' });
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo deshacer la clase.');
+
+    await cargarPlanesClasesSocio();
+    onPlanClasesActividadChange();
+  } catch (e) {
+    console.error('❌ deshacerClaseUI', e);
+    alert(e.message || 'No se pudo deshacer la clase.');
+  }
+}
+
+async function registrarPagoClasesUI() {
+  if (!planClasesPlanIdActual) {
+    alert('Guardá el paquete primero para poder registrar un pago.');
+    return;
+  }
+  const monto = Number($('planClasesPagoMonto').value);
+  const cuentaId = $('planClasesPagoCuenta').value;
+  const fechaPago = $('planClasesPagoFecha').value || null;
+
+  if (!monto || monto <= 0) {
+    alert('Ingresá un monto válido.');
+    return;
+  }
+  if (!cuentaId) {
+    alert('Elegí la cuenta con la que se cobró.');
+    return;
+  }
+
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(`/club/${clubId}/planes-clases/${planClasesPlanIdActual}/registrar-pago`, {
+      method: 'POST',
+      body: JSON.stringify({ monto, cuenta_id: cuentaId, fecha_pago: fechaPago }),
+      json: true
+    });
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo registrar el pago.');
+
+    $('planClasesPagoMonto').value = '';
+    $('planClasesPagoCuenta').value = '';
+    $('planClasesPagoFecha').value = '';
+
+    await cargarPlanesClasesSocio();
+    onPlanClasesActividadChange();
+  } catch (e) {
+    console.error('❌ registrarPagoClasesUI', e);
+    alert(e.message || 'No se pudo registrar el pago.');
+  }
+}
+
+async function deshacerPagoClasesUI(pagoId) {
+  if (!planClasesPlanIdActual) return;
+  if (!confirm('¿Deshacer este pago? Se va a sacar de la recaudación del club.')) return;
+
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(`/club/${clubId}/planes-clases/${planClasesPlanIdActual}/pagos/${pagoId}/revertir-pago`, { method: 'POST' });
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo deshacer el pago.');
+
+    await cargarPlanesClasesSocio();
+    onPlanClasesActividadChange();
+  } catch (e) {
+    console.error('❌ deshacerPagoClasesUI', e);
+    alert(e.message || 'No se pudo deshacer el pago.');
+  }
+}
+
+async function eliminarPlanClasesUI() {
+  if (!planClasesPlanIdActual) return;
+  if (!confirm('¿Eliminar este paquete? Esta acción no se puede deshacer.')) return;
+
+  const clubId = getActiveClubId();
+  try {
+    const res = await fetchAuth(`/club/${clubId}/planes-clases/${planClasesPlanIdActual}`, { method: 'DELETE' });
+    const data = await safeJson(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo eliminar el paquete.');
+
+    alert('Paquete eliminado.');
+    await cargarPlanesClasesSocio();
+    onPlanClasesActividadChange();
+  } catch (e) {
+    console.error('❌ eliminarPlanClasesUI', e);
+    alert(e.message || 'No se pudo eliminar el paquete.');
+  }
+}
+
 async function openGrupoFamiliarModal() {
   const modal = $('modalGrupoFamiliar');
   if (!modal) return;
@@ -1731,6 +2165,18 @@ setActividadesAdicionalesSeleccionadas([]);
   const estadoPlanCuotas = $('socioPlanCuotasEstado');
   if (estadoPlanCuotas) estadoPlanCuotas.textContent = 'Guardá el socio para poder configurar un plan.';
 
+  // ✅ Plan de clases (paquete): solo tiene sentido con el socio ya guardado
+  planClasesSocioId = null;
+  planClasesPlanesSocio = [];
+  const chkPlanClases = $('socioTienePlanClases');
+  if (chkPlanClases) chkPlanClases.checked = false;
+  const wrapPlanClases = $('socioPlanClasesWrap');
+  if (wrapPlanClases) wrapPlanClases.style.display = 'none';
+  const btnPlanClases = $('btnConfigurarPlanClases');
+  if (btnPlanClases) btnPlanClases.disabled = true;
+  const estadoPlanClases = $('socioPlanClasesEstado');
+  if (estadoPlanClases) estadoPlanClases.textContent = 'Guardá el socio para poder configurar un paquete.';
+
   $('modalSocio').classList.remove('hidden');
 }
 
@@ -1886,6 +2332,22 @@ setActividadesAdicionalesSeleccionadas(adicionales);
   const tienePlan = planCuotasPlanesSocio.length > 0;
   if (chkPlanCuotas) chkPlanCuotas.checked = tienePlan;
   if (wrapPlanCuotas) wrapPlanCuotas.style.display = tienePlan ? 'block' : 'none';
+
+  // ✅ Plan de clases (paquete): ya se puede configurar (el socio existe)
+  planClasesSocioId = socio.id;
+  const btnPlanClases = $('btnConfigurarPlanClases');
+  if (btnPlanClases) btnPlanClases.disabled = false;
+  const estadoPlanClases = $('socioPlanClasesEstado');
+  if (estadoPlanClases) estadoPlanClases.textContent = 'Cargando...';
+
+  const chkPlanClases = $('socioTienePlanClases');
+  const wrapPlanClases = $('socioPlanClasesWrap');
+
+  await cargarPlanesClasesSocio().catch(() => {});
+
+  const tienePlanClases = planClasesPlanesSocio.length > 0;
+  if (chkPlanClases) chkPlanClases.checked = tienePlanClases;
+  if (wrapPlanClases) wrapPlanClases.style.display = tienePlanClases ? 'block' : 'none';
 
   $('modalSocio').classList.remove('hidden');
 }
@@ -3157,6 +3619,23 @@ $('btnGenerarCuotasSugeridas')?.addEventListener('click', generarCuotasSugeridas
 $('btnAgregarCuotaManual')?.addEventListener('click', agregarCuotaManualUI);
 $('btnGuardarPlanCuotas')?.addEventListener('click', guardarPlanCuotasUI);
 $('btnEliminarPlanCuotas')?.addEventListener('click', eliminarPlanCuotasUI);
+
+// ✅ Plan de clases (paquete)
+$('socioTienePlanClases')?.addEventListener('change', function () {
+  const wrap = $('socioPlanClasesWrap');
+  if (wrap) wrap.style.display = this.checked ? 'block' : 'none';
+});
+
+$('btnConfigurarPlanClases')?.addEventListener('click', abrirModalPlanClases);
+$('btnPlanClasesClose')?.addEventListener('click', cerrarModalPlanClases);
+$('btnPlanClasesCancelar')?.addEventListener('click', cerrarModalPlanClases);
+$('planClasesActividad')?.addEventListener('change', onPlanClasesActividadChange);
+$('btnGuardarPaqueteClases')?.addEventListener('click', guardarPaqueteClasesUI);
+$('btnNuevoPaqueteClases')?.addEventListener('click', nuevoPaqueteClasesUI);
+$('btnEliminarPlanClases')?.addEventListener('click', eliminarPlanClasesUI);
+$('btnRegistrarClaseTomada')?.addEventListener('click', registrarClaseTomadaUI);
+$('btnRegistrarPagoClases')?.addEventListener('click', registrarPagoClasesUI);
+$('planClasesMonto')?.addEventListener('input', actualizarSaldoPlanClases);
 
 $('grupoFamiliarSearch')?.addEventListener('input', (e) => {
   renderGrupoFamiliarLista(e.target.value);

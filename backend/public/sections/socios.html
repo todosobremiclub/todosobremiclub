@@ -288,6 +288,30 @@
   </div>
 </div>
 
+<!-- =========================
+   PLAN DE CLASES (PAQUETE)
+   (actividades que se pagan por paquete de clases, ej: clases sueltas
+   de equitación que no son fijas en el calendario)
+========================= -->
+<div class="col-span-4" style="margin-top:4px;">
+  <label class="checkbox-inline" style="display:flex; align-items:center; gap:8px;">
+    <input type="checkbox" id="socioTienePlanClases">
+    Tiene plan de clases (paquete)
+  </label>
+  <div class="muted small" style="margin-top:4px;">
+    Para actividades que se pagan por paquete de clases, no por mes (ej: clases sueltas). No modifica la cuota normal del club.
+  </div>
+</div>
+
+<div id="socioPlanClasesWrap" class="col-span-4" style="display:none; margin-top:6px;">
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <button type="button" id="btnConfigurarPlanClases" class="btn btn-secondary" disabled>
+      Configurar plan de clases
+    </button>
+    <span id="socioPlanClasesEstado" class="muted small">Guardá el socio para poder configurar un paquete.</span>
+  </div>
+</div>
+
           <!-- Categoría -->
           <div class="col-span-2">
             <label>Categoría *</label>
@@ -524,6 +548,139 @@
           <button type="button" id="btnPlanCuotasCancelar" class="btn btn-secondary">Cerrar</button>
           <button type="button" id="btnGuardarPlanCuotas" class="btn btn-primary">Guardar plan</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL PLAN DE CLASES (PAQUETE) ================= -->
+  <div id="modalPlanClases" class="modal hidden">
+    <div class="modal-content" style="max-width: 780px; width: 95vw; max-height:90vh; display:flex; flex-direction:column; padding:0;">
+
+      <!-- header fijo -->
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:16px 16px 0 16px;">
+        <h3 style="margin:0;">Plan de clases (paquete)</h3>
+        <button id="btnPlanClasesClose" class="btn btn-secondary">✕</button>
+      </div>
+
+      <!-- contenido con scroll propio -->
+      <div style="overflow-y:auto; padding:0 16px; flex:1 1 auto;">
+
+        <p class="muted small" style="margin-top:8px;">
+          Para actividades que se pagan por paquete de clases (ej: clases sueltas de equitación, sin fecha fija).
+          Es un paquete aparte, específico de este socio y esta actividad: no modifica la cuota normal del club.
+          El "quedan disponibles" es solo informativo: no bloquea nada.
+        </p>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:12px;">
+          <div>
+            <label>Actividad *</label>
+            <select id="planClasesActividad">
+              <option value="">Seleccionar actividad…</option>
+            </select>
+          </div>
+          <div>
+            <label>Estado del paquete</label>
+            <div id="planClasesEstado" class="muted small" style="margin-top:8px;">Elegí una actividad.</div>
+          </div>
+        </div>
+
+        <div id="planClasesDatos" style="margin-top:16px; border-top:1px solid #e5e7eb; padding-top:12px;">
+          <label class="muted small">Datos del paquete</label>
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-top:6px;">
+            <div>
+              <label>Cantidad de clases</label>
+              <input id="planClasesCantidad" type="number" min="1" placeholder="Ej: 4">
+            </div>
+            <div>
+              <label>Monto del paquete</label>
+              <input id="planClasesMonto" type="number" min="0" step="0.01" placeholder="Ej: 20000">
+            </div>
+            <div>
+              <label>Fecha de inicio</label>
+              <input id="planClasesFechaInicio" type="date">
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+            <button type="button" id="btnGuardarPaqueteClases" class="btn btn-primary">Guardar paquete</button>
+            <button type="button" id="btnNuevoPaqueteClases" class="btn btn-secondary">+ Nuevo paquete (renovar)</button>
+            <button type="button" id="btnEliminarPlanClases" class="btn btn-secondary" style="display:none; color:#b91c1c;">
+              Eliminar paquete
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="margin:0;">Clases tomadas</label>
+            <button type="button" id="btnRegistrarClaseTomada" class="btn btn-secondary" style="padding:4px 10px;" disabled>
+              + Registrar clase tomada
+            </button>
+          </div>
+
+          <div style="margin-top:8px; border:1px solid #e5e7eb; border-radius:8px; overflow-x:auto; max-height:220px; overflow-y:auto;">
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background:#fafafa; text-align:left; position:sticky; top:0;">
+                  <th style="padding:6px 8px;">#</th>
+                  <th style="padding:6px 8px;">Fecha</th>
+                  <th style="padding:6px 8px;"></th>
+                </tr>
+              </thead>
+              <tbody id="planClasesRegistroTablaBody">
+                <tr><td colspan="3" class="muted small" style="padding:10px;">Sin clases registradas.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="margin-top:16px; margin-bottom:16px;">
+          <label style="margin:0;">Pagos del paquete</label>
+
+          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px; align-items:end;">
+            <div>
+              <label>Monto</label>
+              <input id="planClasesPagoMonto" type="number" min="0" step="0.01" placeholder="Ej: 10000">
+            </div>
+            <div>
+              <label>Cuenta</label>
+              <select id="planClasesPagoCuenta">
+                <option value="">Seleccionar…</option>
+              </select>
+            </div>
+            <div>
+              <label>Fecha de pago</label>
+              <input id="planClasesPagoFecha" type="date">
+            </div>
+            <div>
+              <button type="button" id="btnRegistrarPagoClases" class="btn btn-primary" style="width:100%;" disabled>
+                Registrar pago
+              </button>
+            </div>
+          </div>
+
+          <div style="margin-top:10px; border:1px solid #e5e7eb; border-radius:8px; overflow-x:auto; max-height:220px; overflow-y:auto;">
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background:#fafafa; text-align:left; position:sticky; top:0;">
+                  <th style="padding:6px 8px;">Fecha</th>
+                  <th style="padding:6px 8px;">Cuenta</th>
+                  <th style="padding:6px 8px;">Monto</th>
+                  <th style="padding:6px 8px;"></th>
+                </tr>
+              </thead>
+              <tbody id="planClasesPagosTablaBody">
+                <tr><td colspan="4" class="muted small" style="padding:10px;">Sin pagos registrados.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="planClasesSaldo" class="muted small" style="margin-top:6px;"></div>
+        </div>
+
+      </div>
+
+      <!-- pie fijo -->
+      <div class="modal-actions footer" style="display:flex; justify-content:flex-end; gap:10px; padding:12px 16px; border-top:1px solid #e5e7eb;">
+        <button type="button" id="btnPlanClasesCancelar" class="btn btn-secondary">Cerrar</button>
       </div>
     </div>
   </div>
