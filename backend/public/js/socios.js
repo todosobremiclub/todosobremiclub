@@ -933,11 +933,20 @@ async function abrirModalPlanClases() {
   planClasesActividadIdActual = null;
   planClasesActividadNombreActual = '';
 
-  if (!actividadesAdicionalesConfigCache.length) {
-    await loadActividadesAdicionalesConfig().catch(() => {});
-  }
-  if (!actividadesConfigCache.length) {
-    await loadActividadesConfig().catch(() => {});
+  // ✅ Siempre se recargan (no solo "si está vacío"): estos catálogos se
+  // pueden haber editado en Configuración (ej: cambiar la modalidad de
+  // pago) en otra pestaña/sección sin recargar toda la página, y el modal
+  // necesita el dato fresco para decidir en qué modo abrir.
+  // Recargar el select de "Actividad" de la ficha (socioActividad) reconstruye
+  // sus <option> y pierde la selección actual, así que la guardamos antes y
+  // la restauramos después.
+  const actividadFichaPrevia = $('socioActividad')?.value ?? '';
+  await loadActividadesAdicionalesConfig().catch(() => {});
+  await loadActividadesConfig().catch(() => {});
+  if ($('socioActividad')) {
+    $('socioActividad').value = actividadFichaPrevia;
+    ensureActividadOption(actividadFichaPrevia);
+    $('socioActividad').value = actividadFichaPrevia;
   }
   await loadCuentasPlanClases().catch(() => {});
 
