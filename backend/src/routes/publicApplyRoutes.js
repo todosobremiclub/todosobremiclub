@@ -44,9 +44,11 @@ router.get('/club/:clubId/apply/options', async (req, res) => {
     const ok = await validateClubToken(clubId, token);
     if (!ok) return res.status(403).json({ ok: false, error: 'Token inválido' });
 
-    const [rActs, rCats] = await Promise.all([
+    const [rActs, rCats, rActsAdic] = await Promise.all([
       db.query(`SELECT nombre FROM actividades WHERE club_id=$1 AND activo=true ORDER BY nombre ASC`, [clubId]),
-      db.query(`SELECT nombre FROM categorias_deportivas WHERE club_id=$1 AND activo=true ORDER BY nombre ASC`, [clubId])
+      db.query(`SELECT nombre FROM categorias_deportivas WHERE club_id=$1 AND activo=true ORDER BY nombre ASC`, [clubId]),
+      // ✅ NUEVO: actividades adicionales del club, para el select opcional del formulario público
+      db.query(`SELECT nombre FROM actividades_adicionales WHERE club_id=$1 AND activo=true ORDER BY nombre ASC`, [clubId])
     ]);
 
 const rClub = await db.query(
@@ -79,6 +81,7 @@ const club = rClub.rowCount ? rClub.rows[0] : null;
   } : null,
   actividades: (rActs.rows || []).map(x => x.nombre).filter(Boolean),
   categorias: (rCats.rows || []).map(x => x.nombre).filter(Boolean),
+  actividadesAdicionales: (rActsAdic.rows || []).map(x => x.nombre).filter(Boolean), // ✅ NUEVO
 });
   } catch (e) {
     console.error('❌ options apply', e);
@@ -101,7 +104,8 @@ router.post('/club/:clubId/apply', async (req, res) => {
   nombre, apellido, dni, actividad, categoria,
   telefono, email, direccion, fecha_nacimiento,
   foto_base64, foto_mimetype,
-  tipo
+  tipo,
+  actividad_adicional // ✅ NUEVO, opcional
 } = req.body ?? {};
 
     // ✅ tipoFinal SIEMPRE al principio (evita "Cannot access before initialization")
@@ -240,12 +244,17 @@ if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       ? (socioRow?.fecha_nacimiento ?? null)
       : fnISO;
 
+    // ✅ NUEVO: actividad adicional opcional (no aplica en modo 'foto')
+    const actividadAdicionalFinal = (tipoFinal === 'foto')
+      ? null
+      : (norm(actividad_adicional) || null);
+
     const r = await db.query(
       `
       INSERT INTO socios_pendientes
-  (club_id, nombre, apellido, dni, actividad, categoria, telefono, email, direccion, fecha_nacimiento, foto_url, tipo, estado, created_at, updated_at)
+  (club_id, nombre, apellido, dni, actividad, actividad_adicional, categoria, telefono, email, direccion, fecha_nacimiento, foto_url, tipo, estado, created_at, updated_at)
 VALUES
-  ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pendiente', now(), now())
+  ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pendiente', now(), now())
       RETURNING id
       `,
       [
@@ -254,6 +263,7 @@ VALUES
   apellidoFinal,
   dniNorm,
   actividadFinal,
+  actividadAdicionalFinal,
   categoriaFinal,
   telefonoFinal,
   email ? norm(email) : null,

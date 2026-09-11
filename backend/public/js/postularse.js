@@ -57,6 +57,7 @@ applyClubBranding(data.club || null);
 
     const act = $('actividad');
     const cat = $('categoria');
+    const actAdic = $('actividad_adicional');
 
     if (!act || !cat) {
       throw new Error('No se encontraron los selects de actividad/categoría');
@@ -69,6 +70,13 @@ applyClubBranding(data.club || null);
     cat.innerHTML =
       '<option value="">Seleccionar...</option>' +
       (data.categorias || []).map(x => `<option>${x}</option>`).join('');
+
+    // ✅ NUEVO: actividad adicional (opcional)
+    if (actAdic) {
+      actAdic.innerHTML =
+        '<option value="">(Ninguna)</option>' +
+        (data.actividadesAdicionales || []).map(x => `<option>${x}</option>`).join('');
+    }
   }
 
   function showMsg(text, ok) {
@@ -114,6 +122,7 @@ applyClubBranding(data.club || null);
       apellido: $('apellido')?.value?.trim() || '',
       dni: onlyDigits($('dni')?.value),
       actividad: $('actividad')?.value?.trim() || '',
+      actividad_adicional: $('actividad_adicional')?.value?.trim() || '', // ✅ NUEVO, opcional
       categoria: $('categoria')?.value?.trim() || '',
       telefono: $('telefono')?.value?.trim() || '',
       email: $('email')?.value?.trim() || '',

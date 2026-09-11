@@ -21,7 +21,7 @@ router.get('/:clubId/pendientes', requireAuth, async (req, res) => {
   try {
     const { clubId } = req.params;
     const r = await db.query(
-      `SELECT id, nombre, apellido, dni, actividad, categoria, telefono, direccion,
+      `SELECT id, nombre, apellido, dni, actividad, actividad_adicional, categoria, telefono, direccion,
               fecha_nacimiento, foto_url, tipo, estado, created_at
        FROM socios_pendientes
        WHERE club_id=$1 AND estado='pendiente'
@@ -44,7 +44,7 @@ router.get('/:clubId/pendientes/:id/comparar', requireAuth, requireClubAccess, a
     const { clubId, id } = req.params;
 
     const rP = await db.query(
-      `SELECT id, dni, nombre, apellido, actividad, categoria, telefono, email,
+      `SELECT id, dni, nombre, apellido, actividad, actividad_adicional, categoria, telefono, email,
               direccion, fecha_nacimiento, foto_url, tipo, estado
        FROM socios_pendientes
        WHERE id=$1 AND club_id=$2
@@ -177,11 +177,35 @@ if (tipo === 'actualizacion') {
 
   const socioId = rSoc.rows[0].id;
 
+  // ✅ NUEVO: si la postulación trae actividad_adicional, se agrega a las
+  // actividades adicionales del socio (no pisa las ya cargadas desde el panel admin).
+  let actividadesAdicionalesUpdate = null;
+  let tieneActividadesAdicionalesUpdate = null;
+  if (p.actividad_adicional) {
+    const rActual = await db.query(
+      `SELECT tiene_actividades_adicionales, actividades_adicionales FROM socios WHERE id=$1`,
+      [socioId]
+    );
+    let actuales = [];
+    try {
+      actuales = rActual.rows[0]?.actividades_adicionales
+        ? JSON.parse(rActual.rows[0].actividades_adicionales)
+        : [];
+    } catch {
+      actuales = [];
+    }
+    if (!actuales.includes(p.actividad_adicional)) actuales.push(p.actividad_adicional);
+    actividadesAdicionalesUpdate = JSON.stringify(actuales);
+    tieneActividadesAdicionalesUpdate = true;
+  }
+
   await db.query(
     `UPDATE socios
      SET nombre=$1, apellido=$2, actividad=$3, categoria=$4,
          telefono=$5, email=$6, direccion=$7, fecha_nacimiento=$8,
          foto_url=COALESCE($9, foto_url),
+         tiene_actividades_adicionales=COALESCE($12, tiene_actividades_adicionales),
+         actividades_adicionales=COALESCE($13, actividades_adicionales),
          updated_at=NOW()
      WHERE id=$10 AND club_id=$11`,
     [
@@ -195,7 +219,9 @@ if (tipo === 'actualizacion') {
       p.fecha_nacimiento,
       p.foto_url,
       socioId,
-      clubId
+      clubId,
+      tieneActividadesAdicionalesUpdate,
+      actividadesAdicionalesUpdate
     ]
   );
 
@@ -271,15 +297,24 @@ const numero = candidate;
 
     // 5) Insertar socio definitivo (mínimo y compatible)
     // Nota: fecha_ingreso queda null, foto_url se puede agregar luego si querés.
+    // ✅ NUEVO: si la postulación trajo actividad_adicional, se carga como
+    // actividad adicional del socio nuevo.
+    const tieneActividadesAdicionalesAlta = !!p.actividad_adicional;
+    const actividadesAdicionalesAlta = tieneActividadesAdicionalesAlta
+      ? JSON.stringify([p.actividad_adicional])
+      : null;
+
     let rIns;
     try {
       rIns = await db.query(
         `INSERT INTO socios (
           club_id, numero_socio, dni, nombre, apellido,
           telefono, direccion, email, fecha_nacimiento,
-          activo, becado, categoria, actividad
+          activo, becado, categoria, actividad,
+          tiene_actividades_adicionales, actividades_adicionales
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,true,false,$10,$11
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,true,false,$10,$11,
+          $12,$13
         )
         RETURNING id`,
         [
@@ -293,7 +328,9 @@ const numero = candidate;
           p.email ?? null,
           p.fecha_nacimiento,
           p.categoria,
-          p.actividad
+          p.actividad,
+          tieneActividadesAdicionalesAlta,
+          actividadesAdicionalesAlta
         ]
       );
     } catch (e) {
