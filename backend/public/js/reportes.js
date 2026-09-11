@@ -42,10 +42,12 @@
   });
 
   const actividadesState = {
-    modo: 'actividades',           // 'actividades' | 'categorias'
+    dimension: 'principal',        // ✅ NUEVO: 'principal' | 'adicionales'
+    modo: 'actividades',           // 'actividades' | 'categorias' (solo aplica a dimension 'principal')
     actividadSeleccionada: null,
     actividadesRows: [],
-    categoriasByActividad: {}      // { actividad: [ { categoria, cantidad } ] }
+    categoriasByActividad: {},     // { actividad: [ { categoria, cantidad } ] }
+    adicionalesRows: []            // ✅ NUEVO: [ { actividad_adicional, cantidad } ]
   };
 
 const impagosState = {
@@ -426,6 +428,7 @@ function bindLogueadosInteractions() {
     const resetBtn  = $('btnActividadesReset');
     if (!cardTable) return;
 
+    actividadesState.dimension = 'principal';
     actividadesState.modo = 'actividades';
     actividadesState.actividadSeleccionada = null;
     actividadesState.categoriasByActividad = {};
@@ -433,6 +436,7 @@ function bindLogueadosInteractions() {
     if (subtitle) {
       subtitle.textContent = 'Distribución de socios activos por actividad. Hacé click en el gráfico para ver las categorías.';
     }
+    setDimTabsUI();
 
     showLoading(cardTable, 'Cargando actividades...');
 
@@ -449,6 +453,36 @@ function bindLogueadosInteractions() {
       console.error(e);
       showError(cardTable, e.message || 'Error inesperado cargando actividades');
     }
+  }
+
+  // ✅ NUEVO: carga la distribución por actividad adicional
+  async function loadActividadesAdicionalesData() {
+    const cardTable = $('tablaActividades');
+    if (!cardTable) return;
+
+    showLoading(cardTable, 'Cargando actividades adicionales...');
+
+    try {
+      const clubId = getActiveClubId();
+      const { res, data } = await fetchAuth(`/club/${clubId}/reportes/socios-actividades-adicionales`);
+      if (!res.ok || !data.ok) {
+        showError(cardTable, data.error || 'Error cargando actividades adicionales');
+        return;
+      }
+      actividadesState.adicionalesRows = data.rows || [];
+      renderActividadesView();
+    } catch (e) {
+      console.error(e);
+      showError(cardTable, e.message || 'Error inesperado cargando actividades adicionales');
+    }
+  }
+
+  // ✅ NUEVO: refleja qué tab está activa (deshabilitando el botón activo)
+  function setDimTabsUI() {
+    const btnP = $('btnDimPrincipal');
+    const btnA = $('btnDimAdicionales');
+    if (btnP) btnP.disabled = (actividadesState.dimension === 'principal');
+    if (btnA) btnA.disabled = (actividadesState.dimension === 'adicionales');
   }
 
   function destroyChartActividades() {
@@ -476,7 +510,24 @@ function bindLogueadosInteractions() {
     let dataVals    = [];
     let totalSocios = 0;
 
-    if (modo === 'actividades') {
+    if (actividadesState.dimension === 'adicionales') {
+      // ✅ NUEVO: distribución por actividad adicional (un solo nivel, sin drill-down)
+      const rows = actividadesState.adicionalesRows || [];
+      labels      = rows.map(r => r.actividad_adicional || 'Sin actividad adicional');
+      dataVals    = rows.map(r => Number(r.cantidad || 0));
+      totalSocios = rows.reduce((acc, r) => acc + Number(r.cantidad || 0), 0);
+
+      if (subtitle) {
+        subtitle.textContent = rows.length
+          ? 'Distribución de socios activos por actividad adicional (un socio con más de una se cuenta en cada una).'
+          : 'Ningún socio activo tiene actividades adicionales cargadas.';
+      }
+      if (resetBtn) resetBtn.classList.add('hidden');
+      if (detailBody) {
+        detailBody.innerHTML = '';
+      }
+
+    } else if (modo === 'actividades') {
       const rows = actividadesState.actividadesRows || [];
       labels      = rows.map(r => r.actividad || 'Sin actividad');
       dataVals    = rows.map(r => Number(r.cantidad || 0));
@@ -627,6 +678,7 @@ function bindLogueadosInteractions() {
     if (canvas) {
       canvas.addEventListener('click', (evt) => {
         if (!chartActividades) return;
+        if (actividadesState.dimension !== 'principal') return; // ✅ NUEVO: sin drill-down en "Adicionales" por ahora
 
         const points = chartActividades.getElementsAtEventForMode(
           evt,
@@ -650,6 +702,34 @@ function bindLogueadosInteractions() {
           if (row && actividad && row.categoria) {
             loadSociosForActividadCategoria(actividad, row.categoria);
           }
+        }
+      });
+    }
+
+    // ✅ NUEVO: toggle actividad principal / actividades adicionales
+    const btnDimPrincipal   = $('btnDimPrincipal');
+    const btnDimAdicionales = $('btnDimAdicionales');
+
+    if (btnDimPrincipal) {
+      btnDimPrincipal.addEventListener('click', () => {
+        if (actividadesState.dimension === 'principal') return;
+        actividadesState.dimension = 'principal';
+        actividadesState.modo = 'actividades';
+        actividadesState.actividadSeleccionada = null;
+        setDimTabsUI();
+        renderActividadesView();
+      });
+    }
+
+    if (btnDimAdicionales) {
+      btnDimAdicionales.addEventListener('click', async () => {
+        if (actividadesState.dimension === 'adicionales') return;
+        actividadesState.dimension = 'adicionales';
+        setDimTabsUI();
+        if (!actividadesState.adicionalesRows.length) {
+          await loadActividadesAdicionalesData();
+        } else {
+          renderActividadesView();
         }
       });
     }

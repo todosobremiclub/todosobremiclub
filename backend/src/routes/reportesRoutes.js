@@ -281,6 +281,94 @@ router.get('/:clubId/reportes/socios-actividad-categoria/detalle', requireAuth, 
   }
 });
 
+// ===============================
+// ✅ NUEVO: Socios por Actividad ADICIONAL
+// Un socio activo puede tener 0, 1 o varias actividades adicionales
+// (columna socios.actividades_adicionales, guardada como texto JSON tipo
+// '["Natación","Yoga"]'). Este endpoint desarma ese array y cuenta cuántos
+// socios activos tienen cada actividad adicional (un mismo socio puede
+// contarse en más de una fila si tiene varias).
+// ===============================
+router.get('/:clubId/reportes/socios-actividades-adicionales', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+
+  try {
+    const r = await db.query(
+      `
+      SELECT
+        elem AS actividad_adicional,
+        COUNT(*)::int AS cantidad
+      FROM socios,
+      LATERAL jsonb_array_elements_text(
+        CASE
+          WHEN actividades_adicionales IS NOT NULL AND actividades_adicionales <> ''
+          THEN actividades_adicionales::jsonb
+          ELSE '[]'::jsonb
+        END
+      ) AS elem
+      WHERE club_id = $1
+        AND activo = true
+        AND tiene_actividades_adicionales = true
+      GROUP BY elem
+      ORDER BY elem
+      `,
+      [clubId]
+    );
+
+    res.json({
+      ok: true,
+      title: 'Socios por Actividad Adicional',
+      description: 'Cantidad de socios activos con cada actividad adicional. Un socio con más de una actividad adicional se cuenta en cada una.',
+      columns: [
+        { key: 'actividad_adicional', label: 'Actividad adicional' },
+        { key: 'cantidad', label: 'Cantidad' }
+      ],
+      rows: r.rows
+    });
+  } catch (e) {
+    console.error('❌ reporte socios-actividades-adicionales', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// DETALLE: Socios por Actividad Adicional → listado de socios
+router.get('/:clubId/reportes/socios-actividades-adicionales/detalle', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const actividadAdicional = req.query.actividad_adicional ?? '';
+
+  if (!actividadAdicional) {
+    return res.status(400).json({ ok: false, error: 'Falta actividad_adicional' });
+  }
+
+  try {
+    const r = await db.query(
+      `
+      SELECT
+        numero_socio, dni, nombre, apellido, telefono, fecha_ingreso
+      FROM socios,
+      LATERAL jsonb_array_elements_text(
+        CASE
+          WHEN actividades_adicionales IS NOT NULL AND actividades_adicionales <> ''
+          THEN actividades_adicionales::jsonb
+          ELSE '[]'::jsonb
+        END
+      ) AS elem
+      WHERE club_id = $1
+        AND activo = true
+        AND tiene_actividades_adicionales = true
+        AND elem = $2
+      ORDER BY apellido, nombre
+      `,
+      [clubId, actividadAdicional]
+    );
+
+    res.json({ ok: true, rows: r.rows });
+  } catch (e) {
+    console.error('❌ detalle socios-actividades-adicionales', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ============================================================
 // EXPORT: Socios por Actividad / Categoría (MES o AÑO)
 // Endpoints:

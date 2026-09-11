@@ -105,6 +105,12 @@
         </div>
       </div>
 
+      <!-- ✅ NUEVO: toggle actividad principal / actividades adicionales -->
+      <div style="display:flex; gap:6px; align-items:center;">
+        <button id="btnDimPrincipal" class="btn btn-secondary btn-xs" disabled>Actividad</button>
+        <button id="btnDimAdicionales" class="btn btn-secondary btn-xs">Adicionales</button>
+      </div>
+
       <button class="btn-export-icon"
               title="Descargar socios por actividad / categoría"
               onclick="openExportModal({
