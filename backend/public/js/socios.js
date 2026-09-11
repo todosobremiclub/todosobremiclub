@@ -539,13 +539,39 @@ let planCuotasCuotasActuales = [];     // cuotas en pantalla (editable)
 // Acá solo se arma/edita el plan y, si hace falta corregir algo, se puede
 // deshacer un pago ya cobrado.
 
+// ✅ El plan de cuotas personalizado no está limitado a actividades
+// adicionales: también puede armarse para la actividad deportiva del socio
+// (el caso típico que da nombre a la función, "curso de equitación por
+// etapas"). Por eso el select ofrece, además de todas las actividades
+// adicionales del club, la actividad deportiva actual del socio (si tiene
+// una cargada en la ficha) como primera opción. Cada <option> guarda de qué
+// tipo es en data-tipo, para poder mandar tipo_actividad al guardar.
 function fillPlanCuotasActividadSelect() {
   const sel = $('planCuotasActividad');
   if (!sel) return;
   const valorPrevio = sel.value;
+
+  const opciones = [];
+
+  const nombreDeportiva = ($('socioActividad')?.value || '').trim();
+  const deportivaObj = nombreDeportiva
+    ? actividadesConfigCache.find(a => String(a.nombre || '').trim() === nombreDeportiva)
+    : null;
+  if (deportivaObj) {
+    opciones.push({
+      id: deportivaObj.id,
+      tipo: 'deportiva',
+      nombre: `${deportivaObj.nombre} (actividad deportiva)`
+    });
+  }
+
+  actividadesAdicionalesConfigCache.forEach(a => {
+    opciones.push({ id: a.id, tipo: 'adicional', nombre: a.nombre });
+  });
+
   sel.innerHTML = '<option value="">Seleccionar actividad…</option>' +
-    actividadesAdicionalesConfigCache.map(a =>
-      `<option value="${escapeHtml(String(a.id))}">${escapeHtml(a.nombre || '')}</option>`
+    opciones.map(o =>
+      `<option value="${escapeHtml(String(o.id))}" data-tipo="${o.tipo}">${escapeHtml(o.nombre || '')}</option>`
     ).join('');
   if (valorPrevio) sel.value = valorPrevio;
 }
@@ -560,8 +586,18 @@ async function abrirModalPlanCuotas() {
   planCuotasPlanIdActual = null;
   planCuotasCuotasActuales = [];
 
-  if (!actividadesAdicionalesConfigCache.length) {
-    await loadActividadesAdicionalesConfig().catch(() => {});
+  // ✅ Siempre se recargan (no solo "si está vacío"): igual que en Plan de
+  // clases, estos catálogos pueden haberse editado en Configuración en otra
+  // pestaña. Recargar actividades reconstruye el select "Actividad" de la
+  // ficha (#socioActividad) y pierde la selección actual, así que se
+  // guarda antes y se restaura después.
+  const actividadFichaPrevia = $('socioActividad')?.value ?? '';
+  await loadActividadesAdicionalesConfig().catch(() => {});
+  await loadActividadesConfig().catch(() => {});
+  if ($('socioActividad')) {
+    $('socioActividad').value = actividadFichaPrevia;
+    ensureActividadOption(actividadFichaPrevia);
+    $('socioActividad').value = actividadFichaPrevia;
   }
   fillPlanCuotasActividadSelect();
 
@@ -612,8 +648,12 @@ function actualizarEstadoPlanCuotasFicha() {
 }
 
 function onPlanCuotasActividadChange() {
-  const actividadId = $('planCuotasActividad').value;
-  const plan = planCuotasPlanesSocio.find(p => String(p.actividad_id) === String(actividadId));
+  const selActividad = $('planCuotasActividad');
+  const actividadId = selActividad.value;
+  const tipoActividad = selActividad.selectedOptions[0]?.dataset.tipo || 'adicional';
+  const plan = planCuotasPlanesSocio.find(
+    p => String(p.actividad_id) === String(actividadId) && p.tipo_actividad === tipoActividad
+  );
 
   if (!actividadId) {
     planCuotasPlanIdActual = null;
@@ -791,7 +831,9 @@ function agregarCuotaManualUI() {
 }
 
 async function guardarPlanCuotasUI() {
-  const actividadId = $('planCuotasActividad').value;
+  const selActividad = $('planCuotasActividad');
+  const actividadId = selActividad.value;
+  const tipoActividad = selActividad.selectedOptions[0]?.dataset.tipo || 'adicional';
   if (!actividadId) {
     alert('Elegí la actividad.');
     return;
@@ -829,7 +871,7 @@ async function guardarPlanCuotasUI() {
     } else {
       res = await fetchAuth(`/club/${clubId}/socios/${planCuotasSocioId}/planes-actividad`, {
         method: 'POST',
-        body: JSON.stringify({ actividad_id: actividadId, cuotas: cuotasPayload }),
+        body: JSON.stringify({ actividad_id: actividadId, tipo_actividad: tipoActividad, cuotas: cuotasPayload }),
         json: true
       });
     }

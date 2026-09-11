@@ -117,7 +117,7 @@
 
       <div class="socio-tabs" role="tablist">
         <button type="button" class="socio-tab-btn active" data-tab="datos">Datos personales</button>
-        <button type="button" class="socio-tab-btn" data-tab="actividad">Actividad y planes</button>
+        <button type="button" class="socio-tab-btn" data-tab="actividad">Excepciones y Planes</button>
         <button type="button" class="socio-tab-btn" data-tab="docs">Adjuntos y comentarios</button>
       </div>
 
@@ -159,6 +159,22 @@
               <input id="socioTutorNombre" type="text" placeholder="Ej: Juan Pérez">
             </div>
 
+            <!-- Categoría -->
+            <div class="col-span-2">
+              <label>Categoría *</label>
+              <select id="socioCategoria">
+                <option value="">Seleccionar…</option>
+              </select>
+            </div>
+
+            <!-- Actividad -->
+            <div class="col-span-2">
+              <label>Actividad *</label>
+              <select id="socioActividad">
+                <option value="">Cargando…</option>
+              </select>
+            </div>
+
             <!-- Wrap que se deshabilita cuando hay excepción -->
             <div id="socioActividadWrap" class="col-span-4">
               <div class="grid-3">
@@ -195,25 +211,9 @@
           </div>
         </div>
 
-        <!-- ============ TAB: ACTIVIDAD Y PLANES ============ -->
+        <!-- ============ TAB: EXCEPCIONES Y PLANES ============ -->
         <div class="socio-tab-panel" data-tab-panel="actividad" hidden>
           <div class="socio-tab-stack">
-
-            <!-- Categoría -->
-            <div style="max-width:360px;">
-              <label>Categoría *</label>
-              <select id="socioCategoria">
-                <option value="">Seleccionar…</option>
-              </select>
-            </div>
-
-            <!-- Actividad -->
-            <div style="max-width:360px;">
-              <label>Actividad *</label>
-              <select id="socioActividad">
-                <option value="">Cargando…</option>
-              </select>
-            </div>
 
             <!-- =========================
                EXCEPCIONES (agrupa: adicionales, excepción de cuota, jefe/a plan familiar)
