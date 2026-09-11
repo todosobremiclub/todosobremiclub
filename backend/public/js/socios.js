@@ -147,11 +147,13 @@ async function loadActividadesAdicionalesConfig() {
     console.warn('No se pudieron cargar actividades adicionales:', data.error);
     actividadesAdicionalesConfigCache = [];
     renderActividadesAdicionalesSocio([]);
+    fillActividadAdicionalSelect([]);
     return;
   }
 
   actividadesAdicionalesConfigCache = data.actividades ?? [];
   renderActividadesAdicionalesSocio(actividadesAdicionalesConfigCache);
+  fillActividadAdicionalSelect(actividadesAdicionalesConfigCache);
 }
 
 
@@ -186,6 +188,21 @@ function setActividadesAdicionalesSeleccionadas(values) {
   document.querySelectorAll('.chk-adicional').forEach(chk => {
     chk.checked = seleccionadas.includes(String(chk.value));
   });
+}
+
+// ✅ NUEVO: select rápido "Actividad adicional" del formulario de alta/edición
+function fillActividadAdicionalSelect(items) {
+  const sel = $('socioActividadAdicional');
+  if (!sel) return;
+  const valorPrevio = sel.value;
+  if (!items || items.length === 0) {
+    sel.innerHTML = `<option value="">(Ninguna)</option>`;
+    return;
+  }
+  sel.innerHTML =
+    `<option value="">(Ninguna)</option>` +
+    items.map((a) => `<option value="${String(a.nombre)}">${String(a.nombre)}</option>`).join('');
+  if (valorPrevio) sel.value = valorPrevio;
 }
 
   function fillActividadSelect(items) {
@@ -2374,6 +2391,7 @@ if (wrap) {
 }
 
 setActividadesAdicionalesSeleccionadas([]);
+if ($('socioActividadAdicional')) $('socioActividadAdicional').value = '';
 
   // ✅ Plan de cuotas personalizado: solo tiene sentido con el socio ya guardado
   planCuotasSocioId = null;
@@ -2507,6 +2525,9 @@ if (wrapAdic) {
 }
 
 setActividadesAdicionalesSeleccionadas(adicionales);
+// ✅ El select rápido de "Actividad adicional" es solo un atajo para agregar;
+// al editar siempre arranca en blanco (no refleja la selección existente).
+if ($('socioActividadAdicional')) $('socioActividadAdicional').value = '';
 
   // =========================
   // GRUPO FAMILIAR
@@ -3242,7 +3263,16 @@ const adicionalesSeleccionadas = $('socioTieneAdicionales')?.checked
   ? Array.from(document.querySelectorAll('.chk-adicional:checked')).map(el => el.value)
   : [];
 
-payload.tiene_actividades_adicionales = !!$('socioTieneAdicionales')?.checked;
+// ✅ NUEVO: el select rápido "Actividad adicional" también carga como actividad adicional
+const actividadAdicionalRapida = ($('socioActividadAdicional')?.value || '').trim();
+let tieneAdicionales = !!$('socioTieneAdicionales')?.checked;
+
+if (actividadAdicionalRapida && !adicionalesSeleccionadas.includes(actividadAdicionalRapida)) {
+  adicionalesSeleccionadas.push(actividadAdicionalRapida);
+  tieneAdicionales = true;
+}
+
+payload.tiene_actividades_adicionales = tieneAdicionales;
 payload.actividades_adicionales = JSON.stringify(adicionalesSeleccionadas);
 
 
@@ -3975,6 +4005,25 @@ $('socioTieneAdicionales')?.addEventListener('change', async function () {
 
 $('socioEsJefePlanFamiliar')?.addEventListener('change', () => {
   syncGrupoFamiliarUI();
+});
+
+// ✅ NUEVO: al elegir una actividad adicional rápida, marcar el checkbox correspondiente
+$('socioActividadAdicional')?.addEventListener('change', async function () {
+  const valor = this.value;
+  if (!valor) return;
+
+  const chk = $('socioTieneAdicionales');
+  const wrap = $('socioAdicionalesWrap');
+
+  if (chk && !chk.checked) {
+    chk.checked = true;
+    await loadActividadesAdicionalesConfig();
+    if (wrap) wrap.style.display = 'block';
+  }
+
+  document.querySelectorAll('.chk-adicional').forEach(c => {
+    if (c.value === valor) c.checked = true;
+  });
 });
 
 $('btnSeleccionarGrupoFamiliar')?.addEventListener('click', async () => {

@@ -1781,7 +1781,7 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
     const { clubId } = req.params;
 
     // traer opciones para dropdowns
-    const [rActs, rCats] = await Promise.all([
+    const [rActs, rCats, rActsAdic] = await Promise.all([
       db.query(
         `SELECT nombre FROM actividades WHERE club_id = $1 AND activo = true ORDER BY nombre ASC`,
         [clubId]
@@ -1789,11 +1789,18 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
       db.query(
         `SELECT nombre FROM categorias_deportivas WHERE club_id = $1 AND activo = true ORDER BY nombre ASC`,
         [clubId]
+      ),
+      // ✅ NUEVO: actividades adicionales del club, para la columna opcional
+      // "actividad_adicional" de la plantilla.
+      db.query(
+        `SELECT nombre FROM actividades_adicionales WHERE club_id = $1 AND activo = true ORDER BY nombre ASC`,
+        [clubId]
       )
     ]);
 
     const actividades = (rActs.rows || []).map(x => x.nombre).filter(Boolean);
     const categorias = (rCats.rows || []).map(x => x.nombre).filter(Boolean);
+    const actividadesAdicionales = (rActsAdic.rows || []).map(x => x.nombre).filter(Boolean);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Todo Sobre mi Club';
@@ -1808,6 +1815,8 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
       { header: 'nombre', key: 'nombre', width: 18 },
       { header: 'apellido', key: 'apellido', width: 18 },
       { header: 'actividad', key: 'actividad', width: 22 },
+      // ✅ NUEVO: columna opcional de actividad adicional
+      { header: 'actividad_adicional (opcional)', key: 'actividad_adicional', width: 26 },
       { header: 'categoria', key: 'categoria', width: 22 },
       { header: 'telefono', key: 'telefono', width: 16 },
       { header: 'direccion', key: 'direccion', width: 26 },
@@ -1820,7 +1829,7 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
 
     // Header style
     ws.getRow(1).font = { bold: true };
-    ws.autoFilter = { from: 'A1', to: 'M1' };
+    ws.autoFilter = { from: 'A1', to: 'N1' };
 
     // Hoja oculta para listas
     const lists = wb.addWorksheet('Listas');
@@ -1833,12 +1842,19 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
     lists.getCell('B1').value = 'CATEGORIAS';
     categorias.forEach((v, i) => (lists.getCell(`B${i + 2}`).value = v));
 
+    // ✅ NUEVO
+    lists.getCell('C1').value = 'ACTIVIDADES_ADICIONALES';
+    actividadesAdicionales.forEach((v, i) => (lists.getCell(`C${i + 2}`).value = v));
+
     // Rangos para validación (hasta 500 filas)
     const maxRows = 500;
     const actRange = actividades.length ? `Listas!$A$2:$A$${actividades.length + 1}` : null;
     const catRange = categorias.length ? `Listas!$B$2:$B$${categorias.length + 1}` : null;
+    const actAdicRange = actividadesAdicionales.length
+      ? `Listas!$C$2:$C$${actividadesAdicionales.length + 1}`
+      : null;
 
-    // Validaciones: actividad (col E) y categoria (col F)
+    // Validaciones: actividad (col E), actividad_adicional (col F) y categoria (col G)
     for (let r = 2; r <= maxRows + 1; r++) {
       if (actRange) {
         ws.getCell(`E${r}`).dataValidation = {
@@ -1850,8 +1866,21 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
           error: 'Seleccioná una actividad del menú.'
         };
       }
-      if (catRange) {
+
+      // ✅ NUEVO: actividad adicional (opcional) = columna F
+      if (actAdicRange) {
         ws.getCell(`F${r}`).dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: [actAdicRange],
+          showErrorMessage: true,
+          errorTitle: 'Valor inválido',
+          error: 'Seleccioná una actividad adicional del menú (o dejá vacío).'
+        };
+      }
+
+      if (catRange) {
+        ws.getCell(`G${r}`).dataValidation = {
           type: 'list',
           allowBlank: false,
           formulae: [catRange],
@@ -1861,25 +1890,25 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
         };
       }
 
-      // activo (SI/NO) = columna L
-ws.getCell(`L${r}`).dataValidation = {
+      // activo (SI/NO) = columna M
+ws.getCell(`M${r}`).dataValidation = {
   type: 'list',
   allowBlank: true,
   formulae: ['"SI,NO"']
 };
 
-// becado (SI/NO) = columna M
-ws.getCell(`M${r}`).dataValidation = {
+// becado (SI/NO) = columna N
+ws.getCell(`N${r}`).dataValidation = {
   type: 'list',
   allowBlank: true,
   formulae: ['"SI,NO"']
 };
     }
 
-    // Nota en fila 2 (opcional, no rompe import)
-    ws.getCell('N1').value = 'NOTA';
-    ws.getCell('N2').value =
-      'Dejá numero_socio vacío para autogenerar. Fechas en formato DD/MM/AAAA.';
+    // Nota (opcional, no rompe import)
+    ws.getCell('O1').value = 'NOTA';
+    ws.getCell('O2').value =
+      'Dejá numero_socio vacío para autogenerar. Fechas en formato DD/MM/AAAA. actividad_adicional es opcional.';
 
     // Descargar
     res.setHeader(
@@ -2047,14 +2076,15 @@ router.post(
         const nombre = norm(row.getCell(3).value);
         const apellido = norm(row.getCell(4).value);
         const actividad = norm(row.getCell(5).value);
-        const categoria = norm(row.getCell(6).value);
-        const telefono = norm(row.getCell(7).value);          // G
-const direccion = norm(row.getCell(8).value);         // H
-const email = norm(row.getCell(9).value);             // I
-const fecha_nacimiento_raw = row.getCell(10).value;   // J
-const fecha_ingreso_raw = row.getCell(11).value;      // K
-const activo = parseBoolSI(row.getCell(12).value, true);   // L
-const becado = parseBoolSI(row.getCell(13).value, false);  // M
+        const actividadAdicional = norm(row.getCell(6).value); // F — ✅ NUEVO, opcional
+        const categoria = norm(row.getCell(7).value);          // G
+        const telefono = norm(row.getCell(8).value);          // H
+const direccion = norm(row.getCell(9).value);         // I
+const email = norm(row.getCell(10).value);             // J
+const fecha_nacimiento_raw = row.getCell(11).value;   // K
+const fecha_ingreso_raw = row.getCell(12).value;      // L
+const activo = parseBoolSI(row.getCell(13).value, true);   // M
+const becado = parseBoolSI(row.getCell(14).value, false);  // N
 
 
         if (!dni || dni.length < 7) {
@@ -2131,6 +2161,12 @@ const becado = parseBoolSI(row.getCell(13).value, false);  // M
         dniExist.add(dni);
         numExist.add(String(numero));
 
+        // ✅ NUEVO: si viene actividad_adicional en la fila, se carga como actividad adicional del socio
+        const tieneActividadesAdicionales = !!actividadAdicional;
+        const actividadesAdicionalesJSON = tieneActividadesAdicionales
+          ? JSON.stringify([actividadAdicional])
+          : null;
+
         toInsert.push({
   numero_socio: Number(numero),
   dni,
@@ -2144,7 +2180,9 @@ const becado = parseBoolSI(row.getCell(13).value, false);  // M
   fecha_nacimiento: fnISO,
   fecha_ingreso: fiISO,
   activo,
-  becado
+  becado,
+  tiene_actividades_adicionales: tieneActividadesAdicionales,
+  actividades_adicionales: actividadesAdicionalesJSON
 });
       }
 
@@ -2158,12 +2196,14 @@ for (const s of toInsert) {
         club_id, numero_socio, dni, nombre, apellido,
         telefono, direccion, email,
         fecha_nacimiento, fecha_ingreso,
-        activo, becado, categoria, actividad
+        activo, becado, categoria, actividad,
+        tiene_actividades_adicionales, actividades_adicionales
       ) VALUES (
         $1,$2,$3,$4,$5,
         $6,$7,$8,
         $9,$10,
-        $11,$12,$13,$14
+        $11,$12,$13,$14,
+        $15,$16
       ) RETURNING id`,
       [
         clubId,
@@ -2179,7 +2219,9 @@ for (const s of toInsert) {
         s.activo,
         s.becado,
         s.categoria,
-        s.actividad
+        s.actividad,
+        s.tiene_actividades_adicionales,
+        s.actividades_adicionales
       ]
     );
 
