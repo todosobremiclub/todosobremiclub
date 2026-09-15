@@ -46,6 +46,19 @@
   </div>
 </div>
 
+<!-- ✅ NUEVO: selector de canal, solo visible si el club tiene el add-on de WhatsApp -->
+<div id="notificaciones-canal-wrap" style="display:none; margin-top:14px;">
+  <label for="notiCanal">Enviar por</label>
+  <select id="notiCanal">
+    <option value="app">Solo notificación en la app</option>
+    <option value="ambos">App + WhatsApp</option>
+    <option value="whatsapp">Solo WhatsApp</option>
+  </select>
+  <div class="muted" style="margin-top:6px;font-size:12px;">
+    El envío por WhatsApp respeta el límite mensual de mensajes configurado para este club.
+  </div>
+</div>
+
 
       <div class="muted" style="margin-top:4px; font-size:12px;">
         ℹ️ Las notificaciones son solo texto. Para imágenes utilizá la sección

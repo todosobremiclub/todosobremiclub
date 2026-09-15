@@ -316,6 +316,7 @@ function getDestinoPayload() {
 
   try {
     const destino = getDestinoPayload();
+    const canal = $id('notiCanal')?.value || 'app'; // ✅ NUEVO
 
     const { res, data } = await fetchAuth(
       `/club/${clubId}/notificaciones`,
@@ -325,7 +326,8 @@ function getDestinoPayload() {
         body: JSON.stringify({
           titulo,
           cuerpo,
-          data: destino
+          data: destino,
+          canal // ✅ NUEVO
         })
       }
     );
@@ -335,7 +337,15 @@ function getDestinoPayload() {
       return;
     }
 
-    alert('✅ Notificación enviada');
+    // ✅ NUEVO: si se mandó por WhatsApp, avisar cuántos salieron
+    const wa = data?.whatsappResumen;
+    if (wa) {
+      let msg = `✅ Notificación enviada. WhatsApp: ${wa.enviados} enviados de ${wa.total}.`;
+      if (wa.sinCupo > 0) msg += ' ⚠️ Se alcanzó el límite mensual de WhatsApp del club, no se mandó al resto.';
+      alert(msg);
+    } else {
+      alert('✅ Notificación enviada');
+    }
 
     if ($id('pushTitulo')) $id('pushTitulo').value = '';
     if ($id('pushCuerpo')) $id('pushCuerpo').value = '';
@@ -394,6 +404,16 @@ function getDestinoPayload() {
 // ✅ init llamado desde club.js cuando carga la sección
   window.initNotificacionesSection = async () => {
     console.log('[notificaciones] init sección ✅');
+
+    // ✅ NUEVO: el selector de canal solo se muestra si el club tiene el
+    // add-on de WhatsApp contratado (window.currentClub lo carga club.js
+    // desde GET /club/:clubId al entrar al panel).
+    const wrap = $id('notificaciones-canal-wrap');
+    if (wrap) {
+      const habilitado = window.currentClub?.whatsapp_habilitado === true;
+      wrap.style.display = habilitado ? 'block' : 'none';
+      if (!habilitado && $id('notiCanal')) $id('notiCanal').value = 'app';
+    }
 
     // Catálogos para el selector de Destino (actividad/categoría/año)
     await Promise.all([loadActividades(), loadCategorias(), loadAniosNacimiento()]);

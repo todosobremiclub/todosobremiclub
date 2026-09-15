@@ -3,6 +3,7 @@ const express = require('express');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const { initFirebase } = require('../config/firebaseAdmin');
+const { enviarPlantillaWhatsapp } = require('../services/whatsappService'); // ✅ NUEVO
 
 const router = express.Router();
 
@@ -186,6 +187,79 @@ async function sendPushToClubTopic({ clubId, clubName, titulo, cuerpo, notificac
   return messageId;
 }
 
+// ===============================
+// ✅ NUEVO: mismo criterio de segmentación que buildFcmTarget, pero como WHERE
+// SQL sobre socios (para WhatsApp, que no tiene topics de Firebase). Reutiliza
+// el mismo CASE de pago_al_dia que ya existe en sociosRoutes.js (GET
+// /:clubId/socios, ~línea 1413-1437) para que "falta_pago" signifique lo mismo
+// en el push y en WhatsApp.
+// ===============================
+function buildSociosWhereFromDestino(clubId, destino) {
+  const tipo = destino?.destino_tipo || 'todos';
+  const v1 = destino?.destino_valor1 || null;
+  const v2 = destino?.destino_valor2 || null;
+
+  const where = ["s.club_id = $1", "s.activo = true", "s.telefono IS NOT NULL", "s.telefono <> ''"];
+  const params = [clubId];
+  let p = 2;
+
+  const PAGO_AL_DIA_SQL = `
+    CASE
+      WHEN s.becado = true THEN true
+      WHEN COALESCE(act_dep.modalidad_pago, 'mensual') = 'por_clases' THEN true
+      ELSE
+        COALESCE((
+          SELECT MAX((pm.anio::int * 100) + (pm.mes::int))
+          FROM pagos_mensuales pm
+          WHERE pm.club_id = s.club_id AND pm.socio_id = s.id
+        ), 0) >=
+        CASE
+          WHEN EXTRACT(DAY FROM CURRENT_DATE)::int <= COALESCE(c.payment_due_day, 31)
+          THEN
+            CASE
+              WHEN EXTRACT(MONTH FROM CURRENT_DATE)::int = 1
+              THEN ((EXTRACT(YEAR FROM CURRENT_DATE)::int - 1) * 100) + 12
+              ELSE (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + (EXTRACT(MONTH FROM CURRENT_DATE)::int - 1)
+            END
+          ELSE (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + EXTRACT(MONTH FROM CURRENT_DATE)::int
+        END
+    END
+  `;
+
+  switch (tipo) {
+    case 'actividad':
+      where.push(`s.actividad = $${p++}`); params.push(v1); break;
+    case 'categoria':
+      where.push(`s.categoria = $${p++}`); params.push(v1); break;
+    case 'anio_nac':
+      where.push(`EXTRACT(YEAR FROM s.fecha_nacimiento) = $${p++}`); params.push(Number(v1)); break;
+    case 'act_cat':
+      where.push(`s.actividad = $${p++}`); params.push(v1);
+      where.push(`s.categoria = $${p++}`); params.push(v2);
+      break;
+    case 'cat_anio':
+      where.push(`s.categoria = $${p++}`); params.push(v1);
+      where.push(`EXTRACT(YEAR FROM s.fecha_nacimiento) = $${p++}`); params.push(Number(v2));
+      break;
+    case 'falta_pago':
+      where.push(`NOT (${PAGO_AL_DIA_SQL})`);
+      break;
+    default:
+      break; // 'todos': sin filtro adicional
+  }
+
+  const sql = `
+    SELECT s.id, s.telefono
+    FROM socios s
+    LEFT JOIN clubs c ON c.id = s.club_id
+    LEFT JOIN actividades act_dep
+      ON act_dep.club_id = s.club_id AND act_dep.nombre = s.actividad AND act_dep.activo = true
+    WHERE ${where.join(' AND ')}
+  `;
+
+  return { sql, params };
+}
+
 // ============================================================
 // GET /club/:clubId/notificaciones
 // - ADMIN (panel): lista las activas del club (historial)
@@ -257,7 +331,7 @@ router.get('/:clubId/notificaciones', requireAuth, async (req, res, next) => {
 // ============================================================
 router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { titulo, cuerpo, data = null } = req.body ?? {};
+  const { titulo, cuerpo, data = null, canal = 'app' } = req.body ?? {}; // ✅ NUEVO: canal ('app' | 'whatsapp' | 'ambos')
 
   try {
     if (!titulo?.trim() || !cuerpo?.trim()) {
@@ -278,39 +352,84 @@ router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (re
     );
     const clubName = rClub.rowCount ? rClub.rows[0].name : 'Club';
 
+    // ✅ NUEVO: normalizar canal elegido (default 'app' si viene algo inesperado)
+    const canalFinal = ['app', 'whatsapp', 'ambos'].includes(canal) ? canal : 'app';
+
     // 1) Insertar en DB
     const rIns = await db.query(
       `
-      INSERT INTO notificaciones (club_id, titulo, cuerpo, data, activo, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, true, NOW(), NOW())
-      RETURNING id, club_id, titulo, cuerpo, data, created_at
+      INSERT INTO notificaciones (club_id, titulo, cuerpo, data, canal, activo, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
+      RETURNING id, club_id, titulo, cuerpo, data, canal, created_at
       `,
-      [clubId, titulo.trim(), cuerpo.trim(), data]
+      [clubId, titulo.trim(), cuerpo.trim(), data, canalFinal]
     );
 
     const noti = rIns.rows[0];
 
-    // 2) Enviar push (FCM)
-    const messageId = await sendPushToClubTopic({
-  clubId,
-  clubName,
-  titulo: noti.titulo,
-  cuerpo: noti.cuerpo,
-  notificacionId: noti.id,
-  data
-});
+    // 2) Enviar push (FCM) — solo si el canal elegido incluye la app
+    let messageId = null;
+    if (canalFinal === 'app' || canalFinal === 'ambos') {
+      messageId = await sendPushToClubTopic({
+        clubId,
+        clubName,
+        titulo: noti.titulo,
+        cuerpo: noti.cuerpo,
+        notificacionId: noti.id,
+        data
+      });
 
-    // 3) Guardar metadata de envío
-    await db.query(
-      `
-      UPDATE notificaciones
-      SET sent_at = NOW(),
-          firebase_message_id = $1,
-          updated_at = NOW()
-      WHERE id = $2 AND club_id = $3
-      `,
-      [messageId, noti.id, clubId]
-    );
+      // 3) Guardar metadata de envío
+      await db.query(
+        `
+        UPDATE notificaciones
+        SET sent_at = NOW(),
+            firebase_message_id = $1,
+            updated_at = NOW()
+        WHERE id = $2 AND club_id = $3
+        `,
+        [messageId, noti.id, clubId]
+      );
+    }
+
+    // 4) ✅ NUEVO: envío por WhatsApp si el canal elegido lo incluye
+    let whatsappResumen = null;
+    if (canalFinal === 'whatsapp' || canalFinal === 'ambos') {
+      const { sql, params: paramsDestino } = buildSociosWhereFromDestino(clubId, data);
+      const rSocios = await db.query(sql, paramsDestino);
+
+      let enviados = 0;
+      let sinCupo = 0;
+
+      for (const s of rSocios.rows) {
+        const r = await enviarPlantillaWhatsapp({
+          clubId,
+          socioId: s.id,
+          notificacionId: noti.id,
+          tipo: 'notificacion',
+          telefono: s.telefono,
+          templateName: 'notificacion_club',
+          parametros: [clubName, noti.titulo, noti.cuerpo]
+        });
+
+        if (r.ok) enviados++;
+        else if (r.error === 'El club alcanzó su límite mensual de WhatsApp') {
+          sinCupo++;
+          break; // corta el loop apenas se agota el cupo, no sigue intentando
+        }
+      }
+
+      whatsappResumen = { enviados, sinCupo, total: rSocios.rowCount };
+
+      // Si no se mandó push (canal solo WhatsApp), igual dejamos sent_at
+      // seteado para que la notificación no quede como "no enviada".
+      if (canalFinal === 'whatsapp') {
+        await db.query(
+          `UPDATE notificaciones SET sent_at = NOW(), updated_at = NOW() WHERE id = $1 AND club_id = $2`,
+          [noti.id, clubId]
+        );
+      }
+    }
 
     return res.status(201).json({
       ok: true,
@@ -319,6 +438,7 @@ router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (re
         sent_at: new Date().toISOString(),
         firebase_message_id: messageId,
       },
+      whatsappResumen,
     });
   } catch (e) {
     console.error('❌ POST notificaciones', e);

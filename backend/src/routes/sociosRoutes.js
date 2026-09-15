@@ -6,6 +6,7 @@ const { initFirebase } = require('../config/firebaseAdmin');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
 const nodemailer = require('nodemailer'); // ✅ NUEVO: para el email de bienvenida
+const { enviarPlantillaWhatsapp } = require('../services/whatsappService'); // ✅ NUEVO: bienvenida por WhatsApp
 
 // ✅ NUEVO: tamaño de lote e intervalo entre lotes para la bienvenida por email
 // (se puede ajustar sin tocar código, seteando estas variables de entorno en Render)
@@ -3083,7 +3084,7 @@ async function procesarBienvenidasPendientes() {
     const r = await db.query(
       `
       SELECT e.id AS envio_id, e.club_id, s.id AS socio_id, s.numero_socio,
-             s.dni, s.nombre, s.apellido, s.email,
+             s.dni, s.nombre, s.apellido, s.email, s.telefono,
              c.name AS club_name, c.logo_url AS club_logo_url
       FROM bienvenida_envios_programados e
       JOIN socios s ON s.id = e.socio_id
@@ -3138,6 +3139,30 @@ async function procesarBienvenidasPendientes() {
           `UPDATE socios SET bienvenida_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
           [row.socio_id, row.club_id]
         );
+
+        // ✅ NUEVO: además del email, intentar bienvenida por WhatsApp si el
+        // socio tiene teléfono cargado. Best-effort: si falla (club sin el
+        // add-on, cupo agotado, teléfono inválido, etc.) no se revierte nada
+        // del email, que ya se mandó igual.
+        if (row.telefono) {
+          const waResult = await enviarPlantillaWhatsapp({
+            clubId: row.club_id,
+            socioId: row.socio_id,
+            tipo: 'bienvenida',
+            telefono: row.telefono,
+            templateName: 'bienvenida_socio',
+            parametros: [row.club_name, row.numero_socio, row.dni]
+          });
+
+          if (waResult.ok) {
+            await db.query(
+              `UPDATE socios SET bienvenida_whatsapp_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
+              [row.socio_id, row.club_id]
+            );
+          } else {
+            console.log(`ℹ️ bienvenida WhatsApp no enviada (socio ${row.socio_id}): ${waResult.error}`);
+          }
+        }
       } catch (err) {
         console.error(`❌ error enviando bienvenida programada ${row.envio_id}:`, err.message);
         await db.query(
