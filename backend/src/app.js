@@ -98,6 +98,9 @@ app.use('/club', require('./routes/pendientesRoutes'));
 app.use('/club', require('./routes/asistenciaRoutes'));
 app.use('/app', require('./routes/appRoutes'));
 
+// ✅ NUEVO: webhook de Meta para WhatsApp (verificación + estados de entrega)
+app.use('/webhooks/whatsapp', require('./routes/whatsappWebhookRoutes'));
+
 // ===== HEALTH =====
 app.get('/health', (_req, res) => {
   res.json({ ok: true });

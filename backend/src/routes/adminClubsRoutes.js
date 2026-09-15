@@ -79,6 +79,9 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
   transferencia_alias,
   transferencia_titular,
 
+  whatsapp_habilitado,      -- ✅ NUEVO
+  whatsapp_limite_mensual,  -- ✅ NUEVO
+
   (
     SELECT COUNT(*)
     FROM socios s
@@ -240,7 +243,9 @@ router.put(
  color_primary,
  color_secondary,
  color_accent,
- mp_habilitado
+ mp_habilitado,
+ whatsapp_habilitado,      // ✅ NUEVO
+ whatsapp_limite_mensual   // ✅ NUEVO
 } = req.body ?? {};
 
       if (!name?.trim()) {
@@ -299,8 +304,10 @@ SET
   color_primary = COALESCE($15::text, color_primary),
   color_secondary = COALESCE($16::text, color_secondary),
   color_accent = COALESCE($17::text, color_accent),
-  payment_due_day = COALESCE($18::int, payment_due_day)
-WHERE id = $19::uuid
+  payment_due_day = COALESCE($18::int, payment_due_day),
+  whatsapp_habilitado = COALESCE($19::boolean, whatsapp_habilitado),
+  whatsapp_limite_mensual = COALESCE($20::int, whatsapp_limite_mensual)
+WHERE id = $21::uuid
 RETURNING *
   `,
   [
@@ -322,6 +329,8 @@ RETURNING *
   color_secondary ?? null,
   color_accent ?? null,
   payment_due_day ? Number(payment_due_day) : null,
+  toBool(whatsapp_habilitado, null),
+  whatsapp_limite_mensual ? Number(whatsapp_limite_mensual) : null,
   id
 ]
 );

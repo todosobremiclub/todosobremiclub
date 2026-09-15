@@ -379,6 +379,26 @@
                       placeholder="Nombre legal del club">
                   </div>
 
+                  <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                    <input type="checkbox" id="club_whatsapp_habilitado">
+                    WhatsApp habilitado (add-on pago)
+                  </label>
+
+                  <div id="clubWhatsappBox">
+                    <label>Límite de mensajes de WhatsApp por mes</label>
+                    <input
+                      id="club_whatsapp_limite_mensual"
+                      type="number"
+                      min="0"
+                      value="300"
+                      placeholder="Ej: 300">
+                    <div style="font-size:12px; color:#6b7280; margin:-6px 0 10px;">
+                      Tope de bienvenidas + notificaciones por WhatsApp que puede mandar este club
+                      en el mes. Al llegar al límite, los envíos de WhatsApp se cortan (la app y el
+                      email siguen funcionando igual).
+                    </div>
+                  </div>
+
                   <div>
                     <label>Estado</label>
                     <select id="club_estado">
