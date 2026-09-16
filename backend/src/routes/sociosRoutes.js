@@ -2951,7 +2951,8 @@ router.get(
           dni,
           nombre,
           apellido,
-          email
+          email,
+          telefono
         FROM socios s
         WHERE club_id = $1
           AND activo = true
@@ -2995,7 +2996,10 @@ router.post(
   requireClubAccess,
   async (req, res) => {
     const { clubId } = req.params;
-    const { socioIds } = req.body ?? {};
+    const { socioIds, canal } = req.body ?? {};
+    // ✅ NUEVO: canal elegido para esta tanda de bienvenidas (email | whatsapp | ambos).
+    // Si no viene o viene un valor inválido, se usa 'ambos' (comportamiento histórico).
+    const canalFinal = ['email', 'whatsapp', 'ambos'].includes(canal) ? canal : 'ambos';
 
     try {
       if (!Array.isArray(socioIds) || socioIds.length === 0) {
@@ -3044,13 +3048,13 @@ router.post(
         const lote = Math.floor(i / BIENVENIDA_LOTE_SIZE);
         const programadoPara = new Date(ahora.getTime() + lote * BIENVENIDA_LOTE_INTERVALO_MIN * 60 * 1000);
 
-        filasValues.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++})`);
-        params.push(clubId, socioId, lote, programadoPara);
+        filasValues.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`);
+        params.push(clubId, socioId, lote, programadoPara, canalFinal);
       });
 
       await db.query(
         `
-        INSERT INTO bienvenida_envios_programados (club_id, socio_id, lote, programado_para)
+        INSERT INTO bienvenida_envios_programados (club_id, socio_id, lote, programado_para, canal)
         VALUES ${filasValues.join(', ')}
         `,
         params
@@ -3083,7 +3087,7 @@ async function procesarBienvenidasPendientes() {
   try {
     const r = await db.query(
       `
-      SELECT e.id AS envio_id, e.club_id, s.id AS socio_id, s.numero_socio,
+      SELECT e.id AS envio_id, e.club_id, e.canal, s.id AS socio_id, s.numero_socio,
              s.dni, s.nombre, s.apellido, s.email, s.telefono,
              c.name AS club_name, c.logo_url AS club_logo_url
       FROM bienvenida_envios_programados e
@@ -3103,48 +3107,56 @@ async function procesarBienvenidasPendientes() {
     const transporter = getMailTransporter();
 
     for (const row of r.rows) {
+      // ✅ NUEVO: canal elegido al programar esta bienvenida. Filas viejas
+      // (de antes de este cambio) no tienen la columna seteada explícitamente
+      // pero el default de la migración es 'ambos', así que se comportan igual
+      // que antes.
+      const canal = row.canal || 'ambos';
+      const quiereEmail = canal === 'email' || canal === 'ambos';
+      const quiereWhatsapp = canal === 'whatsapp' || canal === 'ambos';
+
       const email = String(row.email ?? '').trim();
 
-      if (!email) {
-        await db.query(
-          `UPDATE bienvenida_envios_programados SET error = $2 WHERE id = $1`,
-          [row.envio_id, 'El socio no tiene email cargado.']
-        );
-        continue;
+      let emailOk = false;
+      let emailError = null;
+
+      if (quiereEmail) {
+        if (!email) {
+          emailError = 'El socio no tiene email cargado.';
+        } else {
+          try {
+            const { subject, text, html } = buildBienvenidaEmail({
+              clubName: row.club_name,
+              clubLogoUrl: row.club_logo_url,
+              nombre: row.nombre,
+              apellido: row.apellido,
+              numeroSocio: row.numero_socio,
+              dni: row.dni
+            });
+
+            await transporter.sendMail({
+              from: `"${row.club_name}" <${process.env.MAIL_USER}>`,
+              to: email,
+              subject,
+              text,
+              html
+            });
+
+            emailOk = true;
+          } catch (err) {
+            console.error(`❌ error enviando bienvenida por email (envío ${row.envio_id}):`, err.message);
+            emailError = 'No se pudo enviar el email.';
+          }
+        }
       }
 
-      const { subject, text, html } = buildBienvenidaEmail({
-        clubName: row.club_name,
-        clubLogoUrl: row.club_logo_url,
-        nombre: row.nombre,
-        apellido: row.apellido,
-        numeroSocio: row.numero_socio,
-        dni: row.dni
-      });
+      let waOk = false;
+      let waError = null;
 
-      try {
-        await transporter.sendMail({
-          from: `"${row.club_name}" <${process.env.MAIL_USER}>`,
-          to: email,
-          subject,
-          text,
-          html
-        });
-
-        await db.query(
-          `UPDATE bienvenida_envios_programados SET enviado_at = NOW() WHERE id = $1`,
-          [row.envio_id]
-        );
-        await db.query(
-          `UPDATE socios SET bienvenida_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
-          [row.socio_id, row.club_id]
-        );
-
-        // ✅ NUEVO: además del email, intentar bienvenida por WhatsApp si el
-        // socio tiene teléfono cargado. Best-effort: si falla (club sin el
-        // add-on, cupo agotado, teléfono inválido, etc.) no se revierte nada
-        // del email, que ya se mandó igual.
-        if (row.telefono) {
+      if (quiereWhatsapp) {
+        if (!row.telefono) {
+          waError = 'El socio no tiene teléfono cargado.';
+        } else {
           const waResult = await enviarPlantillaWhatsapp({
             clubId: row.club_id,
             socioId: row.socio_id,
@@ -3159,19 +3171,53 @@ async function procesarBienvenidasPendientes() {
           });
 
           if (waResult.ok) {
-            await db.query(
-              `UPDATE socios SET bienvenida_whatsapp_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
-              [row.socio_id, row.club_id]
-            );
+            waOk = true;
           } else {
+            waError = waResult.error;
             console.log(`ℹ️ bienvenida WhatsApp no enviada (socio ${row.socio_id}): ${waResult.error}`);
           }
         }
-      } catch (err) {
-        console.error(`❌ error enviando bienvenida programada ${row.envio_id}:`, err.message);
+      }
+
+      // ✅ Criterio de éxito según el canal elegido:
+      //  - 'email': tiene que salir el email.
+      //  - 'whatsapp': tiene que salir el WhatsApp.
+      //  - 'ambos': alcanza con que salga por lo menos uno de los dos (cada
+      //    canal se intenta de forma independiente; si uno falla no bloquea
+      //    al otro).
+      let exito;
+      let errorFinal;
+
+      if (canal === 'email') {
+        exito = emailOk;
+        errorFinal = emailOk ? null : emailError;
+      } else if (canal === 'whatsapp') {
+        exito = waOk;
+        errorFinal = waOk ? null : waError;
+      } else {
+        exito = emailOk || waOk;
+        errorFinal = exito ? null : [emailError, waError].filter(Boolean).join(' / ');
+      }
+
+      if (exito) {
+        await db.query(
+          `UPDATE bienvenida_envios_programados SET enviado_at = NOW() WHERE id = $1`,
+          [row.envio_id]
+        );
+        await db.query(
+          `UPDATE socios SET bienvenida_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
+          [row.socio_id, row.club_id]
+        );
+        if (waOk) {
+          await db.query(
+            `UPDATE socios SET bienvenida_whatsapp_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
+            [row.socio_id, row.club_id]
+          );
+        }
+      } else {
         await db.query(
           `UPDATE bienvenida_envios_programados SET error = $2 WHERE id = $1`,
-          [row.envio_id, 'No se pudo enviar el email.']
+          [row.envio_id, errorFinal]
         );
       }
     }

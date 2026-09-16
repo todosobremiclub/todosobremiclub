@@ -21,7 +21,7 @@
 
 <div class="socios-actions-inline">
       <button id="btnNuevoSocio" title="Nuevo socio">➕</button>
-      <button id="btnEnviarBienvenida" title="Enviar bienvenida por email">✉️</button>
+      <button id="btnEnviarBienvenida" title="Enviar bienvenida">✉️</button>
       <button id="btnExportSocios" title="Descargar Excel">📥</button>
     </div>
   </div>
@@ -437,17 +437,30 @@
   <div id="modalBienvenida" class="modal hidden">
     <div class="modal-content" style="max-width: 640px; width: 95vw;">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-        <h3 style="margin:0;">Enviar bienvenida por email</h3>
+        <h3 style="margin:0;">Enviar bienvenida</h3>
         <button id="btnBienvenidaClose" class="btn btn-secondary">✕</button>
       </div>
 
       <p class="muted small" style="margin-top:8px;">
-        Se programará el envío de un email con el usuario (N° de socio) y la
-        contraseña (DNI) a los socios seleccionados. Si son muchos, se manda en
+        Se programará el envío de la bienvenida (usuario = N° de socio,
+        contraseña = DNI) a los socios seleccionados. Si son muchos, se manda en
         tandas espaciadas (por hora) para evitar que el correo los demore o
         rebote. Solo se muestran los socios activos que todavía no recibieron ni
-        tienen ya programado este email.
+        tienen ya programado este envío.
       </p>
+
+      <!-- ✅ NUEVO: selector de canal, solo visible si el club tiene el add-on de WhatsApp -->
+      <div id="bienvenida-canal-wrap" style="display:none; margin-top:10px;">
+        <label for="bienvenidaCanal">Enviar por</label>
+        <select id="bienvenidaCanal">
+          <option value="email">Solo email</option>
+          <option value="ambos">Email + WhatsApp</option>
+          <option value="whatsapp">Solo WhatsApp</option>
+        </select>
+        <div class="muted" style="margin-top:6px;font-size:12px;">
+          El envío por WhatsApp respeta el límite mensual de mensajes configurado para este club.
+        </div>
+      </div>
 
       <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
         <label class="checkbox-inline" style="display:flex; align-items:center; gap:8px;">

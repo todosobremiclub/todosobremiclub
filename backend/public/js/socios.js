@@ -3800,7 +3800,10 @@ if (payload.es_menor && !payload.tutor_nombre) {
           <b>${escapeHtml(s.apellido ?? '')}, ${escapeHtml(s.nombre ?? '')}</b>
           <span class="muted small"> — N° ${escapeHtml(String(s.numero_socio ?? ''))}</span>
         </span>
-        <span class="muted small">${s.email ? escapeHtml(s.email) : 'Sin email ⚠️'}</span>
+        <span class="muted small">
+          ${s.email ? escapeHtml(s.email) : 'Sin email ⚠️'}
+          ${s.telefono ? ` · 📱 ${escapeHtml(s.telefono)}` : ' · Sin teléfono ⚠️'}
+        </span>
       </label>
     `).join('');
 
@@ -3824,6 +3827,16 @@ if (payload.es_menor && !payload.tutor_nombre) {
 
     const resultado = $('bienvenidaResultado');
     if (resultado) resultado.innerHTML = '';
+
+    // ✅ NUEVO: el selector de canal solo se muestra si el club tiene el
+    // add-on de WhatsApp contratado (window.currentClub lo carga club.js
+    // desde GET /club/:clubId al entrar al panel).
+    const wrapCanal = $('bienvenida-canal-wrap');
+    if (wrapCanal) {
+      const habilitado = window.currentClub?.whatsapp_habilitado === true;
+      wrapCanal.style.display = habilitado ? 'block' : 'none';
+      if (!habilitado && $('bienvenidaCanal')) $('bienvenidaCanal').value = 'email';
+    }
 
     modal.classList.remove('hidden');
     await loadBienvenidaPendientes();
@@ -3850,6 +3863,9 @@ if (payload.es_menor && !payload.tutor_nombre) {
     const clubId = getActiveClubId();
     const btn = $('btnBienvenidaEnviar');
     const resultado = $('bienvenidaResultado');
+    // ✅ NUEVO: canal elegido (email | whatsapp | ambos). Si el selector no
+    // está visible (club sin WhatsApp habilitado) queda en 'email' por defecto.
+    const canal = $('bienvenidaCanal')?.value || 'email';
 
     if (btn) { btn.disabled = true; btn.textContent = 'Programando...'; }
 
@@ -3857,7 +3873,7 @@ if (payload.es_menor && !payload.tutor_nombre) {
       const res = await fetchAuth(`/club/${clubId}/socios/bienvenida/enviar`, {
         method: 'POST',
         json: true,
-        body: JSON.stringify({ socioIds: seleccionados })
+        body: JSON.stringify({ socioIds: seleccionados, canal })
       });
       const data = await safeJson(res);
 
