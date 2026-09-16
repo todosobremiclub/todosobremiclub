@@ -3151,7 +3151,11 @@ async function procesarBienvenidasPendientes() {
             tipo: 'bienvenida',
             telefono: row.telefono,
             templateName: 'bienvenida_socio',
-            parametros: [row.club_name, row.numero_socio, row.dni]
+            // ✅ Orden acorde a la plantilla nueva de Meta: {{1}} nombre del
+            // socio (Apellido, Nombre), {{2}} nombre del club, {{3}} número
+            // de socio. El DNI ya no se manda como variable (se menciona
+            // como concepto fijo en el texto de la plantilla).
+            parametros: [`${row.apellido}, ${row.nombre}`, row.club_name, row.numero_socio]
           });
 
           if (waResult.ok) {
