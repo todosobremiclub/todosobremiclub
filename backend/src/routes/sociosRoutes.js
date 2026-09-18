@@ -2287,6 +2287,15 @@ const {
     // puntos por las dudas (copiar/pegar, versiones viejas de la app, etc.).
     const dniLimpio = onlyDigitsDni(dni);
 
+    // ✅ FIX: socios.fecha_ingreso es NOT NULL en la base, pero el formulario
+    // web permite dejar el campo "Fecha de ingreso" vacío y en ese caso manda
+    // fecha_ingreso: null (ver socios.js -> $('socioIngreso').value || null).
+    // Antes eso llegaba tal cual al INSERT y Postgres tiraba un error crudo
+    // ("null value in column fecha_ingreso violates not-null constraint")
+    // que rompía el alta del socio. Si no viene, se usa la fecha de hoy —
+    // mismo criterio que ya usa la app de administradores (_hoyIso()).
+    const fechaIngresoFinal = fecha_ingreso || new Date().toISOString().slice(0, 10);
+
     if (!dniLimpio || !nombre || !apellido || !fecha_nacimiento || !categoria || !actividad) {
       return res.status(400).json({
         ok: false,
@@ -2368,7 +2377,7 @@ const r = await db.query(
     direccion ?? null,
     email ?? null,
     fecha_nacimiento,
-    fecha_ingreso ?? null,
+    fechaIngresoFinal,
     !!activo,
     !!becado,
     String(categoria),
@@ -3162,7 +3171,13 @@ async function procesarBienvenidasPendientes() {
             socioId: row.socio_id,
             tipo: 'bienvenida',
             telefono: row.telefono,
-            templateName: 'bienvenida_socio',
+            // ✅ FIX: en Meta el nombre real de la plantilla activa/aprobada
+            // es "biensocio" (se ve en WhatsApp Manager), no "bienvenida_socio".
+            // El código seguía pidiendo "bienvenida_socio", que ya no existe
+            // con ese nombre en la WABA -> Meta devolvía
+            // (#132001) Template name does not exist in the translation
+            // y la bienvenida por WhatsApp nunca salía.
+            templateName: 'biensocio',
             // ✅ Orden acorde a la plantilla nueva de Meta: {{1}} nombre del
             // socio (Apellido, Nombre), {{2}} nombre del club, {{3}} número
             // de socio. El DNI ya no se manda como variable (se menciona
