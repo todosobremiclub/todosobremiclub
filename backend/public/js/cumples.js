@@ -175,8 +175,10 @@
       height: 'auto',
       slotMinTime: '07:00:00',
       slotMaxTime: '23:00:00',
-      slotDuration: '00:30:00',
-      scrollTime: '08:00:00',
+      slotDuration: '01:00:00', // ✅ una fila por hora: entran todos los horarios sin scroll
+      snapDuration: '00:30:00', // ...pero al hacer click sigue tomando media hora
+      scrollTime: '07:00:00',
+      dayHeaderFormat: { weekday: 'short', day: 'numeric' },
       allDaySlot: true, // ✅ cumpleaños arriba, como en Outlook
       allDayText: 'Todo el día',
       nowIndicator: true,
