@@ -133,9 +133,12 @@
         <!-- RESUMEN EN VIVO (estilo Outlook) -->
         <div class="ag-resumen">
           <span class="ag-resumen-ico">📋</span>
-          <span id="agResumenTexto" class="ag-resumen-texto">
-            Completá la fecha y el horario para ver el resumen.
-          </span>
+          <div class="ag-resumen-body">
+            <div class="ag-resumen-label">Vas a agendar</div>
+            <div id="agResumenTexto" class="ag-resumen-texto">
+              Elegí la fecha y el horario arriba.
+            </div>
+          </div>
         </div>
 
         <div class="ag-field">
@@ -878,7 +881,16 @@
   color:#14306e;
   line-height:1.5;
 }
-.ag-modern .ag-resumen-ico{ flex:none; }
+.ag-modern .ag-resumen-ico{ flex:none; line-height:1.4; }
+.ag-modern .ag-resumen-body{ flex:1; }
+.ag-modern .ag-resumen-label{
+  font-size:10px;
+  font-weight:800;
+  color:#3b62c4;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  margin-bottom:2px;
+}
 .ag-modern .ag-resumen-texto{ font-weight:700; }
 
 /* --- Acciones --- */

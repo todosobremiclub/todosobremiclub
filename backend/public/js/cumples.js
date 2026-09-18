@@ -306,7 +306,7 @@
     const hh = $('actividadHoraHasta')?.value || '';
 
     if (!fecha || !hd || !hh) {
-      el.textContent = 'Completá la fecha y el horario para ver el resumen.';
+      el.textContent = 'Elegí la fecha y el horario arriba.';
       return;
     }
 
