@@ -64,11 +64,24 @@
   // =============================
   const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
 
-  function todayYYYYMM() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
+  // ✅ NUEVO: selector de año (mismo patrón que Ingresos/Pagos: últimos 6 años)
+  let selectedAnio = new Date().getFullYear();
+
+  function fillAniosGastos() {
+    const sel = $('gastosAnioSelect');
+    if (!sel) return;
+
+    const current = new Date().getFullYear();
+    sel.innerHTML = '';
+
+    for (let y = current; y >= current - 5; y--) {
+      const opt = document.createElement('option');
+      opt.value = String(y);
+      opt.textContent = String(y);
+      sel.appendChild(opt);
+    }
+
+    sel.value = String(selectedAnio);
   }
 
   // ✅ NUEVO: "2026-09" -> "Septiembre 2026"
@@ -90,11 +103,6 @@
     if (!m) return s;
     return `${m[3]}/${m[2]}/${m[1]}`;
   }
-
-  function setDefaultFilters() {
-  const ym = todayYYYYMM();
-  if ($('filtroPeriodo') && !$('filtroPeriodo').value) $('filtroPeriodo').value = ym;
-}
 
   function openModal() {
     const modal = $('modalGasto');
@@ -242,13 +250,11 @@ function todayISO() {
 
   async function loadGastos() {
   const clubId = getActiveClubId();
-  const periodo = ($('filtroPeriodo')?.value || '').trim(); // YYYY-MMloadGastos
+  const anio = Number($('gastosAnioSelect')?.value || selectedAnio) || new Date().getFullYear();
 
   const qs = new URLSearchParams();
-  if (periodo) {
-    qs.set('desde', periodo);
-    qs.set('hasta', periodo);
-  }
+  qs.set('desde', `${anio}-01`);
+  qs.set('hasta', `${anio}-12`);
   const url = `/club/${clubId}/gastos${qs.toString() ? `?${qs.toString()}` : ''}`;
 
   const res = await fetchAuth(url);
@@ -426,7 +432,10 @@ const periodo = fecha_gasto ? fecha_gasto.slice(0, 7) : ''; // YYYY-MM
     $('btnGastoAdd')?.addEventListener('click', openModal);
     $('btnGastoCancel')?.addEventListener('click', closeModal);
 
-    $('btnFiltrarGastos')?.addEventListener('click', loadGastos);
+    $('gastosAnioSelect')?.addEventListener('change', async (e) => {
+      selectedAnio = Number(e.target.value) || selectedAnio;
+      await loadGastos();
+    });
 
     $('formGasto')?.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -476,7 +485,7 @@ const periodo = fecha_gasto ? fecha_gasto.slice(0, 7) : ''; // YYYY-MM
 
   async function initGastosSection() {
     bindOnce();
-    setDefaultFilters();
+    fillAniosGastos();
     await Promise.all([loadTipos(), loadResponsables()]);
     await loadGastos();
   }
