@@ -59,17 +59,28 @@
   let categoriasCache = [];
   let aniosNacimientoCache = [];
 
+  // ✅ NUEVO: badge visual de canal, reutilizado en Historial y Programadas
+  function canalBadge(canal) {
+    if (canal === 'whatsapp') {
+      return `<span class="noti-badge noti-badge-wa">💬 WhatsApp</span>`;
+    }
+    if (canal === 'ambos') {
+      return `<span class="noti-badge noti-badge-ambos">📱💬 Ambos</span>`;
+    }
+    return `<span class="noti-badge noti-badge-app">📱 App</span>`;
+  }
+
   async function loadNotificaciones() {
     const tbody = $id('notificacionesTableBody');
     if (!tbody) return; // si todavía no está la sección cargada
 
-    tbody.innerHTML = `<tr><td colspan="5">Cargando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6">Cargando...</td></tr>`;
 
     const clubId = getActiveClubId();
     const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones`);
 
     if (!res.ok || !data.ok) {
-      tbody.innerHTML = `<tr><td colspan="5">Error cargando historial</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6">Error cargando historial</td></tr>`;
       console.error('[notificaciones] error load', data);
       return;
     }
@@ -85,7 +96,7 @@
     tbody.innerHTML = '';
 
     if (!cache.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">No hay notificaciones.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay notificaciones.</td></tr>`;
       return;
     }
 
@@ -94,6 +105,7 @@
       tr.innerHTML = `
         <td><strong>${escapeHtml(n.titulo ?? '')}</strong></td>
         <td>${escapeHtml(n.cuerpo ?? '').slice(0, 160)}${(n.cuerpo ?? '').length > 160 ? '…' : ''}</td>
+        <td>${canalBadge(n.canal)}</td>
         <td>${escapeHtml(fmtDT(n.created_at))}</td>
         <td>${n.sent_at ? escapeHtml(fmtDT(n.sent_at)) : '—'}</td>
         <td style="white-space:nowrap;">
@@ -113,13 +125,13 @@
     const tbody = $id('notiProgramadasTableBody');
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="5">Cargando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6">Cargando...</td></tr>`;
 
     const clubId = getActiveClubId();
     const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones/programadas`);
 
     if (!res.ok || !data.ok) {
-      tbody.innerHTML = `<tr><td colspan="5">Error cargando programadas</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6">Error cargando programadas</td></tr>`;
       console.error('[notificaciones] error load programadas', data);
       return;
     }
@@ -142,7 +154,7 @@
     tbody.innerHTML = '';
 
     if (!cacheProgramadas.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">No hay notificaciones programadas.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay notificaciones programadas.</td></tr>`;
       return;
     }
 
@@ -151,6 +163,7 @@
       tr.innerHTML = `
         <td><strong>${escapeHtml(p.titulo ?? '')}</strong></td>
         <td>${escapeHtml(p.cuerpo ?? '').slice(0, 160)}${(p.cuerpo ?? '').length > 160 ? '…' : ''}</td>
+        <td>${canalBadge(p.canal)}</td>
         <td>${escapeHtml(fmtRepeticion(p))}</td>
         <td>${escapeHtml(fmtDT(p.proxima_ejecucion))}</td>
         <td style="white-space:nowrap;">
@@ -193,6 +206,70 @@
     const mensualWrap = $id('notiProgMensualWrap');
     if (unaVezWrap) unaVezWrap.style.display = rep === 'una_vez' ? 'flex' : 'none';
     if (mensualWrap) mensualWrap.style.display = rep === 'mensual' ? 'flex' : 'none';
+  }
+
+  // =========================
+  // ✅ NUEVO: chips de canal ("Enviar por") + vista previa en vivo
+  // =========================
+
+  // Marca visualmente el chip que corresponde al valor actual de #notiCanal
+  function syncCanalChipsUI() {
+    const actual = $id('notiCanal')?.value || 'app';
+    document.querySelectorAll('.noti-canal-opt').forEach(btn => {
+      btn.classList.toggle('is-active', btn.dataset.canal === actual);
+    });
+  }
+
+  // Cambia el canal elegido: actualiza el <select> oculto (lo que lee
+  // sendNotificacion()), los chips y la vista previa.
+  function setCanal(canal) {
+    const sel = $id('notiCanal');
+    if (sel) sel.value = canal;
+    syncCanalChipsUI();
+    updatePreview();
+  }
+
+  // Arma la vista previa (app / WhatsApp) en base a lo que se está tipeando
+  function updatePreview() {
+    const titulo = $id('pushTitulo')?.value?.trim();
+    const cuerpo = $id('pushCuerpo')?.value?.trim();
+    const clubName = window.currentClub?.name ? String(window.currentClub.name).trim() : '';
+
+    const previewTitulo = $id('previewTitulo');
+    const previewCuerpo = $id('previewCuerpo');
+    const previewWaTexto = $id('previewWaTexto');
+
+    if (previewTitulo) {
+      previewTitulo.textContent = clubName
+        ? `${clubName} — ${titulo || 'Título de la notificación'}`
+        : (titulo || 'Título de la notificación');
+    }
+    if (previewCuerpo) {
+      previewCuerpo.textContent = cuerpo || 'Acá vas a ver el mensaje a medida que lo escribís…';
+    }
+    if (previewWaTexto) {
+      const partes = [];
+      if (clubName) partes.push(clubName);
+      if (titulo) partes.push(titulo);
+      partes.push(cuerpo || 'Acá vas a ver el mensaje de WhatsApp…');
+      previewWaTexto.textContent = partes.join('\n');
+    }
+
+    // El canal solo es relevante si la card de "Enviar por" está visible
+    // (club con WhatsApp habilitado). Si no, se asume "app".
+    const canalWrapVisible = $id('notificaciones-canal-wrap')?.style.display !== 'none';
+    const canal = canalWrapVisible ? ($id('notiCanal')?.value || 'app') : 'app';
+
+    const appWrap = $id('previewAppWrap');
+    const waWrap = $id('previewWaWrap');
+    const hint = $id('previewHint');
+
+    const mostrarApp = canal === 'app' || canal === 'ambos';
+    const mostrarWa = canal === 'whatsapp' || canal === 'ambos';
+
+    if (appWrap) appWrap.style.display = mostrarApp ? 'block' : 'none';
+    if (waWrap) waWrap.style.display = mostrarWa ? 'block' : 'none';
+    if (hint) hint.style.display = (mostrarApp || mostrarWa) ? 'none' : 'block';
   }
 
   // =========================
@@ -448,6 +525,7 @@ function getDestinoPayload() {
       if ($id('notiProgHoraUnaVez')) $id('notiProgHoraUnaVez').value = '';
       if ($id('notiProgDiaMes')) $id('notiProgDiaMes').value = '';
       if ($id('notiProgHoraMensual')) $id('notiProgHoraMensual').value = '';
+      updatePreview();
 
       await loadProgramadas();
       return;
@@ -484,6 +562,7 @@ function getDestinoPayload() {
 
     if ($id('pushTitulo')) $id('pushTitulo').value = '';
     if ($id('pushCuerpo')) $id('pushCuerpo').value = '';
+    updatePreview();
 
     await loadNotificaciones();
   } catch (err) {
@@ -544,6 +623,21 @@ function getDestinoPayload() {
         console.error(err);
         alert(err.message || 'Error');
       });
+      return;
+    }
+
+    // ✅ NUEVO: click en un chip de "Enviar por"
+    const chipCanal = e.target.closest('.noti-canal-opt[data-canal]');
+    if (chipCanal) {
+      e.preventDefault();
+      setCanal(chipCanal.dataset.canal);
+    }
+  });
+
+  // ✅ NUEVO: actualiza la vista previa a medida que se escribe
+  document.addEventListener('input', (e) => {
+    if (e.target?.id === 'pushTitulo' || e.target?.id === 'pushCuerpo') {
+      updatePreview();
     }
   });
 
@@ -560,6 +654,10 @@ function getDestinoPayload() {
       wrap.style.display = habilitado ? 'block' : 'none';
       if (!habilitado && $id('notiCanal')) $id('notiCanal').value = 'app';
     }
+
+    // ✅ NUEVO: chips de canal + vista previa en su estado inicial
+    syncCanalChipsUI();
+    updatePreview();
 
     // Catálogos para el selector de Destino (actividad/categoría/año)
     await Promise.all([loadActividades(), loadCategorias(), loadAniosNacimiento()]);

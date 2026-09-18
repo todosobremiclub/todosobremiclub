@@ -100,7 +100,7 @@ router.get('/:clubId/notificaciones', requireAuth, async (req, res, next) => {
 
     const r = await db.query(
       `
-      SELECT id, club_id, titulo, cuerpo, data, created_at, sent_at, activo
+      SELECT id, club_id, titulo, cuerpo, data, canal, created_at, sent_at, activo
       FROM notificaciones
       WHERE club_id = $1 AND activo = true
       ORDER BY created_at DESC

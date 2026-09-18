@@ -1,115 +1,220 @@
-<section id="notificaciones-section" class="section-notificaciones">
-  <h2 style="margin-bottom:16px;">🔔 Enviar notificación</h2>
+<section id="notificaciones-section" class="section-notificaciones noti-modern">
 
-  <div class="card">
-    <div class="noti-form">
-      <label for="pushTitulo">Título</label>
-      <input
-        type="text"
-        id="pushTitulo"
-        placeholder="Ej: Suspensión de actividades"
-      />
-
-      <label for="pushCuerpo">Mensaje</label>
-      <textarea
-        id="pushCuerpo"
-        rows="3"
-        placeholder="Escribí el mensaje de la notificación..."
-      ></textarea>
-
-<!-- ✅ Destino habilitado: filtra a quién le llega el push -->
-<div id="notificaciones-destino">
-  <label>Destino</label>
-
-  <select id="notiDestinoTipo">
-    <option value="todos">Todos los socios</option>
-    <option value="actividad">Por Actividad</option>
-    <option value="categoria">Por Categoría</option>
-    <option value="anio_nac">Por Año de nacimiento</option>
-    <option value="cat_anio">Categoría + Año nacimiento</option>
-    <option value="act_cat">Actividad + Categoría</option>
-    <option value="falta_pago">En falta de pago</option>
-  </select>
-
-  <div id="notiDestinoExtra" class="destino-extra"></div>
-
-  <div class="muted" style="margin-top:6px;font-size:12px;">
-    La notificación se enviará solo a los socios que cumplan el criterio seleccionado.
-  </div>
-</div>
-
-<!-- ✅ NUEVO: selector de canal, solo visible si el club tiene el add-on de WhatsApp -->
-<div id="notificaciones-canal-wrap" style="display:none; margin-top:14px;">
-  <label for="notiCanal">Enviar por</label>
-  <select id="notiCanal">
-    <option value="app">Solo notificación en la app</option>
-    <option value="ambos">App + WhatsApp</option>
-    <option value="whatsapp">Solo WhatsApp</option>
-  </select>
-  <div class="muted" style="margin-top:6px;font-size:12px;">
-    El envío por WhatsApp respeta el límite mensual de mensajes configurado para este club.
-  </div>
-</div>
-
-<!-- ✅ NUEVO: elegir si se envía ahora o se programa para más adelante.
-     Va después de Destino y Enviar por a propósito: la programación usa
-     el destino y el canal elegidos arriba. -->
-<div id="notiCuandoWrap" style="margin-top:14px;">
-  <label>¿Cuándo enviar?</label>
-  <select id="notiCuando">
-    <option value="ahora">Enviar ahora</option>
-    <option value="programar">Programar envío</option>
-  </select>
-</div>
-
-<!-- ✅ NUEVO: opciones de programación, solo visibles si notiCuando = "programar" -->
-<div id="notiProgramarWrap" style="display:none; margin-top:6px;">
-  <label for="notiRepeticion">Repetición</label>
-  <select id="notiRepeticion">
-    <option value="una_vez">Una sola vez, en una fecha puntual</option>
-    <option value="mensual">Todos los meses, en un día fijo</option>
-  </select>
-
-  <div id="notiProgUnaVezWrap" style="display:flex; gap:10px; margin-top:8px;">
-    <label style="flex:1;">Fecha
-      <input type="date" id="notiProgFecha" />
-    </label>
-    <label style="flex:1;">Hora
-      <input type="time" id="notiProgHoraUnaVez" />
-    </label>
+  <div class="noti-header">
+    <div class="noti-header-icon">🔔</div>
+    <div>
+      <h2 class="noti-header-title">Enviar notificación</h2>
+      <p class="noti-header-sub">Mandá un mensaje a tus socios por la app y/o WhatsApp, ahora o programado para más adelante.</p>
+    </div>
   </div>
 
-  <div id="notiProgMensualWrap" style="display:none; gap:10px; margin-top:8px;">
-    <label style="flex:1;">Día del mes
-      <input type="number" id="notiProgDiaMes" min="1" max="31" placeholder="Ej: 5" />
-    </label>
-    <label style="flex:1;">Hora
-      <input type="time" id="notiProgHoraMensual" />
-    </label>
-  </div>
+  <div class="noti-layout">
 
-  <div class="muted" style="margin-top:6px;font-size:12px;">
-    Si elegís un día que no existe en algún mes (ej: 31), se manda el último día de ese mes. Horario de Argentina.
-  </div>
-</div>
+    <!-- ================= COLUMNA IZQUIERDA: FORMULARIO ================= -->
+    <div class="noti-form-col">
+
+      <div class="noti-card">
+        <div class="noti-card-title"><span class="noti-card-title-ico">✏️</span> Contenido</div>
+
+        <label for="pushTitulo">Título</label>
+        <input
+          type="text"
+          id="pushTitulo"
+          placeholder="Ej: Suspensión de actividades"
+        />
+
+        <label for="pushCuerpo" style="margin-top:10px;">Mensaje</label>
+        <textarea
+          id="pushCuerpo"
+          rows="3"
+          placeholder="Escribí el mensaje de la notificación..."
+        ></textarea>
+      </div>
+
+      <!-- ✅ Destino: filtra a quién le llega el push -->
+      <div class="noti-card" id="notificaciones-destino">
+        <div class="noti-card-title"><span class="noti-card-title-ico">🎯</span> Destino</div>
+
+        <select id="notiDestinoTipo">
+          <option value="todos">Todos los socios</option>
+          <option value="actividad">Por Actividad</option>
+          <option value="categoria">Por Categoría</option>
+          <option value="anio_nac">Por Año de nacimiento</option>
+          <option value="cat_anio">Categoría + Año nacimiento</option>
+          <option value="act_cat">Actividad + Categoría</option>
+          <option value="falta_pago">En falta de pago</option>
+        </select>
+
+        <div id="notiDestinoExtra" class="destino-extra"></div>
+
+        <div class="muted" style="margin-top:8px;">
+          La notificación se enviará solo a los socios que cumplan el criterio seleccionado.
+        </div>
+      </div>
+
+      <!-- ✅ Selector de canal, solo visible si el club tiene el add-on de WhatsApp -->
+      <div class="noti-card" id="notificaciones-canal-wrap" style="display:none;">
+        <div class="noti-card-title"><span class="noti-card-title-ico">📡</span> Enviar por</div>
+
+        <div class="noti-canal-options" id="notiCanalOptions">
+          <button type="button" class="noti-canal-opt" data-canal="app">
+            <span class="noti-canal-ico noti-canal-ico--app">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2a1 1 0 0 1 1 1v1.07A7 7 0 0 1 19 11v3.5l1.6 2.4a1 1 0 0 1-.83 1.6H4.23a1 1 0 0 1-.83-1.6L5 14.5V11a7 7 0 0 1 6-6.93V3a1 1 0 0 1 1-1Zm0 20a2.5 2.5 0 0 1-2.45-2h4.9A2.5 2.5 0 0 1 12 22Z"/></svg>
+            </span>
+            <span>Solo App</span>
+          </button>
+
+          <button type="button" class="noti-canal-opt" data-canal="ambos">
+            <span class="noti-canal-ico noti-canal-ico--app">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2a1 1 0 0 1 1 1v1.07A7 7 0 0 1 19 11v3.5l1.6 2.4a1 1 0 0 1-.83 1.6H4.23a1 1 0 0 1-.83-1.6L5 14.5V11a7 7 0 0 1 6-6.93V3a1 1 0 0 1 1-1Zm0 20a2.5 2.5 0 0 1-2.45-2h4.9A2.5 2.5 0 0 1 12 22Z"/></svg>
+            </span>
+            <span class="noti-canal-ico noti-canal-ico--wa">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2Zm5.2 14.3c-.2.6-1.2 1.1-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.7-1.2-4.4-3.9-4.6-4.1-.1-.2-1.1-1.5-1.1-2.8 0-1.3.7-1.9 1-2.2.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.4.2.5.7 1.7.8 1.9.1.2.1.3 0 .5-.1.2-.1.3-.3.5l-.4.5c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.4.1.6-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1l1.7.8c.2.1.4.2.4.3.1.2.1.7-.1 1.3Z"/></svg>
+            </span>
+            <span>App + WhatsApp</span>
+          </button>
+
+          <button type="button" class="noti-canal-opt" data-canal="whatsapp">
+            <span class="noti-canal-ico noti-canal-ico--wa">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2Zm5.2 14.3c-.2.6-1.2 1.1-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.7-1.2-4.4-3.9-4.6-4.1-.1-.2-1.1-1.5-1.1-2.8 0-1.3.7-1.9 1-2.2.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.4.2.5.7 1.7.8 1.9.1.2.1.3 0 .5-.1.2-.1.3-.3.5l-.4.5c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.4.1.6-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1l1.7.8c.2.1.4.2.4.3.1.2.1.7-.1 1.3Z"/></svg>
+            </span>
+            <span>Solo WhatsApp</span>
+          </button>
+        </div>
+
+        <!-- select real que usa el JS para armar el body del POST; queda oculto -->
+        <select id="notiCanal" class="noti-hidden-select" aria-hidden="true" tabindex="-1">
+          <option value="app">Solo notificación en la app</option>
+          <option value="ambos">App + WhatsApp</option>
+          <option value="whatsapp">Solo WhatsApp</option>
+        </select>
+
+        <div class="muted" style="margin-top:8px;">
+          El envío por WhatsApp respeta el límite mensual de mensajes configurado para este club.
+        </div>
+      </div>
+
+      <!-- ✅ ¿Cuándo enviar? va después de Destino y Enviar por, porque la
+           programación usa el destino y el canal elegidos arriba -->
+      <div class="noti-card">
+        <div class="noti-card-title"><span class="noti-card-title-ico">🗓️</span> ¿Cuándo enviar?</div>
+
+        <select id="notiCuando">
+          <option value="ahora">Enviar ahora</option>
+          <option value="programar">Programar envío</option>
+        </select>
+
+        <div id="notiProgramarWrap" style="display:none; margin-top:10px;">
+          <label for="notiRepeticion">Repetición</label>
+          <select id="notiRepeticion">
+            <option value="una_vez">Una sola vez, en una fecha puntual</option>
+            <option value="mensual">Todos los meses, en un día fijo</option>
+          </select>
+
+          <div id="notiProgUnaVezWrap" style="display:flex; gap:10px; margin-top:10px;">
+            <label style="flex:1;">Fecha
+              <input type="date" id="notiProgFecha" />
+            </label>
+            <label style="flex:1;">Hora
+              <input type="time" id="notiProgHoraUnaVez" />
+            </label>
+          </div>
+
+          <div id="notiProgMensualWrap" style="display:none; gap:10px; margin-top:10px;">
+            <label style="flex:1;">Día del mes
+              <input type="number" id="notiProgDiaMes" min="1" max="31" placeholder="Ej: 5" />
+            </label>
+            <label style="flex:1;">Hora
+              <input type="time" id="notiProgHoraMensual" />
+            </label>
+          </div>
+
+          <div class="muted" style="margin-top:8px;">
+            Si elegís un día que no existe en algún mes (ej: 31), se manda el último día de ese mes. Horario de Argentina.
+          </div>
+        </div>
+      </div>
 
       <button
         id="btnPushEnviar"
-        class="btn btn-primary"
-        style="margin-top:14px; width:100%; font-size:15px;"
+        class="btn btn-primary noti-submit-btn"
       >
         📤 Guardar y enviar
       </button>
 
-      <div class="muted" style="margin-top:4px; font-size:12px;">
+      <div class="muted" style="margin-top:8px;">
         ℹ️ Las notificaciones son solo texto. Para imágenes utilizá la sección
         <strong>Noticias</strong>.
       </div>
     </div>
+
+    <!-- ================= COLUMNA DERECHA: VISTA PREVIA ================= -->
+    <div class="noti-preview-col">
+      <div class="noti-preview-sticky">
+        <div class="noti-preview-label">👁️ Vista previa</div>
+
+        <!-- Mockup de notificación de la app -->
+        <div class="noti-preview-phone" id="previewAppWrap">
+          <div class="noti-preview-phone-topbar">
+            <span class="noti-preview-dot"></span>
+            <span class="noti-preview-dot"></span>
+            <span class="noti-preview-dot"></span>
+          </div>
+          <div class="noti-preview-notif">
+            <div class="noti-preview-notif-ico">🔔</div>
+            <div class="noti-preview-notif-body">
+              <div class="noti-preview-notif-top">
+                <span class="noti-preview-notif-app">App del club</span>
+                <span class="noti-preview-notif-time">ahora</span>
+              </div>
+              <div class="noti-preview-notif-title" id="previewTitulo">Título de la notificación</div>
+              <div class="noti-preview-notif-cuerpo" id="previewCuerpo">Acá vas a ver el mensaje a medida que lo escribís…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mockup de mensaje de WhatsApp -->
+        <div class="noti-preview-wa" id="previewWaWrap" style="display:none;">
+          <div class="noti-preview-wa-header">
+            <span class="noti-preview-wa-ico">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2Zm5.2 14.3c-.2.6-1.2 1.1-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.7-1.2-4.4-3.9-4.6-4.1-.1-.2-1.1-1.5-1.1-2.8 0-1.3.7-1.9 1-2.2.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.4.2.5.7 1.7.8 1.9.1.2.1.3 0 .5-.1.2-.1.3-.3.5l-.4.5c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.4.1.6-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1l1.7.8c.2.1.4.2.4.3.1.2.1.7-.1 1.3Z"/></svg>
+            </span>
+            WhatsApp
+          </div>
+          <div class="noti-preview-wa-bubble">
+            <span id="previewWaTexto">Acá vas a ver el mensaje de WhatsApp…</span>
+            <span class="noti-preview-wa-check">✓✓ <span class="noti-preview-wa-time">ahora</span></span>
+          </div>
+        </div>
+
+        <div class="muted noti-preview-hint" id="previewHint">
+          Elegí un canal en "Enviar por" para ver cómo le va a llegar al socio.
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  <!-- ✅ NUEVO: listado de notificaciones programadas pendientes -->
-  <h3 style="margin-top:24px;">🗓️ Programadas</h3>
+  <!-- ✅ Notificaciones programadas pendientes -->
+  <h3 class="noti-section-title">🗓️ Programadas</h3>
+
+  <div class="table-wrapper" style="margin-top:12px;">
+    <table class="socios-table">
+      <thead>
+        <tr>
+          <th style="width:150px;">Título</th>
+          <th>Mensaje</th>
+          <th style="width:110px;">Canal</th>
+          <th style="width:150px;">Repetición</th>
+          <th style="width:150px;">Próximo envío</th>
+          <th style="width:70px;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="notiProgramadasTableBody"></tbody>
+    </table>
+  </div>
+
+  <h3 class="noti-section-title">📜 Historial</h3>
 
   <div class="table-wrapper" style="margin-top:12px;">
     <table class="socios-table">
@@ -117,26 +222,10 @@
         <tr>
           <th style="width:160px;">Título</th>
           <th>Mensaje</th>
-          <th style="width:150px;">Repetición</th>
-          <th style="width:160px;">Próximo envío</th>
-          <th style="width:90px;">Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="notiProgramadasTableBody"></tbody>
-    </table>
-  </div>
-
-  <h3 style="margin-top:24px;">📜 Historial</h3>
-
-  <div class="table-wrapper" style="margin-top:12px;">
-    <table class="socios-table">
-      <thead>
-        <tr>
-          <th style="width:180px;">Título</th>
-          <th>Mensaje</th>
-          <th style="width:140px;">Fecha</th>
-          <th style="width:140px;">Enviada</th>
-          <th style="width:90px;">Acciones</th>
+          <th style="width:110px;">Canal</th>
+          <th style="width:130px;">Fecha</th>
+          <th style="width:130px;">Enviada</th>
+          <th style="width:70px;">Acciones</th>
         </tr>
       </thead>
       <tbody id="notificacionesTableBody"></tbody>
@@ -145,18 +234,329 @@
 </section>
 
 <style>
-  .noti-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
+  /* =========================
+     BASE / LAYOUT
+  ========================= */
   .noti-form input[type="text"],
-  .noti-form textarea {
+  .noti-form textarea,
+  .noti-modern input[type="text"],
+  .noti-modern input[type="date"],
+  .noti-modern input[type="time"],
+  .noti-modern input[type="number"],
+  .noti-modern textarea,
+  .noti-modern select {
     width: 100%;
     padding: 10px;
     border-radius: 8px;
     border: 1px solid #ccc;
     font-size: 14px;
+    background: #fff;
+  }
+
+  .noti-modern textarea { resize: vertical; }
+
+  .noti-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .noti-header-icon {
+    flex: none;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--color-primary, #2563eb), var(--color-secondary, #1e40af));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  }
+
+  .noti-header-title {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 800;
+    color: #111827;
+  }
+
+  .noti-header-sub {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #6b7280;
+  }
+
+  .noti-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .noti-form-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .noti-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  }
+
+  .noti-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--color-secondary, #1e40af);
+    margin-bottom: 10px;
+  }
+
+  .noti-card-title-ico { font-size: 16px; }
+
+  .noti-card label {
+    display: block;
+    font-size: 0.85rem;
+    color: #444;
+    margin-bottom: 6px;
+  }
+
+  .noti-submit-btn {
+    width: 100%;
+    font-size: 15px;
+    padding: 12px;
+    font-weight: 700;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
+  }
+
+  .noti-section-title { margin-top: 24px; }
+
+  /* =========================
+     CHIPS DE CANAL
+  ========================= */
+  .noti-canal-options {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .noti-canal-opt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 2px solid #e5e7eb;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+
+  .noti-canal-opt:hover {
+    border-color: color-mix(in srgb, var(--color-primary, #2563eb) 40%, #e5e7eb);
+    background: #fff;
+  }
+
+  .noti-canal-opt.is-active {
+    border-color: var(--color-primary, #2563eb);
+    background: color-mix(in srgb, var(--color-primary, #2563eb) 8%, #fff);
+    color: #111827;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+  }
+
+  .noti-canal-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    color: #fff;
+  }
+
+  .noti-canal-ico--app { background: var(--color-primary, #2563eb); }
+  .noti-canal-ico--wa { background: #25d366; }
+
+  .noti-hidden-select {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    border: 0;
+  }
+
+  /* =========================
+     VISTA PREVIA
+  ========================= */
+  .noti-preview-sticky { position: sticky; top: 12px; }
+
+  .noti-preview-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b7280;
+    margin-bottom: 10px;
+  }
+
+  .noti-preview-phone {
+    background: #eef1f5;
+    border-radius: 16px;
+    padding: 10px;
+    margin-bottom: 12px;
+    border: 1px solid #e2e5ea;
+  }
+
+  .noti-preview-phone-topbar {
+    display: flex;
+    gap: 4px;
+    padding: 2px 4px 8px;
+  }
+
+  .noti-preview-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #c7cbd1;
+  }
+
+  .noti-preview-notif {
+    display: flex;
+    gap: 10px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.10);
+  }
+
+  .noti-preview-notif-ico {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--color-primary, #2563eb);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .noti-preview-notif-body { min-width: 0; flex: 1; }
+
+  .noti-preview-notif-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #9ca3af;
+    margin-bottom: 2px;
+  }
+
+  .noti-preview-notif-app { font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+
+  .noti-preview-notif-title {
+    font-weight: 700;
+    font-size: 13.5px;
+    color: #111827;
+    word-break: break-word;
+  }
+
+  .noti-preview-notif-cuerpo {
+    font-size: 12.5px;
+    color: #4b5563;
+    margin-top: 2px;
+    word-break: break-word;
+  }
+
+  .noti-preview-wa {
+    background: #e5ddd5;
+    border-radius: 16px;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid #ded4c7;
+  }
+
+  .noti-preview-wa-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #075e54;
+    margin-bottom: 8px;
+  }
+
+  .noti-preview-wa-ico {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #25d366;
+    color: #fff;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .noti-preview-wa-bubble {
+    background: #dcf8c6;
+    border-radius: 10px;
+    border-top-left-radius: 2px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    color: #111827;
+    max-width: 92%;
+    word-break: break-word;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.08);
+  }
+
+  .noti-preview-wa-check {
+    display: block;
+    text-align: right;
+    font-size: 10px;
+    color: #4fc3f7;
+    margin-top: 4px;
+  }
+
+  .noti-preview-wa-time { color: #6b7280; }
+
+  .noti-preview-hint { font-size: 12px; }
+
+  /* =========================
+     BADGES DE CANAL (tablas)
+  ========================= */
+  .noti-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .noti-badge-app { background: color-mix(in srgb, var(--color-primary, #2563eb) 12%, #fff); color: var(--color-secondary, #1e40af); }
+  .noti-badge-wa { background: #e7f9ee; color: #128c4a; }
+  .noti-badge-ambos { background: linear-gradient(90deg, color-mix(in srgb, var(--color-primary, #2563eb) 12%, #fff), #e7f9ee); color: #111827; }
+
+  /* =========================
+     RESPONSIVE
+  ========================= */
+  @media (max-width: 860px) {
+    .noti-layout {
+      grid-template-columns: 1fr;
+    }
+    .noti-preview-sticky { position: static; }
   }
 </style>
