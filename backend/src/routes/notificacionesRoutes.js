@@ -75,6 +75,7 @@ router.get('/:clubId/notificaciones', requireAuth, async (req, res, next) => {
         SELECT id, club_id, titulo, cuerpo, data, created_at, sent_at
         FROM notificaciones
         WHERE club_id = $1 AND activo = true
+          AND created_at >= NOW() - INTERVAL '30 days'
         ORDER BY created_at DESC
         LIMIT 200
         `,
@@ -103,6 +104,7 @@ router.get('/:clubId/notificaciones', requireAuth, async (req, res, next) => {
       SELECT id, club_id, titulo, cuerpo, data, canal, created_at, sent_at, activo
       FROM notificaciones
       WHERE club_id = $1 AND activo = true
+        AND created_at >= NOW() - INTERVAL '30 days'
       ORDER BY created_at DESC
       LIMIT 500
       `,
