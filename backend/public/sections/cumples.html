@@ -59,6 +59,50 @@
         </div>
 
         <div class="modal-block">
+          <button
+            type="button"
+            id="btnActividadPeriodico"
+            class="btn btn-secondary btn-sm"
+            aria-pressed="false">
+            🔁 Periódico
+          </button>
+        </div>
+
+        <div id="recurrenciaPanel" class="modal-block recurrencia-panel hidden">
+          <div class="row modal-row">
+            <div class="mini-block">
+              <label>Repetir cada</label>
+              <input id="recIntervalo" type="number" min="1" value="1" style="width:80px;" />
+            </div>
+
+            <div class="mini-block">
+              <label>&nbsp;</label>
+              <select id="recTipo">
+                <option value="diario">día(s)</option>
+                <option value="semanal" selected>semana(s)</option>
+                <option value="mensual">mes(es)</option>
+                <option value="anual">año(s)</option>
+              </select>
+            </div>
+
+            <div class="mini-block">
+              <label>Hasta (opcional)</label>
+              <input id="recHasta" type="date" />
+            </div>
+          </div>
+
+          <div id="recDiasSemanaRow" class="recurrencia-dias">
+            <button type="button" class="dia-chip" data-dow="1">L</button>
+            <button type="button" class="dia-chip" data-dow="2">M</button>
+            <button type="button" class="dia-chip" data-dow="3">X</button>
+            <button type="button" class="dia-chip" data-dow="4">J</button>
+            <button type="button" class="dia-chip" data-dow="5">V</button>
+            <button type="button" class="dia-chip" data-dow="6">S</button>
+            <button type="button" class="dia-chip" data-dow="0">D</button>
+          </div>
+        </div>
+
+        <div class="modal-block">
           <label>Título</label>
           <input
             id="actividadTitulo"
@@ -220,6 +264,67 @@
 
 .fc .fc-more-popover{
   z-index:999999 !important;
+}
+
+/* ===============================
+   TOOLBAR FULLCALENDAR (tema)
+=============================== */
+.fc .fc-button-primary{
+  background: var(--color-primary, #2563eb) !important;
+  border-color: var(--color-primary, #2563eb) !important;
+}
+.fc .fc-button-primary:hover{
+  background: var(--color-secondary, #1e40af) !important;
+  border-color: var(--color-secondary, #1e40af) !important;
+}
+.fc .fc-button-primary:disabled{
+  opacity:.6;
+}
+.fc .fc-toolbar-title{
+  font-size:16px !important;
+  font-weight:800;
+  color:#111827;
+}
+
+/* ===============================
+   RECURRENCIA (estilo Outlook)
+=============================== */
+.recurrencia-panel{
+  background:#f9fafb;
+  border:1px dashed #d1d5db;
+  border-radius:10px;
+  padding:10px 12px;
+}
+
+.recurrencia-dias{
+  display:flex;
+  gap:6px;
+  margin-top:10px;
+  flex-wrap:wrap;
+}
+
+.dia-chip{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  border:1px solid #d1d5db;
+  background:#fff;
+  color:#374151;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.dia-chip.active{
+  background: var(--color-primary, #2563eb);
+  border-color: var(--color-primary, #2563eb);
+  color:#fff;
+}
+
+#btnActividadPeriodico[aria-pressed="true"]{
+  background: var(--color-primary, #2563eb);
+  border-color: var(--color-primary, #2563eb);
+  color:#fff;
 }
 
 /* ===============================
