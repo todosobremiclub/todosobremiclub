@@ -1,44 +1,98 @@
-<section id="noticias-section" class="section-noticias">
+<section id="noticias-section" class="section-noticias nw-modern">
 
-  <h2 style="margin-bottom:16px;">📢 Publicar una noticia</h2>
-
-  <div class="card noticia-form-card">
-    <div class="noticia-form">
-
-      <label>Título</label>
-      <input type="text" id="notiTitulo" placeholder="Título de la noticia" />
-
-      <label>Texto</label>
-      <textarea id="notiTexto" rows="4" placeholder="Escribe aquí la noticia..."></textarea>
-
-      <label>Imagen (opcional)</label>
-      <input type="file" id="notiImagen" accept="image/*" />
-
-      <label>Destino</label>
-      <select id="notiDestinoTipo">
-  <option value="todos">Todos los socios</option>
-  <option value="actividad">Por Actividad</option>
-  <option value="categoria">Por Categoría</option>
-  <option value="anio_nac">Por Año de nacimiento</option>
-  <option value="cat_anio">Categoría + Año nacimiento</option>
-  <option value="act_cat">Actividad + Categoría</option>
-<option value="falta_pago">En falta de pago</option>
-
-</select>
-<div id="notiDestinoExtra" class="destino-extra"></div>
-
-      <button
-  id="btnNoticiaPublicar"
-  class="btn btn-primary"
-  style="margin-top:14px; width:100%; font-size:15px;"
->
-  📤 Publicar noticia
-</button>
-
+  <div class="nw-header">
+    <div class="nw-header-icon">📢</div>
+    <div>
+      <h2 class="nw-header-title">Publicar una noticia</h2>
+      <p class="nw-header-sub">Compartí novedades con tus socios, con imagen opcional y vista previa antes de publicar.</p>
     </div>
   </div>
 
-  <h3 style="margin-top:24px;">📰 Noticias publicadas</h3>
+  <div class="nw-layout">
+
+    <!-- ================= COLUMNA IZQUIERDA: FORMULARIO ================= -->
+    <div class="nw-form-col">
+
+      <div class="nw-card">
+        <div class="nw-card-title"><span class="nw-card-title-ico">✏️</span> Contenido</div>
+
+        <label>Título</label>
+        <input type="text" id="notiTitulo" placeholder="Título de la noticia" />
+
+        <label style="margin-top:10px;">Texto</label>
+        <textarea id="notiTexto" rows="4" placeholder="Escribí aquí la noticia..."></textarea>
+
+        <label style="margin-top:10px;">Imagen (opcional)</label>
+        <div class="nw-file-row">
+          <input type="file" id="notiImagen" accept="image/*" />
+          <button type="button" id="btnNotiImagenQuitar" class="btn btn-secondary nw-file-quitar" style="display:none;">✖ Quitar</button>
+        </div>
+        <div class="muted" style="margin-top:6px;">Hasta 3MB. Formatos JPG, PNG o WEBP.</div>
+      </div>
+
+      <div class="nw-card">
+        <div class="nw-card-title"><span class="nw-card-title-ico">🎯</span> Destino</div>
+
+        <select id="notiDestinoTipo">
+          <option value="todos">Todos los socios</option>
+          <option value="actividad">Por Actividad</option>
+          <option value="categoria">Por Categoría</option>
+          <option value="anio_nac">Por Año de nacimiento</option>
+          <option value="cat_anio">Categoría + Año nacimiento</option>
+          <option value="act_cat">Actividad + Categoría</option>
+          <option value="falta_pago">En falta de pago</option>
+        </select>
+
+        <div id="notiDestinoExtra" class="destino-extra"></div>
+
+        <div class="muted" style="margin-top:8px;">
+          La noticia se mostrará solo a los socios que cumplan el criterio seleccionado.
+        </div>
+      </div>
+
+      <button
+        id="btnNoticiaPublicar"
+        class="btn btn-primary nw-submit-btn"
+      >
+        📤 Publicar noticia
+      </button>
+    </div>
+
+    <!-- ================= COLUMNA DERECHA: VISTA PREVIA ================= -->
+    <div class="nw-preview-col">
+      <div class="nw-preview-sticky">
+        <div class="nw-preview-label">👁️ Vista previa</div>
+
+        <div class="nw-preview-phone">
+          <div class="nw-preview-phone-topbar">
+            <span class="nw-preview-dot"></span>
+            <span class="nw-preview-dot"></span>
+            <span class="nw-preview-dot"></span>
+          </div>
+
+          <div class="nw-preview-card">
+            <div class="nw-preview-img-wrap" id="previewImgWrap">
+              <div class="nw-preview-img-placeholder" id="previewImgPlaceholder">🖼️</div>
+              <img id="previewImg" class="nw-preview-img" style="display:none;" alt="Vista previa de la imagen" />
+            </div>
+            <div class="nw-preview-body">
+              <div class="nw-preview-meta">
+                <span class="nw-preview-club" id="previewClubName">App del club</span>
+                <span class="nw-preview-time">ahora</span>
+              </div>
+              <div class="nw-preview-titulo" id="previewTitulo">Título de la noticia</div>
+              <div class="nw-preview-texto" id="previewTexto">Acá vas a ver el texto de la noticia a medida que lo escribís…</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="muted nw-preview-hint">Así se va a ver, aproximadamente, en la app de los socios.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <h3 class="nw-section-title">📰 Noticias publicadas</h3>
 
   <div class="table-wrapper" style="margin-top:12px;">
     <table class="socios-table">
@@ -58,70 +112,266 @@
 
 </section>
 
-
 <style>
-
-  .noticia-form-card {
-    padding:16px;
+  /* =========================
+     BASE
+  ========================= */
+  .nw-modern input[type="text"],
+  .nw-modern textarea,
+  .nw-modern select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    background: #fff;
   }
 
-  .noticia-form {
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-  }
+  .nw-modern textarea { resize: vertical; }
 
-  .noticia-form input[type="text"],
-  .noticia-form textarea,
-  .noticia-form select {
-    width:100%;
-    padding:10px;
-    border-radius:8px;
-    border:1px solid #ccc;
-    font-size:14px;
+  .nw-modern label {
+    display: block;
+    font-size: 0.85rem;
+    color: #444;
+    margin-bottom: 6px;
   }
 
   .destino-extra {
-    margin-top:6px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .destino-extra select,
   .destino-extra input {
-    padding:8px;
-    border-radius:8px;
-    border:1px solid #ccc;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
   }
 
-  /* Tarjeta de imagen miniatura */
+  /* Tarjeta de imagen miniatura (tabla) */
   .noticia-img-mini {
-    width:65px;
-    height:65px;
-    object-fit:cover;
-    border-radius:8px;
-    border:1px solid #ddd;
+    width: 65px;
+    height: 65px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #ddd;
   }
 
-  @media(max-width:768px){
-
-    .noticia-form-card {
-      padding:12px;
-    }
-
-    table {
-      font-size:12px;
-    }
-
-    th, td {
-      padding:6px;
-    }
-
-    .noticia-img-mini {
-      width:48px;
-      height:48px;
-    }
+  /* =========================
+     HEADER
+  ========================= */
+  .nw-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
   }
 
+  .nw-header-icon {
+    flex: none;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--color-primary, #2563eb), var(--color-secondary, #1e40af));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  }
+
+  .nw-header-title {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 800;
+    color: #111827;
+  }
+
+  .nw-header-sub {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #6b7280;
+  }
+
+  /* =========================
+     LAYOUT
+  ========================= */
+  .nw-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .nw-form-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .nw-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  }
+
+  .nw-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--color-secondary, #1e40af);
+    margin-bottom: 10px;
+  }
+
+  .nw-card-title-ico { font-size: 16px; }
+
+  .nw-submit-btn {
+    width: 100%;
+    font-size: 15px;
+    padding: 12px;
+    font-weight: 700;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
+  }
+
+  .nw-section-title { margin-top: 24px; }
+
+  .nw-file-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nw-file-row input[type="file"] { flex: 1; }
+
+  .nw-file-quitar {
+    flex: none;
+    font-size: 12px;
+    padding: 8px 10px;
+    color: #b91c1c;
+    border-color: #fca5a5;
+  }
+
+  /* =========================
+     VISTA PREVIA
+  ========================= */
+  .nw-preview-sticky { position: sticky; top: 12px; }
+
+  .nw-preview-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b7280;
+    margin-bottom: 10px;
+  }
+
+  .nw-preview-phone {
+    background: #eef1f5;
+    border-radius: 16px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #e2e5ea;
+  }
+
+  .nw-preview-phone-topbar {
+    display: flex;
+    gap: 4px;
+    padding: 2px 4px 8px;
+  }
+
+  .nw-preview-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #c7cbd1;
+  }
+
+  .nw-preview-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.10);
+  }
+
+  .nw-preview-img-wrap {
+    width: 100%;
+    height: 130px;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .nw-preview-img-placeholder {
+    font-size: 32px;
+    opacity: .35;
+  }
+
+  .nw-preview-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .nw-preview-body { padding: 10px 12px 12px; }
+
+  .nw-preview-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #9ca3af;
+    margin-bottom: 4px;
+  }
+
+  .nw-preview-club { font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+
+  .nw-preview-titulo {
+    font-weight: 700;
+    font-size: 13.5px;
+    color: #111827;
+    word-break: break-word;
+  }
+
+  .nw-preview-texto {
+    font-size: 12.5px;
+    color: #4b5563;
+    margin-top: 4px;
+    word-break: break-word;
+  }
+
+  .nw-preview-hint { font-size: 12px; }
+
+  /* =========================
+     BADGE DE DESTINO (tabla)
+  ========================= */
+  .nw-badge-destino {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    background: color-mix(in srgb, var(--color-primary, #2563eb) 10%, #fff);
+    color: var(--color-secondary, #1e40af);
+    white-space: nowrap;
+  }
+
+  /* =========================
+     RESPONSIVE
+  ========================= */
+  @media (max-width: 860px) {
+    .nw-layout { grid-template-columns: 1fr; }
+    .nw-preview-sticky { position: static; }
+  }
+
+  @media (max-width: 768px) {
+    table { font-size: 12px; }
+    th, td { padding: 6px; }
+    .noticia-img-mini { width: 48px; height: 48px; }
+  }
 </style>

@@ -309,6 +309,62 @@
     }
   }
 
+  // ✅ NUEVO: badge visual del destino para la tabla
+  function destinoBadge(n) {
+    return `<span class="nw-badge-destino">${escapeHtml(destinoHumanLabel(n))}</span>`;
+  }
+
+  // =============================
+  // ✅ NUEVO: vista previa en vivo
+  // =============================
+  function setQuitarBtnVisible(visible) {
+    const btn = $('#btnNotiImagenQuitar');
+    if (btn) btn.style.display = visible ? 'inline-flex' : 'none';
+  }
+
+  function setPreviewImg(src) {
+    const img = $('#previewImg');
+    const placeholder = $('#previewImgPlaceholder');
+    if (!img || !placeholder) return;
+
+    if (src) {
+      img.src = src;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
+    } else {
+      img.removeAttribute('src');
+      img.style.display = 'none';
+      placeholder.style.display = 'flex';
+    }
+  }
+
+  function updatePreview() {
+    const titulo = $('#notiTitulo')?.value?.trim();
+    const texto = $('#notiTexto')?.value?.trim();
+    const clubName = window.currentClub?.name ? String(window.currentClub.name).trim() : 'App del club';
+
+    const previewTitulo = $('#previewTitulo');
+    const previewTexto = $('#previewTexto');
+    const previewClubName = $('#previewClubName');
+
+    if (previewClubName) previewClubName.textContent = clubName;
+    if (previewTitulo) previewTitulo.textContent = titulo || 'Título de la noticia';
+    if (previewTexto) previewTexto.textContent = texto || 'Acá vas a ver el texto de la noticia a medida que lo escribís…';
+
+    const fileInput = $('#notiImagen');
+    const file = fileInput?.files?.[0] || null;
+
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setPreviewImg(String(reader.result || ''));
+      reader.readAsDataURL(file);
+      setQuitarBtnVisible(true);
+    } else {
+      setPreviewImg(currentImagenUrl || null);
+      setQuitarBtnVisible(false);
+    }
+  }
+
   // =============================
   // Carga / render de noticias
   // =============================
@@ -363,7 +419,7 @@
             ${escapeHtml(n.texto ?? '').slice(0, 120)}${(n.texto || '').length > 120 ? '…' : ''}
           </div>
         </td>
-        <td>${escapeHtml(destinoHumanLabel(n))}</td>
+        <td>${destinoBadge(n)}</td>
         <td>${escapeHtml(fecha)}</td>
         <td style="white-space:nowrap;">
           <button class="btn btn-secondary" data-act="edit" data-id="${n.id}" title="Editar">✏️</button>
@@ -388,6 +444,7 @@
     if ($('#notiDestinoTipo')) $('#notiDestinoTipo').value = 'todos';
 
     renderDestinoExtra();
+    updatePreview();
 
     const btn = $('#btnNoticiaPublicar');
     if (btn) btn.textContent = '📤 Publicar noticia';
@@ -424,6 +481,8 @@
       if ($('#notiDestinoActividad')) $('#notiDestinoActividad').value = n.destino_valor1 ?? '';
       if ($('#notiDestinoCategoria')) $('#notiDestinoCategoria').value = n.destino_valor2 ?? '';
     }
+
+    updatePreview();
 
     const btn = $('#btnNoticiaPublicar');
     if (btn) btn.textContent = '💾 Guardar cambios';
@@ -554,6 +613,24 @@
       });
     }
 
+    // ✅ NUEVO: vista previa en vivo (título / texto / imagen)
+    const tituloInput = root.querySelector('#notiTitulo');
+    const textoInput = root.querySelector('#notiTexto');
+    const imagenInput = root.querySelector('#notiImagen');
+    const btnQuitarImagen = root.querySelector('#btnNotiImagenQuitar');
+
+    if (tituloInput) tituloInput.addEventListener('input', updatePreview);
+    if (textoInput) textoInput.addEventListener('input', updatePreview);
+    if (imagenInput) imagenInput.addEventListener('change', updatePreview);
+
+    if (btnQuitarImagen) {
+      btnQuitarImagen.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (imagenInput) imagenInput.value = '';
+        updatePreview();
+      });
+    }
+
     const tbody = $('#noticiasTableBody');
     if (tbody) {
       tbody.addEventListener('click', (ev) => {
@@ -588,6 +665,7 @@
 
     // render inicial
     renderDestinoExtra();
+    updatePreview();
 
     // noticias
     await loadNoticias();
