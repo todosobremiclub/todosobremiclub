@@ -5,9 +5,19 @@
   let currentRangeKey = null;
   let canWrite = false;
 
-  // ✅ Estado del panel "Periódico" del modal de actividad
+  // ✅ Estado del panel de recurrencia del modal
   let recurrenteActivo = false;
   let diasSemanaSel = new Set();
+
+  const DIAS_LARGOS = [
+    'domingo',
+    'lunes',
+    'martes',
+    'miércoles',
+    'jueves',
+    'viernes',
+    'sábado',
+  ];
 
   // =============================
   // Auth helpers
@@ -53,6 +63,29 @@
     }
   }
 
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  // =============================
+  // Helpers de fecha
+  // =============================
+  function fechaLarga(iso) {
+    if (!iso) return '';
+    const d = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('es-AR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
   // =============================
   // Carga Agenda (por rango visible: semana o mes)
   // =============================
@@ -74,7 +107,7 @@
     }
   }
 
-  // Recarga usando el rango actualmente visible del calendario (post guardar/eliminar)
+  // Recarga usando el rango actualmente visible (post guardar/eliminar)
   async function reloadVisibleRange() {
     if (!calendar) return;
     const view = calendar.view;
@@ -84,7 +117,7 @@
   }
 
   // =============================
-  // Cumpleaños HOY
+  // Cumpleaños de HOY
   // =============================
   function renderHoy(lista) {
     const cont = $('cumplesHoyContainer');
@@ -100,22 +133,25 @@
 
     banner?.classList.remove('hidden');
 
-    lista.forEach((s) => {
-      const foto = s.foto_url || '/img/user-placeholder.png';
-      cont.innerHTML += `
-        <div class="cumple-card">
-          <img src="${foto}" onerror="this.src='/img/user-placeholder.png'"/>
-          <div>
-            <div class="cumple-nombre">
-              ${s.nombre || ''} ${s.apellido || ''}
-            </div>
-            <div class="cumple-categoria">
-              ${s.categoria || s.actividad || ''} — ${s.edad ?? ''} años
+    cont.innerHTML = lista
+      .map((s) => {
+        const foto = s.foto_url || '/img/user-placeholder.png';
+        const nombre = `${s.nombre || ''} ${s.apellido || ''}`.trim();
+        const meta = [s.categoria || s.actividad || '', s.edad != null ? `${s.edad} años` : '']
+          .filter(Boolean)
+          .join(' · ');
+
+        return `
+          <div class="ag-cumple-chip">
+            <img src="${escapeHtml(foto)}" onerror="this.src='/img/user-placeholder.png'" alt="" />
+            <div>
+              <div class="ag-cumple-nombre">${escapeHtml(nombre)}</div>
+              <div class="ag-cumple-meta">${escapeHtml(meta)}</div>
             </div>
           </div>
-        </div>
-      `;
-    });
+        `;
+      })
+      .join('');
   }
 
   // =============================
@@ -128,8 +164,7 @@
     calendarEl.innerHTML = '';
 
     if (!window.FullCalendar || !window.FullCalendar.Calendar) {
-      calendarEl.innerHTML =
-        '<div style="color:#b91c1c;">FullCalendar no disponible</div>';
+      calendarEl.innerHTML = '<div style="color:#b91c1c;">FullCalendar no disponible</div>';
       return;
     }
 
@@ -141,15 +176,19 @@
       slotMinTime: '07:00:00',
       slotMaxTime: '23:00:00',
       slotDuration: '00:30:00',
-      allDaySlot: true, // ✅ acá se muestran cumpleaños/actividades de todo el día, arriba (estilo Outlook)
+      scrollTime: '08:00:00',
+      allDaySlot: true, // ✅ cumpleaños arriba, como en Outlook
       allDayText: 'Todo el día',
       nowIndicator: true,
       navLinks: true,
       dayMaxEvents: 3,
       moreLinkClick: 'popover',
+      moreLinkText: (n) => `+${n} más`,
       expandRows: true,
       eventOrder: 'allDay,start,title',
       eventDisplay: 'block',
+      slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+      eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
       buttonText: {
         today: 'Hoy',
         month: 'Mes',
@@ -159,9 +198,30 @@
       headerToolbar: {
         left: 'prev,next today',
         center: 'title',
-        right: 'dayGridMonth,timeGridWeek', // ✅ posibilidad de ver por mes o por semana
+        right: 'dayGridMonth,timeGridWeek', // ✅ alternar entre mes y semana
       },
       events: [],
+
+      // ✅ Encabezado de días custom (estilo calendario moderno)
+      dayHeaderContent: (arg) => {
+        const dow = arg.date
+          .toLocaleDateString('es-AR', { weekday: 'short' })
+          .replace('.', '');
+        const dowCap = dow.charAt(0).toUpperCase() + dow.slice(1);
+
+        if (arg.view.type === 'dayGridMonth') {
+          return { html: `<span class="ag-dh-dow">${dowCap}</span>` };
+        }
+
+        return {
+          html: `
+            <div class="ag-dh${arg.isToday ? ' is-today' : ''}">
+              <span class="ag-dh-dow">${dowCap}</span>
+              <span class="ag-dh-num">${arg.date.getDate()}</span>
+            </div>
+          `,
+        };
+      },
 
       datesSet: (info) => {
         const desde = info.startStr.slice(0, 10);
@@ -193,7 +253,7 @@
         openActividadModal({ fecha, hora_desde: horaDesde, hora_hasta: horaHasta });
       },
 
-      // Doble click para editar (solo actividades; los cumpleaños no son editables)
+      // Doble click para editar (solo actividades)
       eventDidMount: (info) => {
         if (info.event.extendedProps?.kind !== 'actividad') return;
 
@@ -206,8 +266,6 @@
     });
 
     calendar.render();
-
-    // Debug accesible desde consola
     window.agendaCalendar = calendar;
   }
 
@@ -216,12 +274,14 @@
   // =============================
   function setRecurrenteUI(activo) {
     recurrenteActivo = activo;
-    $('btnActividadPeriodico')?.setAttribute('aria-pressed', activo ? 'true' : 'false');
+    const chk = $('chkPeriodico');
+    if (chk) chk.checked = activo;
     $('recurrenciaPanel')?.classList.toggle('hidden', !activo);
+    updateResumenRecurrencia();
   }
 
   function syncDiasSemanaChips() {
-    document.querySelectorAll('#recDiasSemanaRow .dia-chip').forEach((btn) => {
+    document.querySelectorAll('#recDiasSemanaRow .ag-dia').forEach((btn) => {
       const dow = Number(btn.dataset.dow);
       btn.classList.toggle('active', diasSemanaSel.has(dow));
     });
@@ -230,6 +290,63 @@
   function toggleRecTipoFields() {
     const tipo = $('recTipo')?.value;
     $('recDiasSemanaRow')?.classList.toggle('hidden', tipo !== 'semanal');
+    updateResumenRecurrencia();
+  }
+
+  // ✅ Resumen en vivo, estilo Outlook:
+  // "Todos los lunes y miércoles, de 20:00 a 20:30. Desde el 14 de septiembre de 2026 hasta el 8 de marzo de 2027."
+  function updateResumenRecurrencia() {
+    const el = $('agResumenTexto');
+    if (!el) return;
+
+    const fecha = $('actividadFecha')?.value || '';
+    const hd = $('actividadHoraDesde')?.value || '';
+    const hh = $('actividadHoraHasta')?.value || '';
+
+    if (!fecha || !hd || !hh) {
+      el.textContent = 'Completá la fecha y el horario para ver el resumen.';
+      return;
+    }
+
+    const horario = `de ${hd} a ${hh}`;
+    const base = new Date(`${fecha}T00:00:00`);
+
+    if (!recurrenteActivo) {
+      el.textContent = `Una sola vez: ${DIAS_LARGOS[base.getDay()]} ${fechaLarga(fecha)}, ${horario}.`;
+      return;
+    }
+
+    const tipo = $('recTipo')?.value || 'semanal';
+    const n = Math.max(1, Number($('recIntervalo')?.value) || 1);
+    const hasta = $('recHasta')?.value || '';
+
+    let frase = '';
+
+    if (tipo === 'diario') {
+      frase = n === 1 ? 'Todos los días' : `Cada ${n} días`;
+    } else if (tipo === 'semanal') {
+      const ordenados = Array.from(diasSemanaSel).sort(
+        (a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b)
+      );
+      const nombres = (ordenados.length ? ordenados : [base.getDay()]).map((d) => DIAS_LARGOS[d]);
+      const lista =
+        nombres.length > 1
+          ? `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
+          : nombres[0];
+      frase = n === 1 ? `Todos los ${lista}` : `Cada ${n} semanas, los ${lista}`;
+    } else if (tipo === 'mensual') {
+      frase =
+        n === 1
+          ? `El día ${base.getDate()} de cada mes`
+          : `El día ${base.getDate()}, cada ${n} meses`;
+    } else {
+      const dm = base.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
+      frase = n === 1 ? `Cada año el ${dm}` : `Cada ${n} años el ${dm}`;
+    }
+
+    let txt = `${frase}, ${horario}. Desde el ${fechaLarga(fecha)}`;
+    txt += hasta ? ` hasta el ${fechaLarga(hasta)}.` : ', sin fecha de finalización.';
+    el.textContent = txt;
   }
 
   function openActividadModal(data = {}) {
@@ -243,14 +360,11 @@
     $('actividadDescripcion').value = data.descripcion || '';
 
     // ✅ Si es una serie existente, editamos sobre la fecha ANCLA de la serie
-    // (no la fecha de la ocurrencia puntual en la que se hizo doble click),
-    // para no correr toda la recurrencia al guardar.
+    // (no la ocurrencia puntual clickeada), para no correr toda la recurrencia.
     if (data.id && data.fecha_base) {
       $('actividadFecha').value = data.fecha_base;
     }
 
-    const esRecurrente = !!data.recurrente;
-    setRecurrenteUI(esRecurrente);
     $('recIntervalo').value = data.recurrencia_intervalo || 1;
     $('recTipo').value = data.recurrencia_tipo || 'semanal';
     $('recHasta').value = data.recurrencia_hasta || '';
@@ -259,14 +373,16 @@
       Array.isArray(data.recurrencia_dias_semana) ? data.recurrencia_dias_semana.map(Number) : []
     );
     if (!diasSemanaSel.size && $('actividadFecha').value) {
-      // por defecto, marcar el día de semana de la fecha elegida
+      // por defecto, el día de semana de la fecha elegida
       diasSemanaSel.add(new Date(`${$('actividadFecha').value}T00:00:00`).getDay());
     }
     syncDiasSemanaChips();
+
+    setRecurrenteUI(!!data.recurrente);
     toggleRecTipoFields();
 
     $('btnActividadDelete').style.display = data.id ? '' : 'none';
-    $('actividadModalTitle').textContent = data.id ? 'Editar actividad' : 'Cargar actividad';
+    $('actividadModalTitle').textContent = data.id ? 'Editar actividad' : 'Nueva actividad';
   }
 
   function closeActividadModal() {
@@ -307,24 +423,30 @@
 
     const method = id ? 'PUT' : 'POST';
 
-    const res = await fetchAuthJson(url, {
-      method,
-      json: true,
-      body: JSON.stringify(body),
-    });
+    const btn = $('btnActividadSave');
+    if (btn) btn.disabled = true;
 
-    if (!res.ok) {
-      alert(res.error || 'Error guardando actividad');
-      return;
+    try {
+      const res = await fetchAuthJson(url, {
+        method,
+        json: true,
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        alert(res.error || 'Error guardando actividad');
+        return;
+      }
+
+      closeActividadModal();
+      await reloadVisibleRange();
+    } finally {
+      if (btn) btn.disabled = false;
     }
-
-    closeActividadModal();
-    await reloadVisibleRange();
   }
 
   async function deleteActividad() {
-    const esRecurrente = recurrenteActivo;
-    const confirmMsg = esRecurrente
+    const confirmMsg = recurrenteActivo
       ? '¿Eliminar esta actividad y TODAS sus repeticiones?'
       : '¿Eliminar esta actividad?';
     if (!confirm(confirmMsg)) return;
@@ -362,19 +484,38 @@
     $('btnActividadDelete')?.addEventListener('click', deleteActividad);
     $('formActividad')?.addEventListener('submit', saveActividad);
 
-    // ✅ Panel "Periódico" (recurrencia), estilo Outlook
-    $('btnActividadPeriodico')?.addEventListener('click', () => setRecurrenteUI(!recurrenteActivo));
+    // ✅ Recurrencia
+    $('chkPeriodico')?.addEventListener('change', (ev) => setRecurrenteUI(ev.target.checked));
     $('recTipo')?.addEventListener('change', toggleRecTipoFields);
     $('recDiasSemanaRow')?.addEventListener('click', (ev) => {
-      const btn = ev.target.closest('.dia-chip');
+      const btn = ev.target.closest('.ag-dia');
       if (!btn) return;
       const dow = Number(btn.dataset.dow);
       if (diasSemanaSel.has(dow)) diasSemanaSel.delete(dow);
       else diasSemanaSel.add(dow);
       syncDiasSemanaChips();
+      updateResumenRecurrencia();
     });
 
-    initCalendar(); // la primera carga de datos la dispara "datesSet" con el rango inicial (semana actual)
+    // ✅ Resumen en vivo
+    ['actividadFecha', 'actividadHoraDesde', 'actividadHoraHasta', 'recIntervalo', 'recHasta'].forEach(
+      (id) => {
+        $(id)?.addEventListener('input', updateResumenRecurrencia);
+        $(id)?.addEventListener('change', updateResumenRecurrencia);
+      }
+    );
+
+    // Cerrar modal con click en el fondo o con Escape
+    $('modalActividad')?.addEventListener('click', (ev) => {
+      if (ev.target && ev.target.id === 'modalActividad') closeActividadModal();
+    });
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && !$('modalActividad')?.classList.contains('hidden')) {
+        closeActividadModal();
+      }
+    });
+
+    initCalendar(); // la primera carga la dispara "datesSet" con el rango inicial (semana actual)
   }
 
   window.initCumplesSection = initCumplesSection;

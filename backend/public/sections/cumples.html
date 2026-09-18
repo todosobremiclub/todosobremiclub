@@ -1,146 +1,164 @@
-<section class="section-cumples">
+<!-- sections/cumples.html -->
+<section class="section-cumples ag-modern">
 
   <!-- ===============================
-       HEADER AGENDA
+       HEADER
   =============================== -->
-  <div class="agenda-header">
-    <h2 style="margin:0;">📅 Agenda</h2>
-    <button
-      id="btnActividadAdd"
-      class="btn btn-primary btn-sm"
-      type="button">
-      ➕ Cargar actividad
+  <div class="ag-header">
+    <div class="ag-header-icon">📅</div>
+    <div class="ag-header-text">
+      <h2 class="ag-header-title">Agenda</h2>
+      <p class="ag-header-sub">Actividades del club y cumpleaños de los socios, por semana o por mes.</p>
+    </div>
+    <button id="btnActividadAdd" class="ag-btn-primary ag-btn-add" type="button">
+      <span class="ag-btn-ico">➕</span> Nueva actividad
     </button>
   </div>
 
   <!-- ===============================
        CUMPLEAÑOS DE HOY
   =============================== -->
-  <div id="cumplesHoyBanner" class="cumples-banner hidden">
-    <h3 class="banner-title">📍 Hoy cumplen años:</h3>
-    <div id="cumplesHoyContainer" class="cumples-hoy-container">
-      <!-- Tarjetas dinámicas -->
+  <div id="cumplesHoyBanner" class="ag-cumples-card hidden">
+    <div class="ag-cumples-head">
+      <span class="ag-cumples-ico">🎂</span>
+      <span class="ag-cumples-title">Cumplen años hoy</span>
     </div>
+    <div id="cumplesHoyContainer" class="ag-cumples-row"></div>
+  </div>
+
+  <!-- ===============================
+       LEYENDA
+  =============================== -->
+  <div class="ag-legend">
+    <span class="ag-legend-item"><i class="ag-dot ag-dot-act"></i> Actividades</span>
+    <span class="ag-legend-item"><i class="ag-dot ag-dot-cumple"></i> Cumpleaños</span>
+    <span class="ag-legend-hint">Click en un horario para cargar · Doble click en una actividad para editarla</span>
   </div>
 
   <!-- ===============================
        CALENDARIO
   =============================== -->
-  <div id="calendar" class="calendar-container"></div>
+  <div class="ag-calendar-card">
+    <div id="calendar"></div>
+  </div>
 
   <!-- ===============================
        MODAL: CARGAR / EDITAR ACTIVIDAD
   =============================== -->
   <div id="modalActividad" class="modal hidden">
-    <div class="modal-content" style="max-width:720px;">
-      <div class="modal-header-row">
-        <h3 id="actividadModalTitle">Cargar actividad</h3>
-        <button id="btnActividadClose" class="btn btn-secondary">✕</button>
+    <div class="ag-modal">
+
+      <div class="ag-modal-head">
+        <div class="ag-modal-head-icon">📌</div>
+        <div class="ag-modal-head-text">
+          <h3 id="actividadModalTitle" class="ag-modal-title">Nueva actividad</h3>
+          <p class="ag-modal-sub">Definí cuándo ocurre y, si se repite, con qué frecuencia.</p>
+        </div>
+        <button id="btnActividadClose" class="ag-modal-close" type="button" aria-label="Cerrar">✕</button>
       </div>
 
       <input type="hidden" id="actividadId" />
 
-      <form id="formActividad" class="modal-block">
-        <div class="row modal-row">
-          <div class="mini-block">
-            <label>Fecha</label>
+      <form id="formActividad" class="ag-form">
+
+        <div class="ag-field">
+          <label for="actividadTitulo"><span class="ag-ico">🏷️</span> Título</label>
+          <input
+            id="actividadTitulo"
+            type="text"
+            placeholder="Ej: Entrenamiento plantel superior"
+            required />
+        </div>
+
+        <div class="ag-row">
+          <div class="ag-field">
+            <label for="actividadFecha"><span class="ag-ico">📅</span> Fecha</label>
             <input id="actividadFecha" type="date" required />
           </div>
 
-          <div class="mini-block">
-            <label>Horario desde</label>
+          <div class="ag-field">
+            <label for="actividadHoraDesde"><span class="ag-ico">🕒</span> Desde</label>
             <input id="actividadHoraDesde" type="time" required />
           </div>
 
-          <div class="mini-block">
-            <label>Horario hasta</label>
+          <div class="ag-field">
+            <label for="actividadHoraHasta"><span class="ag-ico">🕔</span> Hasta</label>
             <input id="actividadHoraHasta" type="time" required />
           </div>
         </div>
 
-        <div class="modal-block">
-          <button
-            type="button"
-            id="btnActividadPeriodico"
-            class="btn btn-secondary btn-sm"
-            aria-pressed="false">
-            🔁 Periódico
-          </button>
-        </div>
+        <!-- RECURRENCIA -->
+        <div class="ag-rec-block">
+          <label class="ag-switch">
+            <input type="checkbox" id="chkPeriodico" />
+            <span class="ag-switch-track"><span class="ag-switch-thumb"></span></span>
+            <span class="ag-switch-text">🔁 Actividad periódica</span>
+          </label>
 
-        <div id="recurrenciaPanel" class="modal-block recurrencia-panel hidden">
-          <div class="row modal-row">
-            <div class="mini-block">
-              <label>Repetir cada</label>
-              <input id="recIntervalo" type="number" min="1" value="1" style="width:80px;" />
+          <div id="recurrenciaPanel" class="ag-rec-panel hidden">
+            <div class="ag-row">
+              <div class="ag-field ag-field-sm">
+                <label for="recIntervalo">Repetir cada</label>
+                <input id="recIntervalo" type="number" min="1" value="1" />
+              </div>
+
+              <div class="ag-field">
+                <label for="recTipo">Frecuencia</label>
+                <select id="recTipo">
+                  <option value="diario">día(s)</option>
+                  <option value="semanal" selected>semana(s)</option>
+                  <option value="mensual">mes(es)</option>
+                  <option value="anual">año(s)</option>
+                </select>
+              </div>
+
+              <div class="ag-field">
+                <label for="recHasta">Hasta (opcional)</label>
+                <input id="recHasta" type="date" />
+              </div>
             </div>
 
-            <div class="mini-block">
-              <label>&nbsp;</label>
-              <select id="recTipo">
-                <option value="diario">día(s)</option>
-                <option value="semanal" selected>semana(s)</option>
-                <option value="mensual">mes(es)</option>
-                <option value="anual">año(s)</option>
-              </select>
-            </div>
-
-            <div class="mini-block">
-              <label>Hasta (opcional)</label>
-              <input id="recHasta" type="date" />
+            <div id="recDiasSemanaRow" class="ag-dias">
+              <button type="button" class="ag-dia" data-dow="1">L</button>
+              <button type="button" class="ag-dia" data-dow="2">M</button>
+              <button type="button" class="ag-dia" data-dow="3">X</button>
+              <button type="button" class="ag-dia" data-dow="4">J</button>
+              <button type="button" class="ag-dia" data-dow="5">V</button>
+              <button type="button" class="ag-dia" data-dow="6">S</button>
+              <button type="button" class="ag-dia" data-dow="0">D</button>
             </div>
           </div>
-
-          <div id="recDiasSemanaRow" class="recurrencia-dias">
-            <button type="button" class="dia-chip" data-dow="1">L</button>
-            <button type="button" class="dia-chip" data-dow="2">M</button>
-            <button type="button" class="dia-chip" data-dow="3">X</button>
-            <button type="button" class="dia-chip" data-dow="4">J</button>
-            <button type="button" class="dia-chip" data-dow="5">V</button>
-            <button type="button" class="dia-chip" data-dow="6">S</button>
-            <button type="button" class="dia-chip" data-dow="0">D</button>
-          </div>
         </div>
 
-        <div class="modal-block">
-          <label>Título</label>
-          <input
-            id="actividadTitulo"
-            type="text"
-            placeholder="Ej: Entrenamiento / Reunión / Partido"
-            required />
+        <!-- RESUMEN EN VIVO (estilo Outlook) -->
+        <div class="ag-resumen">
+          <span class="ag-resumen-ico">📋</span>
+          <span id="agResumenTexto" class="ag-resumen-texto">
+            Completá la fecha y el horario para ver el resumen.
+          </span>
         </div>
 
-        <div class="modal-block">
-          <label>Descripción</label>
+        <div class="ag-field">
+          <label for="actividadDescripcion"><span class="ag-ico">📝</span> Descripción</label>
           <textarea
             id="actividadDescripcion"
-            rows="3"
-            placeholder="Detalle de la actividad..."></textarea>
+            rows="2"
+            placeholder="Detalle de la actividad (opcional)"></textarea>
         </div>
 
-        <div class="modal-actions">
-          <button
-            type="button"
-            id="btnActividadCancel"
-            class="btn btn-secondary">
-            Cancelar
-          </button>
-
-          <button
-            type="submit"
-            id="btnActividadSave"
-            class="btn btn-primary">
-            Guardar
-          </button>
-
+        <div class="ag-modal-actions">
           <button
             type="button"
             id="btnActividadDelete"
-            class="btn btn-danger"
-            style="display:none; margin-left:auto;">
-            Eliminar
+            class="ag-btn-danger"
+            style="display:none;">
+            🗑️ Eliminar
           </button>
+
+          <div class="ag-modal-actions-right">
+            <button type="button" id="btnActividadCancel" class="ag-btn-ghost">Cancelar</button>
+            <button type="submit" id="btnActividadSave" class="ag-btn-primary">Guardar</button>
+          </div>
         </div>
       </form>
     </div>
@@ -149,247 +167,749 @@
 </section>
 
 <style>
-/* ===============================
+/* ===============================================================
+   AGENDA — ESTILOS MODERNOS
+=============================================================== */
+
+.ag-modern .hidden{ display:none !important; }
+
+/* ---------------------------------------------------------------
    HEADER
-=============================== */
-.agenda-header{
+--------------------------------------------------------------- */
+.ag-modern .ag-header{
   display:flex;
   align-items:center;
-  gap:12px;
-  margin-bottom:12px;
-}
-.agenda-header button{
-  margin-left:auto;
-}
-
-/* ===============================
-   BANNER CUMPLEAÑOS
-=============================== */
-.cumples-banner{
-  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-  padding:14px;
-  border-radius:12px;
-  color:#fff;
-  margin-bottom:18px;
-  border:1px solid rgba(255,255,255,0.25);
-}
-
-.banner-title{
-  margin:0 0 10px 0;
-}
-
-.cumples-hoy-container{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-}
-
-.cumple-card{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  background:#fff;
-  color:#111;
-  padding:6px 10px;
-  border-radius:8px;
-  width:100%;
-  box-shadow:0 1px 4px rgba(0,0,0,0.12);
-  border-left:3px solid var(--color-accent);
-}
-
-#cumplesHoyContainer img,
-.cumples-hoy-container img,
-.cumple-card img{
-  width:32px !important;
-  height:32px !important;
-  border-radius:50% !important;
-  object-fit:cover !important;
-  border:1px solid var(--color-primary) !important;
-}
-
-.cumple-nombre{
-  font-weight:700;
-  font-size:13px;
-  line-height:1.1;
-}
-
-.cumple-categoria{
-  font-size:12px;
-  color:#555;
-}
-
-/* ===============================
-   CALENDARIO
-=============================== */
-.calendar-container{
-  width:100%;
-  background:#fff;
-  padding:12px;
-  border-radius:12px;
-  border:1px solid #ddd;
-  box-shadow:0 2px 6px rgba(0,0,0,0.06);
-}
-
-/* Colores de eventos */
-.fc .evento-cumple{
-  background:#f59e0b !important;
-  border-color:#d97706 !important;
-  color:#111 !important;
-}
-.fc .evento-actividad{
-  background:#22c55e !important;
-  border-color:#16a34a !important;
-  color:#fff !important;
-}
-
-/* ===============================
-   FIX CRÍTICO: EVITAR RECORTE
-=============================== */
-.fc .fc-daygrid-day-frame,
-.fc .fc-daygrid-day-events,
-.fc .fc-scrollgrid-section-body td,
-.fc .fc-scrollgrid-section-body{
-  overflow: visible !important;
-}
-
-.fc .fc-daygrid-day-frame{
-  min-height:110px !important;
-}
-
-.fc .fc-daygrid-more-link{
-  display:inline-block !important;
-  font-weight:700;
-  color:#2563eb !important;
-}
-
-.fc .fc-more-popover{
-  z-index:999999 !important;
-}
-
-/* ===============================
-   TOOLBAR FULLCALENDAR (tema)
-=============================== */
-.fc .fc-button-primary{
-  background: var(--color-primary, #2563eb) !important;
-  border-color: var(--color-primary, #2563eb) !important;
-}
-.fc .fc-button-primary:hover{
-  background: var(--color-secondary, #1e40af) !important;
-  border-color: var(--color-secondary, #1e40af) !important;
-}
-.fc .fc-button-primary:disabled{
-  opacity:.6;
-}
-.fc .fc-toolbar-title{
-  font-size:16px !important;
-  font-weight:800;
-  color:#111827;
-}
-
-/* ===============================
-   RECURRENCIA (estilo Outlook)
-=============================== */
-.recurrencia-panel{
-  background:#f9fafb;
-  border:1px dashed #d1d5db;
-  border-radius:10px;
-  padding:10px 12px;
-}
-
-.recurrencia-dias{
-  display:flex;
-  gap:6px;
-  margin-top:10px;
+  gap:14px;
+  margin-bottom:16px;
   flex-wrap:wrap;
 }
 
-.dia-chip{
-  width:34px;
-  height:34px;
-  border-radius:50%;
-  border:1px solid #d1d5db;
-  background:#fff;
-  color:#374151;
-  font-size:12px;
+.ag-modern .ag-header-icon{
+  flex:none;
+  width:46px;
+  height:46px;
+  border-radius:14px;
+  background:linear-gradient(135deg, var(--color-primary, #2563eb), var(--color-secondary, #1e40af));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:22px;
+  box-shadow:0 4px 12px rgba(37,99,235,.28);
+}
+
+.ag-modern .ag-header-title{
+  margin:0;
+  font-size:19px;
+  font-weight:800;
+  color:#111827;
+  letter-spacing:-.01em;
+}
+
+.ag-modern .ag-header-sub{
+  margin:2px 0 0;
+  font-size:13px;
+  color:#6b7280;
+}
+
+.ag-modern .ag-btn-add{ margin-left:auto; }
+
+/* ---------------------------------------------------------------
+   BOTONES
+--------------------------------------------------------------- */
+.ag-modern .ag-btn-primary{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  background:linear-gradient(135deg, var(--color-primary, #2563eb), var(--color-secondary, #1e40af));
+  color:#fff;
+  border:none;
+  border-radius:11px;
+  padding:10px 16px;
+  font-size:13.5px;
   font-weight:700;
   cursor:pointer;
+  box-shadow:0 3px 10px rgba(37,99,235,.28);
+  transition:transform .12s ease, box-shadow .15s ease, filter .15s ease;
+}
+.ag-modern .ag-btn-primary:hover{
+  filter:brightness(1.06);
+  box-shadow:0 5px 14px rgba(37,99,235,.34);
+}
+.ag-modern .ag-btn-primary:active{ transform:translateY(1px); }
+
+.ag-modern .ag-btn-ghost{
+  background:#fff;
+  border:1px solid #e2e5ea;
+  color:#4b5563;
+  border-radius:11px;
+  padding:10px 16px;
+  font-size:13.5px;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .15s ease, color .15s ease;
+}
+.ag-modern .ag-btn-ghost:hover{ background:#f5f6f8; color:#111827; }
+
+.ag-modern .ag-btn-danger{
+  background:#fff;
+  border:1px solid #fecaca;
+  color:#dc2626;
+  border-radius:11px;
+  padding:10px 14px;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .15s ease;
+}
+.ag-modern .ag-btn-danger:hover{ background:#fef2f2; }
+
+/* ---------------------------------------------------------------
+   CUMPLEAÑOS DE HOY
+--------------------------------------------------------------- */
+.ag-modern .ag-cumples-card{
+  background:linear-gradient(135deg,#fffbeb,#fff7ed);
+  border:1px solid #fde68a;
+  border-radius:14px;
+  padding:12px 14px;
+  margin-bottom:14px;
 }
 
-.dia-chip.active{
-  background: var(--color-primary, #2563eb);
-  border-color: var(--color-primary, #2563eb);
+.ag-modern .ag-cumples-head{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:10px;
+}
+
+.ag-modern .ag-cumples-ico{ font-size:15px; }
+
+.ag-modern .ag-cumples-title{
+  font-size:11.5px;
+  font-weight:800;
+  color:#92400e;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+
+.ag-modern .ag-cumples-row{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.ag-modern .ag-cumple-chip{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  background:#fff;
+  border:1px solid #fde68a;
+  border-radius:999px;
+  padding:5px 14px 5px 5px;
+  box-shadow:0 1px 3px rgba(16,24,40,.05);
+}
+
+.ag-modern .ag-cumple-chip img{
+  width:30px !important;
+  height:30px !important;
+  border-radius:50% !important;
+  object-fit:cover !important;
+  border:2px solid #fcd34d !important;
+  flex:none;
+}
+
+.ag-modern .ag-cumple-nombre{
+  font-size:12.5px;
+  font-weight:700;
+  color:#111827;
+  line-height:1.2;
+}
+
+.ag-modern .ag-cumple-meta{
+  font-size:11px;
+  color:#a16207;
+  line-height:1.2;
+}
+
+/* ---------------------------------------------------------------
+   LEYENDA
+--------------------------------------------------------------- */
+.ag-modern .ag-legend{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-bottom:12px;
+  flex-wrap:wrap;
+}
+
+.ag-modern .ag-legend-item{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:600;
+  color:#4b5563;
+}
+
+.ag-modern .ag-dot{
+  width:9px;
+  height:9px;
+  border-radius:3px;
+  display:inline-block;
+}
+.ag-modern .ag-dot-act{ background:var(--color-primary, #2563eb); }
+.ag-modern .ag-dot-cumple{ background:#f59e0b; }
+
+.ag-modern .ag-legend-hint{
+  margin-left:auto;
+  font-size:11.5px;
+  color:#9ca3af;
+}
+
+/* ---------------------------------------------------------------
+   CONTENEDOR DEL CALENDARIO
+--------------------------------------------------------------- */
+.ag-modern .ag-calendar-card{
+  background:#fff;
+  border:1px solid #edeff2;
+  border-radius:16px;
+  padding:16px 18px 18px;
+  box-shadow:0 1px 3px rgba(16,24,40,.05);
+}
+
+/* ---------------------------------------------------------------
+   FULLCALENDAR — TEMA
+--------------------------------------------------------------- */
+.ag-modern .fc{
+  --fc-border-color:#eef0f3;
+  --fc-today-bg-color:rgba(37,99,235,.045);
+  --fc-now-indicator-color:#ef4444;
+  --fc-page-bg-color:#fff;
+  --fc-neutral-bg-color:#fafbfc;
+  font-family:inherit;
+}
+
+/* --- Toolbar --- */
+.ag-modern .fc .fc-toolbar.fc-header-toolbar{
+  margin-bottom:18px;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.ag-modern .fc .fc-toolbar-title{
+  font-size:17px !important;
+  font-weight:800;
+  color:#111827;
+  letter-spacing:-.01em;
+  text-transform:capitalize;
+}
+
+.ag-modern .fc .fc-button{
+  border-radius:10px !important;
+  font-size:13px !important;
+  font-weight:600 !important;
+  padding:7px 14px !important;
+  box-shadow:none !important;
+  text-transform:none !important;
+  transition:background .15s ease, color .15s ease, border-color .15s ease;
+}
+.ag-modern .fc .fc-button:focus{
+  box-shadow:0 0 0 3px rgba(37,99,235,.18) !important;
+}
+
+/* prev / next como círculos */
+.ag-modern .fc .fc-prev-button,
+.ag-modern .fc .fc-next-button{
+  background:#fff !important;
+  border:1px solid #e5e7eb !important;
+  color:#374151 !important;
+  width:34px;
+  height:34px;
+  padding:0 !important;
+  border-radius:50% !important;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.ag-modern .fc .fc-prev-button:hover,
+.ag-modern .fc .fc-next-button:hover{
+  background:#f3f4f6 !important;
+  color:#111827 !important;
+}
+
+/* botón Hoy */
+.ag-modern .fc .fc-today-button{
+  background:#fff !important;
+  border:1px solid #e5e7eb !important;
+  color:#374151 !important;
+}
+.ag-modern .fc .fc-today-button:hover:not(:disabled){ background:#f3f4f6 !important; }
+.ag-modern .fc .fc-today-button:disabled{ opacity:.45 !important; }
+
+/* selector Mes / Semana como segmented control */
+.ag-modern .fc .fc-button-group{
+  background:#f3f4f6;
+  padding:3px;
+  border-radius:12px;
+  gap:2px;
+}
+.ag-modern .fc .fc-button-group .fc-button{
+  background:transparent !important;
+  border:none !important;
+  color:#6b7280 !important;
+  border-radius:9px !important;
+}
+.ag-modern .fc .fc-button-group .fc-button:hover{ color:#111827 !important; }
+.ag-modern .fc .fc-button-group .fc-button.fc-button-active{
+  background:#fff !important;
+  color:var(--color-primary, #2563eb) !important;
+  box-shadow:0 1px 3px rgba(16,24,40,.14) !important;
+}
+
+/* --- Grilla --- */
+.ag-modern .fc .fc-scrollgrid{
+  border-radius:12px;
+  overflow:hidden;
+}
+.ag-modern .fc .fc-scrollgrid,
+.ag-modern .fc .fc-scrollgrid-section > *,
+.ag-modern .fc table{
+  border-color:#eef0f3 !important;
+}
+
+/* encabezado de días (renderizado custom desde cumples.js) */
+.ag-modern .fc .fc-col-header-cell{
+  background:#fff;
+  padding:8px 0;
+  border-bottom:1px solid #eef0f3;
+}
+.ag-modern .fc .fc-col-header-cell-cushion{
+  text-decoration:none !important;
+  color:inherit;
+  padding:4px;
+  display:block;
+}
+
+.ag-modern .ag-dh{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+}
+.ag-modern .ag-dh-dow{
+  font-size:10.5px;
+  font-weight:700;
+  color:#9ca3af;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.ag-modern .ag-dh-num{
+  font-size:15px;
+  font-weight:700;
+  color:#111827;
+  width:30px;
+  height:30px;
+  line-height:30px;
+  text-align:center;
+  border-radius:50%;
+}
+.ag-modern .ag-dh.is-today .ag-dh-num{
+  background:var(--color-primary, #2563eb);
   color:#fff;
+  box-shadow:0 2px 6px rgba(37,99,235,.35);
+}
+.ag-modern .ag-dh.is-today .ag-dh-dow{ color:var(--color-primary, #2563eb); }
+
+/* franjas horarias */
+.ag-modern .fc .fc-timegrid-slot{ height:42px; }
+.ag-modern .fc .fc-timegrid-slot-label-cushion{
+  font-size:11px;
+  font-weight:600;
+  color:#9ca3af;
+  padding-right:10px;
+}
+.ag-modern .fc .fc-timegrid-slot-minor{ border-top-style:dotted; }
+.ag-modern .fc .fc-timegrid-axis-cushion{
+  font-size:10px;
+  font-weight:700;
+  color:#9ca3af;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.ag-modern .fc .fc-timegrid-divider{
+  background:#eef0f3;
+  padding:0;
+  height:1px;
+  border:none;
 }
 
-#btnActividadPeriodico[aria-pressed="true"]{
-  background: var(--color-primary, #2563eb);
-  border-color: var(--color-primary, #2563eb);
+/* indicador de "ahora" */
+.ag-modern .fc .fc-timegrid-now-indicator-line{
+  border-color:#ef4444;
+  border-top-width:2px;
+}
+.ag-modern .fc .fc-timegrid-now-indicator-arrow{
+  border-color:#ef4444;
+  border-width:5px;
+}
+
+/* números de día en vista Mes */
+.ag-modern .fc .fc-daygrid-day-number{
+  font-size:12.5px;
+  font-weight:600;
+  color:#374151;
+  padding:7px 9px;
+  text-decoration:none !important;
+}
+.ag-modern .fc .fc-day-today .fc-daygrid-day-number{
+  background:var(--color-primary, #2563eb);
   color:#fff;
+  border-radius:50%;
+  width:26px;
+  height:26px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  margin:6px 6px 0 0;
+  box-shadow:0 2px 6px rgba(37,99,235,.3);
+}
+.ag-modern .fc .fc-day-other .fc-daygrid-day-number{ color:#c7ccd4; }
+.ag-modern .fc .fc-daygrid-day-frame{ min-height:104px; }
+
+/* --- Eventos --- */
+.ag-modern .fc .fc-event{
+  border:none !important;
+  border-radius:8px !important;
+  box-shadow:none !important;
+  font-size:12px;
+  overflow:hidden;
+  cursor:default;
+}
+.ag-modern .fc .fc-event-main{
+  padding:3px 7px;
+  font-weight:600;
+}
+.ag-modern .fc .fc-event-time{
+  font-weight:700;
+  font-size:11px;
+  opacity:.85;
+}
+.ag-modern .fc .fc-event-title{ font-weight:600; }
+
+.ag-modern .fc .evento-actividad{
+  background:#eff6ff !important;
+  border-left:3px solid var(--color-primary, #2563eb) !important;
+  color:#1e3a8a !important;
+}
+.ag-modern .fc .evento-actividad:hover{ background:#e0ebff !important; }
+
+.ag-modern .fc .evento-cumple{
+  background:#fffbeb !important;
+  border-left:3px solid #f59e0b !important;
+  color:#92400e !important;
+}
+.ag-modern .fc .evento-cumple:hover{ background:#fef4d7 !important; }
+
+.ag-modern .fc .fc-daygrid-more-link{
+  font-size:11.5px;
+  font-weight:700;
+  color:var(--color-primary, #2563eb) !important;
+  padding:1px 6px;
+}
+.ag-modern .fc .fc-more-popover{
+  border-radius:12px;
+  border:1px solid #eef0f3;
+  box-shadow:0 10px 30px rgba(16,24,40,.14);
+  z-index:99999 !important;
 }
 
-/* ===============================
+/* ---------------------------------------------------------------
    MODAL
-=============================== */
-.modal{
+--------------------------------------------------------------- */
+.ag-modern .modal{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,0.45);
+  background:rgba(15,23,42,.45);
+  backdrop-filter:blur(2px);
   display:flex;
   align-items:center;
   justify-content:center;
   z-index:99999;
+  padding:16px;
 }
-.modal.hidden{ display:none; }
+.ag-modern .modal.hidden{ display:none !important; }
 
-.modal-content{
+.ag-modern .ag-modal{
   background:#fff;
-  border-radius:12px;
-  padding:16px 18px;
-  width:calc(100% - 24px);
-  max-height:90vh;
+  width:min(620px, 96vw);
+  max-height:92vh;
   overflow:auto;
+  border-radius:18px;
+  box-shadow:0 24px 60px rgba(16,24,40,.22);
 }
 
-.modal-header-row{
+.ag-modern .ag-modal-head{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  padding:18px 20px;
+  border-bottom:1px solid #f0f1f4;
+}
+
+.ag-modern .ag-modal-head-icon{
+  flex:none;
+  width:40px;
+  height:40px;
+  border-radius:12px;
+  background:linear-gradient(135deg, var(--color-primary, #2563eb), var(--color-secondary, #1e40af));
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  margin-bottom:12px;
+  justify-content:center;
+  font-size:17px;
+  box-shadow:0 4px 10px rgba(37,99,235,.26);
 }
 
-.modal-block{
-  margin-top:12px;
+.ag-modern .ag-modal-title{
+  margin:0;
+  font-size:16.5px;
+  font-weight:800;
+  color:#111827;
+}
+
+.ag-modern .ag-modal-sub{
+  margin:2px 0 0;
+  font-size:12.5px;
+  color:#6b7280;
+}
+
+.ag-modern .ag-modal-close{
+  margin-left:auto;
+  background:transparent;
+  border:none;
+  font-size:15px;
+  color:#9ca3af;
+  cursor:pointer;
+  width:32px;
+  height:32px;
+  border-radius:9px;
+  flex:none;
+  transition:background .15s ease, color .15s ease;
+}
+.ag-modern .ag-modal-close:hover{ background:#f3f4f6; color:#111827; }
+
+/* --- Formulario --- */
+.ag-modern .ag-form{
+  padding:18px 20px 20px;
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:14px;
 }
 
-.modal-row{
+.ag-modern .ag-row{
   display:flex;
   gap:12px;
   flex-wrap:wrap;
 }
 
-.mini-block{
+.ag-modern .ag-field{
   display:flex;
   flex-direction:column;
   gap:6px;
+  flex:1;
+  min-width:145px;
 }
 
-.modal-actions{
+.ag-modern .ag-field-sm{
+  flex:0 0 118px;
+  min-width:118px;
+}
+
+.ag-modern .ag-field label{
   display:flex;
-  gap:10px;
   align-items:center;
-  justify-content:flex-end;
-  margin-top:14px;
+  gap:6px;
+  font-size:12px;
+  font-weight:600;
+  color:#4b5563;
 }
 
-/* ===============================
+.ag-modern .ag-ico{ font-size:12.5px; }
+
+.ag-modern .ag-field input,
+.ag-modern .ag-field select,
+.ag-modern .ag-field textarea{
+  width:100%;
+  padding:9px 11px;
+  border-radius:10px;
+  border:1px solid #e2e5ea;
+  font-size:13.5px;
+  font-family:inherit;
+  color:#111827;
+  background:#fff;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+
+.ag-modern .ag-field input:focus,
+.ag-modern .ag-field select:focus,
+.ag-modern .ag-field textarea:focus{
+  outline:none;
+  border-color:var(--color-primary, #2563eb);
+  box-shadow:0 0 0 3px rgba(37,99,235,.12);
+}
+
+.ag-modern .ag-field textarea{ resize:vertical; }
+
+/* --- Bloque recurrencia --- */
+.ag-modern .ag-rec-block{
+  border:1px solid #eceef2;
+  border-radius:13px;
+  padding:14px;
+  background:#fcfcfd;
+}
+
+.ag-modern .ag-switch{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  cursor:pointer;
+  user-select:none;
+}
+
+.ag-modern .ag-switch input{
+  position:absolute;
+  opacity:0;
+  width:0;
+  height:0;
+}
+
+.ag-modern .ag-switch-track{
+  width:40px;
+  height:22px;
+  border-radius:999px;
+  background:#d8dce2;
+  position:relative;
+  transition:background .18s ease;
+  flex:none;
+}
+
+.ag-modern .ag-switch-thumb{
+  position:absolute;
+  top:2px;
+  left:2px;
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 1px 3px rgba(16,24,40,.28);
+  transition:transform .18s ease;
+}
+
+.ag-modern .ag-switch input:checked + .ag-switch-track{
+  background:var(--color-primary, #2563eb);
+}
+.ag-modern .ag-switch input:checked + .ag-switch-track .ag-switch-thumb{
+  transform:translateX(18px);
+}
+.ag-modern .ag-switch input:focus-visible + .ag-switch-track{
+  box-shadow:0 0 0 3px rgba(37,99,235,.2);
+}
+
+.ag-modern .ag-switch-text{
+  font-size:13px;
+  font-weight:600;
+  color:#374151;
+}
+
+.ag-modern .ag-rec-panel{
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px dashed #e2e5ea;
+}
+
+.ag-modern .ag-dias{
+  display:flex;
+  gap:6px;
+  margin-top:12px;
+  flex-wrap:wrap;
+}
+
+.ag-modern .ag-dia{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  border:1px solid #e2e5ea;
+  background:#fff;
+  color:#6b7280;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all .15s ease;
+}
+.ag-modern .ag-dia:hover{ border-color:#c7ccd4; color:#374151; }
+.ag-modern .ag-dia.active{
+  background:var(--color-primary, #2563eb);
+  border-color:var(--color-primary, #2563eb);
+  color:#fff;
+  box-shadow:0 2px 7px rgba(37,99,235,.32);
+}
+
+/* --- Resumen en vivo --- */
+.ag-modern .ag-resumen{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  background:#f5f8ff;
+  border:1px solid #dfe8ff;
+  border-radius:12px;
+  padding:11px 13px;
+  font-size:12.5px;
+  color:#1e3a8a;
+  line-height:1.5;
+}
+.ag-modern .ag-resumen-ico{ flex:none; }
+.ag-modern .ag-resumen-texto{ font-weight:600; }
+
+/* --- Acciones --- */
+.ag-modern .ag-modal-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding-top:4px;
+  flex-wrap:wrap;
+}
+.ag-modern .ag-modal-actions-right{
+  margin-left:auto;
+  display:flex;
+  gap:8px;
+}
+
+/* ---------------------------------------------------------------
    RESPONSIVE
-=============================== */
+--------------------------------------------------------------- */
 @media(max-width:768px){
-  .calendar-container{
-    padding:8px;
+  .ag-modern .ag-calendar-card{ padding:12px; }
+
+  .ag-modern .ag-btn-add{
+    margin-left:0;
+    width:100%;
+    justify-content:center;
   }
+
+  .ag-modern .ag-legend-hint{ display:none; }
+
+  .ag-modern .fc .fc-toolbar.fc-header-toolbar{
+    justify-content:center;
+    gap:8px;
+  }
+  .ag-modern .fc .fc-toolbar-title{ font-size:15px !important; }
+
+  .ag-modern .fc .fc-timegrid-slot{ height:38px; }
+  .ag-modern .fc .fc-daygrid-day-frame{ min-height:76px; }
+
+  .ag-modern .ag-modal-actions-right{
+    margin-left:0;
+    width:100%;
+  }
+  .ag-modern .ag-modal-actions-right button{ flex:1; }
 }
 </style>
