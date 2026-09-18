@@ -2,8 +2,10 @@
 const express = require('express');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
-const { initFirebase } = require('../config/firebaseAdmin');
-const { enviarPlantillaWhatsapp } = require('../services/whatsappService'); // ✅ NUEVO
+const {
+  validateDestino,
+  crearYEnviarNotificacion,
+} = require('../services/notificacionesService'); // ✅ lógica de envío ahora centralizada acá
 
 const router = express.Router();
 
@@ -49,215 +51,6 @@ if (!canWrite) {
   return res.status(403).json({ ok: false, error: 'No autorizado' });
 }
   next();
-}
-
-function isAdminToken(req) {
-  const roles = req.user?.roles ?? [];
-  return roles.some(
-    (r) =>
-      r.role === 'admin' ||
-      r.role === 'staff' ||
-      r.role === 'superadmin' ||
-      r.role === 'profesor' // ✅ NUEVO
-  );
-}
-
-// ===============================
-// Helper: normalizar texto para nombre de topic FCM
-// ⚠️ Esta función debe dar EXACTAMENTE el mismo resultado que
-// normalizeForTopic() en push_service.dart (lado app). Si se
-// cambia una, hay que cambiar la otra, sino los nombres de topic
-// no van a coincidir entre backend y app.
-// ===============================
-function slugForTopic(value) {
-  return String(value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // sacar acentos
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 60);
-}
-
-// ===============================
-// Helper: validar destino_tipo (mismos criterios que Noticias)
-// ===============================
-const DESTINO_TIPOS_VALIDOS = new Set([
-  'todos',
-  'actividad',
-  'categoria',
-  'anio_nac',
-  'cat_anio',
-  'act_cat',
-  'falta_pago',
-]);
-
-function validateDestino({ destino_tipo, destino_valor1, destino_valor2 }) {
-  const tipo = destino_tipo || 'todos';
-
-  if (!DESTINO_TIPOS_VALIDOS.has(tipo)) {
-    throw new Error('destino_tipo inválido');
-  }
-  if (tipo === 'actividad' && !destino_valor1) {
-    throw new Error('Falta actividad (destino_valor1)');
-  }
-  if (tipo === 'categoria' && !destino_valor1) {
-    throw new Error('Falta categoría (destino_valor1)');
-  }
-  if (tipo === 'anio_nac' && !destino_valor1) {
-    throw new Error('Falta año de nacimiento (destino_valor1)');
-  }
-  if (tipo === 'cat_anio' && (!destino_valor1 || !destino_valor2)) {
-    throw new Error('Falta categoría o año de nacimiento (destino_valor1 / destino_valor2)');
-  }
-  if (tipo === 'act_cat' && (!destino_valor1 || !destino_valor2)) {
-    throw new Error('Falta actividad o categoría (destino_valor1 / destino_valor2)');
-  }
-}
-
-// ===============================
-// Helper: resolver a qué topic/condición de FCM mandar el push
-// según el destino elegido en el panel.
-// ===============================
-function buildFcmTarget(clubId, destino) {
-  const tipo = destino?.destino_tipo || 'todos';
-  const v1 = destino?.destino_valor1 || null;
-  const v2 = destino?.destino_valor2 || null;
-
-  const topicActividad = (act) => `club_${clubId}_act_${slugForTopic(act)}`;
-  const topicCategoria = (cat) => `club_${clubId}_cat_${slugForTopic(cat)}`;
-  const topicAnio = (anio) => `club_${clubId}_anio_${slugForTopic(anio)}`;
-  const topicFaltaPago = () => `club_${clubId}_faltapago`;
-
-  switch (tipo) {
-    case 'actividad':
-      return { topic: topicActividad(v1) };
-    case 'categoria':
-      return { topic: topicCategoria(v1) };
-    case 'anio_nac':
-      return { topic: topicAnio(v1) };
-    case 'act_cat':
-      return {
-        condition: `'${topicActividad(v1)}' in topics && '${topicCategoria(v2)}' in topics`,
-      };
-    case 'cat_anio':
-      return {
-        condition: `'${topicCategoria(v1)}' in topics && '${topicAnio(v2)}' in topics`,
-      };
-    case 'falta_pago':
-      return { topic: topicFaltaPago() };
-    default:
-      return { topic: `club_${clubId}` };
-  }
-}
-
-// ===============================
-// Helper: enviar push al destino elegido
-// (todos / actividad / categoría / año / falta de pago / combinaciones)
-// ✅ Incluye clubName en el título y en data
-// ===============================
-async function sendPushToClubTopic({ clubId, clubName, titulo, cuerpo, notificacionId, data }) {
-  const admin = initFirebase();
-  if (!admin) throw new Error('Firebase no inicializado (faltan FIREBASE_*)');
-
-  const target = buildFcmTarget(clubId, data);
-
-  // ✅ Título con nombre del club
-  // Ej: "Club Atlético — Suspensión por lluvia"
-  const titleFinal = clubName
-    ? `${String(clubName).trim()} — ${String(titulo ?? '').trim()}`
-    : String(titulo ?? '').trim();
-
-  // data en FCM debe ser string
-  const message = {
-    ...target, // { topic: '...' } o { condition: '...' }
-    notification: {
-      title: String(titleFinal).slice(0, 120),
-      body: String(cuerpo ?? '').slice(0, 200),
-    },
-    data: {
-      type: 'notificacion',
-      clubId: String(clubId),
-      clubNombre: String(clubName ?? ''), // ✅ NUEVO
-      notificacionId: String(notificacionId),
-    },
-  };
-
-  const messageId = await admin.messaging().send(message);
-  return messageId;
-}
-
-// ===============================
-// ✅ NUEVO: mismo criterio de segmentación que buildFcmTarget, pero como WHERE
-// SQL sobre socios (para WhatsApp, que no tiene topics de Firebase). Reutiliza
-// el mismo CASE de pago_al_dia que ya existe en sociosRoutes.js (GET
-// /:clubId/socios, ~línea 1413-1437) para que "falta_pago" signifique lo mismo
-// en el push y en WhatsApp.
-// ===============================
-function buildSociosWhereFromDestino(clubId, destino) {
-  const tipo = destino?.destino_tipo || 'todos';
-  const v1 = destino?.destino_valor1 || null;
-  const v2 = destino?.destino_valor2 || null;
-
-  const where = ["s.club_id = $1", "s.activo = true", "s.telefono IS NOT NULL", "s.telefono <> ''"];
-  const params = [clubId];
-  let p = 2;
-
-  const PAGO_AL_DIA_SQL = `
-    CASE
-      WHEN s.becado = true THEN true
-      WHEN COALESCE(act_dep.modalidad_pago, 'mensual') = 'por_clases' THEN true
-      ELSE
-        COALESCE((
-          SELECT MAX((pm.anio::int * 100) + (pm.mes::int))
-          FROM pagos_mensuales pm
-          WHERE pm.club_id = s.club_id AND pm.socio_id = s.id
-        ), 0) >=
-        CASE
-          WHEN EXTRACT(DAY FROM CURRENT_DATE)::int <= COALESCE(c.payment_due_day, 31)
-          THEN
-            CASE
-              WHEN EXTRACT(MONTH FROM CURRENT_DATE)::int = 1
-              THEN ((EXTRACT(YEAR FROM CURRENT_DATE)::int - 1) * 100) + 12
-              ELSE (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + (EXTRACT(MONTH FROM CURRENT_DATE)::int - 1)
-            END
-          ELSE (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + EXTRACT(MONTH FROM CURRENT_DATE)::int
-        END
-    END
-  `;
-
-  switch (tipo) {
-    case 'actividad':
-      where.push(`s.actividad = $${p++}`); params.push(v1); break;
-    case 'categoria':
-      where.push(`s.categoria = $${p++}`); params.push(v1); break;
-    case 'anio_nac':
-      where.push(`EXTRACT(YEAR FROM s.fecha_nacimiento) = $${p++}`); params.push(Number(v1)); break;
-    case 'act_cat':
-      where.push(`s.actividad = $${p++}`); params.push(v1);
-      where.push(`s.categoria = $${p++}`); params.push(v2);
-      break;
-    case 'cat_anio':
-      where.push(`s.categoria = $${p++}`); params.push(v1);
-      where.push(`EXTRACT(YEAR FROM s.fecha_nacimiento) = $${p++}`); params.push(Number(v2));
-      break;
-    case 'falta_pago':
-      where.push(`NOT (${PAGO_AL_DIA_SQL})`);
-      break;
-    default:
-      break; // 'todos': sin filtro adicional
-  }
-
-  const sql = `
-    SELECT s.id, s.telefono
-    FROM socios s
-    LEFT JOIN clubs c ON c.id = s.club_id
-    LEFT JOIN actividades act_dep
-      ON act_dep.club_id = s.club_id AND act_dep.nombre = s.actividad AND act_dep.activo = true
-    WHERE ${where.join(' AND ')}
-  `;
-
-  return { sql, params };
 }
 
 // ============================================================
@@ -331,7 +124,7 @@ router.get('/:clubId/notificaciones', requireAuth, async (req, res, next) => {
 // ============================================================
 router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { titulo, cuerpo, data = null, canal = 'app' } = req.body ?? {}; // ✅ NUEVO: canal ('app' | 'whatsapp' | 'ambos')
+  const { titulo, cuerpo, data = null, canal = 'app' } = req.body ?? {};
 
   try {
     if (!titulo?.trim() || !cuerpo?.trim()) {
@@ -345,101 +138,11 @@ router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (re
       return res.status(400).json({ ok: false, error: eDestino.message });
     }
 
-
-    // ✅ Traer nombre del club (para mostrar en push)
-    const rClub = await db.query(      `SELECT name FROM clubs WHERE id = $1 LIMIT 1`,
-      [clubId]
-    );
-    const clubName = rClub.rowCount ? rClub.rows[0].name : 'Club';
-
-    // ✅ NUEVO: normalizar canal elegido (default 'app' si viene algo inesperado)
-    const canalFinal = ['app', 'whatsapp', 'ambos'].includes(canal) ? canal : 'app';
-
-    // 1) Insertar en DB
-    const rIns = await db.query(
-      `
-      INSERT INTO notificaciones (club_id, titulo, cuerpo, data, canal, activo, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
-      RETURNING id, club_id, titulo, cuerpo, data, canal, created_at
-      `,
-      [clubId, titulo.trim(), cuerpo.trim(), data, canalFinal]
-    );
-
-    const noti = rIns.rows[0];
-
-    // 2) Enviar push (FCM) — solo si el canal elegido incluye la app
-    let messageId = null;
-    if (canalFinal === 'app' || canalFinal === 'ambos') {
-      messageId = await sendPushToClubTopic({
-        clubId,
-        clubName,
-        titulo: noti.titulo,
-        cuerpo: noti.cuerpo,
-        notificacionId: noti.id,
-        data
-      });
-
-      // 3) Guardar metadata de envío
-      await db.query(
-        `
-        UPDATE notificaciones
-        SET sent_at = NOW(),
-            firebase_message_id = $1,
-            updated_at = NOW()
-        WHERE id = $2 AND club_id = $3
-        `,
-        [messageId, noti.id, clubId]
-      );
-    }
-
-    // 4) ✅ NUEVO: envío por WhatsApp si el canal elegido lo incluye
-    let whatsappResumen = null;
-    if (canalFinal === 'whatsapp' || canalFinal === 'ambos') {
-      const { sql, params: paramsDestino } = buildSociosWhereFromDestino(clubId, data);
-      const rSocios = await db.query(sql, paramsDestino);
-
-      let enviados = 0;
-      let sinCupo = 0;
-
-      for (const s of rSocios.rows) {
-        const r = await enviarPlantillaWhatsapp({
-          clubId,
-          socioId: s.id,
-          notificacionId: noti.id,
-          tipo: 'notificacion',
-          telefono: s.telefono,
-          templateName: 'notificacion_club',
-          parametros: [clubName, noti.titulo, noti.cuerpo]
-        });
-
-        if (r.ok) enviados++;
-        else if (r.error === 'El club alcanzó su límite mensual de WhatsApp') {
-          sinCupo++;
-          break; // corta el loop apenas se agota el cupo, no sigue intentando
-        }
-      }
-
-      whatsappResumen = { enviados, sinCupo, total: rSocios.rowCount };
-
-      // Si no se mandó push (canal solo WhatsApp), igual dejamos sent_at
-      // seteado para que la notificación no quede como "no enviada".
-      if (canalFinal === 'whatsapp') {
-        await db.query(
-          `UPDATE notificaciones SET sent_at = NOW(), updated_at = NOW() WHERE id = $1 AND club_id = $2`,
-          [noti.id, clubId]
-        );
-      }
-    }
-
-    return res.status(201).json({
-      ok: true,
-      notificacion: {
-        ...noti,
-        sent_at: new Date().toISOString(),
-        firebase_message_id: messageId,
-      },
-      whatsappResumen,
+    const { notificacion, whatsappResumen } = await crearYEnviarNotificacion({
+      clubId, titulo, cuerpo, data, canal
     });
+
+    return res.status(201).json({ ok: true, notificacion, whatsappResumen });
   } catch (e) {
     console.error('❌ POST notificaciones', e);
     return res.status(500).json({ ok: false, error: e.message });
@@ -474,4 +177,190 @@ router.delete('/:clubId/notificaciones/:id', requireAuth, requireClubAccess, asy
   }
 });
 
+// ============================================================
+// ✅ NUEVO: NOTIFICACIONES PROGRAMADAS
+// Permiten dejar cargado hoy un envío para que salga solo más
+// adelante, sin que un admin tenga que entrar a apretar "Enviar":
+//   - tipo_repeticion = 'una_vez'  -> sale una sola vez, en fecha_hora
+//   - tipo_repeticion = 'mensual'  -> sale todos los meses, el día
+//                                     dia_mes (1-31) a la hora indicada
+// El envío en sí lo hace notificacionesProgramadasWorker.js, que corre
+// cada 5 minutos (ver setInterval en src/app.js) y usa la misma función
+// crearYEnviarNotificacion() de acá arriba.
+// ============================================================
+
+// Horario de Argentina, sin horario de verano desde 2009 -> offset fijo.
+const OFFSET_ARG_MIN = -3 * 60;
+
+// Arma un Date (en UTC) a partir de fecha "YYYY-MM-DD" + hora "HH:MM"
+// interpretadas en horario de Argentina.
+function argToUtcDate(fechaStr, horaStr) {
+  const [y, m, d] = String(fechaStr).split('-').map(Number);
+  const [hh, mm] = String(horaStr).split(':').map(Number);
+  // Date.UTC con la hora "de Argentina" y después le restamos el offset
+  // (offset es negativo, así que restarlo suma minutos -> pasa a UTC real).
+  const utcMs = Date.UTC(y, (m - 1), d, hh, mm, 0) - OFFSET_ARG_MIN * 60 * 1000;
+  return new Date(utcMs);
+}
+
+// Dado un día del mes deseado (1-31) y una hora "HH:MM" (horario Argentina),
+// calcula la próxima fecha/hora (en UTC) en que corresponde ejecutar. Si el
+// mes no tiene ese día (ej: 31 en abril), usa el último día del mes.
+function calcularProximaEjecucionMensual(diaMes, horaStr, desde = new Date()) {
+  const [hh, mm] = String(horaStr).split(':').map(Number);
+
+  // Trabajamos en "hora Argentina": convertimos `desde` (UTC) a los campos
+  // de fecha/hora que tendría un reloj en Argentina en ese instante.
+  const desdeArgMs = desde.getTime() + OFFSET_ARG_MIN * 60 * 1000;
+  const desdeArg = new Date(desdeArgMs);
+
+  const anio = desdeArg.getUTCFullYear();
+  const mesActual = desdeArg.getUTCMonth(); // 0-11
+
+  const ultimoDiaMesActual = new Date(Date.UTC(anio, mesActual + 1, 0)).getUTCDate();
+  const diaEsteMes = Math.min(diaMes, ultimoDiaMesActual);
+
+  const candidatoEsteMes = new Date(
+    Date.UTC(anio, mesActual, diaEsteMes, hh, mm, 0) - OFFSET_ARG_MIN * 60 * 1000
+  );
+
+  if (candidatoEsteMes.getTime() > desde.getTime()) {
+    return candidatoEsteMes;
+  }
+
+  // Ya pasó este mes -> próximo mes
+  const ultimoDiaProxMes = new Date(Date.UTC(anio, mesActual + 2, 0)).getUTCDate();
+  const diaProxMes = Math.min(diaMes, ultimoDiaProxMes);
+
+  return new Date(
+    Date.UTC(anio, mesActual + 1, diaProxMes, hh, mm, 0) - OFFSET_ARG_MIN * 60 * 1000
+  );
+}
+
+// ============================================================
+// GET /club/:clubId/notificaciones/programadas
+// Lista las notificaciones programadas activas del club.
+// ============================================================
+router.get('/:clubId/notificaciones/programadas', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const r = await db.query(
+      `
+      SELECT id, club_id, titulo, cuerpo, data, canal, tipo_repeticion,
+             fecha_hora, dia_mes, hora, proxima_ejecucion, ultima_ejecucion,
+             activo, created_at
+      FROM notificaciones_programadas
+      WHERE club_id = $1 AND activo = true
+      ORDER BY proxima_ejecucion ASC
+      `,
+      [clubId]
+    );
+    return res.json({ ok: true, programadas: r.rows });
+  } catch (e) {
+    console.error('❌ GET notificaciones/programadas', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// POST /club/:clubId/notificaciones/programadas
+// Crea una notificación programada (no la envía ahora).
+// body: {
+//   titulo, cuerpo, data (destino), canal,
+//   tipo_repeticion: 'una_vez' | 'mensual',
+//   // si 'una_vez':
+//   fecha: 'YYYY-MM-DD', hora: 'HH:MM',
+//   // si 'mensual':
+//   dia_mes: 1-31, hora: 'HH:MM'
+// }
+// Las fechas/horas se interpretan en horario de Argentina.
+// ============================================================
+router.post('/:clubId/notificaciones/programadas', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const {
+    titulo, cuerpo, data = null, canal = 'app',
+    tipo_repeticion, fecha, hora, dia_mes,
+  } = req.body ?? {};
+
+  try {
+    if (!titulo?.trim() || !cuerpo?.trim()) {
+      return res.status(400).json({ ok: false, error: 'Completá título y cuerpo.' });
+    }
+
+    try {
+      validateDestino(data ?? {});
+    } catch (eDestino) {
+      return res.status(400).json({ ok: false, error: eDestino.message });
+    }
+
+    const canalFinal = ['app', 'whatsapp', 'ambos'].includes(canal) ? canal : 'app';
+
+    if (!['una_vez', 'mensual'].includes(tipo_repeticion)) {
+      return res.status(400).json({ ok: false, error: 'tipo_repeticion inválido (una_vez | mensual)' });
+    }
+    if (!hora || !/^\d{1,2}:\d{2}$/.test(hora)) {
+      return res.status(400).json({ ok: false, error: 'Falta la hora de envío (HH:MM)' });
+    }
+
+    let fechaHora = null;
+    let diaMesFinal = null;
+    let proximaEjecucion = null;
+
+    if (tipo_repeticion === 'una_vez') {
+      if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+        return res.status(400).json({ ok: false, error: 'Falta la fecha de envío (YYYY-MM-DD)' });
+      }
+      fechaHora = argToUtcDate(fecha, hora);
+      if (fechaHora.getTime() <= Date.now()) {
+        return res.status(400).json({ ok: false, error: 'La fecha/hora programada ya pasó' });
+      }
+      proximaEjecucion = fechaHora;
+    } else {
+      const dm = Number(dia_mes);
+      if (!Number.isInteger(dm) || dm < 1 || dm > 31) {
+        return res.status(400).json({ ok: false, error: 'Día del mes inválido (1 a 31)' });
+      }
+      diaMesFinal = dm;
+      proximaEjecucion = calcularProximaEjecucionMensual(dm, hora);
+    }
+
+    const rIns = await db.query(
+      `
+      INSERT INTO notificaciones_programadas
+        (club_id, titulo, cuerpo, data, canal, tipo_repeticion, fecha_hora, dia_mes, hora, proxima_ejecucion, activo, created_at, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, true, NOW(), NOW())
+      RETURNING id, club_id, titulo, cuerpo, data, canal, tipo_repeticion, fecha_hora, dia_mes, hora, proxima_ejecucion, created_at
+      `,
+      [clubId, titulo.trim(), cuerpo.trim(), data, canalFinal, tipo_repeticion, fechaHora, diaMesFinal, hora, proximaEjecucion]
+    );
+
+    return res.status(201).json({ ok: true, programada: rIns.rows[0] });
+  } catch (e) {
+    console.error('❌ POST notificaciones/programadas', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// DELETE /club/:clubId/notificaciones/programadas/:id
+// Cancela (soft delete) una notificación programada que todavía no salió.
+// ============================================================
+router.delete('/:clubId/notificaciones/programadas/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    const r = await db.query(
+      `UPDATE notificaciones_programadas SET activo = false, updated_at = NOW() WHERE id = $1 AND club_id = $2`,
+      [id, clubId]
+    );
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Notificación programada no encontrada' });
+    }
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ DELETE notificaciones/programadas', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 module.exports = router;
+module.exports.calcularProximaEjecucionMensual = calcularProximaEjecucionMensual;

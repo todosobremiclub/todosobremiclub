@@ -115,5 +115,14 @@ setInterval(() => {
   sociosRoutes.procesarBienvenidasPendientes();
 }, CHEQUEO_BIENVENIDA_MS);
 
+// ✅ NUEVO: worker de notificaciones programadas (envío único en una fecha
+// puntual, o recurrente todos los meses en un día fijo). Revisa cada 5
+// minutos si hay alguna cuya próxima ejecución ya llegó, y la manda.
+const { procesarNotificacionesProgramadas } = require('./services/notificacionesProgramadasWorker');
+const CHEQUEO_NOTIF_PROGRAMADAS_MS = 5 * 60 * 1000; // cada 5 minutos
+setInterval(() => {
+  procesarNotificacionesProgramadas();
+}, CHEQUEO_NOTIF_PROGRAMADAS_MS);
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ API listening on ${PORT}`));

@@ -52,6 +52,7 @@
   // HISTORIAL
   // =========================
   let cache = [];
+  let cacheProgramadas = []; // ✅ NUEVO
 
   // Catálogos para el selector de Destino
   let actividadesCache = [];
@@ -106,6 +107,95 @@
   }
 
 // =========================
+  // ✅ NUEVO: PROGRAMADAS
+  // =========================
+  async function loadProgramadas() {
+    const tbody = $id('notiProgramadasTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="5">Cargando...</td></tr>`;
+
+    const clubId = getActiveClubId();
+    const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones/programadas`);
+
+    if (!res.ok || !data.ok) {
+      tbody.innerHTML = `<tr><td colspan="5">Error cargando programadas</td></tr>`;
+      console.error('[notificaciones] error load programadas', data);
+      return;
+    }
+
+    cacheProgramadas = data.programadas ?? [];
+    renderProgramadasTable();
+  }
+
+  function fmtRepeticion(p) {
+    if (p.tipo_repeticion === 'mensual') {
+      return `Todos los meses (día ${p.dia_mes}, ${String(p.hora).slice(0, 5)} hs)`;
+    }
+    return `Una vez (${String(p.hora).slice(0, 5)} hs)`;
+  }
+
+  function renderProgramadasTable() {
+    const tbody = $id('notiProgramadasTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!cacheProgramadas.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">No hay notificaciones programadas.</td></tr>`;
+      return;
+    }
+
+    cacheProgramadas.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${escapeHtml(p.titulo ?? '')}</strong></td>
+        <td>${escapeHtml(p.cuerpo ?? '').slice(0, 160)}${(p.cuerpo ?? '').length > 160 ? '…' : ''}</td>
+        <td>${escapeHtml(fmtRepeticion(p))}</td>
+        <td>${escapeHtml(fmtDT(p.proxima_ejecucion))}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-secondary"
+            style="background:#ef4444;border-color:#ef4444;"
+            data-act="del-prog" data-id="${escapeHtml(p.id)}">🗑️</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function cancelarProgramada(id) {
+    const clubId = getActiveClubId();
+    if (!confirm('¿Cancelar esta notificación programada?')) return;
+
+    const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones/programadas/${id}`, {
+      method: 'DELETE'
+    });
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'No se pudo cancelar');
+      return;
+    }
+
+    await loadProgramadas();
+  }
+
+  // Muestra/oculta los campos según "¿Cuándo enviar?" y "Repetición"
+  function actualizarVisibilidadProgramacion() {
+    const cuando = $id('notiCuando')?.value || 'ahora';
+    const progWrap = $id('notiProgramarWrap');
+    if (progWrap) progWrap.style.display = cuando === 'programar' ? 'block' : 'none';
+
+    const btn = $id('btnPushEnviar');
+    if (btn) btn.textContent = cuando === 'programar' ? '🗓️ Programar envío' : '📤 Guardar y enviar';
+
+    const rep = $id('notiRepeticion')?.value || 'una_vez';
+    const unaVezWrap = $id('notiProgUnaVezWrap');
+    const mensualWrap = $id('notiProgMensualWrap');
+    if (unaVezWrap) unaVezWrap.style.display = rep === 'una_vez' ? 'flex' : 'none';
+    if (mensualWrap) mensualWrap.style.display = rep === 'mensual' ? 'flex' : 'none';
+  }
+
+  // =========================
   // CATÁLOGOS PARA EL DESTINO (mismos que usa Noticias)
   // =========================
   async function loadActividades() {
@@ -314,9 +404,54 @@ function getDestinoPayload() {
   const btn = $id('btnPushEnviar');
   if (btn) btn.disabled = true;
 
+  const cuando = $id('notiCuando')?.value || 'ahora'; // ✅ NUEVO
+
   try {
     const destino = getDestinoPayload();
-    const canal = $id('notiCanal')?.value || 'app'; // ✅ NUEVO
+    const canal = $id('notiCanal')?.value || 'app';
+
+    // ✅ NUEVO: si eligió "Programar envío", va a un endpoint distinto
+    if (cuando === 'programar') {
+      const tipo_repeticion = $id('notiRepeticion')?.value || 'una_vez';
+
+      const body = { titulo, cuerpo, data: destino, canal, tipo_repeticion };
+
+      if (tipo_repeticion === 'una_vez') {
+        const fecha = $id('notiProgFecha')?.value;
+        const hora = $id('notiProgHoraUnaVez')?.value;
+        if (!fecha || !hora) throw new Error('Completá la fecha y la hora del envío');
+        body.fecha = fecha;
+        body.hora = hora;
+      } else {
+        const dia_mes = $id('notiProgDiaMes')?.value;
+        const hora = $id('notiProgHoraMensual')?.value;
+        if (!dia_mes || !hora) throw new Error('Completá el día del mes y la hora del envío');
+        body.dia_mes = Number(dia_mes);
+        body.hora = hora;
+      }
+
+      const { res, data } = await fetchAuth(
+        `/club/${clubId}/notificaciones/programadas`,
+        { method: 'POST', json: true, body: JSON.stringify(body) }
+      );
+
+      if (!res.ok || !data.ok) {
+        alert(data?.error || 'Error programando notificación');
+        return;
+      }
+
+      alert('✅ Notificación programada correctamente');
+
+      if ($id('pushTitulo')) $id('pushTitulo').value = '';
+      if ($id('pushCuerpo')) $id('pushCuerpo').value = '';
+      if ($id('notiProgFecha')) $id('notiProgFecha').value = '';
+      if ($id('notiProgHoraUnaVez')) $id('notiProgHoraUnaVez').value = '';
+      if ($id('notiProgDiaMes')) $id('notiProgDiaMes').value = '';
+      if ($id('notiProgHoraMensual')) $id('notiProgHoraMensual').value = '';
+
+      await loadProgramadas();
+      return;
+    }
 
     const { res, data } = await fetchAuth(
       `/club/${clubId}/notificaciones`,
@@ -327,7 +462,7 @@ function getDestinoPayload() {
           titulo,
           cuerpo,
           data: destino,
-          canal // ✅ NUEVO
+          canal
         })
       }
     );
@@ -337,7 +472,7 @@ function getDestinoPayload() {
       return;
     }
 
-    // ✅ NUEVO: si se mandó por WhatsApp, avisar cuántos salieron
+    // ✅ si se mandó por WhatsApp, avisar cuántos salieron
     const wa = data?.whatsappResumen;
     if (wa) {
       let msg = `✅ Notificación enviada. WhatsApp: ${wa.enviados} enviados de ${wa.total}.`;
@@ -398,6 +533,17 @@ function getDestinoPayload() {
         console.error(err);
         alert(err.message || 'Error');
       });
+      return;
+    }
+
+    // ✅ NUEVO: cancelar una notificación programada
+    const btnDelProg = e.target.closest('button[data-act="del-prog"][data-id]');
+    if (btnDelProg) {
+      e.preventDefault();
+      cancelarProgramada(btnDelProg.dataset.id).catch(err => {
+        console.error(err);
+        alert(err.message || 'Error');
+      });
     }
   });
 
@@ -419,10 +565,18 @@ function getDestinoPayload() {
     await Promise.all([loadActividades(), loadCategorias(), loadAniosNacimiento()]);
     renderDestinoExtra();
 
-    await loadNotificaciones();
+    // ✅ NUEVO: estado inicial de los campos de programación + carga de programadas
+    actualizarVisibilidadProgramacion();
+    await Promise.all([loadNotificaciones(), loadProgramadas()]);
   };
 
 document.addEventListener('change', (e) => {
+  // ✅ NUEVO
+  if (e.target?.id === 'notiCuando' || e.target?.id === 'notiRepeticion') {
+    actualizarVisibilidadProgramacion();
+    return;
+  }
+
   if (e.target?.id === 'notiDestinoTipo') {
     const tipo = e.target.value || 'todos';
 
