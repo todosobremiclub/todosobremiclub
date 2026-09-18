@@ -17,54 +17,6 @@
         placeholder="Escribí el mensaje de la notificación..."
       ></textarea>
 
-      <!-- ✅ NUEVO: elegir si se envía ahora o se programa para más adelante -->
-      <div id="notiCuandoWrap" style="margin-top:6px;">
-        <label>¿Cuándo enviar?</label>
-        <select id="notiCuando">
-          <option value="ahora">Enviar ahora</option>
-          <option value="programar">Programar envío</option>
-        </select>
-      </div>
-
-      <!-- ✅ NUEVO: opciones de programación, solo visibles si notiCuando = "programar" -->
-      <div id="notiProgramarWrap" style="display:none; margin-top:6px;">
-        <label for="notiRepeticion">Repetición</label>
-        <select id="notiRepeticion">
-          <option value="una_vez">Una sola vez, en una fecha puntual</option>
-          <option value="mensual">Todos los meses, en un día fijo</option>
-        </select>
-
-        <div id="notiProgUnaVezWrap" style="display:flex; gap:10px; margin-top:8px;">
-          <label style="flex:1;">Fecha
-            <input type="date" id="notiProgFecha" />
-          </label>
-          <label style="flex:1;">Hora
-            <input type="time" id="notiProgHoraUnaVez" />
-          </label>
-        </div>
-
-        <div id="notiProgMensualWrap" style="display:none; gap:10px; margin-top:8px;">
-          <label style="flex:1;">Día del mes
-            <input type="number" id="notiProgDiaMes" min="1" max="31" placeholder="Ej: 5" />
-          </label>
-          <label style="flex:1;">Hora
-            <input type="time" id="notiProgHoraMensual" />
-          </label>
-        </div>
-
-        <div class="muted" style="margin-top:6px;font-size:12px;">
-          Si elegís un día que no existe en algún mes (ej: 31), se manda el último día de ese mes. Horario de Argentina.
-        </div>
-      </div>
-
-      <button
-        id="btnPushEnviar"
-        class="btn btn-primary"
-        style="margin-top:14px; width:100%; font-size:15px;"
-      >
-        📤 Guardar y enviar
-      </button>
-
 <!-- ✅ Destino habilitado: filtra a quién le llega el push -->
 <div id="notificaciones-destino">
   <label>Destino</label>
@@ -99,6 +51,55 @@
   </div>
 </div>
 
+<!-- ✅ NUEVO: elegir si se envía ahora o se programa para más adelante.
+     Va después de Destino y Enviar por a propósito: la programación usa
+     el destino y el canal elegidos arriba. -->
+<div id="notiCuandoWrap" style="margin-top:14px;">
+  <label>¿Cuándo enviar?</label>
+  <select id="notiCuando">
+    <option value="ahora">Enviar ahora</option>
+    <option value="programar">Programar envío</option>
+  </select>
+</div>
+
+<!-- ✅ NUEVO: opciones de programación, solo visibles si notiCuando = "programar" -->
+<div id="notiProgramarWrap" style="display:none; margin-top:6px;">
+  <label for="notiRepeticion">Repetición</label>
+  <select id="notiRepeticion">
+    <option value="una_vez">Una sola vez, en una fecha puntual</option>
+    <option value="mensual">Todos los meses, en un día fijo</option>
+  </select>
+
+  <div id="notiProgUnaVezWrap" style="display:flex; gap:10px; margin-top:8px;">
+    <label style="flex:1;">Fecha
+      <input type="date" id="notiProgFecha" />
+    </label>
+    <label style="flex:1;">Hora
+      <input type="time" id="notiProgHoraUnaVez" />
+    </label>
+  </div>
+
+  <div id="notiProgMensualWrap" style="display:none; gap:10px; margin-top:8px;">
+    <label style="flex:1;">Día del mes
+      <input type="number" id="notiProgDiaMes" min="1" max="31" placeholder="Ej: 5" />
+    </label>
+    <label style="flex:1;">Hora
+      <input type="time" id="notiProgHoraMensual" />
+    </label>
+  </div>
+
+  <div class="muted" style="margin-top:6px;font-size:12px;">
+    Si elegís un día que no existe en algún mes (ej: 31), se manda el último día de ese mes. Horario de Argentina.
+  </div>
+</div>
+
+      <button
+        id="btnPushEnviar"
+        class="btn btn-primary"
+        style="margin-top:14px; width:100%; font-size:15px;"
+      >
+        📤 Guardar y enviar
+      </button>
 
       <div class="muted" style="margin-top:4px; font-size:12px;">
         ℹ️ Las notificaciones son solo texto. Para imágenes utilizá la sección
