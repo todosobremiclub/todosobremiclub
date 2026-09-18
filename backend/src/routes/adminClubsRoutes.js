@@ -88,6 +88,18 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
     WHERE s.club_id = clubs.id
   ) AS socios_activos,
 
+  -- ✅ NUEVO: mensajes de WhatsApp (bienvenidas + notificaciones) ya usados
+  -- este mes calendario, mismo criterio que getCupoRestante() en
+  -- src/services/whatsappService.js (cuenta whatsapp_mensajes desde el
+  -- primer día del mes en curso, incluye tanto los 'enviado' como los
+  -- 'fallido' porque un intento fallido también consume cupo).
+  (
+    SELECT COUNT(*)
+    FROM whatsapp_mensajes wm
+    WHERE wm.club_id = clubs.id
+      AND wm.created_at >= date_trunc('month', NOW())
+  ) AS whatsapp_usados_mes,
+
   logo_url,
   background_url,
   color_primary,

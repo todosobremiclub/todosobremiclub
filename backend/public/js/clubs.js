@@ -340,6 +340,18 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
       ? '<span title="Transferencia habilitada">✅</span>'
       : '<span title="Transferencia deshabilitada">❌</span>';
 
+    // ✅ NUEVO: mensajes de WhatsApp usados este mes vs. el límite configurado
+    // para el club. Si el club no tiene el add-on habilitado, se muestra "—".
+    let whatsappHtml = '<span class="muted" style="color:#9ca3af;">—</span>';
+    if (c.whatsapp_habilitado) {
+      const usados = Number(c.whatsapp_usados_mes ?? 0);
+      const limite = Number(c.whatsapp_limite_mensual ?? 0);
+      const pct = limite > 0 ? usados / limite : 0;
+      // verde por debajo del 80% del límite, naranja entre 80% y 100%, rojo al llegar/superar el límite
+      const color = pct >= 1 ? '#dc2626' : (pct >= 0.8 ? '#d97706' : '#16a34a');
+      whatsappHtml = `<span style="color:${color}; font-weight:600;" title="Mensajes de WhatsApp usados este mes / límite mensual del club">${usados} / ${limite}</span>`;
+    }
+
     return `
       <td>${logoHtml}</td>
       <td><strong>${escapeHtml(c.name ?? '')}</strong></td>
@@ -348,6 +360,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
       <td>${renderEstadoBadge(c.estado)}</td>
       <td>${escapeHtml(String(c.socios_activos ?? '—'))}</td>
       <td>${transferenciaHtml}</td>
+      <td>${whatsappHtml}</td>
       <td>
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
           <button type="button" title="Ver club" data-action="impersonate_ro" data-id="${escapeHtml(c.id)}" data-name="${escapeHtml(c.name ?? '')}">👁️</button>
@@ -368,7 +381,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     if (!list.length) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8">No hay resultados</td>
+          <td colspan="9">No hay resultados</td>
         </tr>
       `;
       return;
@@ -401,7 +414,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="8">Cargando...</td>
+        <td colspan="9">Cargando...</td>
       </tr>
     `;
 
