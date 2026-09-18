@@ -71,6 +71,26 @@
     return `${y}-${m}`;
   }
 
+  // ✅ NUEVO: "2026-09" -> "Septiembre 2026"
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  function formatPeriodoHuman(p) {
+    const s = String(p ?? '');
+    const m = s.match(/^(\d{4})-(\d{2})$/);
+    if (!m) return s || 'Sin período';
+    const anio = m[1];
+    const mesIdx = Number(m[2]) - 1;
+    if (mesIdx < 0 || mesIdx > 11) return s;
+    return `${MESES[mesIdx]} ${anio}`;
+  }
+
+  // ✅ NUEVO: "2026-09-15" -> "15/09/2026"
+  function formatFechaHuman(iso) {
+    const s = String(iso ?? '');
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return s;
+    return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+
   function setDefaultFilters() {
   const ym = todayYYYYMM();
   if ($('filtroPeriodo') && !$('filtroPeriodo').value) $('filtroPeriodo').value = ym;
@@ -84,6 +104,29 @@
     if ($('gastoFecha')) $('gastoFecha').value = todayISO();
 
     modal.classList.remove('hidden');
+    updateResumen();
+  }
+
+  // ✅ NUEVO: resumen en vivo dentro del modal de carga de gasto
+  function updateResumen() {
+    const selTipo = $('gastoTipo');
+    const selResp = $('gastoResponsable');
+    const fecha = $('gastoFecha')?.value || '';
+    const montoRaw = $('gastoMonto')?.value || '';
+
+    const tipoTxt = selTipo?.selectedOptions?.[0]?.textContent || '';
+    const respTxt = selResp?.selectedOptions?.[0]?.textContent || '';
+    const monto = Number(montoRaw || 0);
+
+    const elTipo = $('resumenTipo');
+    const elResp = $('resumenResponsable');
+    const elFecha = $('resumenFecha');
+    const elMonto = $('resumenMonto');
+
+    if (elTipo) elTipo.textContent = (tipoTxt && tipoTxt !== 'Seleccionar...' && tipoTxt !== 'Cargando...') ? tipoTxt : 'Tipo de gasto';
+    if (elResp) elResp.textContent = (respTxt && respTxt !== 'Seleccionar...' && respTxt !== 'Cargando...') ? respTxt : 'Responsable';
+    if (elFecha) elFecha.textContent = fecha ? formatFechaHuman(fecha) : 'Fecha';
+    if (elMonto) elMonto.textContent = money.format(Number.isFinite(monto) ? monto : 0);
   }
 
 function todayISO() {
@@ -260,9 +303,9 @@ function renderGastosGrouped(gastos = []) {
         <div class="accordion-header" data-target="${accId}">
           <div class="accordion-left">
             <span class="accordion-arrow">▶</span>
-            <span>${escapeHtml(p)}</span>
+            <span>📅 ${escapeHtml(formatPeriodoHuman(p))}</span>
           </div>
-          <div style="font-weight:800;">Total: ${money.format(totalMes)}</div>
+          <div class="gs-accordion-total">Total: ${money.format(totalMes)}</div>
         </div>
 
         <div id="${accId}" class="accordion-body ${idx === 0 ? '' : 'hidden'}">
@@ -389,6 +432,12 @@ const periodo = fecha_gasto ? fecha_gasto.slice(0, 7) : ''; // YYYY-MM
       e.preventDefault();
       createGasto();
     });
+
+    // ✅ NUEVO: resumen en vivo mientras se completa el formulario
+    $('gastoTipo')?.addEventListener('change', updateResumen);
+    $('gastoResponsable')?.addEventListener('change', updateResumen);
+    $('gastoFecha')?.addEventListener('input', updateResumen);
+    $('gastoMonto')?.addEventListener('input', updateResumen);
 
     $('gastosAccordions')?.addEventListener('click', async (ev) => {
   // toggle acordeón (si clickean header)

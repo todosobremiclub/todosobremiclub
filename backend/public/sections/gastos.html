@@ -1,29 +1,33 @@
 <!-- sections/gastos.html -->
-<section class="section-gastos">
+<section class="section-gastos gs-modern">
 
-  <div class="section-header gastos-header">
-    <h2>Gestión de Gastos</h2>
-
-    <button id="btnGastoAdd" class="btn btn-primary">
-      + Registrar nuevo gasto
-    </button>
+  <div class="gs-header">
+    <div class="gs-header-icon">💸</div>
+    <div>
+      <h2 class="gs-header-title">Gestión de Gastos</h2>
+      <p class="gs-header-sub">Registrá los gastos del club, agrupados por período, con un resumen antes de guardar.</p>
+    </div>
   </div>
 
-  <!-- FILTROS -->
-  <div class="filters filtros-gastos">
-    <label class="label-inline">
-      Período:
+  <!-- TOOLBAR: filtro + acción -->
+  <div class="gs-toolbar">
+    <label class="gs-filtro-periodo">
+      <span class="gs-filtro-ico">📅</span>
       <input type="month" id="filtroPeriodo">
     </label>
     <button id="btnFiltrarGastos" class="btn btn-secondary">Ver</button>
+
+    <button id="btnGastoAdd" class="btn btn-primary gs-btn-add">
+      ➕ Registrar nuevo gasto
+    </button>
   </div>
 
   <!-- CONTENEDOR DE ACORDEONES -->
-  <div id="gastosAccordions"></div>
+  <div id="gastosAccordions" class="gs-accordions"></div>
 
   <!-- TOTAL -->
-  <div class="total-periodo">
-    <span>Total período:</span>
+  <div class="gs-total-card">
+    <span>Total período</span>
     <strong id="totalPeriodo">$ 0,00</strong>
   </div>
 
@@ -32,41 +36,60 @@
        MODAL REGISTRAR GASTO
   ================================ -->
   <div id="modalGasto" class="modal hidden">
-    <div class="modal-content" style="max-width:620px;">
+    <div class="modal-content gs-modal-content">
 
-      <h3 style="margin:0 0 10px 0;">Registrar Gasto</h3>
+      <div class="modal-header-row">
+        <h3 style="margin:0;">💸 Registrar Gasto</h3>
+      </div>
 
-      <form id="formGasto" class="modal-form">
+      <form id="formGasto" class="gs-modal-form">
 
-        <label>
-          Tipo de gasto
-          <select id="gastoTipo" required>
-            <option value="">Cargando...</option>
-          </select>
-        </label>
+        <div class="gs-modal-row">
+          <div class="gs-mini-block">
+            <label><span class="gs-label-ico">🏷️</span> Tipo de gasto</label>
+            <select id="gastoTipo" required>
+              <option value="">Cargando...</option>
+            </select>
+          </div>
 
-        <label>
-          Fecha del gasto
-          <input type="date" id="gastoFecha" required>
-        </label>
+          <div class="gs-mini-block">
+            <label><span class="gs-label-ico">📅</span> Fecha del gasto</label>
+            <input type="date" id="gastoFecha" required>
+          </div>
+        </div>
 
-        <label>
-          Quién hizo el gasto
-          <select id="gastoResponsable" required>
-            <option value="">Cargando...</option>
-          </select>
-        </label>
+        <div class="gs-modal-row">
+          <div class="gs-mini-block">
+            <label><span class="gs-label-ico">👤</span> Quién hizo el gasto</label>
+            <select id="gastoResponsable" required>
+              <option value="">Cargando...</option>
+            </select>
+          </div>
 
+          <div class="gs-mini-block">
+            <label><span class="gs-label-ico">💰</span> Monto (ARS)</label>
+            <input type="number" id="gastoMonto" min="0" step="0.01" required>
+          </div>
+        </div>
 
-        <label>
-          Monto (ARS)
-          <input type="number" id="gastoMonto" min="0" step="0.01" required>
-        </label>
+        <div class="gs-mini-block">
+          <label><span class="gs-label-ico">📝</span> Descripción</label>
+          <textarea id="gastoDescripcion" rows="2" placeholder="Opcional"></textarea>
+        </div>
 
-        <label>
-          Descripción
-          <textarea id="gastoDescripcion" rows="2"></textarea>
-        </label>
+        <!-- ✅ Resumen en vivo, se actualiza a medida que se completa el formulario -->
+        <div class="gs-resumen">
+          <div class="gs-resumen-label">📋 Vas a registrar</div>
+          <div class="gs-resumen-line">
+            <span id="resumenTipo" class="gs-resumen-tipo">Tipo de gasto</span>
+            <span class="gs-resumen-sep">·</span>
+            <span id="resumenResponsable" class="gs-resumen-resp">Responsable</span>
+          </div>
+          <div class="gs-resumen-line">
+            <span id="resumenFecha" class="gs-resumen-fecha">Fecha</span>
+            <span class="gs-resumen-monto" id="resumenMonto">$ 0,00</span>
+          </div>
+        </div>
 
         <div class="modal-actions">
           <button type="button" id="btnGastoCancel" class="btn btn-secondary">Cancelar</button>
@@ -79,183 +102,311 @@
 
 
   <!-- ===============================
-       ESTILOS MEJORADOS
+       ESTILOS MODERNIZADOS
   ================================ -->
   <style>
 
     /* ------------------------------------
        HEADER
     ------------------------------------ */
-    .gastos-header{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      flex-wrap:wrap;
-      gap:12px;
+    .gs-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .gs-header-icon {
+      flex: none;
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--color-primary, #2563eb), var(--color-secondary, #1e40af));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+    }
+
+    .gs-header-title {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .gs-header-sub {
+      margin: 2px 0 0;
+      font-size: 13px;
+      color: #6b7280;
     }
 
     /* ------------------------------------
-       FILTROS
+       TOOLBAR
     ------------------------------------ */
-    .filtros-gastos{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-top:12px;
-      margin-bottom:12px;
+    .gs-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
     }
 
-    .label-inline{
-      display:flex;
-      align-items:center;
-      gap:6px;
-      white-space:nowrap;
+    .gs-filtro-periodo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 4px 10px;
     }
 
-    .filtros-gastos input,
-    .filtros-gastos button{
-      height:32px;
-      padding:4px 10px;
+    .gs-filtro-periodo input {
+      border: none;
+      background: transparent;
+      height: 28px;
+      padding: 0;
     }
 
+    .gs-filtro-ico { font-size: 14px; }
+
+    .gs-btn-add { margin-left: auto; }
 
     /* ------------------------------------
        ACORDEONES DE GASTOS
     ------------------------------------ */
-    .accordion{
-      border:1px solid rgba(0,0,0,0.08);
-      border-radius:12px;
-      overflow:hidden;
-      margin-top:12px;
-      background:#fff;
+    .gs-accordions .accordion {
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      overflow: hidden;
+      margin-top: 12px;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
     }
 
-    .accordion-header{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      padding:10px 14px;
-      background:#f9fafb;
-      cursor:pointer;
-      font-weight:800;
+    .gs-accordions .accordion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      background: #f9fafb;
+      cursor: pointer;
+      font-weight: 700;
     }
 
-    .accordion-left{
-      display:flex;
-      align-items:center;
-      gap:8px;
+    .accordion-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    .accordion-arrow{
-      font-size:12px;
-      transition:transform .2s ease;
+    .accordion-arrow {
+      font-size: 12px;
+      transition: transform .2s ease;
+      color: var(--color-primary, #2563eb);
     }
 
-    .accordion.open .accordion-arrow{
-      transform:rotate(90deg);
+    .accordion.open .accordion-arrow {
+      transform: rotate(90deg);
     }
 
-    .accordion-body{
-      padding:12px 14px;
+    .gs-accordion-total {
+      font-weight: 800;
+      color: var(--color-secondary, #1e40af);
+      background: color-mix(in srgb, var(--color-primary, #2563eb) 10%, #fff);
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      white-space: nowrap;
     }
 
-    .hidden{ display:none; }
+    .accordion-body {
+      padding: 12px 14px;
+    }
 
+    .hidden { display: none; }
 
     /* ------------------------------------
        TABLAS DENTRO DE ACORDEONES
     ------------------------------------ */
-    .table-container{
-      overflow:auto;
-      border:1px solid #ddd;
-      border-radius:10px;
-      background:#fff;
+    .table-container {
+      overflow: auto;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      background: #fff;
     }
 
-    .table{
-      width:100%;
-      border-collapse:collapse;
+    .table {
+      width: 100%;
+      border-collapse: collapse;
     }
 
     .table th,
-    .table td{
-      border-bottom:1px solid #eee;
-      padding:8px;
-      font-size:14px;
-      white-space:nowrap;
-      text-align:left;
+    .table td {
+      border-bottom: 1px solid #eee;
+      padding: 8px;
+      font-size: 14px;
+      white-space: nowrap;
+      text-align: left;
     }
 
-    .table th{
-      background:#f7f7f7;
+    .table th {
+      background: #f7f7f7;
     }
 
-    /* ------------------------------------
-       TABLA DE GASTOS: columnas angostas
-       + columna de Observación con wrap,
-       para que todo entre sin scroll horizontal
-    ------------------------------------ */
-    .table-gastos{
-      table-layout:fixed;
+    .table-gastos {
+      table-layout: fixed;
     }
 
-    .table-gastos .col-tipo{ width:16%; }
-    .table-gastos .col-responsable{ width:16%; }
-    .table-gastos .col-monto{ width:12%; }
-    .table-gastos .col-observacion{ width:46%; }
-    .table-gastos .col-accion{ width:10%; }
+    .table-gastos .col-tipo { width: 16%; }
+    .table-gastos .col-responsable { width: 16%; }
+    .table-gastos .col-monto { width: 12%; }
+    .table-gastos .col-observacion { width: 46%; }
+    .table-gastos .col-accion { width: 10%; }
 
     .table-gastos th,
-    .table-gastos td{
-      padding:6px 8px;
-      font-size:13px;
+    .table-gastos td {
+      padding: 6px 8px;
+      font-size: 13px;
     }
 
     .table-gastos td.col-observacion,
-    .table-gastos th:nth-child(4){
-      white-space:normal;
-      word-break:break-word;
-      overflow-wrap:break-word;
+    .table-gastos th:nth-child(4) {
+      white-space: normal;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
 
     .table-gastos td:nth-child(1),
-    .table-gastos td:nth-child(2){
-      overflow:hidden;
-      text-overflow:ellipsis;
+    .table-gastos td:nth-child(2) {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-
 
     /* ------------------------------------
-       TOTAL PERÍODO
+       TOTAL PERÍODO (estilo "badge" como Otros ingresos)
     ------------------------------------ */
-    .total-periodo{
-      margin-top:16px;
-      display:flex;
-      justify-content:flex-end;
-      gap:8px;
-      font-size:16px;
+    .gs-total-card {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: baseline;
+      gap: 10px;
+      font-size: 14px;
+      color: #6b7280;
     }
 
+    .gs-total-card strong {
+      font-size: 19px;
+      font-weight: 800;
+      color: #111827;
+    }
 
     /* ------------------------------------
        MODAL
     ------------------------------------ */
-    .modal-form{
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      margin-top:8px;
+    .gs-modal-content {
+      width: min(560px, 94vw);
+      padding: 16px;
     }
 
-    .modal-content{
-      width:min(600px, 94vw);
-      padding:16px;
+    .modal-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
     }
 
-    .modal textarea{
-      resize:vertical;
+    .gs-modal-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .gs-modal-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .gs-mini-block {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      min-width: 160px;
+    }
+
+    .gs-mini-block label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: #444;
+    }
+
+    .gs-label-ico { font-size: 13px; }
+
+    .gs-modal-form input,
+    .gs-modal-form select,
+    .gs-modal-form textarea {
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    .gs-modal-form textarea { resize: vertical; }
+
+    /* Resumen en vivo */
+    .gs-resumen {
+      background: #f9fafb;
+      border: 1px dashed #d1d5db;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .gs-resumen-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #6b7280;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+    }
+
+    .gs-resumen-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 13px;
+      color: #111827;
+      margin-top: 2px;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+    }
+
+    .gs-resumen-tipo, .gs-resumen-resp {
+      font-weight: 600;
+    }
+
+    .gs-resumen-sep { color: #9ca3af; }
+
+    .gs-resumen-fecha { color: #6b7280; font-size: 12.5px; }
+
+    .gs-resumen-monto {
+      font-weight: 800;
+      font-size: 15px;
+      color: var(--color-secondary, #1e40af);
+    }
+
+    .modal textarea {
+      resize: vertical;
     }
 
 
@@ -264,14 +415,13 @@
     ------------------------------------ */
     @media(max-width:768px){
 
-      .gastos-header{
-        flex-direction:column;
-        align-items:flex-start;
+      .gs-toolbar {
+        flex-wrap: wrap;
       }
 
-      .filtros-gastos{
-        flex-direction:column;
-        align-items:stretch;
+      .gs-btn-add {
+        margin-left: 0;
+        width: 100%;
       }
 
       .table th, .table td{
@@ -279,9 +429,14 @@
         font-size:12px;
       }
 
-      .modal-content{
-        width:100%;
-        max-width:94vw;
+      .gs-modal-content {
+        width: 100%;
+        max-width: 94vw;
+      }
+
+      .gs-modal-row {
+        flex-direction: column;
+        gap: 12px;
       }
     }
 
