@@ -500,6 +500,24 @@
         <button id="detalleModalClose" class="btn btn-secondary">✕</button>
       </div>
 
+      <!-- ✅ NUEVO: filtro por Actividad / Categoría, igual que en Cuotas
+           impagas. Solo se muestra cuando el detalle abierto lo admite
+           (por ahora, Ingresos · Cuotas). -->
+      <div id="detalleFiltros" class="hidden" style="display:none; gap:10px; flex-wrap:wrap; margin-top:10px;">
+        <div>
+          <label class="muted small" for="detalleFiltroActividad" style="display:block; margin-bottom:2px;">Actividad</label>
+          <select id="detalleFiltroActividad" style="min-width:150px;">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted small" for="detalleFiltroCategoria" style="display:block; margin-bottom:2px;">Categoría</label>
+          <select id="detalleFiltroCategoria" style="min-width:150px;">
+            <option value="">Todas</option>
+          </select>
+        </div>
+      </div>
+
       <div id="detalleModalBody" style="margin-top:12px; max-height:65vh; overflow:auto;">
         <div class="muted small">Seleccioná un ítem para ver el detalle…</div>
       </div>

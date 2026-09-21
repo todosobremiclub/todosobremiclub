@@ -3341,6 +3341,11 @@ router.get(
     const anio = Number(req.query.anio);
     const mes = Number(req.query.mes);
     const tipo = (req.query.tipo || '').toString();
+    // ✅ NUEVO: filtro opcional por Actividad / Categoría del socio,
+    // igual que en el panel de Cuotas impagas. Solo aplica cuando
+    // tipo === 'Cuotas' (los demás tipos de ingreso no tienen socio asociado).
+    const actividad = (req.query.actividad || '').toString().trim() || null;
+    const categoria = (req.query.categoria || '').toString().trim() || null;
 
     if (!anio || !mes || !tipo) {
       return res.status(400).json({ ok: false, error: 'anio, mes y tipo son obligatorios' });
@@ -3355,15 +3360,21 @@ router.get(
       pm.fecha_pago AS fecha,
       ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
       pm.cuenta,
-      pm.monto
+      pm.monto,
+      (s.apellido || ', ' || s.nombre)::text AS socio_nombre,
+      s.actividad,
+      s.categoria
     FROM pagos_mensuales pm
+    JOIN socios s ON s.id = pm.socio_id
     WHERE pm.club_id = $1
       AND pm.fecha_pago IS NOT NULL
       AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
       AND EXTRACT(MONTH FROM pm.fecha_pago) = $3
+      AND ($4::text IS NULL OR s.actividad = $4)
+      AND ($5::text IS NULL OR s.categoria = $5)
     ORDER BY pm.fecha_pago ASC
   `;
-  const r = await db.query(q, [clubId, anio, mes]);
+  const r = await db.query(q, [clubId, anio, mes, actividad, categoria]);
   return res.json({ ok: true, rows: r.rows });
 }
 

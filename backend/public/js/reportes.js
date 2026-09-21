@@ -296,17 +296,86 @@ function renderTableGeneric({ columns, rows, moneyKey = 'monto', dateKey = 'fech
   };
 }
 
-async function openDetalleModal({ title, sub, url, columns, moneyKey, dateKey }) {
-  const modal = ensureDetalleModal();
-  const body = $('detalleModalBody');
-  if (!modal || !body) return;
+// ✅ NUEVO: estado del filtro Actividad/Categoría del modal de detalle
+// genérico (por ahora solo lo usa "Ingresos · Cuotas", igual que el panel
+// de Cuotas impagas).
+const detalleFiltroState = {
+  baseUrl: '',
+  actividad: '',
+  categoria: ''
+};
 
-  setDetalleHeader({ title, sub });
-  setDetalleFooter({ info: '', total: '' });
+// Arma la URL final sumando los filtros (si hay alguno seleccionado) a la
+// URL base que nos pasó el caller de openDetalleModal.
+function buildDetalleUrlConFiltros() {
+  if (!detalleFiltroState.baseUrl) return '';
+  const url = new URL(detalleFiltroState.baseUrl, window.location.origin);
+  if (detalleFiltroState.actividad) url.searchParams.set('actividad', detalleFiltroState.actividad);
+  else url.searchParams.delete('actividad');
+  if (detalleFiltroState.categoria) url.searchParams.set('categoria', detalleFiltroState.categoria);
+  else url.searchParams.delete('categoria');
+  return url.pathname + url.search;
+}
+
+// Reutiliza los mismos endpoints de configuración que ya usa el filtro de
+// Cuotas impagas para poblar los combos de Actividad / Categoría.
+async function cargarFiltrosDetalle() {
+  const clubId = getActiveClubId();
+
+  const [rAct, rCat] = await Promise.all([
+    fetchAuth(`/club/${clubId}/config/actividades`),
+    fetchAuth(`/club/${clubId}/config/categorias`)
+  ]);
+
+  const selAct = $('detalleFiltroActividad');
+  if (selAct) {
+    const actual = selAct.value;
+    selAct.innerHTML = '<option value="">Todas</option>';
+    (rAct.data?.actividades || []).forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.nombre;
+      opt.textContent = a.nombre;
+      selAct.appendChild(opt);
+    });
+    selAct.value = actual || '';
+  }
+
+  const selCat = $('detalleFiltroCategoria');
+  if (selCat) {
+    const actual = selCat.value;
+    selCat.innerHTML = '<option value="">Todas</option>';
+    (rCat.data?.categorias || []).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.nombre;
+      opt.textContent = c.nombre;
+      selCat.appendChild(opt);
+    });
+    selCat.value = actual || '';
+  }
+}
+
+function bindFiltrosDetalle({ columns, moneyKey, dateKey }) {
+  const selAct = $('detalleFiltroActividad');
+  const selCat = $('detalleFiltroCategoria');
+
+  const onFiltroChange = async () => {
+    detalleFiltroState.actividad = selAct?.value || '';
+    detalleFiltroState.categoria = selCat?.value || '';
+    await cargarYRenderizarDetalle({ columns, moneyKey, dateKey });
+  };
+
+  if (selAct) selAct.onchange = onFiltroChange;
+  if (selCat) selCat.onchange = onFiltroChange;
+}
+
+async function cargarYRenderizarDetalle({ columns, moneyKey, dateKey }) {
+  const body = $('detalleModalBody');
+  if (!body) return;
+
   body.innerHTML = `<div class="muted">Cargando detalle...</div>`;
-  modal.classList.remove('hidden');
 
   try {
+    const url = buildDetalleUrlConFiltros();
     const { data } = await fetchAuth(url);
     if (!data.ok) {
       body.innerHTML = `<div class="muted" style="color:#b91c1c;">${data.error || 'Error cargando detalle'}</div>`;
@@ -322,11 +391,42 @@ async function openDetalleModal({ title, sub, url, columns, moneyKey, dateKey })
       info: `${rows.length} movimientos`,
       total: `Total: ${moneyARS.format(rendered.total)}`
     });
-
-} catch (e) {
+  } catch (e) {
     console.error(e);
     body.innerHTML = `<div class="muted" style="color:#b91c1c;">${e.message || 'Error inesperado'}</div>`;
   }
+}
+
+async function openDetalleModal({ title, sub, url, columns, moneyKey, dateKey, filtros = false }) {
+  const modal = ensureDetalleModal();
+  const body = $('detalleModalBody');
+  if (!modal || !body) return;
+
+  setDetalleHeader({ title, sub });
+  setDetalleFooter({ info: '', total: '' });
+  modal.classList.remove('hidden');
+
+  // ✅ NUEVO: mostrar/ocultar y (re)armar el filtro Actividad/Categoría
+  // según lo que pida el caller. Se resetea cada vez que se abre el modal
+  // para no arrastrar un filtro de un detalle distinto al anterior.
+  const filtrosWrap = $('detalleFiltros');
+  detalleFiltroState.baseUrl = url;
+  detalleFiltroState.actividad = '';
+  detalleFiltroState.categoria = '';
+
+  if (filtrosWrap) {
+    if (filtros) {
+      filtrosWrap.classList.remove('hidden');
+      filtrosWrap.style.display = 'flex';
+      await cargarFiltrosDetalle();
+      bindFiltrosDetalle({ columns, moneyKey, dateKey });
+    } else {
+      filtrosWrap.classList.add('hidden');
+      filtrosWrap.style.display = 'none';
+    }
+  }
+
+  await cargarYRenderizarDetalle({ columns, moneyKey, dateKey });
 }
 
 // =============================
@@ -1812,18 +1912,30 @@ function bindRankingDetalleClicks() {
     // Ingresos por tipo
     if (tr.dataset.kind === 'ingreso-tipo') {
       const tipo = decodeURIComponent(tr.dataset.tipo || '');
+      const esCuotas = tipo === 'Cuotas';
       openDetalleModal({
         title: `Ingresos · ${tipo}`,
         sub: mesLabel,
         url: `/club/${clubId}/reportes/ingresos-por-tipo/detalle-mes?anio=${anio}&mes=${mes}&tipo=${encodeURIComponent(tipo)}`,
-        columns: [
-          { key: 'fecha', label: 'Fecha' },
-          { key: 'descripcion', label: 'Descripción' },
-          { key: 'cuenta', label: 'Cuenta' },
-          { key: 'monto', label: 'Monto' }
-        ],
+        columns: esCuotas
+          ? [
+              { key: 'fecha', label: 'Fecha' },
+              { key: 'descripcion', label: 'Descripción' },
+              { key: 'cuenta', label: 'Cuenta' },
+              { key: 'socio_nombre', label: 'Socio' },
+              { key: 'monto', label: 'Monto' }
+            ]
+          : [
+              { key: 'fecha', label: 'Fecha' },
+              { key: 'descripcion', label: 'Descripción' },
+              { key: 'cuenta', label: 'Cuenta' },
+              { key: 'monto', label: 'Monto' }
+            ],
         moneyKey: 'monto',
-        dateKey: 'fecha'
+        dateKey: 'fecha',
+        // ✅ NUEVO: filtro por Actividad/Categoría, solo tiene sentido
+        // cuando el ingreso es de Cuotas (hay un socio detrás de cada fila).
+        filtros: esCuotas
       });
     }
 
