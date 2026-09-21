@@ -151,6 +151,62 @@ router.post('/payments/transfer/start', requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Mes inválido' });
     }
 
+    // ✅ NUEVO: no dejar informar un mes si hay un mes anterior impago sin
+    // informar todavía. Replica del lado del servidor la misma regla que
+    // GET /club/:clubId/pagos/:socioId ya calcula para el front (campo
+    // "habilitado"), por si la app llegara a intentar saltarse el orden.
+    {
+      const rSocioInfo = await db.query(
+        `SELECT becado, fecha_ingreso FROM socios WHERE id=$1 AND club_id=$2 LIMIT 1`,
+        [socioId, clubId]
+      );
+      if (!rSocioInfo.rowCount) {
+        return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+      }
+      const socioInfo = rSocioInfo.rows[0];
+
+      if (socioInfo.becado === true) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Este socio está becado, no tiene cuotas pendientes.'
+        });
+      }
+
+      const nowCheck = new Date();
+      const anioNowCheck = nowCheck.getFullYear();
+      const mesNowCheck = nowCheck.getMonth() + 1;
+
+      if (anioNum === anioNowCheck) {
+        let mesDesde = 1;
+        if (socioInfo.fecha_ingreso) {
+          const fi = new Date(socioInfo.fecha_ingreso);
+          if (!Number.isNaN(fi.getTime()) && fi.getFullYear() === anioNowCheck) {
+            mesDesde = fi.getMonth() + 1;
+          }
+        }
+
+        const rPagados = await db.query(
+          `SELECT mes FROM pagos_mensuales WHERE club_id=$1 AND socio_id=$2 AND anio=$3`,
+          [clubId, socioId, anioNum]
+        );
+        const pagadosSet = new Set(rPagados.rows.map((r) => Number(r.mes)));
+
+        let primerImpago = null;
+        for (let m = mesDesde; m <= mesNowCheck; m++) {
+          if (!pagadosSet.has(m)) { primerImpago = m; break; }
+        }
+
+        if (primerImpago !== null && mesNum !== primerImpago) {
+          const nombresMes = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+          return res.status(400).json({
+            ok: false,
+            error: `Primero tenés que informar el pago de ${nombresMes[primerImpago]}.`
+          });
+        }
+      }
+    }
+
     // Si ya existe pago confirmado en pagos_mensuales, no dejamos iniciar transferencia
     const rYaPago = await db.query(
       `SELECT id

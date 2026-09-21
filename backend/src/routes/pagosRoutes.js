@@ -355,47 +355,82 @@ SELECT
     const anioNow = now.getFullYear();
     const mesNow = now.getMonth() + 1;
 
-    // Solo para el año actual
+    // ✅ NUEVO: en vez de generar un "pendiente" solo para el mes en curso,
+    // generamos uno por cada mes impago desde el mes que corresponda (enero,
+    // o el mes de ingreso del socio si ingresó este mismo año) hasta el mes
+    // actual. De todos esos, solo el MÁS ANTIGUO queda "habilitado" para
+    // informar el pago — los siguientes se muestran como pendientes pero
+    // bloqueados hasta que se informe/apruebe el anterior.
+    // Un socio becado nunca tiene meses pendientes (mismo criterio que
+    // /app/login usa para "al_dia").
+    // Nota: esto solo cubre el año consultado (la app siempre pide el año
+    // actual) — atrasos que vengan de años anteriores no se detectan acá.
     if (Number(anio) === Number(anioNow)) {
-      const existeMes = pagosRows.some((p) => Number(p.mes) === Number(mesNow));
+      const rSocioInfo = await db.query(
+        `SELECT becado, fecha_ingreso FROM socios WHERE id=$1 AND club_id=$2 LIMIT 1`,
+        [socioId, clubId]
+      );
+      const socioInfo = rSocioInfo.rows[0] || null;
+      const socioBecado = socioInfo?.becado === true;
 
-if (!existeMes) {
-        const rT = await db.query(
-          `
-          SELECT
-            CASE
-              WHEN estado = 'comprobante_subido' THEN 'en_revision'
-              WHEN estado = 'rechazado' THEN 'rechazado'
-              ELSE NULL
-            END AS estado_transferencia,
-            comprobante_texto
-          FROM transferencias_pago
-          WHERE club_id = $1
-            AND socio_id = $2
-            AND anio = $3
-            AND mes = $4
-          ORDER BY created_at DESC
-          LIMIT 1
-          `,
-          [clubId, socioId, anioNow, mesNow]
-        );
+      if (!socioBecado) {
+        const mesesPagadosSet = new Set(pagosRows.map((p) => Number(p.mes)));
 
-        const estadoActual = rT.rowCount ? rT.rows[0].estado_transferencia : null;
-        let motivoActual = null;
-        if (estadoActual === 'rechazado' && rT.rows[0].comprobante_texto) {
-          const match = String(rT.rows[0].comprobante_texto).match(/\[RECHAZO\]\s*([\s\S]*)$/);
-          motivoActual = match ? match[1].trim() : null;
+        let mesDesde = 1;
+        if (socioInfo?.fecha_ingreso) {
+          const fi = new Date(socioInfo.fecha_ingreso);
+          if (!Number.isNaN(fi.getTime()) && fi.getFullYear() === anioNow) {
+            mesDesde = fi.getMonth() + 1;
+          }
         }
 
-        pagosRows.push({
-          mes: mesNow,
-          monto: 0,
-          fecha_pago: '',
-          cuenta: '',
-          pendiente: true,
-          estado_transferencia: estadoActual,
-          motivo_rechazo: motivoActual,
-        });
+        const mesesImpagos = [];
+        for (let m = mesDesde; m <= mesNow; m++) {
+          if (!mesesPagadosSet.has(m)) mesesImpagos.push(m);
+        }
+
+        for (let i = 0; i < mesesImpagos.length; i++) {
+          const m = mesesImpagos[i];
+          const habilitado = i === 0; // solo el más antiguo se puede informar
+
+          const rT = await db.query(
+            `
+            SELECT
+              CASE
+                WHEN estado = 'comprobante_subido' THEN 'en_revision'
+                WHEN estado = 'rechazado' THEN 'rechazado'
+                ELSE NULL
+              END AS estado_transferencia,
+              comprobante_texto
+            FROM transferencias_pago
+            WHERE club_id = $1
+              AND socio_id = $2
+              AND anio = $3
+              AND mes = $4
+            ORDER BY created_at DESC
+            LIMIT 1
+            `,
+            [clubId, socioId, anioNow, m]
+          );
+
+          const estadoActual = rT.rowCount ? rT.rows[0].estado_transferencia : null;
+          let motivoActual = null;
+          if (estadoActual === 'rechazado' && rT.rows[0].comprobante_texto) {
+            const match = String(rT.rows[0].comprobante_texto).match(/\[RECHAZO\]\s*([\s\S]*)$/);
+            motivoActual = match ? match[1].trim() : null;
+          }
+
+          pagosRows.push({
+            mes: m,
+            monto: 0,
+            fecha_pago: '',
+            cuenta: '',
+            pendiente: true,
+            habilitado,
+            estado_transferencia: estadoActual,
+            motivo_rechazo: motivoActual,
+          });
+        }
       }
     }
 
