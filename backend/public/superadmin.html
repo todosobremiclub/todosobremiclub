@@ -392,6 +392,22 @@
                     <div id="clubMpStatus" style="font-size:13px; margin-bottom:8px;">—</div>
                     <button type="button" id="btnConectarMp" class="btn-secondary">Conectar cuenta de Mercado Pago</button>
                     <button type="button" id="btnDesconectarMp" class="btn-secondary" style="display:none; color:#dc2626;">Desconectar Mercado Pago</button>
+
+                    <!-- ✅ NUEVO: link para que el club conecte su propia cuenta de MP -->
+                    <div style="margin-top:10px;">
+                      <button type="button" id="btnGenerarLinkMp" class="btn-secondary">
+                        🔗 Generar link para que el club lo conecte
+                      </button>
+                      <div id="clubMpLinkBox" class="hidden" style="margin-top:8px; display:none;">
+                        <label class="muted small" style="display:block; margin-bottom:2px;">
+                          Pasaselo al club (tesorero/administrador) para que lo abra logueado con SU cuenta de Mercado Pago:
+                        </label>
+                        <div style="display:flex; gap:6px;">
+                          <input id="clubMpLinkInput" type="text" readonly style="flex:1; font-size:12px;">
+                          <button type="button" id="btnCopiarLinkMp" class="btn-secondary btn-xs">Copiar</button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
@@ -550,7 +566,7 @@
       </table>
     </div>
 
-  <script src="/js/clubs.js?v=20260918-1"></script>
+  <script src="/js/clubs.js?v=20260921-1"></script>
   <script src="/js/users.js"></script>
   <script src="/js/transfers_admin.js"></script>
 

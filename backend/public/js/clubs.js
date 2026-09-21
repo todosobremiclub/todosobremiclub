@@ -277,6 +277,13 @@
     if ($('club_payment_mode')) $('club_payment_mode').value = 'ninguno';
     syncMpBoxFromClub(null); // ✅ NUEVO: club nuevo = sin MP conectado todavía
 
+    // ✅ NUEVO: limpiar el link de conexión de MP del club anterior
+    if ($('clubMpLinkInput')) $('clubMpLinkInput').value = '';
+    if ($('clubMpLinkBox')) {
+      $('clubMpLinkBox').classList.add('hidden');
+      $('clubMpLinkBox').style.display = 'none';
+    }
+
     if ($('club_whatsapp_habilitado')) $('club_whatsapp_habilitado').checked = false; // ✅ NUEVO
     if ($('club_whatsapp_limite_mensual')) $('club_whatsapp_limite_mensual').value = '300'; // ✅ NUEVO
 
@@ -655,6 +662,58 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
         showClubMsg('Completá la conexión en la pestaña nueva y volvé a abrir este club para ver el estado.', true);
       } catch (e) {
         showClubMsg('Error iniciando conexión con Mercado Pago', false);
+      }
+    });
+
+    // ✅ NUEVO: generar (y copiar) el link público para que el club conecte
+    // su PROPIA cuenta de Mercado Pago, sin que el superadmin tenga que
+    // loguearse con la cuenta de MP del club.
+    $('btnGenerarLinkMp')?.addEventListener('click', async () => {
+      if (!editingClubId) {
+        showClubMsg('Guardá el club primero antes de generar el link de Mercado Pago.', false);
+        return;
+      }
+      const btn = $('btnGenerarLinkMp');
+      const box = $('clubMpLinkBox');
+      const input = $('clubMpLinkInput');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetchAuthClubs(`/admin/clubs/${editingClubId}/mp/public-link`);
+        const data = await safeJson(res);
+        if (!res.ok || !data.ok || !data.url) {
+          showClubMsg(data.error || 'No se pudo generar el link', false);
+          return;
+        }
+        if (input) input.value = data.url;
+        if (box) {
+          box.classList.remove('hidden');
+          box.style.display = 'block';
+        }
+        // Copiado automático a portapapeles, con fallback manual si el
+        // navegador no lo permite (ej: http sin contexto seguro).
+        try {
+          await navigator.clipboard.writeText(data.url);
+          showClubMsg('✅ Link copiado al portapapeles. Pasáselo al club.', true);
+        } catch {
+          input?.select();
+          showClubMsg('Link generado. Copialo manualmente del campo de abajo.', true);
+        }
+      } catch (e) {
+        showClubMsg('Error generando el link de Mercado Pago', false);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+
+    $('btnCopiarLinkMp')?.addEventListener('click', async () => {
+      const input = $('clubMpLinkInput');
+      if (!input?.value) return;
+      try {
+        await navigator.clipboard.writeText(input.value);
+        showClubMsg('✅ Link copiado al portapapeles.', true);
+      } catch {
+        input.select();
+        showClubMsg('No se pudo copiar automáticamente. Usá Ctrl+C con el texto seleccionado.', false);
       }
     });
 

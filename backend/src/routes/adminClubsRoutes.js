@@ -638,4 +638,51 @@ router.post(
   }
 );
 
+// ================== LINK PÚBLICO PARA QUE EL CLUB CONECTE SU MERCADO PAGO ==================
+// GET /admin/clubs/:id/mp/public-link
+// Arma (y si hace falta genera) el link que se le manda al club para que
+// sea EL CLUB, logueado con SU PROPIA cuenta de Mercado Pago, quien haga la
+// conexión desde su navegador — sin pasar por el panel de superadmin y sin
+// que el superadmin tenga que loguearse con la cuenta de MP del club.
+// Reutiliza GET /mp/public/connect/:clubId?token=... (ya existente en
+// mercadoPagoRoutes.js) y el mismo apply_token que usa el QR de postulación.
+router.get(
+  '/:id/mp/public-link',
+  requireAuth,
+  requireRole('superadmin'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const r = await db.query(
+        `SELECT id, name, apply_token FROM clubs WHERE id = $1 LIMIT 1`,
+        [id]
+      );
+      if (!r.rowCount) {
+        return res.status(404).json({ ok: false, error: 'Club no encontrado' });
+      }
+
+      let applyToken = r.rows[0].apply_token;
+
+      // Clubes creados antes de que existiera apply_token no tienen uno:
+      // se lo generamos y guardamos recién acá, así el link nunca falla.
+      if (!applyToken) {
+        applyToken = crypto.randomBytes(16).toString('hex');
+        await db.query(`UPDATE clubs SET apply_token = $2 WHERE id = $1`, [id, applyToken]);
+      }
+
+      if (!process.env.PUBLIC_BASE_URL) {
+        return res.status(500).json({ ok: false, error: 'Falta configurar PUBLIC_BASE_URL en el servidor' });
+      }
+
+      const url = `${process.env.PUBLIC_BASE_URL}/mp/public/connect/${id}?token=${applyToken}`;
+
+      return res.json({ ok: true, url });
+    } catch (err) {
+      console.error('❌ mp public-link:', err);
+      return res.status(500).json({ ok: false, error: 'Error interno' });
+    }
+  }
+);
+
 module.exports = router;

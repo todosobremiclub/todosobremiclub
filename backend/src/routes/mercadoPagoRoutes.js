@@ -79,6 +79,42 @@ function escapeHtml(str) {
     .replaceAll("'", '&#039;');
 }
 
+// ✅ NUEVO: página de resultado del callback de OAuth (mismo estilo que
+// mp-resultado.html). La usan tanto el flujo iniciado desde el panel de
+// superadmin como el link público que ahora puede abrir el club por su
+// cuenta — por eso NO linkea a /superadmin.html (el club no tiene acceso
+// a ese panel) y en vez de eso solo invita a cerrar la pestaña.
+function renderMpCallbackPage({ ok, title, message, detail = '' }) {
+  const icon = ok ? '✅' : '❌';
+  return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>${escapeHtml(title)}</title>
+      <style>
+        *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;}
+        body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f1f5f9;padding:16px;}
+        .card{max-width:420px;width:100%;background:#fff;border-radius:18px;padding:32px 26px;box-shadow:0 25px 50px rgba(0,0,0,.15);text-align:center;}
+        .icon{font-size:48px;margin-bottom:12px;}
+        h1{font-size:20px;margin:0 0 8px;color:#0f172a;}
+        p{font-size:14px;color:#64748b;margin:0;}
+        pre{white-space:pre-wrap;text-align:left;background:#f8fafc;border-radius:8px;padding:10px;font-size:12px;color:#475569;margin-top:14px;}
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="icon">${icon}</div>
+        <h1>${escapeHtml(title)}</h1>
+        <p>${escapeHtml(message)}</p>
+        ${detail ? `<pre>${escapeHtml(detail)}</pre>` : ''}
+      </div>
+    </body>
+    </html>
+  `;
+}
+
 /* ======================================================
    Helpers Webhook + Refresh Token (MP)
 ====================================================== */
@@ -272,27 +308,29 @@ router.get('/oauth/callback', async (req, res) => {
     const { code, state, error, error_description } = req.query;
 
     if (error) {
-      return res.status(400).send(`
-        <h2>❌ No se pudo conectar Mercado Pago</h2>
-        <p>${escapeHtml(error_description || error)}</p>
-        <a href="/superadmin.html">Volver</a>
-      `);
+      return res.status(400).send(renderMpCallbackPage({
+        ok: false,
+        title: 'No se pudo conectar Mercado Pago',
+        message: String(error_description || error || 'Ocurrió un error al conectar la cuenta.')
+      }));
     }
 
     if (!code) {
-      return res.status(400).send(`
-        <h2>❌ Falta parámetro code</h2>
-        <a href="/superadmin.html">Volver</a>
-      `);
+      return res.status(400).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Falta información',
+        message: 'No llegó el parámetro "code" desde Mercado Pago. Volvé a intentar el link de conexión.'
+      }));
     }
 
     const parsed = parseOAuthState(state);
     if (!parsed.ok) {
-      return res.status(400).send(`
-        <h2>❌ State inválido</h2>
-        <p>${escapeHtml(parsed.error)}</p>
-        <a href="/superadmin.html">Volver</a>
-      `);
+      return res.status(400).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Link inválido o vencido',
+        message: 'Este link de conexión ya no es válido. Pedí que te generen uno nuevo desde Todo Sobre mi Club.',
+        detail: parsed.error
+      }));
     }
 
     const clubId = parsed.clubId;
@@ -304,10 +342,11 @@ router.get('/oauth/callback', async (req, res) => {
     );
 
     if (!rClub.rowCount) {
-      return res.status(404).send(`
-        <h2>❌ Club no encontrado</h2>
-        <a href="/superadmin.html">Volver</a>
-      `);
+      return res.status(404).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Club no encontrado',
+        message: 'No pudimos identificar a qué club corresponde este link.'
+      }));
     }
 
     const clientId = process.env.MP_CLIENT_ID;
@@ -337,11 +376,12 @@ router.get('/oauth/callback', async (req, res) => {
 
     if (!mpRes.ok) {
       console.error('❌ OAuth token error:', mpData);
-      return res.status(400).send(`
-        <h2>❌ Error Mercado Pago</h2>
-        <pre>${escapeHtml(JSON.stringify(mpData, null, 2))}</pre>
-        <a href="/superadmin.html">Volver</a>
-      `);
+      return res.status(400).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Error de Mercado Pago',
+        message: 'Mercado Pago rechazó la conexión. Volvé a intentarlo o avisale a Todo Sobre mi Club si se repite.',
+        detail: JSON.stringify(mpData, null, 2)
+      }));
     }
 
     const expiresAt = new Date(Date.now() + mpData.expires_in * 1000);
@@ -366,18 +406,19 @@ router.get('/oauth/callback', async (req, res) => {
       ]
     );
 
-    return res.send(`
-      <h2>✅ Mercado Pago conectado</h2>
-      <p>Club: <b>${escapeHtml(rClub.rows[0].name)}</b></p>
-      <a href="/superadmin.html">Volver al Super Admin</a>
-    `);
+    return res.send(renderMpCallbackPage({
+      ok: true,
+      title: 'Mercado Pago conectado',
+      message: `Listo, la cuenta de Mercado Pago de "${rClub.rows[0].name}" quedó conectada. Ya podés cerrar esta ventana.`
+    }));
   } catch (err) {
     console.error('❌ OAuth callback error:', err);
-    return res.status(500).send(`
-      <h2>❌ Error inesperado</h2>
-      <pre>${escapeHtml(err.message)}</pre>
-      <a href="/superadmin.html">Volver</a>
-    `);
+    return res.status(500).send(renderMpCallbackPage({
+      ok: false,
+      title: 'Error inesperado',
+      message: 'Ocurrió un error inesperado conectando la cuenta. Volvé a intentarlo más tarde.',
+      detail: err.message
+    }));
   }
 });
 
@@ -503,7 +544,11 @@ router.get('/public/connect/:clubId', async (req, res) => {
     const token = String(req.query?.token || '').trim();
 
     if (!token) {
-      return res.status(400).send('Falta token');
+      return res.status(400).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Link incompleto',
+        message: 'A este link le falta el token de acceso. Pedí que te generen uno nuevo desde Todo Sobre mi Club.'
+      }));
     }
 
     // Validar club + token (usamos apply_token como token de conexión)
@@ -513,19 +558,31 @@ router.get('/public/connect/:clubId', async (req, res) => {
     );
 
     if (!r.rowCount) {
-      return res.status(404).send('Club no encontrado');
+      return res.status(404).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Club no encontrado',
+        message: 'No pudimos identificar a qué club corresponde este link.'
+      }));
     }
 
     const club = r.rows[0];
     if (String(club.apply_token || '') !== token) {
-      return res.status(403).send('Token inválido');
+      return res.status(403).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Link inválido',
+        message: 'Este link no es válido. Pedí que te generen uno nuevo desde Todo Sobre mi Club.'
+      }));
     }
 
     const clientId = process.env.MP_CLIENT_ID;
     const redirectUri = `${process.env.PUBLIC_BASE_URL}/mp/oauth/callback`;
 
     if (!clientId || !process.env.MP_CLIENT_SECRET || !process.env.PUBLIC_BASE_URL) {
-      return res.status(500).send('Configuración MP incompleta');
+      return res.status(500).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Configuración incompleta',
+        message: 'El servidor todavía no tiene configurada la integración con Mercado Pago. Avisale a Todo Sobre mi Club.'
+      }));
     }
 
     const state = buildOAuthState(clubId);
