@@ -546,177 +546,110 @@ router.get('/public/connect/:clubId', async (req, res) => {
 });
 
 /* ======================================================
-   WEBHOOK – Mercado Pago (pagos automáticos)
-   POST /mp/webhook?clubId=XXX&sig=YYY
+   ✅ LIMPIEZA: este archivo tenía, desde acá hasta el final, un segundo
+   bloque completo de "getMpWebhookSecret / signWebhook / verifyWebhook /
+   router.post('/webhook', ...)" duplicado del que ya está arriba (línea
+   ~85 en adelante). Express usa siempre la PRIMERA definición de una
+   misma ruta+método, así que todo este bloque nunca se ejecutaba: era
+   código muerto. Se eliminó para que quede un solo webhook (el de
+   arriba, que ya usa getClubMpAccessToken con refresh automático).
 ====================================================== */
 
-
-// 🔐 Secreto compartido (NO exponer)
-function getMpWebhookSecret() {
-  return (
-    process.env.MP_WEBHOOK_SECRET ||
-    process.env.JWT_SECRET ||
-    ''
-  );
-}
-
-function signWebhook(clubId) {
-  const secret = getMpWebhookSecret();
-  return crypto
-    .createHmac('sha256', secret)
-    .update(String(clubId))
-    .digest('hex');
-}
-
-function verifyWebhook(clubId, sig) {
-  if (!clubId || !sig) return false;
-  const expected = signWebhook(clubId);
-  return crypto.timingSafeEqual(
-    Buffer.from(expected),
-    Buffer.from(sig)
-  );
-}
-
-router.post('/webhook', async (req, res) => {
-  // ✅ Siempre responder 200 rápido
-  res.status(200).json({ ok: true });
-
+/* ======================================================
+   CREAR PREFERENCIA DE PAGO (Checkout Pro)
+   POST /mp/preference/:clubId
+   Body: { anio, meses: [7,8], monto_por_mes }
+   Requiere: socio autenticado (token de la app)
+====================================================== */
+router.post('/preference/:clubId', requireAuth, async (req, res) => {
   try {
-    const clubId = String(req.query.clubId || '').trim();
-    const sig = String(req.query.sig || '').trim();
+    const { clubId } = req.params;
+    const socioId = req.user?.socioId || req.user?.socio_id;
 
-    if (!verifyWebhook(clubId, sig)) {
-      console.error('❌ Webhook MP inválido (firma)');
-      return;
+    if (!socioId) {
+      return res.status(403).json({ ok: false, error: 'Solo disponible para socios' });
     }
 
-    // Mercado Pago envía el ID del pago acá
-    const paymentId =
-      req.body?.data?.id ||
-      req.body?.id ||
-      null;
+    const anio = Number(req.body?.anio);
+    const mesesRaw = Array.isArray(req.body?.meses) ? req.body.meses : [];
+    const meses = mesesRaw.map(Number).filter(m => m >= 1 && m <= 12);
+    const montoPorMes = Number(req.body?.monto_por_mes);
 
-    if (!paymentId) {
-      console.warn('⚠️ Webhook sin paymentId');
-      return;
+    if (!anio || !meses.length || !montoPorMes || montoPorMes <= 0) {
+      return res.status(400).json({ ok: false, error: 'Datos de pago incompletos' });
     }
 
-    // 🔑 Traer token del club
+    // ✅ El club tiene que tener el modo "pago automático por Mercado Pago"
+    // elegido explícitamente (no alcanza con mp_connected=true: el modo lo
+    // define el club/superadmin desde el panel, ver adminClubsRoutes.js).
     const rClub = await db.query(
-      `SELECT mp_access_token
-       FROM clubs
-       WHERE id = $1
-       LIMIT 1`,
+      `SELECT id, name, mp_connected, payment_mode FROM clubs WHERE id = $1 LIMIT 1`,
       [clubId]
     );
-
-    if (!rClub.rowCount) {
-      console.error('❌ Club no encontrado:', clubId);
-      return;
+    if (!rClub.rowCount || rClub.rows[0].payment_mode !== 'mercadopago_auto' || !rClub.rows[0].mp_connected) {
+      return res.status(400).json({ ok: false, error: 'El club no tiene el pago automático por Mercado Pago habilitado' });
     }
 
-    const accessToken = rClub.rows[0].mp_access_token;
-
-    // 🔎 Consultar pago real en Mercado Pago
-    const mpRes = await fetch(
-      `https://api.mercadopago.com/v1/payments/${paymentId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-
-    const payment = await mpRes.json();
-
-    if (!mpRes.ok) {
-      console.error('❌ Error MP payment:', payment);
-      return;
-    }
-
-    // ✅ Solo pagos aprobados
-    if (payment.status !== 'approved') {
-      return;
-    }
-
-    // 🧠 Metadata enviada desde la app
-    const md = payment.metadata || {};
-    const socioId = md.socio_id;
-    const anio = Number(md.anio);
-    const mesesRaw = md.meses || '';
-    const montoPorMes = Number(md.monto_por_mes || 0);
-
-    if (!socioId || !anio || !mesesRaw) {
-      console.error('❌ Metadata incompleta:', md);
-      return;
-    }
-
-    const meses = mesesRaw
-      .split(',')
-      .map(m => Number(m))
-      .filter(m => m >= 1 && m <= 12);
-
-    if (!meses.length) {
-      console.error('❌ Meses inválidos:', mesesRaw);
-      return;
-    }
-
-    // 👤 Datos del socio
+    // Validar que el socio pertenezca al club
     const rSocio = await db.query(
-      `SELECT nombre, apellido, numero_socio
-       FROM socios
-       WHERE id = $1 AND club_id = $2
-       LIMIT 1`,
+      `SELECT id, nombre, apellido FROM socios WHERE id = $1 AND club_id = $2 LIMIT 1`,
       [socioId, clubId]
     );
-
     if (!rSocio.rowCount) {
-      console.error('❌ Socio no encontrado:', socioId);
-      return;
+      return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
     }
 
-    const socio = rSocio.rows[0];
+    const accessToken = await getClubMpAccessToken(clubId);
+    const montoTotal = montoPorMes * meses.length;
+    const sig = signMpWebhook(clubId);
 
-    const fechaPago =
-      payment.date_approved?.substring(0, 10) ||
-      new Date().toISOString().substring(0, 10);
+    const preferenceBody = {
+      items: [{
+        title: `Cuota ${rClub.rows[0].name} - ${meses.length} mes(es)`,
+        quantity: 1,
+        unit_price: montoTotal,
+        currency_id: 'ARS'
+      }],
+      metadata: {
+        socio_id: String(socioId),
+        anio: String(anio),
+        meses: meses.join(','),
+        monto_por_mes: String(montoPorMes)
+      },
+      external_reference: `${clubId}_${socioId}_${anio}_${meses.join('-')}`,
+      notification_url: `${process.env.PUBLIC_BASE_URL}/mp/webhook?clubId=${encodeURIComponent(clubId)}&sig=${encodeURIComponent(sig)}`,
+      back_urls: {
+        success: `${process.env.PUBLIC_BASE_URL}/mp-resultado.html?estado=success`,
+        pending: `${process.env.PUBLIC_BASE_URL}/mp-resultado.html?estado=pending`,
+        failure: `${process.env.PUBLIC_BASE_URL}/mp-resultado.html?estado=failure`
+      },
+      auto_return: 'approved'
+    };
 
-    // ✅ Insertar pagos (idempotente)
-    await db.query('BEGIN');
+    const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(preferenceBody)
+    });
 
-    for (const mes of meses) {
-      await db.query(
-        `INSERT INTO pagos_mensuales
-         (club_id, socio_id, socio_nombre, socio_apellido, socio_numero,
-          anio, mes, monto, fecha_pago, cuenta)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         ON CONFLICT (club_id, socio_id, anio, mes) DO NOTHING`,
-        [
-          clubId,
-          socioId,
-          socio.nombre,
-          socio.apellido,
-          socio.numero_socio,
-          anio,
-          mes,
-          montoPorMes,
-          fechaPago,
-          'Mercado Pago',
-        ]
-      );
+    const mpData = await mpRes.json().catch(() => null);
+
+    if (!mpRes.ok || !mpData?.init_point) {
+      console.error('❌ Error creando preferencia MP:', mpData);
+      return res.status(500).json({ ok: false, error: 'No se pudo generar el link de pago' });
     }
 
-    await db.query('COMMIT');
-
-    console.log(
-      `✅ Pago MP acreditado | club=${clubId} socio=${socioId} meses=${meses.join(',')}`
-    );
+    return res.json({
+      ok: true,
+      initPoint: mpData.init_point,
+      preferenceId: mpData.id
+    });
   } catch (err) {
-    try {
-      await db.query('ROLLBACK');
-    } catch (_) {}
-
-    console.error('❌ Error webhook MP:', err);
+    console.error('❌ /mp/preference error:', err);
+    return res.status(500).json({ ok: false, error: 'Error interno' });
   }
 });
 

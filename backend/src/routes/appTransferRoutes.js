@@ -526,7 +526,9 @@ router.get('/club/transferencia-config', requireAuth, async (req, res) => {
         transferencia_habilitada,
         transferencia_cvu,
         transferencia_alias,
-        transferencia_titular
+        transferencia_titular,
+        payment_mode,
+        mp_connected
       FROM clubs
       WHERE id = $1
       LIMIT 1
@@ -539,6 +541,9 @@ router.get('/club/transferencia-config', requireAuth, async (req, res) => {
         alias: '',
         cvu: '',
         titular: '',
+        // ✅ NUEVO
+        payment_mode: 'ninguno',
+        mp_connected: false,
       });
     }
 
@@ -550,6 +555,10 @@ router.get('/club/transferencia-config', requireAuth, async (req, res) => {
       alias: club.transferencia_alias || '',
       cvu: club.transferencia_cvu || '',
       titular: club.transferencia_titular || '',
+      // ✅ NUEVO: la app usa esto para decidir si muestra el botón
+      // "Pagar con Mercado Pago" en vez del de "Informar transferencia".
+      payment_mode: club.payment_mode || 'ninguno',
+      mp_connected: club.mp_connected === true,
     });
 
   } catch (err) {

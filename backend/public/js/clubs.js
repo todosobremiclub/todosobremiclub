@@ -141,17 +141,47 @@
     if ($('club_transferencia_titular')) $('club_transferencia_titular').value = c?.transferencia_titular ?? '';
   }
 
+  // ✅ NUEVO: 3 modos de pago excluyentes entre sí (reemplaza al viejo
+  // checkbox único "club_transferencia_habilitada").
+  function getPaymentMode() {
+    return $('club_payment_mode')?.value || 'ninguno';
+  }
+
   function syncTransferFieldsVisibility() {
-    const enabled = $('club_transferencia_habilitada')?.checked === true;
     const box = $('clubTransferBox');
-    if (box) box.style.display = enabled ? 'block' : 'none';
+    if (box) box.style.display = (getPaymentMode() === 'transferencia_manual') ? 'block' : 'none';
   }
 
   function setTransferEnabledFromClub(c) {
-    if ($('club_transferencia_habilitada')) {
-      $('club_transferencia_habilitada').checked = c?.transferencia_habilitada === true;
+    if ($('club_payment_mode')) {
+      // Compat: si el club todavía no tiene payment_mode seteado (clubes
+      // viejos, antes de esta migración), lo derivamos del booleano previo.
+      $('club_payment_mode').value =
+        c?.payment_mode || (c?.transferencia_habilitada ? 'transferencia_manual' : 'ninguno');
     }
     syncTransferFieldsVisibility();
+    syncMpBoxFromClub(c);
+  }
+
+  // ✅ NUEVO: estado de conexión de Mercado Pago + botones conectar/desconectar
+  function syncMpBoxFromClub(c) {
+    const statusEl = $('clubMpStatus');
+    const btnConectar = $('btnConectarMp');
+    const btnDesconectar = $('btnDesconectarMp');
+    const connected = c?.mp_connected === true;
+
+    if (statusEl) {
+      statusEl.textContent = connected
+        ? '✅ Cuenta de Mercado Pago conectada'
+        : '⚠️ Todavía no se conectó ninguna cuenta de Mercado Pago para este club';
+      statusEl.style.color = connected ? '#16a34a' : '#d97706';
+    }
+    if (btnConectar) btnConectar.style.display = connected ? 'none' : 'inline-block';
+    if (btnDesconectar) btnDesconectar.style.display = connected ? 'inline-block' : 'none';
+
+    // No dejar elegir "Mercado Pago" en el select si la cuenta no está conectada.
+    const optAuto = $('club_payment_mode')?.querySelector('option[value="mercadopago_auto"]');
+    if (optAuto) optAuto.disabled = !connected;
   }
 
   // ✅ NUEVO: add-on de WhatsApp (mismo patrón que transferencia_habilitada)
@@ -174,7 +204,7 @@
   async function saveTransferConfigForClub(clubId) {
     if (!clubId) return;
 
-    const enabled = $('club_transferencia_habilitada')?.checked === true;
+    const enabled = getPaymentMode() === 'transferencia_manual';
     if (!enabled) return;
 
     const payload = getTransferPayloadFromForm();
@@ -244,7 +274,8 @@
     if ($('club_transferencia_cvu')) $('club_transferencia_cvu').value = '';
     if ($('club_transferencia_alias')) $('club_transferencia_alias').value = '';
     if ($('club_transferencia_titular')) $('club_transferencia_titular').value = '';
-    if ($('club_transferencia_habilitada')) $('club_transferencia_habilitada').checked = false;
+    if ($('club_payment_mode')) $('club_payment_mode').value = 'ninguno';
+    syncMpBoxFromClub(null); // ✅ NUEVO: club nuevo = sin MP conectado todavía
 
     if ($('club_whatsapp_habilitado')) $('club_whatsapp_habilitado').checked = false; // ✅ NUEVO
     if ($('club_whatsapp_limite_mensual')) $('club_whatsapp_limite_mensual').value = '300'; // ✅ NUEVO
@@ -336,9 +367,12 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
       ? `<img src="${escapeHtml(c.logo_url)}" alt="logo club" class="club-logo-thumb">`
       : '—';
 
-    const transferenciaHtml = c.transferencia_habilitada
-      ? '<span title="Transferencia habilitada">✅</span>'
-      : '<span title="Transferencia deshabilitada">❌</span>';
+    // ✅ NUEVO: refleja los 3 modos de pago en vez de un simple ✅/❌
+    const modo = c.payment_mode || (c.transferencia_habilitada ? 'transferencia_manual' : 'ninguno');
+    const transferenciaHtml =
+      modo === 'mercadopago_auto' ? '<span title="Pago automático por Mercado Pago">🟢 MP</span>' :
+      modo === 'transferencia_manual' ? '<span title="Transferencia informada por el socio">✅ Transf.</span>' :
+      '<span title="Sin pago automatizado">❌</span>';
 
     // ✅ NUEVO: mensajes de WhatsApp usados este mes vs. el límite configurado
     // para el club. Si el club no tiene el add-on habilitado, se muestra "—".
@@ -467,7 +501,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     fd.append('valor_mensual', $('club_valor_mensual')?.value?.trim() || '');
     fd.append('payment_due_day', $('club_payment_due_day')?.value?.trim() || '31');
     fd.append('estado', $('club_estado')?.value?.trim() || 'pendiente');
-    fd.append('transferencia_habilitada', $('club_transferencia_habilitada')?.checked ? 'true' : 'false');
+    fd.append('payment_mode', getPaymentMode()); // ✅ NUEVO: reemplaza a transferencia_habilitada
     fd.append('whatsapp_habilitado', $('club_whatsapp_habilitado')?.checked ? 'true' : 'false'); // ✅ NUEVO
     fd.append('whatsapp_limite_mensual', $('club_whatsapp_limite_mensual')?.value?.trim() || '300'); // ✅ NUEVO
     fd.append('color_primary', color_primary || '#2563eb');
@@ -600,8 +634,51 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     $('clubSearch')?.addEventListener('input', applyFilters);
     $('clubStatusFilter')?.addEventListener('change', applyFilters);
     $('btnAddClubComment')?.addEventListener('click', addClubComment);
-    $('club_transferencia_habilitada')?.addEventListener('change', syncTransferFieldsVisibility);
+    $('club_payment_mode')?.addEventListener('change', syncTransferFieldsVisibility); // ✅ NUEVO
     $('club_whatsapp_habilitado')?.addEventListener('change', syncWhatsappFieldsVisibility); // ✅ NUEVO
+
+    // ✅ NUEVO: conectar/desconectar Mercado Pago desde el modal de edición del club
+    $('btnConectarMp')?.addEventListener('click', async () => {
+      if (!editingClubId) {
+        showClubMsg('Guardá el club primero antes de conectar Mercado Pago.', false);
+        return;
+      }
+      try {
+        const res = await fetchAuthClubs(`/mp/oauth/connect/${editingClubId}?json=1`);
+        const data = await safeJson(res);
+        if (!res.ok || !data.ok || !data.oauthUrl) {
+          showClubMsg(data.error || 'No se pudo iniciar la conexión con Mercado Pago', false);
+          return;
+        }
+        // Se abre en una pestaña nueva para no perder el modal de edición del club.
+        window.open(data.oauthUrl, '_blank');
+        showClubMsg('Completá la conexión en la pestaña nueva y volvé a abrir este club para ver el estado.', true);
+      } catch (e) {
+        showClubMsg('Error iniciando conexión con Mercado Pago', false);
+      }
+    });
+
+    $('btnDesconectarMp')?.addEventListener('click', async () => {
+      if (!editingClubId) return;
+      if (!confirm('¿Desconectar la cuenta de Mercado Pago de este club? Si el club estaba en modo "Mercado Pago", vuelve a "Sin pago automatizado".')) return;
+
+      try {
+        const res = await fetchAuthClubs(`/admin/clubs/${editingClubId}/mp/disconnect`, { method: 'POST' });
+        const data = await safeJson(res);
+        if (!res.ok || !data.ok) {
+          showClubMsg(data.error || 'No se pudo desconectar Mercado Pago', false);
+          return;
+        }
+        showClubMsg('✅ Mercado Pago desconectado', true);
+        await loadClubs();
+        const c = clubsCache.find((x) => String(x.id) === String(editingClubId));
+        if (c) {
+          setTransferEnabledFromClub(c);
+        }
+      } catch (e) {
+        showClubMsg('Error desconectando Mercado Pago', false);
+      }
+    });
 
     $('clubModal')?.addEventListener('click', (ev) => {
       if (ev.target?.id === 'clubModal') closeClubForm();

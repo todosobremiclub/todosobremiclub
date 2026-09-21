@@ -348,10 +348,17 @@
 </div>
 
 
-                  <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
-                    <input type="checkbox" id="club_transferencia_habilitada">
-                    Permitir pagos por transferencia
-                  </label>
+                  <!-- ✅ NUEVO: reemplaza al viejo checkbox único "Permitir pagos por
+                       transferencia" por un selector de 3 modos excluyentes entre sí. -->
+                  <label style="margin-top:10px;">Modo de pago del socio en la app</label>
+                  <select id="club_payment_mode">
+                    <option value="ninguno">Sin pago automatizado (el socio no ve ningún botón de pago)</option>
+                    <option value="transferencia_manual">Transferencia informada por el socio (revisa un admin)</option>
+                    <option value="mercadopago_auto">Mercado Pago (pago 100% automático)</option>
+                  </select>
+                  <div style="font-size:12px; color:#6b7280; margin:4px 0 10px;">
+                    "Mercado Pago" solo se puede elegir si el club ya conectó su cuenta más abajo.
+                  </div>
 
                   <div id="clubTransferBox">
                     <h4>💳 Datos para transferencias</h4>
@@ -377,6 +384,14 @@
                       id="club_transferencia_titular"
                       type="text"
                       placeholder="Nombre legal del club">
+                  </div>
+
+                  <!-- ✅ NUEVO: conexión de Mercado Pago -->
+                  <div id="clubMpBox">
+                    <h4>💳 Mercado Pago</h4>
+                    <div id="clubMpStatus" style="font-size:13px; margin-bottom:8px;">—</div>
+                    <button type="button" id="btnConectarMp" class="btn-secondary">Conectar cuenta de Mercado Pago</button>
+                    <button type="button" id="btnDesconectarMp" class="btn-secondary" style="display:none; color:#dc2626;">Desconectar Mercado Pago</button>
                   </div>
 
                   <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">

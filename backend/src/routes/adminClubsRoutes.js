@@ -45,6 +45,15 @@ function toBool(v, def = false) {
   return def;
 }
 
+// ✅ NUEVO: modo de pago del club (reemplaza al viejo checkbox único de
+// "transferencia_habilitada" con 3 opciones excluyentes entre sí).
+const PAYMENT_MODES = ['ninguno', 'transferencia_manual', 'mercadopago_auto'];
+
+function normalizePaymentMode(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  return PAYMENT_MODES.includes(s) ? s : null;
+}
+
 
 // =============================
 // Multer en memoria (multipart)
@@ -73,6 +82,7 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
   payment_due_day,
   mp_habilitado,
   mp_connected,
+  payment_mode,
 
   transferencia_habilitada,
   transferencia_cvu,
@@ -141,12 +151,20 @@ router.post(
         color_primary,
         color_secondary,
         color_accent,
-        mp_habilitado
+        mp_habilitado,
+        payment_mode
       } = req.body ?? {};
 
       if (!name?.trim()) {
         return res.status(400).json({ ok: false, error: 'Falta name' });
       }
+
+      // ✅ NUEVO: un club recién creado nunca puede arrancar en
+      // 'mercadopago_auto' porque todavía no conectó ninguna cuenta de MP
+      // (mp_connected = false). Si mandan ese valor, lo ignoramos y queda
+      // 'ninguno'; 'transferencia_manual' sí se puede setear desde el alta.
+      let paymentModeFinal = normalizePaymentMode(payment_mode) || 'ninguno';
+      if (paymentModeFinal === 'mercadopago_auto') paymentModeFinal = 'ninguno';
 
       let logo_url = null;
       let background_url = null;
@@ -190,6 +208,8 @@ INSERT INTO clubs (
  payment_due_day,
  estado,
  mp_habilitado,
+ payment_mode,
+ transferencia_habilitada,
  logo_url,
  background_url,
  color_primary,
@@ -197,7 +217,7 @@ INSERT INTO clubs (
  color_accent,
  apply_token
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
 RETURNING *
 
         `,
@@ -214,6 +234,8 @@ RETURNING *
  payment_due_day ? Number(payment_due_day) : 31,
  normalizeClubEstado(estado),
  toBool(mp_habilitado, false),
+ paymentModeFinal,
+ paymentModeFinal === 'transferencia_manual', // ✅ mantiene transferencia_habilitada en sync
  logo_url,
  background_url,
  color_primary ?? '#2563eb',
@@ -256,6 +278,7 @@ router.put(
  color_secondary,
  color_accent,
  mp_habilitado,
+ payment_mode,              // ✅ NUEVO
  whatsapp_habilitado,      // ✅ NUEVO
  whatsapp_limite_mensual   // ✅ NUEVO
 } = req.body ?? {};
@@ -265,7 +288,7 @@ router.put(
       }
 
       const current = await db.query(
-        `SELECT logo_url, background_url FROM clubs WHERE id=$1`,
+        `SELECT logo_url, background_url, mp_connected FROM clubs WHERE id=$1`,
         [id]
       );
       if (!current.rowCount) {
@@ -274,6 +297,27 @@ router.put(
 
       let logo_url = current.rows[0].logo_url;
       let background_url = current.rows[0].background_url;
+
+      // ✅ NUEVO: validar el modo de pago elegido.
+      // 'mercadopago_auto' solo se puede activar si el club ya conectó su
+      // cuenta de Mercado Pago (mp_connected = true); si no, se rechaza para
+      // evitar que quede seleccionado un modo que la app no puede ofrecer.
+      const paymentModeNorm = normalizePaymentMode(payment_mode);
+      if (payment_mode !== undefined && payment_mode !== null && payment_mode !== '' && !paymentModeNorm) {
+        return res.status(400).json({ ok: false, error: 'payment_mode inválido' });
+      }
+      if (paymentModeNorm === 'mercadopago_auto' && !current.rows[0].mp_connected) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Este club todavía no conectó su cuenta de Mercado Pago. Conectala antes de habilitar el pago automático.'
+        });
+      }
+      // Si se especifica payment_mode, transferencia_habilitada se deriva de
+      // él (queda en sync); si no se manda payment_mode, se respeta el
+      // comportamiento anterior (el valor que venga en el body, o sin cambios).
+      const transferenciaHabilitadaFinal = paymentModeNorm
+        ? (paymentModeNorm === 'transferencia_manual')
+        : toBool(req.body?.transferencia_habilitada, null);
 
       if (req.files?.logo?.[0]) {
         const up = await uploadImageBuffer({
@@ -311,6 +355,7 @@ SET
   estado = COALESCE($10::text, estado),
   mp_habilitado = COALESCE($11::boolean, mp_habilitado),
   transferencia_habilitada = COALESCE($12::boolean, transferencia_habilitada),
+  payment_mode = COALESCE($22::text, payment_mode),
   logo_url = COALESCE($13::text, logo_url),
   background_url = COALESCE($14::text, background_url),
   color_primary = COALESCE($15::text, color_primary),
@@ -334,7 +379,7 @@ RETURNING *
   valor_mensual ? Number(valor_mensual) : null,
   normalizeClubEstado(estado) ?? null,
   toBool(mp_habilitado, null),
-  toBool(req.body?.transferencia_habilitada, null),
+  transferenciaHabilitadaFinal,
   logo_url ?? null,
   background_url ?? null,
   color_primary ?? null,
@@ -343,7 +388,8 @@ RETURNING *
   payment_due_day ? Number(payment_due_day) : null,
   toBool(whatsapp_habilitado, null),
   whatsapp_limite_mensual ? Number(whatsapp_limite_mensual) : null,
-  id
+  id,
+  paymentModeNorm
 ]
 );
 
@@ -565,7 +611,11 @@ router.post(
           mp_access_token = NULL,
           mp_refresh_token = NULL,
           mp_user_id = NULL,
-          mp_expires_at = NULL
+          mp_expires_at = NULL,
+          -- ✅ NUEVO: si el club estaba en modo "pago automático por MP" y se
+          -- desconecta la cuenta, no puede seguir en ese modo (la app dejaría
+          -- de tener con qué generar el link de pago). Vuelve a 'ninguno'.
+          payment_mode = CASE WHEN payment_mode = 'mercadopago_auto' THEN 'ninguno' ELSE payment_mode END
         WHERE id = $1
         RETURNING id, name
         `,

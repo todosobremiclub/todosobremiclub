@@ -98,6 +98,9 @@ app.use('/club', require('./routes/pendientesRoutes'));
 app.use('/club', require('./routes/asistenciaRoutes'));
 app.use('/app', require('./routes/appRoutes'));
 
+// ✅ NUEVO: Mercado Pago (OAuth por club, webhook, y generación del link de pago)
+app.use('/mp', require('./routes/mercadoPagoRoutes'));
+
 // ✅ NUEVO: webhook de Meta para WhatsApp (verificación + estados de entrega)
 app.use('/webhooks/whatsapp', require('./routes/whatsappWebhookRoutes'));
 
