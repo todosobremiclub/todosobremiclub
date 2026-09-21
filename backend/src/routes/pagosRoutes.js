@@ -38,6 +38,72 @@ function isISODate(d) {
   return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 }
 
+// ===============================
+// Helper: monto de cuota mensual "base" de un socio
+// (misma lógica de resolución de precio que usa POST /:clubId/pagos:
+// actividad asignada, excepción de cuota, o jefe de Grupo Familiar).
+// Se usa para completar el campo "monto" de los meses PENDIENTES que
+// arma GET /:clubId/pagos/:socioId (antes venían siempre en 0, lo que
+// rompía la generación de la preferencia de pago de Mercado Pago,
+// que exige monto_por_mes > 0).
+// Un socio que es miembro (no jefe) de un Grupo Familiar no paga la
+// cuota base por su cuenta, así que devuelve 0 correctamente.
+// ===============================
+async function resolverMontoCuotaSocio(clubId, socioId) {
+  const r = await db.query(
+    `
+    SELECT
+      s.actividad,
+      s.excepcion_cuota_id,
+      EXISTS (
+        SELECT 1
+        FROM grupos_familiares gf
+        WHERE gf.club_id = s.club_id
+          AND gf.jefe_socio_id = s.id
+          AND gf.activo = true
+      ) AS es_jefe_plan_familiar
+    FROM socios s
+    WHERE s.id = $1
+      AND s.club_id = $2
+    LIMIT 1
+    `,
+    [socioId, clubId]
+  );
+
+  if (!r.rowCount) return 0;
+
+  const { actividad, excepcion_cuota_id, es_jefe_plan_familiar } = r.rows[0];
+
+  if (es_jefe_plan_familiar === true) {
+    const rGF = await db.query(
+      `SELECT precio_mensual FROM actividades
+       WHERE club_id = $1 AND nombre = 'Grupo Familiar' AND activo = true LIMIT 1`,
+      [clubId]
+    );
+    return rGF.rowCount ? (Number(rGF.rows[0].precio_mensual) || 0) : 0;
+  }
+
+  if (excepcion_cuota_id) {
+    const rExc = await db.query(
+      `SELECT monto FROM excepciones_cuota
+       WHERE club_id = $1 AND id = $2 AND activo = true LIMIT 1`,
+      [clubId, excepcion_cuota_id]
+    );
+    return rExc.rowCount ? (Number(rExc.rows[0].monto) || 0) : 0;
+  }
+
+  if (actividad) {
+    const rPrecio = await db.query(
+      `SELECT precio_mensual FROM actividades
+       WHERE club_id = $1 AND nombre = $2 AND activo = true LIMIT 1`,
+      [clubId, actividad]
+    );
+    return rPrecio.rowCount ? (Number(rPrecio.rows[0].precio_mensual) || 0) : 0;
+  }
+
+  return 0;
+}
+
 // ============================================================
 // GET /club/:clubId/pagos/resumen?anio=2026
 // Solo ADMIN – resumen para la tabla principal
@@ -389,6 +455,13 @@ SELECT
           if (!mesesPagadosSet.has(m)) mesesImpagos.push(m);
         }
 
+        // ✅ Cuota mensual del socio, para que los meses pendientes viajen
+        // con el monto real (antes venía siempre en 0 y eso hacía fallar
+        // la generación del pago con Mercado Pago, que exige monto > 0).
+        const montoCuotaSocio = mesesImpagos.length
+          ? await resolverMontoCuotaSocio(clubId, socioId)
+          : 0;
+
         for (let i = 0; i < mesesImpagos.length; i++) {
           const m = mesesImpagos[i];
           const habilitado = i === 0; // solo el más antiguo se puede informar
@@ -422,7 +495,7 @@ SELECT
 
           pagosRows.push({
             mes: m,
-            monto: 0,
+            monto: montoCuotaSocio,
             fecha_pago: '',
             cuenta: '',
             pendiente: true,
