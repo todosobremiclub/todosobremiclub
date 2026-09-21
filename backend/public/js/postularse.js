@@ -127,7 +127,11 @@ applyClubBranding(data.club || null);
       telefono: $('telefono')?.value?.trim() || '',
       email: $('email')?.value?.trim() || '',
       direccion: $('direccion')?.value?.trim() || '',
-      fecha_nacimiento: $('fecha_nacimiento')?.value?.trim() || ''
+      ciudad: $('ciudad')?.value?.trim() || '', // ✅ NUEVO, opcional
+      provincia: $('provincia')?.value?.trim() || '', // ✅ NUEVO, opcional
+      fecha_nacimiento: $('fecha_nacimiento')?.value?.trim() || '',
+      obra_social: $('obra_social')?.value?.trim() || '', // ✅ NUEVO, opcional
+      obra_social_numero: $('obra_social_numero')?.value?.trim() || '' // ✅ NUEVO, opcional (alfanumérico)
     };
 
     // ================= VALIDACIONES =================

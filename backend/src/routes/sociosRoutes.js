@@ -1365,8 +1365,12 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
         s.actividad,
         s.telefono,
         s.direccion,
+        s.ciudad,
+        s.provincia,
         s.email,
         s.fecha_nacimiento,
+        s.obra_social,
+        s.obra_social_numero,
         s.fecha_ingreso,
         s.activo,
         s.becado,
@@ -1822,8 +1826,14 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
       { header: 'categoria', key: 'categoria', width: 22 },
       { header: 'telefono', key: 'telefono', width: 16 },
       { header: 'direccion', key: 'direccion', width: 26 },
+      // ✅ NUEVO: ciudad/provincia, al lado de direccion (opcionales)
+      { header: 'ciudad (opcional)', key: 'ciudad', width: 20 },
+      { header: 'provincia (opcional)', key: 'provincia', width: 20 },
 { header: 'email', key: 'email', width: 26 },
       { header: 'fecha_nacimiento (DD/MM/AAAA)', key: 'fecha_nacimiento', width: 22 },
+      // ✅ NUEVO: obra social/prepaga y número, debajo de fecha_nacimiento (opcionales)
+      { header: 'obra_social (opcional)', key: 'obra_social', width: 22 },
+      { header: 'obra_social_numero (opcional)', key: 'obra_social_numero', width: 24 },
       { header: 'fecha_ingreso (DD/MM/AAAA)', key: 'fecha_ingreso', width: 22 },
       { header: 'activo (SI/NO)', key: 'activo', width: 14 },
       { header: 'becado (SI/NO)', key: 'becado', width: 14 }
@@ -1831,7 +1841,7 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
 
     // Header style
     ws.getRow(1).font = { bold: true };
-    ws.autoFilter = { from: 'A1', to: 'N1' };
+    ws.autoFilter = { from: 'A1', to: 'R1' };
 
     // Hoja oculta para listas
     const lists = wb.addWorksheet('Listas');
@@ -1892,15 +1902,15 @@ router.get('/:clubId/socios/template.xlsx', requireAuth, requireClubAccess, asyn
         };
       }
 
-      // activo (SI/NO) = columna M
-ws.getCell(`M${r}`).dataValidation = {
+      // activo (SI/NO) = columna Q
+ws.getCell(`Q${r}`).dataValidation = {
   type: 'list',
   allowBlank: true,
   formulae: ['"SI,NO"']
 };
 
-// becado (SI/NO) = columna N
-ws.getCell(`N${r}`).dataValidation = {
+// becado (SI/NO) = columna R
+ws.getCell(`R${r}`).dataValidation = {
   type: 'list',
   allowBlank: true,
   formulae: ['"SI,NO"']
@@ -1908,9 +1918,9 @@ ws.getCell(`N${r}`).dataValidation = {
     }
 
     // Nota (opcional, no rompe import)
-    ws.getCell('O1').value = 'NOTA';
-    ws.getCell('O2').value =
-      'Dejá numero_socio vacío para autogenerar. Fechas en formato DD/MM/AAAA. actividad_adicional es opcional.';
+    ws.getCell('S1').value = 'NOTA';
+    ws.getCell('S2').value =
+      'Dejá numero_socio vacío para autogenerar. Fechas en formato DD/MM/AAAA. actividad_adicional, ciudad, provincia, obra_social y obra_social_numero son opcionales.';
 
     // Descargar
     res.setHeader(
@@ -2082,11 +2092,15 @@ router.post(
         const categoria = norm(row.getCell(7).value);          // G
         const telefono = norm(row.getCell(8).value);          // H
 const direccion = norm(row.getCell(9).value);         // I
-const email = norm(row.getCell(10).value);             // J
-const fecha_nacimiento_raw = row.getCell(11).value;   // K
-const fecha_ingreso_raw = row.getCell(12).value;      // L
-const activo = parseBoolSI(row.getCell(13).value, true);   // M
-const becado = parseBoolSI(row.getCell(14).value, false);  // N
+const ciudad = norm(row.getCell(10).value);           // J — ✅ NUEVO, opcional
+const provincia = norm(row.getCell(11).value);        // K — ✅ NUEVO, opcional
+const email = norm(row.getCell(12).value);             // L
+const fecha_nacimiento_raw = row.getCell(13).value;   // M
+const obra_social = norm(row.getCell(14).value);       // N — ✅ NUEVO, opcional
+const obra_social_numero = norm(row.getCell(15).value); // O — ✅ NUEVO, opcional (alfanumérico)
+const fecha_ingreso_raw = row.getCell(16).value;      // P
+const activo = parseBoolSI(row.getCell(17).value, true);   // Q
+const becado = parseBoolSI(row.getCell(18).value, false);  // R
 
 
         if (!dni || dni.length < 7) {
@@ -2178,8 +2192,12 @@ const becado = parseBoolSI(row.getCell(14).value, false);  // N
   categoria,
   telefono: telefono ?? null,
   direccion: direccion ?? null,
+  ciudad: ciudad ?? null,
+  provincia: provincia ?? null,
   email: email ?? null,
   fecha_nacimiento: fnISO,
+  obra_social: obra_social ?? null,
+  obra_social_numero: obra_social_numero ?? null,
   fecha_ingreso: fiISO,
   activo,
   becado,
@@ -2196,16 +2214,16 @@ for (const s of toInsert) {
     const rIns = await db.query(
       `INSERT INTO socios (
         club_id, numero_socio, dni, nombre, apellido,
-        telefono, direccion, email,
-        fecha_nacimiento, fecha_ingreso,
+        telefono, direccion, ciudad, provincia, email,
+        fecha_nacimiento, obra_social, obra_social_numero, fecha_ingreso,
         activo, becado, categoria, actividad,
         tiene_actividades_adicionales, actividades_adicionales
       ) VALUES (
         $1,$2,$3,$4,$5,
-        $6,$7,$8,
-        $9,$10,
+        $6,$7,$8,$9,$10,
         $11,$12,$13,$14,
-        $15,$16
+        $15,$16,$17,$18,
+        $19,$20
       ) RETURNING id`,
       [
         clubId,
@@ -2215,8 +2233,12 @@ for (const s of toInsert) {
         s.apellido,
         s.telefono,
         s.direccion,
+        s.ciudad,
+        s.provincia,
         s.email,
         s.fecha_nacimiento,
+        s.obra_social,
+        s.obra_social_numero,
         s.fecha_ingreso,
         s.activo,
         s.becado,
@@ -2268,8 +2290,12 @@ const {
   apellido,
   telefono,
   direccion,
+  ciudad = null,
+  provincia = null,
   email,
   fecha_nacimiento,
+  obra_social = null,
+  obra_social_numero = null,
   fecha_ingreso,
   activo = true,
   becado = false,
@@ -2350,8 +2376,12 @@ const r = await db.query(
     apellido,
     telefono,
     direccion,
+    ciudad,
+    provincia,
     email,
     fecha_nacimiento,
+    obra_social,
+    obra_social_numero,
     fecha_ingreso,
     activo,
     becado,
@@ -2364,7 +2394,7 @@ const r = await db.query(
     actividades_adicionales
   )
   VALUES (
-    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23
   )
   RETURNING *
   `,
@@ -2376,8 +2406,12 @@ const r = await db.query(
     String(apellido),
     telefono ?? null,
     direccion ?? null,
+    ciudad ?? null,
+    provincia ?? null,
     email ?? null,
     fecha_nacimiento,
+    obra_social ?? null,
+    obra_social_numero ?? null,
     fechaIngresoFinal,
     !!activo,
     !!becado,
@@ -2419,8 +2453,12 @@ const {
   apellido,
   telefono,
   direccion,
+  ciudad = null,
+  provincia = null,
   email,
   fecha_nacimiento,
+  obra_social = null,
+  obra_social_numero = null,
   fecha_ingreso,
   activo,
   becado,
@@ -2455,25 +2493,29 @@ const r = await db.query(
     apellido = $4,
     telefono = $5,
     direccion = $6,
-    email = $7,
-    fecha_nacimiento = $8,
-    fecha_ingreso = $9,
-    activo = $10,
-    becado = $11,
-    categoria = $12,
-    actividad = $13,
-    excepcion_cuota_id = $14,
-    es_menor = $15,
-    tutor_nombre = $16,
-    tiene_actividades_adicionales = $17,
-    actividades_adicionales = $18,
+    ciudad = $7,
+    provincia = $8,
+    email = $9,
+    fecha_nacimiento = $10,
+    obra_social = $11,
+    obra_social_numero = $12,
+    fecha_ingreso = $13,
+    activo = $14,
+    becado = $15,
+    categoria = $16,
+    actividad = $17,
+    excepcion_cuota_id = $18,
+    es_menor = $19,
+    tutor_nombre = $20,
+    tiene_actividades_adicionales = $21,
+    actividades_adicionales = $22,
     bienvenida_enviada_at = CASE
-      WHEN email IS DISTINCT FROM $21 THEN NULL
-      WHEN dni IS DISTINCT FROM $22 THEN NULL
-      WHEN numero_socio IS DISTINCT FROM $23 THEN NULL
+      WHEN email IS DISTINCT FROM $25 THEN NULL
+      WHEN dni IS DISTINCT FROM $26 THEN NULL
+      WHEN numero_socio IS DISTINCT FROM $27 THEN NULL
       ELSE bienvenida_enviada_at
     END
-  WHERE id = $19 AND club_id = $20
+  WHERE id = $23 AND club_id = $24
   RETURNING *
   `,
   [
@@ -2483,8 +2525,12 @@ const r = await db.query(
     apellido,
     telefono ?? null,
     direccion ?? null,
+    ciudad ?? null,
+    provincia ?? null,
     email ?? null,
     fecha_nacimiento,
+    obra_social ?? null,
+    obra_social_numero ?? null,
     fecha_ingreso ?? null,
     !!activo,
     !!becado,
@@ -2497,9 +2543,9 @@ const r = await db.query(
     (actividades_adicionales ?? null),
     id,
     clubId,
-    email ?? null,   // ✅ mismo valor que $7, en parámetro aparte para el CASE
-    dniLimpio,       // ✅ NUEVO: mismo valor que $2, en parámetro aparte para el CASE
-    numero_socio,    // ✅ NUEVO: mismo valor que $1, en parámetro aparte para el CASE
+    email ?? null,   // ✅ mismo valor que $9, en parámetro aparte para el CASE
+    dniLimpio,       // ✅ mismo valor que $2, en parámetro aparte para el CASE
+    numero_socio,    // ✅ mismo valor que $1, en parámetro aparte para el CASE
   ]
 );
 

@@ -2366,9 +2366,16 @@ resetGrupoFamiliarState();
   $('socioDireccion').value = '';
 $('socioEmail').value = '';
 
+  // ✅ NUEVO: Ciudad / Provincia
+  if ($('socioCiudad')) $('socioCiudad').value = '';
+  if ($('socioProvincia')) $('socioProvincia').value = '';
 
   $('socioNacimiento').value = '';
   $('socioIngreso').value = '';
+
+  // ✅ NUEVO: Obra social / Prepaga y N° de afiliado
+  if ($('socioObraSocial')) $('socioObraSocial').value = '';
+  if ($('socioObraSocialNumero')) $('socioObraSocialNumero').value = '';
 
   $('socioActivo').checked = true;
   $('socioBecado').checked = false;
@@ -2478,6 +2485,14 @@ function toggleTutorField(forceValue) {
 
   $('socioDireccion').value = socio.direccion ?? '';
   $('socioEmail').value = socio.email ?? '';
+
+  // ✅ NUEVO: Ciudad / Provincia
+  if ($('socioCiudad')) $('socioCiudad').value = socio.ciudad ?? '';
+  if ($('socioProvincia')) $('socioProvincia').value = socio.provincia ?? '';
+
+  // ✅ NUEVO: Obra social / Prepaga y N° de afiliado
+  if ($('socioObraSocial')) $('socioObraSocial').value = socio.obra_social ?? '';
+  if ($('socioObraSocialNumero')) $('socioObraSocialNumero').value = socio.obra_social_numero ?? '';
 
   const catSel = $('socioCategoria');
   if (catSel) catSel.dataset.pendingValue = (socio.categoria ?? '').toString();
@@ -3251,12 +3266,18 @@ excepcion_cuota_id: $('socioUsaExcepcion')?.checked
       
 telefono: $('socioTelefono').value.trim() || null,
 direccion: $('socioDireccion').value.trim() || null,
+// ✅ NUEVO: Ciudad / Provincia (opcionales)
+ciudad: $('socioCiudad')?.value.trim() || null,
+provincia: $('socioProvincia')?.value.trim() || null,
 email: $('socioEmail').value.trim() || null,
 fecha_nacimiento: $('socioNacimiento').value,
 
       fecha_ingreso: $('socioIngreso').value || null,
       activo: $('socioActivo').checked,
-      becado: $('socioBecado').checked
+      becado: $('socioBecado').checked,
+      // ✅ NUEVO: Obra social / Prepaga y N° de afiliado (opcionales, alfanumérico)
+      obra_social: $('socioObraSocial')?.value.trim() || null,
+      obra_social_numero: $('socioObraSocialNumero')?.value.trim() || null
     };
 
 const adicionalesSeleccionadas = $('socioTieneAdicionales')?.checked

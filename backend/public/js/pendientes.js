@@ -122,7 +122,11 @@ function renderSociosPendientes(items) {
     ['telefono', 'Teléfono'],
     ['email', 'Email'],
     ['direccion', 'Dirección'],
-    ['fecha_nacimiento', 'Fecha de nacimiento']
+    ['ciudad', 'Ciudad'], // ✅ NUEVO
+    ['provincia', 'Provincia'], // ✅ NUEVO
+    ['fecha_nacimiento', 'Fecha de nacimiento'],
+    ['obra_social', 'Obra social / Prepaga'], // ✅ NUEVO
+    ['obra_social_numero', 'N° de afiliado'] // ✅ NUEVO
   ];
 
   function mostrarModalComparacion(pendiente, actual) {

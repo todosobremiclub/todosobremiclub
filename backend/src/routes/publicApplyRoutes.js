@@ -105,7 +105,9 @@ router.post('/club/:clubId/apply', async (req, res) => {
   telefono, email, direccion, fecha_nacimiento,
   foto_base64, foto_mimetype,
   tipo,
-  actividad_adicional // ✅ NUEVO, opcional
+  actividad_adicional, // ✅ NUEVO, opcional
+  ciudad, provincia, // ✅ NUEVO, opcionales
+  obra_social, obra_social_numero // ✅ NUEVO, opcionales (alfanumérico)
 } = req.body ?? {};
 
     // ✅ tipoFinal SIEMPRE al principio (evita "Cannot access before initialization")
@@ -158,7 +160,8 @@ if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
     // =========================
     // Traemos también actividad/categoria/fecha_nacimiento para cumplir NOT NULL en pendientes cuando tipo='foto'
     const rSoc = await db.query(
-      `SELECT id, nombre, apellido, actividad, categoria, fecha_nacimiento, telefono, direccion
+      `SELECT id, nombre, apellido, actividad, categoria, fecha_nacimiento, telefono, direccion,
+              ciudad, provincia, obra_social, obra_social_numero
        FROM socios
        WHERE club_id=$1 AND dni=$2
        LIMIT 1`,
@@ -240,6 +243,15 @@ if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       ? (socioRow?.direccion ?? null)
       : (direccion ? norm(direccion) : null);
 
+    // ✅ NUEVO: ciudad/provincia opcionales (no aplican en modo 'foto')
+    const ciudadFinal = (tipoFinal === 'foto')
+      ? (socioRow?.ciudad ?? null)
+      : (ciudad ? norm(ciudad) : null);
+
+    const provinciaFinal = (tipoFinal === 'foto')
+      ? (socioRow?.provincia ?? null)
+      : (provincia ? norm(provincia) : null);
+
     const fechaNacFinal = (tipoFinal === 'foto')
       ? (socioRow?.fecha_nacimiento ?? null)
       : fnISO;
@@ -249,12 +261,21 @@ if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       ? null
       : (norm(actividad_adicional) || null);
 
+    // ✅ NUEVO: obra social/prepaga y número opcionales (no aplican en modo 'foto')
+    const obraSocialFinal = (tipoFinal === 'foto')
+      ? (socioRow?.obra_social ?? null)
+      : (obra_social ? norm(obra_social) : null);
+
+    const obraSocialNumeroFinal = (tipoFinal === 'foto')
+      ? (socioRow?.obra_social_numero ?? null)
+      : (obra_social_numero ? norm(obra_social_numero) : null);
+
     const r = await db.query(
       `
       INSERT INTO socios_pendientes
-  (club_id, nombre, apellido, dni, actividad, actividad_adicional, categoria, telefono, email, direccion, fecha_nacimiento, foto_url, tipo, estado, created_at, updated_at)
+  (club_id, nombre, apellido, dni, actividad, actividad_adicional, categoria, telefono, email, direccion, ciudad, provincia, fecha_nacimiento, obra_social, obra_social_numero, foto_url, tipo, estado, created_at, updated_at)
 VALUES
-  ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pendiente', now(), now())
+  ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'pendiente', now(), now())
       RETURNING id
       `,
       [
@@ -268,7 +289,11 @@ VALUES
   telefonoFinal,
   email ? norm(email) : null,
   direccionFinal,
+  ciudadFinal,
+  provinciaFinal,
   fechaNacFinal,
+  obraSocialFinal,
+  obraSocialNumeroFinal,
   foto_url,
   tipoFinal
 ]

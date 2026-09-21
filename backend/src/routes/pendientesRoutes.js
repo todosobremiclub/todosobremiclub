@@ -22,7 +22,7 @@ router.get('/:clubId/pendientes', requireAuth, async (req, res) => {
     const { clubId } = req.params;
     const r = await db.query(
       `SELECT id, nombre, apellido, dni, actividad, actividad_adicional, categoria, telefono, direccion,
-              fecha_nacimiento, foto_url, tipo, estado, created_at
+              ciudad, provincia, fecha_nacimiento, obra_social, obra_social_numero, foto_url, tipo, estado, created_at
        FROM socios_pendientes
        WHERE club_id=$1 AND estado='pendiente'
        ORDER BY created_at DESC`,
@@ -45,7 +45,7 @@ router.get('/:clubId/pendientes/:id/comparar', requireAuth, requireClubAccess, a
 
     const rP = await db.query(
       `SELECT id, dni, nombre, apellido, actividad, actividad_adicional, categoria, telefono, email,
-              direccion, fecha_nacimiento, foto_url, tipo, estado
+              direccion, ciudad, provincia, fecha_nacimiento, obra_social, obra_social_numero, foto_url, tipo, estado
        FROM socios_pendientes
        WHERE id=$1 AND club_id=$2
        LIMIT 1`,
@@ -57,7 +57,7 @@ router.get('/:clubId/pendientes/:id/comparar', requireAuth, requireClubAccess, a
 
     const rSoc = await db.query(
       `SELECT id, numero_socio, nombre, apellido, actividad, categoria, telefono,
-              email, direccion, fecha_nacimiento, foto_url
+              email, direccion, ciudad, provincia, fecha_nacimiento, obra_social, obra_social_numero, foto_url
        FROM socios
        WHERE club_id=$1 AND dni=$2
        LIMIT 1`,
@@ -125,7 +125,8 @@ const tipo = String(p.tipo ?? 'alta').toLowerCase();
     // 2) Validación según tipo
 const rSoc = await db.query(
   `SELECT id, numero_socio, foto_url, nombre, apellido, actividad, categoria,
-          telefono, email, direccion, fecha_nacimiento
+          telefono, email, direccion, ciudad, provincia, fecha_nacimiento,
+          obra_social, obra_social_numero
    FROM socios WHERE club_id=$1 AND dni=$2 LIMIT 1`,
   [clubId, p.dni]
 );
@@ -202,12 +203,13 @@ if (tipo === 'actualizacion') {
   await db.query(
     `UPDATE socios
      SET nombre=$1, apellido=$2, actividad=$3, categoria=$4,
-         telefono=$5, email=$6, direccion=$7, fecha_nacimiento=$8,
-         foto_url=COALESCE($9, foto_url),
-         tiene_actividades_adicionales=COALESCE($12, tiene_actividades_adicionales),
-         actividades_adicionales=COALESCE($13, actividades_adicionales),
+         telefono=$5, email=$6, direccion=$7, ciudad=$8, provincia=$9,
+         fecha_nacimiento=$10, obra_social=$11, obra_social_numero=$12,
+         foto_url=COALESCE($13, foto_url),
+         tiene_actividades_adicionales=COALESCE($16, tiene_actividades_adicionales),
+         actividades_adicionales=COALESCE($17, actividades_adicionales),
          updated_at=NOW()
-     WHERE id=$10 AND club_id=$11`,
+     WHERE id=$14 AND club_id=$15`,
     [
       p.nombre,
       p.apellido,
@@ -216,7 +218,11 @@ if (tipo === 'actualizacion') {
       p.telefono ?? null,
       p.email ?? null,
       p.direccion ?? null,
+      p.ciudad ?? null,
+      p.provincia ?? null,
       p.fecha_nacimiento,
+      p.obra_social ?? null,
+      p.obra_social_numero ?? null,
       p.foto_url,
       socioId,
       clubId,
@@ -309,12 +315,13 @@ const numero = candidate;
       rIns = await db.query(
         `INSERT INTO socios (
           club_id, numero_socio, dni, nombre, apellido,
-          telefono, direccion, email, fecha_nacimiento,
+          telefono, direccion, ciudad, provincia, email, fecha_nacimiento,
+          obra_social, obra_social_numero,
           activo, becado, categoria, actividad,
           tiene_actividades_adicionales, actividades_adicionales
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,true,false,$10,$11,
-          $12,$13
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true,false,$14,$15,
+          $16,$17
         )
         RETURNING id`,
         [
@@ -325,8 +332,12 @@ const numero = candidate;
           p.apellido,
           p.telefono ?? null,
           p.direccion ?? null,
+          p.ciudad ?? null,
+          p.provincia ?? null,
           p.email ?? null,
           p.fecha_nacimiento,
+          p.obra_social ?? null,
+          p.obra_social_numero ?? null,
           p.categoria,
           p.actividad,
           tieneActividadesAdicionalesAlta,

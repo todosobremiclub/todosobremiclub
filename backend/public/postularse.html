@@ -219,8 +219,34 @@
   <label>Dirección</label>
   <input id="direccion"/>
 
+  <!-- ✅ NUEVO: opcionales, al lado de Dirección -->
+  <div class="row">
+    <div>
+      <label>Ciudad (opcional)</label>
+      <input id="ciudad"/>
+    </div>
+
+    <div>
+      <label>Provincia (opcional)</label>
+      <input id="provincia"/>
+    </div>
+  </div>
+
   <label>Fecha de Nacimiento</label>
   <input id="fecha_nacimiento" type="date"/>
+
+  <!-- ✅ NUEVO: opcionales, debajo de Fecha de Nacimiento -->
+  <div class="row">
+    <div>
+      <label>Obra Social / Prepaga (opcional)</label>
+      <input id="obra_social"/>
+    </div>
+
+    <div>
+      <label>N° de afiliado (opcional)</label>
+      <input id="obra_social_numero" placeholder="Alfanumérico"/>
+    </div>
+  </div>
 
 </div>
 
@@ -240,6 +266,6 @@
 
   </div>
 
-  <script src="/js/postularse.js?v=4"></script>
+  <script src="/js/postularse.js?v=5"></script>
 </body>
 </html>
