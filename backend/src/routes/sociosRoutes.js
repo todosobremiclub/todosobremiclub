@@ -1344,7 +1344,8 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
       where.push(`(
         s.nombre ILIKE $${p} OR
         s.apellido ILIKE $${p} OR
-        s.dni ILIKE $${p}
+        s.dni ILIKE $${p} OR
+        s.numero_socio::text ILIKE $${p}
       )`);
       params.push(`%${search}%`);
       p++;
