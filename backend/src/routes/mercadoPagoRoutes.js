@@ -675,6 +675,14 @@ router.post('/preference/:clubId', requireAuth, async (req, res) => {
       },
       external_reference: `${clubId}_${socioId}_${anio}_${meses.join('-')}`,
       notification_url: `${process.env.PUBLIC_BASE_URL}/mp/webhook?clubId=${encodeURIComponent(clubId)}&sig=${encodeURIComponent(sig)}`,
+      // ✅ NUEVO: sacamos la opción de pagar con tarjeta de crédito del
+      // checkout. Queda disponible dinero en cuenta, débito, etc., pero
+      // no crédito (excluye el TIPO completo, no una tarjeta puntual).
+      payment_methods: {
+        excluded_payment_types: [
+          { id: 'credit_card' }
+        ]
+      },
       back_urls: {
         success: `${process.env.PUBLIC_BASE_URL}/mp-resultado.html?estado=success`,
         pending: `${process.env.PUBLIC_BASE_URL}/mp-resultado.html?estado=pending`,
