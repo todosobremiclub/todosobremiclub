@@ -70,6 +70,14 @@ async function enviarPlantillaWhatsapp({
 }) {
   const e164 = toE164(telefono);
   if (!e164) {
+    // ✅ Antes esto se perdía en silencio (no quedaba registro ni se veía
+    // en el resumen del panel). Ahora queda auditado en whatsapp_mensajes
+    // igual que cualquier otro envío fallido.
+    await db.query(
+      `INSERT INTO whatsapp_mensajes (club_id, socio_id, notificacion_id, tipo, telefono, template_name, status, error)
+       VALUES ($1,$2,$3,$4,$5,$6,'fallido',$7)`,
+      [clubId, socioId, notificacionId, tipo, String(telefono ?? ''), templateName, 'Teléfono inválido o vacío']
+    );
     return { ok: false, error: 'Teléfono inválido o vacío' };
   }
 

@@ -555,6 +555,12 @@ function getDestinoPayload() {
     if (wa) {
       let msg = `✅ Notificación enviada. WhatsApp: ${wa.enviados} enviados de ${wa.total}.`;
       if (wa.sinCupo > 0) msg += ' ⚠️ Se alcanzó el límite mensual de WhatsApp del club, no se mandó al resto.';
+      // ✅ NUEVO: si hubo fallos que no son por falta de cupo (ej: teléfono
+      // inválido, error de Meta), mostrar el motivo en vez de dejarlo mudo.
+      if (Array.isArray(wa.errores) && wa.errores.length > 0) {
+        const motivos = [...new Set(wa.errores.map((e) => e.error))];
+        msg += `\n⚠️ ${wa.errores.length} no se pudieron enviar: ${motivos.join(', ')}`;
+      }
       alert(msg);
     } else {
       alert('✅ Notificación enviada');

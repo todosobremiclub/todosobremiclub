@@ -265,6 +265,11 @@ async function crearYEnviarNotificacion({ clubId, titulo, cuerpo, data, canal })
 
     let enviados = 0;
     let sinCupo = 0;
+    // ✅ NUEVO: antes un fallo que no fuera "sin cupo" (ej: teléfono
+    // inválido, error de Meta) quedaba mudo: no sumaba a enviados ni a
+    // sinCupo, y el panel solo mostraba "X enviados de Y" sin decir por
+    // qué faltaban. Ahora se junta el detalle para mostrarlo en el panel.
+    const errores = [];
 
     for (const s of rSocios.rows) {
       const r = await enviarPlantillaWhatsapp({
@@ -281,10 +286,12 @@ async function crearYEnviarNotificacion({ clubId, titulo, cuerpo, data, canal })
       else if (r.error === 'El club alcanzó su límite mensual de WhatsApp') {
         sinCupo++;
         break; // corta el loop apenas se agota el cupo, no sigue intentando
+      } else {
+        errores.push({ socioId: s.id, error: r.error || 'Error desconocido' });
       }
     }
 
-    whatsappResumen = { enviados, sinCupo, total: rSocios.rowCount };
+    whatsappResumen = { enviados, sinCupo, total: rSocios.rowCount, errores };
 
     // Si no se mandó push (canal solo WhatsApp), igual dejamos sent_at
     // seteado para que la notificación no quede como "no enviada".
