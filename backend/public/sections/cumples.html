@@ -30,8 +30,14 @@
        LEYENDA
   =============================== -->
   <div class="ag-legend">
-    <span class="ag-legend-item"><i class="ag-dot ag-dot-act"></i> Actividades</span>
-    <span class="ag-legend-item"><i class="ag-dot ag-dot-cumple"></i> Cumpleaños</span>
+    <label class="ag-legend-item ag-legend-toggle">
+      <input type="checkbox" id="chkFiltroActividades" />
+      <i class="ag-dot ag-dot-act"></i> Actividades
+    </label>
+    <label class="ag-legend-item ag-legend-toggle">
+      <input type="checkbox" id="chkFiltroCumples" />
+      <i class="ag-dot ag-dot-cumple"></i> Cumpleaños
+    </label>
     <span class="ag-legend-hint">Click en un horario para cargar · Doble click en una actividad para editarla</span>
   </div>
 
@@ -351,6 +357,27 @@
   font-size:11.5px;
   font-weight:600;
   color:#475569;
+}
+
+.ag-modern .ag-legend-toggle{
+  cursor:pointer;
+  user-select:none;
+  padding:3px 8px 3px 6px;
+  border-radius:999px;
+  border:1px solid transparent;
+  transition:background .15s ease, border-color .15s ease;
+}
+.ag-modern .ag-legend-toggle:hover{ background:#f1f5f9; }
+.ag-modern .ag-legend-toggle input[type="checkbox"]{
+  width:13px;
+  height:13px;
+  margin:0;
+  accent-color:#2563eb;
+  cursor:pointer;
+}
+.ag-modern .ag-legend-toggle:has(input:checked){
+  background:#eef4ff;
+  border-color:#bfd3fe;
 }
 
 .ag-modern .ag-dot{

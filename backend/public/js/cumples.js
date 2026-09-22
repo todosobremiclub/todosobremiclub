@@ -5,6 +5,10 @@
   let currentRangeKey = null;
   let canWrite = false;
 
+  // ✅ Copia sin filtrar de los eventos del rango visible (para poder
+  // aplicar/quitar el filtro Actividades/Cumpleaños sin recargar del server)
+  let ultimosEventos = [];
+
   // ✅ Estado del panel de recurrencia del modal
   let recurrenteActivo = false;
   let diasSemanaSel = new Set();
@@ -102,9 +106,29 @@
 
     renderHoy(data.hoy || []);
 
-    if (calendar) {
-      calendar.setOption('events', data.eventos || []);
+    ultimosEventos = data.eventos || [];
+    aplicarFiltroEventos();
+  }
+
+  // =============================
+  // Filtro Actividades / Cumpleaños (checkboxes de la leyenda)
+  // =============================
+  // Sin nada tildado: se ve todo. Con un solo check tildado: se ve solo esa
+  // categoría. Con los dos tildados: se ve todo (equivale a no filtrar).
+  function aplicarFiltroEventos() {
+    if (!calendar) return;
+
+    const soloActividades = !!$('chkFiltroActividades')?.checked;
+    const soloCumples = !!$('chkFiltroCumples')?.checked;
+
+    let eventos = ultimosEventos;
+    if (soloActividades && !soloCumples) {
+      eventos = ultimosEventos.filter((e) => e.extendedProps?.kind === 'actividad');
+    } else if (soloCumples && !soloActividades) {
+      eventos = ultimosEventos.filter((e) => e.extendedProps?.kind === 'cumple');
     }
+
+    calendar.setOption('events', eventos);
   }
 
   // Recarga usando el rango actualmente visible (post guardar/eliminar)
@@ -485,6 +509,10 @@
     $('btnActividadCancel')?.addEventListener('click', closeActividadModal);
     $('btnActividadDelete')?.addEventListener('click', deleteActividad);
     $('formActividad')?.addEventListener('submit', saveActividad);
+
+    // ✅ Filtro de la leyenda (Actividades / Cumpleaños)
+    $('chkFiltroActividades')?.addEventListener('change', aplicarFiltroEventos);
+    $('chkFiltroCumples')?.addEventListener('change', aplicarFiltroEventos);
 
     // ✅ Recurrencia
     $('chkPeriodico')?.addEventListener('change', (ev) => setRecurrenteUI(ev.target.checked));
