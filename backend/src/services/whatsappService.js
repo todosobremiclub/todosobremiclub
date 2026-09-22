@@ -18,6 +18,19 @@ function toE164(phone) {
   return d.length >= 10 ? '549' + d : '54' + d;
 }
 
+// ✅ NUEVO: Meta rechaza (error #132018 "issue with the parameters in your
+// template") cualquier variable {{1}}, {{2}}... que tenga saltos de línea,
+// tabs, más de 4 espacios seguidos, o espacios al principio/final. Un
+// título o cuerpo de notificación escrito con un salto de línea (muy común)
+// rompía el envío silenciosamente. Se sanea acá, en un solo lugar, para que
+// todo envío de plantilla (bienvenida y notificación) quede protegido.
+function sanitizeTemplateParam(text) {
+  return String(text ?? '')
+    .replace(/[\r\n\t]+/g, ' ')  // sin saltos de línea ni tabs
+    .replace(/ {5,}/g, '    ')   // máximo 4 espacios seguidos
+    .trim();
+}
+
 // ¿El club tiene el add-on de WhatsApp contratado/activo?
 async function isWhatsappHabilitado(clubId) {
   const r = await db.query(
@@ -97,7 +110,7 @@ async function enviarPlantillaWhatsapp({
       name: templateName,
       language: { code: languageCode },
       components: parametros.length
-        ? [{ type: 'body', parameters: parametros.map((p) => ({ type: 'text', text: String(p) })) }]
+        ? [{ type: 'body', parameters: parametros.map((p) => ({ type: 'text', text: sanitizeTemplateParam(p) })) }]
         : []
     }
   };
