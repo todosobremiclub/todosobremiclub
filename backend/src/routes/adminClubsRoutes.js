@@ -46,8 +46,22 @@ function toBool(v, def = false) {
 }
 
 // ✅ NUEVO: modo de pago del club (reemplaza al viejo checkbox único de
-// "transferencia_habilitada" con 3 opciones excluyentes entre sí).
-const PAYMENT_MODES = ['ninguno', 'transferencia_manual', 'mercadopago_auto'];
+// "transferencia_habilitada"). 'ambos' habilita a la vez el botón de
+// Mercado Pago y el de informar transferencia en la app del socio.
+const PAYMENT_MODES = ['ninguno', 'transferencia_manual', 'mercadopago_auto', 'ambos'];
+
+// ✅ NUEVO: true para los modos que dejan al socio informar una transferencia
+// (transferencia_manual y ambos) — se usa para mantener en sync la columna
+// vieja transferencia_habilitada.
+function modeIncludesTransferencia(mode) {
+  return mode === 'transferencia_manual' || mode === 'ambos';
+}
+
+// ✅ NUEVO: true para los modos que requieren que el club ya haya conectado
+// su cuenta de Mercado Pago (mercadopago_auto y ambos).
+function modeIncludesMercadoPago(mode) {
+  return mode === 'mercadopago_auto' || mode === 'ambos';
+}
 
 function normalizePaymentMode(v) {
   const s = String(v ?? '').trim().toLowerCase();
@@ -159,12 +173,14 @@ router.post(
         return res.status(400).json({ ok: false, error: 'Falta name' });
       }
 
-      // ✅ NUEVO: un club recién creado nunca puede arrancar en
-      // 'mercadopago_auto' porque todavía no conectó ninguna cuenta de MP
-      // (mp_connected = false). Si mandan ese valor, lo ignoramos y queda
-      // 'ninguno'; 'transferencia_manual' sí se puede setear desde el alta.
+      // ✅ NUEVO: un club recién creado nunca puede arrancar con Mercado Pago
+      // habilitado porque todavía no conectó ninguna cuenta (mp_connected =
+      // false). Si mandan 'mercadopago_auto' lo bajamos a 'ninguno'; si
+      // mandan 'ambos' lo bajamos a 'transferencia_manual' (esa mitad sí se
+      // puede usar desde el alta, sin esperar a conectar Mercado Pago).
       let paymentModeFinal = normalizePaymentMode(payment_mode) || 'ninguno';
       if (paymentModeFinal === 'mercadopago_auto') paymentModeFinal = 'ninguno';
+      if (paymentModeFinal === 'ambos') paymentModeFinal = 'transferencia_manual';
 
       let logo_url = null;
       let background_url = null;
@@ -235,7 +251,7 @@ RETURNING *
  normalizeClubEstado(estado),
  toBool(mp_habilitado, false),
  paymentModeFinal,
- paymentModeFinal === 'transferencia_manual', // ✅ mantiene transferencia_habilitada en sync
+ modeIncludesTransferencia(paymentModeFinal), // ✅ mantiene transferencia_habilitada en sync
  logo_url,
  background_url,
  color_primary ?? '#2563eb',
@@ -299,14 +315,15 @@ router.put(
       let background_url = current.rows[0].background_url;
 
       // ✅ NUEVO: validar el modo de pago elegido.
-      // 'mercadopago_auto' solo se puede activar si el club ya conectó su
-      // cuenta de Mercado Pago (mp_connected = true); si no, se rechaza para
-      // evitar que quede seleccionado un modo que la app no puede ofrecer.
+      // 'mercadopago_auto' y 'ambos' solo se pueden activar si el club ya
+      // conectó su cuenta de Mercado Pago (mp_connected = true); si no, se
+      // rechaza para evitar que quede seleccionado un modo que la app no
+      // puede ofrecer.
       const paymentModeNorm = normalizePaymentMode(payment_mode);
       if (payment_mode !== undefined && payment_mode !== null && payment_mode !== '' && !paymentModeNorm) {
         return res.status(400).json({ ok: false, error: 'payment_mode inválido' });
       }
-      if (paymentModeNorm === 'mercadopago_auto' && !current.rows[0].mp_connected) {
+      if (modeIncludesMercadoPago(paymentModeNorm) && !current.rows[0].mp_connected) {
         return res.status(400).json({
           ok: false,
           error: 'Este club todavía no conectó su cuenta de Mercado Pago. Conectala antes de habilitar el pago automático.'
@@ -316,7 +333,7 @@ router.put(
       // él (queda en sync); si no se manda payment_mode, se respeta el
       // comportamiento anterior (el valor que venga en el body, o sin cambios).
       const transferenciaHabilitadaFinal = paymentModeNorm
-        ? (paymentModeNorm === 'transferencia_manual')
+        ? modeIncludesTransferencia(paymentModeNorm)
         : toBool(req.body?.transferencia_habilitada, null);
 
       if (req.files?.logo?.[0]) {
@@ -612,10 +629,17 @@ router.post(
           mp_refresh_token = NULL,
           mp_user_id = NULL,
           mp_expires_at = NULL,
-          -- ✅ NUEVO: si el club estaba en modo "pago automático por MP" y se
-          -- desconecta la cuenta, no puede seguir en ese modo (la app dejaría
-          -- de tener con qué generar el link de pago). Vuelve a 'ninguno'.
-          payment_mode = CASE WHEN payment_mode = 'mercadopago_auto' THEN 'ninguno' ELSE payment_mode END
+          -- ✅ NUEVO: si el club estaba en un modo que incluye Mercado Pago y
+          -- se desconecta la cuenta, no puede seguir ofreciéndolo (la app
+          -- dejaría de tener con qué generar el link de pago).
+          -- 'mercadopago_auto' (solo MP) -> 'ninguno'.
+          -- 'ambos' (MP + transferencia) -> 'transferencia_manual' (conserva
+          -- la mitad de transferencia, que no depende de Mercado Pago).
+          payment_mode = CASE
+            WHEN payment_mode = 'mercadopago_auto' THEN 'ninguno'
+            WHEN payment_mode = 'ambos' THEN 'transferencia_manual'
+            ELSE payment_mode
+          END
         WHERE id = $1
         RETURNING id, name
         `,

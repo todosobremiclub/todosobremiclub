@@ -636,14 +636,17 @@ router.post('/preference/:clubId', requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Datos de pago incompletos' });
     }
 
-    // ✅ El club tiene que tener el modo "pago automático por Mercado Pago"
-    // elegido explícitamente (no alcanza con mp_connected=true: el modo lo
-    // define el club/superadmin desde el panel, ver adminClubsRoutes.js).
+    // ✅ El club tiene que tener habilitado el pago por Mercado Pago, ya sea
+    // en modo exclusivo ('mercadopago_auto') o combinado con transferencia
+    // ('ambos') — no alcanza con mp_connected=true: el modo lo define el
+    // club/superadmin desde el panel, ver adminClubsRoutes.js).
     const rClub = await db.query(
       `SELECT id, name, mp_connected, payment_mode FROM clubs WHERE id = $1 LIMIT 1`,
       [clubId]
     );
-    if (!rClub.rowCount || rClub.rows[0].payment_mode !== 'mercadopago_auto' || !rClub.rows[0].mp_connected) {
+    const modoClub = rClub.rows[0]?.payment_mode;
+    const mpHabilitadoParaClub = modoClub === 'mercadopago_auto' || modoClub === 'ambos';
+    if (!rClub.rowCount || !mpHabilitadoParaClub || !rClub.rows[0].mp_connected) {
       return res.status(400).json({ ok: false, error: 'El club no tiene el pago automático por Mercado Pago habilitado' });
     }
 

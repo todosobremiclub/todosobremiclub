@@ -149,7 +149,10 @@
 
   function syncTransferFieldsVisibility() {
     const box = $('clubTransferBox');
-    if (box) box.style.display = (getPaymentMode() === 'transferencia_manual') ? 'block' : 'none';
+    const modo = getPaymentMode();
+    // ✅ 'ambos' también necesita cargar CVU/Alias/Titular (el socio puede
+    // elegir informar una transferencia aunque el modo también ofrezca MP).
+    if (box) box.style.display = (modo === 'transferencia_manual' || modo === 'ambos') ? 'block' : 'none';
   }
 
   function setTransferEnabledFromClub(c) {
@@ -179,9 +182,12 @@
     if (btnConectar) btnConectar.style.display = connected ? 'none' : 'inline-block';
     if (btnDesconectar) btnDesconectar.style.display = connected ? 'inline-block' : 'none';
 
-    // No dejar elegir "Mercado Pago" en el select si la cuenta no está conectada.
+    // No dejar elegir "Mercado Pago" ni "Ambos" en el select si la cuenta
+    // no está conectada (los dos modos necesitan MP conectado).
     const optAuto = $('club_payment_mode')?.querySelector('option[value="mercadopago_auto"]');
     if (optAuto) optAuto.disabled = !connected;
+    const optAmbos = $('club_payment_mode')?.querySelector('option[value="ambos"]');
+    if (optAmbos) optAmbos.disabled = !connected;
   }
 
   // ✅ NUEVO: add-on de WhatsApp (mismo patrón que transferencia_habilitada)
@@ -204,7 +210,9 @@
   async function saveTransferConfigForClub(clubId) {
     if (!clubId) return;
 
-    const enabled = getPaymentMode() === 'transferencia_manual';
+    // ✅ 'ambos' también guarda CVU/Alias/Titular.
+    const modo = getPaymentMode();
+    const enabled = modo === 'transferencia_manual' || modo === 'ambos';
     if (!enabled) return;
 
     const payload = getTransferPayloadFromForm();
@@ -377,6 +385,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     // ✅ NUEVO: refleja los 3 modos de pago en vez de un simple ✅/❌
     const modo = c.payment_mode || (c.transferencia_habilitada ? 'transferencia_manual' : 'ninguno');
     const transferenciaHtml =
+      modo === 'ambos' ? '<span title="Mercado Pago + transferencia informada">🟢 MP + Transf.</span>' :
       modo === 'mercadopago_auto' ? '<span title="Pago automático por Mercado Pago">🟢 MP</span>' :
       modo === 'transferencia_manual' ? '<span title="Transferencia informada por el socio">✅ Transf.</span>' :
       '<span title="Sin pago automatizado">❌</span>';
