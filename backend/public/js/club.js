@@ -336,8 +336,10 @@ function buildPermissions(role){
       if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
       // ✅ NUEVO: el profesor ahora también entra a "Reportes", donde
       // reportes.js lo limita a ver únicamente el reporte de Asistencia
-      // (mismo criterio que el rol "asistencias").
-      if (r === 'profesor') return ['socios','noticias','notificaciones','asistencia','reportes'].includes(section);
+      // (mismo criterio que el rol "asistencias"). Y a "cumples" (la Agenda:
+      // actividades del club + cumpleaños de socios), para ver el calendario
+      // y cargar sus actividades.
+      if (r === 'profesor') return ['socios','noticias','notificaciones','asistencia','reportes','cumples'].includes(section);
       // ✅ FIX: al rol "asistencias" le faltaba esta restricción, así que
       // caía en el "return ALL_SECTIONS" de abajo y veía todos los tabs
       // (Socios, Pendientes, Ingresos, Gastos, Configuración, etc.), aunque
@@ -352,7 +354,10 @@ function buildPermissions(role){
       if (r === 'admin') return true;
       if (r === 'finanzas') return ['pagos','gastos','reportes'].includes(section);
       if (r === 'comunicacion') return ['noticias','notificaciones','cumples'].includes(section);
-      if (r === 'profesor') return ['noticias','notificaciones','asistencia'].includes(section);
+      // ✅ 'cumples' agregado: le permite cargar/editar actividades en la
+      // Agenda (el botón "Nueva actividad" y el alta por click en el
+      // calendario están detrás de canWrite('cumples') en cumples.js).
+      if (r === 'profesor') return ['noticias','notificaciones','asistencia','cumples'].includes(section);
       if (r === 'asistencias') return ['asistencia'].includes(section);
       return false; // solo_lectura u otros
     }
