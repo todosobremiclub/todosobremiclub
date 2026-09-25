@@ -2933,23 +2933,67 @@ router.get('/:clubId/socios/export.xlsx', requireAuth, requireClubAccess, async 
     const r = await db.query(
       `
       SELECT
-        numero_socio,
-        dni,
-        nombre,
-        apellido,
-        categoria,
-        actividad,
-        telefono,
-        direccion,
-        email,
-        fecha_nacimiento,
-        fecha_ingreso,
-        activo,
-        becado,
-        foto_url
-      FROM socios
-      WHERE club_id = $1
-      ORDER BY numero_socio ASC
+        s.numero_socio,
+        s.dni,
+        s.nombre,
+        s.apellido,
+        s.categoria,
+        s.actividad,
+        s.telefono,
+        s.direccion,
+        s.email,
+        s.fecha_nacimiento,
+        s.fecha_ingreso,
+        s.activo,
+        s.becado,
+        s.foto_url,
+
+        -- ✅ Situación de pago: misma lógica que la pastilla verde/roja/naranja
+        -- de la pantalla de Socios (pagoEstado() en public/js/socios.js).
+        -- Becado o al día con TODOS los pagos completos -> 'Sí'.
+        -- Con pagos parciales o atrasado -> 'No'.
+        CASE
+          WHEN s.becado = true THEN 'Sí'
+          WHEN (
+            SELECT COUNT(*) > 0
+            FROM pagos_mensuales pm
+            WHERE pm.socio_id = s.id
+              AND pm.club_id = s.club_id
+              AND pm.pago_completo = false
+          ) THEN 'No'
+          WHEN COALESCE(act_dep.modalidad_pago, 'mensual') = 'por_clases' THEN 'Sí'
+          WHEN COALESCE((
+              SELECT MAX((pm.anio::int * 100) + (pm.mes::int))
+              FROM pagos_mensuales pm
+              WHERE pm.club_id = s.club_id
+                AND pm.socio_id = s.id
+            ), 0) >=
+            CASE
+              -- ✅ Si estamos ANTES o IGUAL al día límite → exigimos mes anterior
+              WHEN EXTRACT(DAY FROM CURRENT_DATE)::int <= COALESCE(c.payment_due_day, 31)
+              THEN
+                CASE
+                  WHEN EXTRACT(MONTH FROM CURRENT_DATE)::int = 1
+                  THEN ((EXTRACT(YEAR FROM CURRENT_DATE)::int - 1) * 100) + 12
+                  ELSE (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + (EXTRACT(MONTH FROM CURRENT_DATE)::int - 1)
+                END
+              -- ✅ Si estamos DESPUÉS del día límite → exigimos mes actual
+              ELSE
+                (EXTRACT(YEAR FROM CURRENT_DATE)::int * 100) + EXTRACT(MONTH FROM CURRENT_DATE)::int
+            END
+          THEN 'Sí'
+          ELSE 'No'
+        END AS situacion_pago
+
+      FROM socios s
+      LEFT JOIN clubs c
+        ON c.id = s.club_id
+      LEFT JOIN actividades act_dep
+        ON act_dep.club_id = s.club_id
+       AND act_dep.nombre = s.actividad
+       AND act_dep.activo = true
+      WHERE s.club_id = $1
+      ORDER BY s.numero_socio ASC
       `,
       [clubId]
     );
@@ -2972,12 +3016,13 @@ router.get('/:clubId/socios/export.xlsx', requireAuth, requireClubAccess, async 
   { header: 'Fecha nacimiento', key: 'fecha_nacimiento', width: 16 },
   { header: 'Fecha ingreso', key: 'fecha_ingreso', width: 16 },
   { header: 'Activo', key: 'activo', width: 10 },
-  { header: 'Becado', key: 'becado', width: 10 }
+  { header: 'Becado', key: 'becado', width: 10 },
+  { header: 'Situación de pago', key: 'situacion_pago', width: 18 }
 ];
 
 
     ws.getRow(1).font = { bold: true };
-    ws.autoFilter = { from: 'A1', to: 'M1' };
+    ws.autoFilter = { from: 'A1', to: 'N1' };
 
     for (const row of r.rows) {
       ws.addRow({
@@ -2993,8 +3038,8 @@ router.get('/:clubId/socios/export.xlsx', requireAuth, requireClubAccess, async 
         fecha_nacimiento: fmtDateDDMMYYYY(row.fecha_nacimiento),
         fecha_ingreso: fmtDateDDMMYYYY(row.fecha_ingreso),
         activo: row.activo ? 'Sí' : 'No',
-        becado: row.becado ? 'Sí' : 'No'
-        
+        becado: row.becado ? 'Sí' : 'No',
+        situacion_pago: row.situacion_pago
       });
     }
 
