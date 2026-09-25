@@ -1313,8 +1313,33 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
       activo = '',
       anio = '',
       limit = '200',
-      offset = '0'
+      offset = '0',
+      sortKey = 'numero',
+      sortDir = 'asc'
     } = req.query;
+
+    // ✅ Whitelist de columnas ordenables: el ORDER BY se arma con SQL fijo
+    // (nunca con el string que manda el cliente) para evitar inyección.
+    // 'pago' reproduce el mismo orden de estados que ya usaba el front
+    // (pagoEstado(): Becado / Parcial / Al día / Impago, alfabético).
+    const SORT_COLUMNS = {
+      pago: `CASE
+        WHEN becado = true THEN 'Becado'
+        WHEN tiene_pagos_parciales THEN 'Parcial'
+        WHEN pago_al_dia THEN 'Al día'
+        ELSE 'Impago'
+      END`,
+      numero: 'numero_socio',
+      dni: `(NULLIF(regexp_replace(dni, '\\D', '', 'g'), ''))::bigint`,
+      nombre: 'nombre',
+      actividad: 'actividad',
+      categoria: 'categoria',
+      anio: 'anio_nacimiento',
+      activo: 'activo',
+      becado: 'becado'
+    };
+    const sortExpr = SORT_COLUMNS[String(sortKey)] || SORT_COLUMNS.numero;
+    const sortDirSql = String(sortDir).toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
     const where = ['s.club_id = $1'];
     const params = [clubId];
@@ -1352,6 +1377,7 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
     }
 
     const q = `
+      WITH socios_filtrados AS (
       SELECT
         s.id,
         s.club_id,
@@ -1464,7 +1490,9 @@ LEFT JOIN grupos_familiares gf_miembro
   ON gf_miembro.id = gfm.grupo_familiar_id
  AND gf_miembro.activo = true
       WHERE ${where.join(' AND ')}
-      ORDER BY s.numero_socio ASC
+      )
+      SELECT * FROM socios_filtrados
+      ORDER BY ${sortExpr} ${sortDirSql} NULLS LAST, numero_socio ASC
       LIMIT $${p++} OFFSET $${p++}
     `;
 

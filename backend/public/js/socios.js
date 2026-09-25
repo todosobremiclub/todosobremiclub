@@ -2939,9 +2939,12 @@ function openCarnet(socio) {
           sortDir = 'asc';
         }
 
-        
-renderSocios(sociosCache);
-
+        // ✅ El orden se resuelve en el backend sobre TODOS los socios
+        // filtrados (no solo la página visible), así que hay que volver a
+        // pedir la página 1 con el nuevo orden en vez de reordenar en el
+        // cliente lo que ya estaba cargado.
+        currentPage = 1;
+        loadSocios();
       });
     });
   }
@@ -2955,8 +2958,9 @@ renderSocios(sociosCache);
     const tbody = $('sociosTableBody');
     if (!tbody) return;
 
-   const ordered = sortRows(sociosCache); // (opcional: esto ordena SOLO la página actual)
-const pageRows = ordered;             // ✅ ya viene paginado desde el backend
+    // ✅ El backend ya devuelve esta página ordenada (según sortKey/sortDir
+    // enviados en buildQueryParams), así que acá solo se renderiza tal cual.
+    const pageRows = sociosCache;
 
 
     
@@ -3178,6 +3182,13 @@ if (countEl) {
   if (actividad) q.set('actividad', actividad);
   if (anio) q.set('anio', anio);
   if (!verInactivos) q.set('activo', '1');
+
+  // ✅ ORDEN REAL (backend): se manda para que el ORDER BY se aplique sobre
+  // TODOS los socios filtrados, no solo sobre la página que se está viendo.
+  if (sortKey) {
+    q.set('sortKey', sortKey);
+    q.set('sortDir', sortDir);
+  }
 
   // ✅ PAGINACIÓN REAL (backend)
   q.set('limit', String(pageSize));
