@@ -504,6 +504,24 @@ if (sectionName === 'notificaciones' && window.initNotificacionesSection) {
     }
   }
 
+  window.loadSection = loadSection;
+
+  // ✅ NUEVO: acceso directo desde el modal de "Tomar asistencia" (y desde
+  // cualquier otro lugar que lo necesite) al reporte de Asistencia, sin
+  // que el usuario tenga que buscarlo manualmente en el menú de Reportes.
+  window.irAReporteAsistencia = async function () {
+    document.querySelectorAll('[data-section]').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-section="reportes"]')?.classList.add('active');
+
+    await loadSection('reportes');
+
+    // Pequeño delay: initReportesSection recién termina de armar el DOM
+    // de la tarjeta de asistencia después del await de arriba.
+    setTimeout(() => {
+      document.getElementById('card-asistencia')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+
   // ===============================
   // INIT GENERAL
   // ===============================

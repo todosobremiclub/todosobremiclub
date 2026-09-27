@@ -427,6 +427,465 @@ textarea:focus{
   pointer-events:none;
 }
 
+    /* =========================
+       ASISTENCIA (MODAL) — rediseño moderno
+    ========================= */
+    #modalAsistencia .asist2-modal{
+      padding:0;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .asist2-header{
+      padding:18px 20px 14px;
+      background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+      color:#fff;
+      flex:none;
+    }
+
+    .asist2-header-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+    }
+
+    .asist2-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .asist2-title-icon{
+      width:38px;
+      height:38px;
+      border-radius:10px;
+      background:rgba(255,255,255,0.18);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:18px;
+      flex:none;
+    }
+
+    .asist2-title h3{
+      margin:0;
+      font-size:17px;
+      font-weight:700;
+    }
+
+    .asist2-subtitle{
+      font-size:12.5px;
+      opacity:0.85;
+      margin-top:2px;
+    }
+
+    .asist2-link-btn{
+      border:1px solid rgba(255,255,255,0.4);
+      background:rgba(255,255,255,0.12);
+      color:#fff;
+      border-radius:999px;
+      padding:6px 12px;
+      font-size:12.5px;
+      cursor:pointer;
+      white-space:nowrap;
+      transition: background .15s ease;
+    }
+    .asist2-link-btn:hover{ background:rgba(255,255,255,0.24); }
+
+    .asist2-steps{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .asist2-step{
+      font-size:12px;
+      font-weight:600;
+      padding:5px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.14);
+      color:rgba(255,255,255,0.75);
+      white-space:nowrap;
+    }
+    .asist2-step.active{
+      background:#fff;
+      color: var(--color-primary);
+    }
+    .asist2-step-line{
+      flex:1;
+      height:2px;
+      background:rgba(255,255,255,0.25);
+      min-width:16px;
+    }
+
+    .asist2-body{
+      padding:18px 20px 20px;
+      overflow-y:auto;
+      flex:1;
+    }
+
+    .asist2-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .asist2-field{ display:flex; flex-direction:column; gap:5px; }
+    .asist2-field label{ font-size:12px; font-weight:600; color:#374151; }
+    .asist2-field select,
+    .asist2-field input{
+      padding:9px 10px;
+      border-radius:9px;
+      border:1px solid #d1d5db;
+      font-size:14px;
+      background:#fff;
+      width:100%;
+    }
+    .asist2-field select:focus,
+    .asist2-field input:focus{
+      outline:none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+    }
+
+    .asist2-field-full{ grid-column: 1 / -1; }
+
+    .asist2-section-label{
+      font-size:12px;
+      font-weight:600;
+      color:#374151;
+      margin-bottom:6px;
+    }
+    .asist2-hint{
+      font-size:11.5px;
+      color:#9ca3af;
+      margin-top:4px;
+    }
+
+    .asist2-footer{
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      padding:14px 20px;
+      border-top:1px solid #eef0f3;
+      background:#fafafa;
+      flex:none;
+    }
+
+    .asist2-btn{
+      padding:9px 16px;
+      border-radius:999px;
+      font-size:13.5px;
+      font-weight:600;
+      cursor:pointer;
+      border:1px solid #d1d5db;
+      background:#fff;
+      color:#374151;
+      transition: all .15s ease;
+    }
+    .asist2-btn:hover{ border-color: var(--color-primary); color: var(--color-primary); }
+    .asist2-btn-primary{
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color:#fff;
+    }
+    .asist2-btn-primary:hover{ background: var(--color-secondary); border-color: var(--color-secondary); color:#fff; }
+
+    .asist2-resumen{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      background: color-mix(in srgb, var(--color-primary) 6%, #fff);
+      border:1px solid color-mix(in srgb, var(--color-primary) 18%, #e5e7eb);
+      border-radius:12px;
+      padding:10px 14px;
+      margin-bottom:14px;
+      font-size:13px;
+      color:#111827;
+    }
+
+    .asist2-search-wrap{
+      position:relative;
+      margin-bottom:12px;
+    }
+    .asist2-search-wrap input{
+      width:100%;
+      padding:9px 12px 9px 32px;
+      border-radius:9px;
+      border:1px solid #d1d5db;
+      font-size:13.5px;
+    }
+    .asist2-search-wrap input:focus{
+      outline:none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+    }
+    .asist2-search-icon{
+      position:absolute;
+      left:10px;
+      top:50%;
+      transform:translateY(-50%);
+      font-size:13px;
+      color:#9ca3af;
+    }
+
+    .asist2-convocados-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:8px;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .asist2-contador{
+      font-size:12px;
+      font-weight:700;
+      padding:4px 10px;
+      border-radius:999px;
+      background: color-mix(in srgb, var(--color-primary) 12%, #fff);
+      color: var(--color-primary);
+      white-space:nowrap;
+    }
+
+    .asist2-mini-btn{
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:11.5px;
+      font-weight:600;
+      border:1px solid #d1d5db;
+      background:#fff;
+      cursor:pointer;
+      color:#374151;
+    }
+    .asist2-mini-btn:hover{ border-color: var(--color-primary); color: var(--color-primary); }
+
+    .asist2-lista{
+      max-height:280px;
+      overflow-y:auto;
+      border:1px solid #eef0f3;
+      border-radius:12px;
+    }
+
+    .asist2-row{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:9px 12px;
+      border-bottom:1px solid #f3f4f6;
+      cursor:pointer;
+      transition: background .12s ease;
+    }
+    .asist2-row:last-child{ border-bottom:none; }
+    .asist2-row:hover{ background:#f9fafb; }
+    .asist2-row.is-checked{ background: color-mix(in srgb, var(--color-primary) 6%, #fff); }
+
+    .asist2-row input[type="checkbox"]{
+      width:18px;
+      height:18px;
+      accent-color: var(--color-primary);
+      flex:none;
+    }
+
+    .asist2-avatar{
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      background: color-mix(in srgb, var(--color-primary) 15%, #fff);
+      color: var(--color-primary);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:12px;
+      font-weight:700;
+      flex:none;
+    }
+
+    .asist2-row-name{ font-size:13.5px; color:#111827; }
+    .asist2-row-meta{ font-size:11.5px; color:#9ca3af; }
+
+    .asist2-empty{
+      padding:20px;
+      text-align:center;
+      color:#9ca3af;
+      font-size:13px;
+    }
+
+    .asist2-chip-invitado{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#eef2ff;
+      color:#3730a3;
+      font-size:12.5px;
+      margin:3px 4px 3px 0;
+    }
+    .asist2-chip-invitado button{
+      border:none;
+      background:none;
+      color:#3730a3;
+      cursor:pointer;
+      font-weight:bold;
+      line-height:1;
+      padding:0;
+    }
+
+    @media (max-width: 640px){
+      .asist2-grid{ grid-template-columns:1fr; }
+    }
+
+    /* =========================
+       REPORTE DE ASISTENCIA — rediseño moderno
+       (tarjeta "card-asistencia" en la sección Reportes)
+    ========================= */
+    .asist2r-tipo-toggle{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .asist2r-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      padding:6px 14px;
+      border-radius:999px;
+      border:1px solid #d1d5db;
+      cursor:pointer;
+      font-size:12.5px;
+      font-weight:600;
+      color:#4b5563;
+      background:#fff;
+      transition: all .15s ease;
+    }
+    .asist2r-pill input{ display:none; }
+    .asist2r-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; flex:none; }
+    .asist2r-pill:has(input:checked){
+      border-color: var(--color-primary);
+      background: color-mix(in srgb, var(--color-primary) 8%, #fff);
+      color:#111827;
+    }
+
+    .asist2r-table-wrap{
+      border:1px solid #eef0f3;
+      border-radius:12px;
+      overflow:hidden;
+    }
+    .asist2r-table{
+      border-collapse:collapse;
+      width:100%;
+      font-size:13px;
+    }
+    .asist2r-table thead th{
+      background:#f9fafb;
+      text-align:left;
+      padding:8px 10px;
+      border-bottom:1px solid #eef0f3;
+      font-size:12px;
+      color:#374151;
+    }
+    .asist2r-table .asist2r-th-fecha{
+      cursor:pointer;
+      white-space:nowrap;
+      font-weight:700;
+      transition: background .12s ease;
+    }
+    .asist2r-table .asist2r-th-fecha:hover{ background:#f3f4f6; }
+    .asist2r-table .asist2r-th-fecha .asist2r-dot{ margin-right:5px; }
+    .asist2r-table tbody tr{ border-bottom:1px solid #f3f4f6; }
+    .asist2r-table tbody tr:nth-child(even){ background:#fafbfc; }
+    .asist2r-table tbody tr:hover{ background: color-mix(in srgb, var(--color-primary) 4%, #fff); }
+    .asist2r-table td{ padding:7px 10px; }
+    .asist2r-socio-cell{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+      position:sticky;
+      left:0;
+      background:inherit;
+    }
+    .asist2r-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:22px;
+      height:22px;
+      border-radius:50%;
+      font-size:12px;
+      font-weight:700;
+      margin:0 auto;
+    }
+    .asist2r-badge-ok{ background:#dcfce7; color:#16a34a; }
+    .asist2r-badge-no{ background:#fee2e2; color:#dc2626; }
+    .asist2r-ratio{
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      font-weight:700;
+      white-space:nowrap;
+    }
+
+    .asist2r-detalle-card{
+      border:1px solid #eef0f3;
+      border-radius:12px;
+      padding:14px;
+    }
+    .asist2r-detalle-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:10px;
+    }
+    .asist2r-detalle-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:3px 10px;
+      border-radius:999px;
+      font-size:11.5px;
+      font-weight:700;
+    }
+    .asist2r-detalle-cols{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+    .asist2r-detalle-col-title{
+      font-size:12.5px;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+    .asist2r-detalle-row{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:4px 0;
+      font-size:13px;
+    }
+    .asist2r-btn-danger{
+      padding:5px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:600;
+      border:1px solid #ef4444;
+      background:#ef4444;
+      color:#fff;
+      cursor:pointer;
+    }
+    .asist2r-btn-danger:hover{ background:#dc2626; border-color:#dc2626; }
+
+    @media (max-width: 640px){
+      .asist2r-detalle-cols{ grid-template-columns:1fr; }
+    }
   </style>
 
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
@@ -435,100 +894,132 @@ textarea:focus{
 
 <!-- MODAL ASISTENCIA -->
 <div id="modalAsistencia" class="modal hidden">
-  <div class="modal-content" style="max-width:640px; max-height:85vh; overflow-y:auto;">
-    <h3>📋 Tomar asistencia</h3>
+  <div class="modal-content asist2-modal" style="max-width:720px; max-height:88vh;">
 
-    <!-- Paso A: datos del evento -->
-    <div id="asistenciaPasoDatos">
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
-        <div>
-          <label class="muted small">Tipo</label>
-          <select id="asistTipo" style="width:100%; padding:8px;">
-            <option value="entrenamiento">Entrenamiento</option>
-            <option value="partido">Partido</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="muted small">Fecha</label>
-          <input id="asistFecha" type="date" style="width:100%; padding:8px;" />
-        </div>
-
-        <div>
-          <label class="muted small">Actividad</label>
-          <select id="asistActividad" style="width:100%; padding:8px;">
-            <option value="">Seleccioná...</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="muted small">Actividad adicional (opcional)</label>
-          <select id="asistActividadAdicional" style="width:100%; padding:8px;">
-            <option value="">Ninguna</option>
-          </select>
-        </div>
-
-        <div style="grid-column:1 / -1;">
-          <label class="muted small">Categoría</label>
-          <select id="asistCategoria" style="width:100%; padding:8px;">
-            <option value="">Seleccioná...</option>
-          </select>
-        </div>
-
-        <!-- ✅ NUEVO: categorías adicionales, directo en el formulario principal
-             (chicos que entrenan o juegan con más de una categoría). No modifica
-             la categoría "principal" de arriba, que sigue siendo la que se
-             guarda en el evento: esto solo amplía a quién se busca. -->
-        <div style="grid-column:1 / -1;">
-          <label class="muted small">Categorías adicionales (opcional)</label>
-          <div id="asistCategoriasAdicionalesWrap" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">
-            <span class="muted small">Cargando categorías...</span>
-          </div>
-          <div class="muted small" style="margin-top:4px;">
-            Tildá otras categorías si hay chicos que también entrenan/juegan con esta:
-            van a aparecer directo en la lista de convocados.
+    <div class="asist2-header">
+      <div class="asist2-header-top">
+        <div class="asist2-title">
+          <span class="asist2-title-icon">📋</span>
+          <div>
+            <h3>Tomar asistencia</h3>
+            <div class="asist2-subtitle" id="asistPasoSubtitle">Completá los datos del entrenamiento o partido</div>
           </div>
         </div>
-
-        <div style="grid-column:1 / -1;">
-          <label class="muted small">Año de nacimiento (opcional)</label>
-          <input id="asistAnioNacimiento" type="number" min="1900" max="2100" placeholder="Ej: 2012" style="width:100%; padding:8px;" />
-        </div>
-
-        <!-- ✅ NUEVO: años adicionales, también directo en el formulario principal -->
-        <div style="grid-column:1 / -1;">
-          <label class="muted small">Años de nacimiento adicionales (opcional)</label>
-          <div style="display:flex; gap:8px; margin-top:6px;">
-            <input id="asistAnioAdicionalInput" type="number" min="1900" max="2100"
-                   placeholder="Ej: 2011" style="flex:1; padding:8px;" />
-            <button type="button" id="btnAsistAgregarAnioAdicional" class="btn" style="padding:8px 16px; white-space:nowrap;">+ Agregar</button>
-          </div>
-          <div id="asistAniosAdicionalesChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
-        </div>
+        <button type="button" id="btnAsistVerReporte" class="asist2-link-btn">📊 Ver reporte</button>
       </div>
 
-      <div id="asistDatosMsg" class="muted small" style="margin-top:8px; color:#b91c1c;"></div>
-
-      <div style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
-        <button id="btnAsistCancelarDatos" class="navbtn navbtn--top">Cancelar</button>
-        <button id="btnAsistBuscarSocios" class="navbtn navbtn--top">Buscar socios ▶</button>
+      <div class="asist2-steps">
+        <div class="asist2-step active" id="asistStepPill1">1. Datos</div>
+        <div class="asist2-step-line"></div>
+        <div class="asist2-step" id="asistStepPill2">2. Convocados</div>
       </div>
     </div>
 
-    <!-- Paso B: selección de convocados + invitados (se completa en el próximo paso) -->
-    <div id="asistenciaPasoSocios" style="display:none;">
-      <div id="asistResumenEvento" class="muted small" style="margin-bottom:10px;"></div>
+    <div class="asist2-body">
+      <!-- Paso A: datos del evento -->
+      <div id="asistenciaPasoDatos">
+        <div class="asist2-grid">
+          <div class="asist2-field">
+            <label>Tipo</label>
+            <select id="asistTipo">
+              <option value="entrenamiento">🏋️ Entrenamiento</option>
+              <option value="partido">🏆 Partido</option>
+            </select>
+          </div>
 
-      <div id="asistListaConvocados"></div>
+          <div class="asist2-field">
+            <label>Fecha</label>
+            <input id="asistFecha" type="date" />
+          </div>
 
-      <div id="asistInvitadosWrap" style="margin-top:16px;"></div>
+          <div class="asist2-field">
+            <label>Actividad</label>
+            <select id="asistActividad">
+              <option value="">Seleccioná...</option>
+            </select>
+          </div>
 
-      <div id="asistGuardarMsg" class="muted small" style="margin-top:8px;"></div>
+          <div class="asist2-field">
+            <label>Actividad adicional (opcional)</label>
+            <select id="asistActividadAdicional">
+              <option value="">Ninguna</option>
+            </select>
+          </div>
 
-      <div style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
-        <button id="btnAsistVolverDatos" class="navbtn navbtn--top">◀ Volver</button>
-        <button id="btnAsistGuardar" class="navbtn navbtn--top">💾 Guardar asistencia</button>
+          <div class="asist2-field asist2-field-full">
+            <label>Categoría</label>
+            <select id="asistCategoria">
+              <option value="">Seleccioná...</option>
+            </select>
+          </div>
+
+          <!-- ✅ categorías adicionales: no cambian la categoría "principal" de
+               arriba, solo amplían a quién se busca (chicos que entrenan o
+               juegan con más de una categoría). -->
+          <div class="asist2-field-full">
+            <div class="asist2-section-label">Categorías adicionales (opcional)</div>
+            <div id="asistCategoriasAdicionalesWrap" style="display:flex; flex-wrap:wrap; gap:6px;">
+              <span class="muted small">Cargando categorías...</span>
+            </div>
+            <div class="asist2-hint">
+              Tildá otras categorías si hay chicos que también entrenan/juegan con esta: van a aparecer directo en la lista de convocados.
+            </div>
+          </div>
+
+          <div class="asist2-field">
+            <label>Año de nacimiento (opcional)</label>
+            <input id="asistAnioNacimiento" type="number" min="1900" max="2100" placeholder="Ej: 2012" />
+          </div>
+
+          <!-- ✅ años adicionales, misma lógica que las categorías adicionales -->
+          <div class="asist2-field-full">
+            <div class="asist2-section-label">Años de nacimiento adicionales (opcional)</div>
+            <div style="display:flex; gap:8px;">
+              <input id="asistAnioAdicionalInput" type="number" min="1900" max="2100"
+                     placeholder="Ej: 2011" style="flex:1; padding:9px 10px; border-radius:9px; border:1px solid #d1d5db; font-size:14px;" />
+              <button type="button" id="btnAsistAgregarAnioAdicional" class="asist2-btn">+ Agregar</button>
+            </div>
+            <div id="asistAniosAdicionalesChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <div id="asistDatosMsg" class="muted small" style="margin-top:10px; color:#b91c1c;"></div>
       </div>
+
+      <!-- Paso B: selección de convocados + invitados -->
+      <div id="asistenciaPasoSocios" style="display:none;">
+        <div class="asist2-resumen" id="asistResumenEvento"></div>
+
+        <div class="asist2-search-wrap">
+          <span class="asist2-search-icon">🔎</span>
+          <input id="asistBuscarConvocado" type="text" placeholder="Filtrar convocados por nombre, apellido o N°..." />
+        </div>
+
+        <div class="asist2-convocados-header">
+          <strong class="small">Convocados</strong>
+          <span id="asistContadorConvocados" class="asist2-contador">0 de 0 presentes</span>
+          <span style="margin-left:auto; display:flex; gap:6px;">
+            <button type="button" id="btnAsistTodos" class="asist2-mini-btn">Marcar todos</button>
+            <button type="button" id="btnAsistNinguno" class="asist2-mini-btn">Ninguno</button>
+          </span>
+        </div>
+
+        <div id="asistListaConvocados"></div>
+
+        <div id="asistInvitadosWrap" style="margin-top:18px;"></div>
+
+        <div id="asistGuardarMsg" class="muted small" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <div class="asist2-footer" id="asistFooterDatos">
+      <button id="btnAsistCancelarDatos" class="asist2-btn">Cancelar</button>
+      <button id="btnAsistBuscarSocios" class="asist2-btn asist2-btn-primary">Buscar socios ▶</button>
+    </div>
+
+    <div class="asist2-footer" id="asistFooterSocios" style="display:none;">
+      <button id="btnAsistVolverDatos" class="asist2-btn">◀ Volver</button>
+      <button id="btnAsistGuardar" class="asist2-btn asist2-btn-primary">💾 Guardar asistencia</button>
     </div>
   </div>
 </div>

@@ -200,13 +200,15 @@
       <div id="asistReporteMsg" class="muted small" style="margin-bottom:10px;"></div>
 
       <!-- Filtro de tipo, una vez ya cargada la búsqueda -->
-      <div id="asistFiltroTipoWrap" style="display:none; gap:18px; align-items:center; margin-bottom:12px;">
+      <div id="asistFiltroTipoWrap" class="asist2r-tipo-toggle" style="display:none; margin-bottom:14px;">
         <span class="muted small">Mostrar:</span>
-        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-          <input type="checkbox" id="asistFiltroTipoEntrenamiento" /> <span style="color:#16a34a; font-weight:600;">Entrenamientos</span>
+        <label class="asist2r-pill">
+          <input type="checkbox" id="asistFiltroTipoEntrenamiento" />
+          <span class="asist2r-dot" style="background:#16a34a;"></span> Entrenamientos
         </label>
-        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-          <input type="checkbox" id="asistFiltroTipoPartido" /> <span style="color:#f97316; font-weight:600;">Partidos</span>
+        <label class="asist2r-pill">
+          <input type="checkbox" id="asistFiltroTipoPartido" />
+          <span class="asist2r-dot" style="background:#f97316;"></span> Partidos
         </label>
       </div>
 

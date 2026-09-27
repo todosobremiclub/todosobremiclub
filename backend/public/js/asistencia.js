@@ -47,12 +47,18 @@
   let categoriasAdicionalesSeleccionadas = new Set();
   let aniosAdicionalesSeleccionados = []; // array de strings, en orden de agregado
 
+  // ✅ NUEVO: texto de filtro para acotar la lista de convocados sin
+  // volver a pegarle al servidor (filtra el array ya traído).
+  let filtroConvocadosTexto = '';
+
   function resetModal() {
     convocados = [];
     invitados = [];
+    filtroConvocadosTexto = '';
     $('asistDatosMsg').textContent = '';
     $('asistGuardarMsg').textContent = '';
     $('asistAnioNacimiento').value = '';
+    if ($('asistBuscarConvocado')) $('asistBuscarConvocado').value = '';
 
     // ✅ NUEVO: resetear categorías/años adicionales (ahora en el formulario principal)
     categoriasAdicionalesSeleccionadas = new Set();
@@ -60,8 +66,36 @@
     if ($('asistAnioAdicionalInput')) $('asistAnioAdicionalInput').value = '';
     renderAniosAdicionalesChips();
 
-    $('asistenciaPasoSocios').style.display = 'none';
-    $('asistenciaPasoDatos').style.display = 'block';
+    mostrarPaso(1);
+  }
+
+  // ✅ NUEVO: alterna entre el paso 1 (datos) y el paso 2 (convocados),
+  // moviendo en un solo lugar los paneles, los pies de página con sus
+  // botones y el resaltado de los "pills" del stepper de arriba.
+  function mostrarPaso(paso) {
+    const esPaso2 = paso === 2;
+
+    $('asistenciaPasoSocios').style.display = esPaso2 ? 'block' : 'none';
+    $('asistenciaPasoDatos').style.display = esPaso2 ? 'none' : 'block';
+    $('asistFooterSocios').style.display = esPaso2 ? 'flex' : 'none';
+    $('asistFooterDatos').style.display = esPaso2 ? 'none' : 'flex';
+
+    $('asistStepPill1')?.classList.toggle('active', !esPaso2);
+    $('asistStepPill2')?.classList.toggle('active', esPaso2);
+
+    const subtitle = $('asistPasoSubtitle');
+    if (subtitle) {
+      subtitle.textContent = esPaso2
+        ? 'Marcá quién estuvo presente'
+        : 'Completá los datos del entrenamiento o partido';
+    }
+  }
+
+  // ✅ NUEVO: iniciales para el avatar circular de cada fila
+  function iniciales(nombre, apellido) {
+    const a = (apellido || '').trim().charAt(0);
+    const n = (nombre || '').trim().charAt(0);
+    return (a + n).toUpperCase() || '?';
   }
 
   async function cargarSelects() {
@@ -223,46 +257,75 @@
     };
   }
 
+  // ✅ NUEVO: aplica el texto del buscador (nombre, apellido o N° de socio)
+  // sobre el array ya traído del servidor, sin volver a pedir nada.
+  function convocadosFiltrados() {
+    const q = filtroConvocadosTexto.trim().toLowerCase();
+    if (!q) return convocados;
+    return convocados.filter(s => {
+      const texto = `${s.apellido || ''} ${s.nombre || ''} ${s.numero_socio ?? ''}`.toLowerCase();
+      return texto.includes(q);
+    });
+  }
+
   function renderConvocados() {
     const cont = $('asistListaConvocados');
+
     if (!convocados.length) {
-      cont.innerHTML = '<div class="muted small">No hay socios que coincidan con esos filtros.</div>';
+      cont.innerHTML = '<div class="asist2-empty">No hay socios que coincidan con esos filtros.</div>';
+      actualizarContadorConvocados();
       return;
     }
 
-    const filas = convocados.map(s => `
-      <label style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #f0f0f0;">
+    const visibles = convocadosFiltrados();
+
+    if (!visibles.length) {
+      cont.innerHTML = '<div class="asist2-empty">Ningún convocado coincide con esa búsqueda.</div>';
+      actualizarContadorConvocados();
+      return;
+    }
+
+    const filas = visibles.map(s => `
+      <label class="asist2-row" data-id="${s.id}">
         <input type="checkbox" class="asist-check-convocado" data-id="${s.id}" />
-        <span>${s.apellido}, ${s.nombre} <span class="muted small">(#${s.numero_socio ?? '-'}${s.categoria ? ' · ' + s.categoria : ''})</span></span>
+        <span class="asist2-avatar">${iniciales(s.nombre, s.apellido)}</span>
+        <span>
+          <div class="asist2-row-name">${s.apellido}, ${s.nombre}</div>
+          <div class="asist2-row-meta">N° ${s.numero_socio ?? '-'}${s.categoria ? ' · ' + s.categoria : ''}</div>
+        </span>
       </label>
     `).join('');
 
-    cont.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <strong class="small">Convocados (${convocados.length})</strong>
-        <span>
-          <button type="button" id="btnAsistTodos" class="navbtn navbtn--top" style="padding:4px 8px; font-size:12px;">Marcar todos</button>
-          <button type="button" id="btnAsistNinguno" class="navbtn navbtn--top" style="padding:4px 8px; font-size:12px;">Ninguno</button>
-        </span>
-      </div>
-      <div style="max-height:220px; overflow-y:auto;">${filas}</div>
-    `;
+    cont.innerHTML = `<div class="asist2-lista">${filas}</div>`;
 
-    $('btnAsistTodos').addEventListener('click', () => {
-      cont.querySelectorAll('.asist-check-convocado').forEach(cb => cb.checked = true);
+    cont.querySelectorAll('.asist-check-convocado').forEach(cb => {
+      cb.addEventListener('change', () => {
+        cb.closest('.asist2-row')?.classList.toggle('is-checked', cb.checked);
+        actualizarContadorConvocados();
+      });
     });
-    $('btnAsistNinguno').addEventListener('click', () => {
-      cont.querySelectorAll('.asist-check-convocado').forEach(cb => cb.checked = false);
-    });
+
+    actualizarContadorConvocados();
+  }
+
+  // ✅ NUEVO: "X de Y presentes" — cuenta sobre TODOS los convocados
+  // (no solo los que quedaron visibles tras el filtro de texto), para que
+  // el número no "baje" al filtrar.
+  function actualizarContadorConvocados() {
+    const badge = $('asistContadorConvocados');
+    if (!badge) return;
+    const checks = document.querySelectorAll('.asist-check-convocado');
+    const marcados = Array.from(checks).filter(cb => cb.checked).length;
+    badge.textContent = `${marcados} de ${convocados.length} presentes`;
   }
 
   function renderInvitados() {
     const wrap = $('asistInvitadosWrap');
 
     const chips = invitados.map(s => `
-      <span class="badge" style="background:#e5e7eb; margin:2px; display:inline-flex; align-items:center; gap:6px;">
+      <span class="asist2-chip-invitado">
         ${s.apellido}, ${s.nombre}
-        <button type="button" class="asist-quitar-invitado" data-id="${s.id}" style="border:none; background:none; cursor:pointer; font-weight:bold;">✕</button>
+        <button type="button" class="asist-quitar-invitado" data-id="${s.id}">✕</button>
       </span>
     `).join('');
 
@@ -370,11 +433,13 @@
     $('asistResumenEvento').textContent =
       `${t2 === 'partido' ? 'Partido' : 'Entrenamiento'} · ${actividad}${actividadAdicional ? ' + ' + actividadAdicional : ''} · ${categoria}${extraTxt ? ' (' + extraTxt + ')' : ''}${anioNacimiento ? ' · Nacidos en ' + anioNacimiento : ''} · ${fecha}`;
 
+    filtroConvocadosTexto = '';
+    if ($('asistBuscarConvocado')) $('asistBuscarConvocado').value = '';
+
     renderConvocados();
     renderInvitados();
 
-    $('asistenciaPasoDatos').style.display = 'none';
-    $('asistenciaPasoSocios').style.display = 'block';
+    mostrarPaso(2);
   }
 
   async function guardarAsistencia() {
@@ -424,11 +489,35 @@
       console.error(e);
       $('asistDatosMsg').textContent = 'Error de conexión.';
     }));
-    $('btnAsistVolverDatos')?.addEventListener('click', () => {
-      $('asistenciaPasoSocios').style.display = 'none';
-      $('asistenciaPasoDatos').style.display = 'block';
-    });
+    $('btnAsistVolverDatos')?.addEventListener('click', () => mostrarPaso(1));
     $('btnAsistGuardar')?.addEventListener('click', () => guardarAsistencia());
+
+    // ✅ NUEVO: buscador de convocados (filtra sin refetch) y los botones
+    // "Marcar todos" / "Ninguno", ahora fijos en el HTML del paso 2.
+    $('asistBuscarConvocado')?.addEventListener('input', (ev) => {
+      filtroConvocadosTexto = ev.target.value || '';
+      renderConvocados();
+    });
+    $('btnAsistTodos')?.addEventListener('click', () => {
+      document.querySelectorAll('.asist-check-convocado').forEach(cb => {
+        cb.checked = true;
+        cb.closest('.asist2-row')?.classList.add('is-checked');
+      });
+      actualizarContadorConvocados();
+    });
+    $('btnAsistNinguno')?.addEventListener('click', () => {
+      document.querySelectorAll('.asist-check-convocado').forEach(cb => {
+        cb.checked = false;
+        cb.closest('.asist2-row')?.classList.remove('is-checked');
+      });
+      actualizarContadorConvocados();
+    });
+
+    // ✅ NUEVO: acceso directo al reporte de asistencia desde el modal.
+    $('btnAsistVerReporte')?.addEventListener('click', () => {
+      cerrarModal();
+      window.irAReporteAsistencia?.();
+    });
 
     // ✅ NUEVO: agregar año adicional (categorías adicionales se bindean solas
     // como chips cada vez que se dibujan, en renderCategoriasAdicionalesChips)

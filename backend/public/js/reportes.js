@@ -2852,17 +2852,19 @@ function renderAsistTablaMes(eventos, socios) {
     return;
   }
 
+  // ✅ iniciales para el avatar circular de cada fila (mismo criterio que
+  // el modal de "Tomar asistencia").
+  const iniciales = (nombre, apellido) => {
+    const a = (apellido || '').trim().charAt(0);
+    const n = (nombre || '').trim().charAt(0);
+    return (a + n).toUpperCase() || '?';
+  };
+
   const theadFechas = eventos.map(ev => {
     const esPartido = ev.tipo === 'partido';
     return `
-      <th class="asist-col-fecha" data-id="${ev.id}" style="
-        cursor:pointer;
-        color:${esPartido ? '#f97316' : '#16a34a'};
-        padding:6px 8px;
-        white-space:nowrap;
-        border-bottom:2px solid #e5e7eb;
-      " title="${esPartido ? 'Partido' : 'Entrenamiento'} · clic para ver detalle">
-        ${formatFechaDMY(ev.fecha)}
+      <th class="asist2r-th-fecha" data-id="${ev.id}" title="${esPartido ? 'Partido' : 'Entrenamiento'} · clic para ver detalle">
+        <span class="asist2r-dot" style="background:${esPartido ? '#f97316' : '#16a34a'};"></span>${formatFechaDMY(ev.fecha)}
       </th>
     `;
   }).join('');
@@ -2871,38 +2873,49 @@ function renderAsistTablaMes(eventos, socios) {
     ? socios.map(s => {
         const celdas = eventos.map(ev => {
           const val = s.celdas[ev.id];
-          if (val === undefined) return `<td class="muted" style="text-align:center; padding:6px;">—</td>`;
+          if (val === undefined) return `<td style="text-align:center;" class="muted">—</td>`;
           return val
-            ? `<td style="text-align:center; padding:6px; color:#16a34a; font-weight:700;">✔</td>`
-            : `<td style="text-align:center; padding:6px; color:#dc2626; font-weight:700;">✘</td>`;
+            ? `<td style="text-align:center;"><span class="asist2r-badge asist2r-badge-ok">✔</span></td>`
+            : `<td style="text-align:center;"><span class="asist2r-badge asist2r-badge-no">✘</span></td>`;
         }).join('');
 
         return `
-          <tr style="border-bottom:1px solid #f0f0f0;">
-            <td style="padding:6px 8px; white-space:nowrap;">${s.apellido}, ${s.nombre} <span class="muted small">(#${s.numero_socio ?? '-'})</span></td>
+          <tr>
+            <td>
+              <div class="asist2r-socio-cell">
+                <span class="asist2-avatar">${iniciales(s.nombre, s.apellido)}</span>
+                <span>${s.apellido}, ${s.nombre} <span class="muted small">(#${s.numero_socio ?? '-'})</span></span>
+              </div>
+            </td>
             ${celdas}
-            <td style="text-align:center; padding:6px; font-weight:700; white-space:nowrap;">${s.presentes}/${s.ausentes}</td>
+            <td style="text-align:center;">
+              <span class="asist2r-ratio">
+                <span style="color:#16a34a;">${s.presentes}✔</span> / <span style="color:#dc2626;">${s.ausentes}✘</span>
+              </span>
+            </td>
           </tr>
         `;
       }).join('')
     : `<tr><td colspan="${eventos.length + 2}" class="muted small" style="padding:10px;">Sin socios registrados en estos eventos.</td></tr>`;
 
   cont.innerHTML = `
-    <table style="border-collapse:collapse; width:100%; font-size:13px;">
-      <thead>
-        <tr>
-          <th style="text-align:left; padding:6px 8px; border-bottom:2px solid #e5e7eb;">Socio</th>
-          ${theadFechas}
-          <th style="padding:6px 8px; border-bottom:2px solid #e5e7eb; white-space:nowrap;">Asist./Faltas</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filasSocios}
-      </tbody>
-    </table>
+    <div class="asist2r-table-wrap">
+      <table class="asist2r-table">
+        <thead>
+          <tr>
+            <th>Socio</th>
+            ${theadFechas}
+            <th style="white-space:nowrap;">Asist./Faltas</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filasSocios}
+        </tbody>
+      </table>
+    </div>
   `;
 
-  cont.querySelectorAll('.asist-col-fecha').forEach(th => {
+  cont.querySelectorAll('.asist2r-th-fecha').forEach(th => {
     th.addEventListener('click', () => verDetalleEventoAsistencia(th.dataset.id));
   });
 }
@@ -2926,39 +2939,65 @@ async function verDetalleEventoAsistencia(eventoId) {
   const invitados = detalle.filter(d => d.origen === 'invitado');
   const presentes = convocados.filter(d => d.presente);
   const ausentes = convocados.filter(d => !d.presente);
+  const esPartido = evento.tipo === 'partido';
 
-  const fila = (d) => `<div style="padding:3px 0;">${d.apellido}, ${d.nombre} <span class="muted small">(#${d.numero_socio ?? '-'})</span></div>`;
+  const iniciales = (nombre, apellido) => {
+    const a = (apellido || '').trim().charAt(0);
+    const n = (nombre || '').trim().charAt(0);
+    return (a + n).toUpperCase() || '?';
+  };
+
+  const fila = (d) => `
+    <div class="asist2r-detalle-row">
+      <span class="asist2-avatar" style="width:24px; height:24px; font-size:10.5px;">${iniciales(d.nombre, d.apellido)}</span>
+      <span>${d.apellido}, ${d.nombre} <span class="muted small">(#${d.numero_socio ?? '-'})</span></span>
+    </div>
+  `;
 
   cont.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-      <div>
-        <strong>${evento.tipo === 'partido' ? 'Partido' : 'Entrenamiento'}</strong>
-        <div class="muted small">${evento.actividad}${evento.actividad_adicional ? ' + ' + evento.actividad_adicional : ''} · ${evento.categoria} · ${formatFechaDMY(evento.fecha)}</div>
+    <div class="asist2r-detalle-card">
+      <div class="asist2r-detalle-header">
+        <div>
+          <span class="asist2r-detalle-badge" style="background:${esPartido ? '#fff7ed' : '#f0fdf4'}; color:${esPartido ? '#f97316' : '#16a34a'};">
+            ${esPartido ? '🏆 Partido' : '🏋️ Entrenamiento'}
+          </span>
+          <div class="muted small" style="margin-top:6px;">${evento.actividad}${evento.actividad_adicional ? ' + ' + evento.actividad_adicional : ''} · ${evento.categoria} · ${formatFechaDMY(evento.fecha)}</div>
+        </div>
+        <button type="button" id="btnAsistEliminarEvento" class="asist2r-btn-danger">🗑 Eliminar</button>
       </div>
-      <button type="button" id="btnAsistEliminarEvento" class="navbtn navbtn--top" style="padding:4px 8px; font-size:12px; background:#ef4444; border-color:#ef4444; color:#fff;">🗑 Eliminar</button>
-    </div>
-    <div style="margin-bottom:10px;">
-      <strong class="small" style="color:#16a34a;">✔ Presentes (${presentes.length})</strong>
-      ${presentes.map(fila).join('') || '<div class="muted small">—</div>'}
-    </div>
-    <div style="margin-bottom:10px;">
-      <strong class="small" style="color:#dc2626;">✘ Ausentes (${ausentes.length})</strong>
-      ${ausentes.map(fila).join('') || '<div class="muted small">—</div>'}
-    </div>
-    ${invitados.length ? `
-      <div style="margin-bottom:10px;">
-        <strong class="small">★ Invitados de otra categoría (${invitados.length})</strong>
-        ${invitados.map(d => `<div style="padding:3px 0;">${d.apellido}, ${d.nombre} <span class="muted small">(${d.categoria_socio})</span></div>`).join('')}
-      </div>
-    ` : ''}
 
-    <div style="border-top:1px solid #e5e7eb; padding-top:10px; margin-top:6px;">
-      <strong class="small">+ Agregar socio que faltó cargar</strong>
-      <div style="display:flex; gap:8px; margin:6px 0;">
-        <input id="asistAgregarSocioInput" type="text" placeholder="Buscar por nombre, apellido o DNI..." style="flex:1; padding:6px;" />
-        <button type="button" id="btnAsistAgregarSocioBuscar" class="navbtn navbtn--top" style="padding:4px 8px; font-size:12px;">Buscar</button>
+      <div class="asist2r-detalle-cols">
+        <div>
+          <div class="asist2r-detalle-col-title" style="color:#16a34a;">✔ Presentes (${presentes.length})</div>
+          ${presentes.map(fila).join('') || '<div class="muted small">—</div>'}
+        </div>
+        <div>
+          <div class="asist2r-detalle-col-title" style="color:#dc2626;">✘ Ausentes (${ausentes.length})</div>
+          ${ausentes.map(fila).join('') || '<div class="muted small">—</div>'}
+        </div>
       </div>
-      <div id="asistAgregarSocioResultados" class="muted small"></div>
+
+      ${invitados.length ? `
+        <div style="margin-top:12px; border-top:1px solid #eef0f3; padding-top:10px;">
+          <div class="asist2r-detalle-col-title">★ Invitados de otra categoría (${invitados.length})</div>
+          ${invitados.map(d => `
+            <div class="asist2r-detalle-row">
+              <span class="asist2-avatar" style="width:24px; height:24px; font-size:10.5px;">${iniciales(d.nombre, d.apellido)}</span>
+              <span>${d.apellido}, ${d.nombre} <span class="muted small">(${d.categoria_socio})</span></span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <div style="border-top:1px solid #eef0f3; padding-top:10px; margin-top:12px;">
+        <div class="asist2r-detalle-col-title">+ Agregar socio que faltó cargar</div>
+        <div style="display:flex; gap:8px; margin:6px 0;">
+          <input id="asistAgregarSocioInput" type="text" placeholder="Buscar por nombre, apellido o DNI..."
+                 style="flex:1; padding:8px 10px; border-radius:9px; border:1px solid #d1d5db; font-size:13px;" />
+          <button type="button" id="btnAsistAgregarSocioBuscar" class="asist2-btn">Buscar</button>
+        </div>
+        <div id="asistAgregarSocioResultados" class="muted small"></div>
+      </div>
     </div>
   `;
 
