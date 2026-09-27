@@ -33,6 +33,12 @@ function isValidRecurrenciaTipo(v) {
   return ['diario', 'semanal', 'mensual', 'anual'].includes(v);
 }
 
+// ✅ NUEVO: tipo de agenda_actividades. 'evento' se pinta de azul en el
+// calendario en vez del verde de 'actividad' (ver cumples.html/cumples.js).
+function normalizeTipoActividad(v) {
+  return v === 'evento' ? 'evento' : 'actividad';
+}
+
 function argentinaNow() {
   const ahora = new Date();
   return new Date(
@@ -344,6 +350,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
       `
       SELECT
         id,
+        COALESCE(tipo, 'actividad') AS tipo,
         to_char(fecha::date, 'YYYY-MM-DD') AS fecha_iso,
         to_char(hora_desde::time, 'HH24:MI') AS hd,
         to_char(hora_hasta::time, 'HH24:MI') AS hh,
@@ -375,13 +382,15 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
         const fecha = fechaISO(fechaDate);
         eventosActividades.push({
           id: `act-${a.id}-${fecha}`,
-          title: `${a.titulo || 'Actividad'}${esRecurrente ? ' 🔁' : ''}`,
+          title: `${a.tipo === 'evento' ? '📌 ' : ''}${a.titulo || 'Actividad'}${esRecurrente ? ' 🔁' : ''}`,
           start: `${fecha}T${hd}`,
           end: `${fecha}T${hh}`,
           allDay: false,
-          classNames: ['evento-actividad'],
+          // ✅ 'evento-evento' se pinta azul, 'evento-actividad' se pinta verde.
+          classNames: [a.tipo === 'evento' ? 'evento-evento' : 'evento-actividad'],
           extendedProps: {
             kind: 'actividad',
+            tipo: a.tipo,
             id: a.id, // id real en BD (la serie)
             fecha, // fecha de ESTA ocurrencia
             fecha_base: a.fecha_iso, // fecha ancla de la serie
@@ -473,7 +482,7 @@ router.post('/:clubId/agenda/actividades', requireAuth, async (req, res) => {
       return res.status(403).json({ ok: false, error: 'No autorizado' });
     }
 
-    const { fecha, hora_desde, hora_hasta, titulo, descripcion = null } = req.body || {};
+    const { fecha, hora_desde, hora_hasta, titulo, descripcion = null, tipo } = req.body || {};
 
     if (!fecha || !hora_desde || !hora_hasta || !titulo) {
       return res.status(400).json({ ok: false, error: 'Datos incompletos' });
@@ -496,18 +505,19 @@ router.post('/:clubId/agenda/actividades', requireAuth, async (req, res) => {
     const r = await db.query(
       `
       INSERT INTO agenda_actividades
-        (id, club_id, fecha, hora_desde, hora_hasta, titulo, descripcion,
+        (id, club_id, tipo, fecha, hora_desde, hora_hasta, titulo, descripcion,
          recurrencia_tipo, recurrencia_intervalo, recurrencia_dias_semana, recurrencia_hasta,
          created_at, activo)
       VALUES
-        (gen_random_uuid(), $1, $2::date, $3::time, $4::time, $5, $6,
-         $7, $8, $9::int[], $10::date,
+        (gen_random_uuid(), $1, $2, $3::date, $4::time, $5::time, $6, $7,
+         $8, $9, $10::int[], $11::date,
          NOW(), true)
-      RETURNING id, club_id, fecha, hora_desde, hora_hasta, titulo, descripcion,
+      RETURNING id, club_id, tipo, fecha, hora_desde, hora_hasta, titulo, descripcion,
         recurrencia_tipo, recurrencia_intervalo, recurrencia_dias_semana, recurrencia_hasta, created_at
       `,
       [
         clubId,
+        normalizeTipoActividad(tipo),
         fecha,
         hora_desde,
         hora_hasta,
@@ -537,7 +547,7 @@ router.put('/:clubId/agenda/actividades/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ ok: false, error: 'No autorizado' });
     }
 
-    const { fecha, hora_desde, hora_hasta, titulo, descripcion = null } = req.body || {};
+    const { fecha, hora_desde, hora_hasta, titulo, descripcion = null, tipo } = req.body || {};
 
     if (!fecha || !hora_desde || !hora_hasta || !titulo) {
       return res.status(400).json({ ok: false, error: 'Datos incompletos' });
@@ -561,22 +571,24 @@ router.put('/:clubId/agenda/actividades/:id', requireAuth, async (req, res) => {
       `
       UPDATE agenda_actividades
       SET
-        fecha = $3::date,
-        hora_desde = $4::time,
-        hora_hasta = $5::time,
-        titulo = $6,
-        descripcion = $7,
-        recurrencia_tipo = $8,
-        recurrencia_intervalo = $9,
-        recurrencia_dias_semana = $10::int[],
-        recurrencia_hasta = $11::date
+        tipo = $3,
+        fecha = $4::date,
+        hora_desde = $5::time,
+        hora_hasta = $6::time,
+        titulo = $7,
+        descripcion = $8,
+        recurrencia_tipo = $9,
+        recurrencia_intervalo = $10,
+        recurrencia_dias_semana = $11::int[],
+        recurrencia_hasta = $12::date
       WHERE club_id = $1 AND id = $2 AND activo = true
-      RETURNING id, club_id, fecha, hora_desde, hora_hasta, titulo, descripcion,
+      RETURNING id, club_id, tipo, fecha, hora_desde, hora_hasta, titulo, descripcion,
         recurrencia_tipo, recurrencia_intervalo, recurrencia_dias_semana, recurrencia_hasta
       `,
       [
         clubId,
         id,
+        normalizeTipoActividad(tipo),
         fecha,
         hora_desde,
         hora_hasta,

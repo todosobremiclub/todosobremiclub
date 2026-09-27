@@ -35,6 +35,10 @@
       <i class="ag-dot ag-dot-act"></i> Actividades
     </label>
     <label class="ag-legend-item ag-legend-toggle">
+      <input type="checkbox" id="chkFiltroEventos" />
+      <i class="ag-dot ag-dot-evento"></i> Eventos
+    </label>
+    <label class="ag-legend-item ag-legend-toggle">
       <input type="checkbox" id="chkFiltroCumples" />
       <i class="ag-dot ag-dot-cumple"></i> Cumpleaños
     </label>
@@ -66,6 +70,14 @@
       <input type="hidden" id="actividadId" />
 
       <form id="formActividad" class="ag-form">
+
+        <div class="ag-field">
+          <label for="actividadTipo"><span class="ag-ico">📁</span> Tipo</label>
+          <select id="actividadTipo">
+            <option value="actividad" selected>Actividad</option>
+            <option value="evento">Evento</option>
+          </select>
+        </div>
 
         <div class="ag-field">
           <label for="actividadTitulo"><span class="ag-ico">🏷️</span> Título</label>
@@ -386,7 +398,8 @@
   border-radius:3px;
   display:inline-block;
 }
-.ag-modern .ag-dot-act{ background:#2563eb; }
+.ag-modern .ag-dot-act{ background:#16a34a; }
+.ag-modern .ag-dot-evento{ background:#2563eb; }
 .ag-modern .ag-dot-cumple{ background:#f59e0b; }
 
 .ag-modern .ag-legend-hint{
@@ -620,12 +633,12 @@
 }
 .ag-modern .fc .fc-event-title{ font-weight:700; }
 
-/* ACTIVIDADES — azul, texto oscuro.
+/* ACTIVIDADES — verde, texto oscuro.
    Se fuerza también en .fc-event-main porque FullCalendar
    pinta el texto de blanco por defecto (ahí se perdía el contraste). */
 .ag-modern .fc .evento-actividad{
-  background:#dbeafe !important;
-  border-left:4px solid #1d4ed8 !important;
+  background:#dcfce7 !important;
+  border-left:4px solid #16a34a !important;
 }
 .ag-modern .fc .evento-actividad,
 .ag-modern .fc .evento-actividad .fc-event-main,
@@ -633,9 +646,24 @@
 .ag-modern .fc .evento-actividad .fc-event-time,
 .ag-modern .fc .evento-actividad .fc-event-title,
 .ag-modern .fc .evento-actividad .fc-event-title-container{
+  color:#14532d !important;
+}
+.ag-modern .fc .evento-actividad:hover{ background:#bbf7d0 !important; }
+
+/* EVENTOS — azul, texto oscuro (mismo esquema que antes tenía "Actividades"). */
+.ag-modern .fc .evento-evento{
+  background:#dbeafe !important;
+  border-left:4px solid #1d4ed8 !important;
+}
+.ag-modern .fc .evento-evento,
+.ag-modern .fc .evento-evento .fc-event-main,
+.ag-modern .fc .evento-evento .fc-event-main-frame,
+.ag-modern .fc .evento-evento .fc-event-time,
+.ag-modern .fc .evento-evento .fc-event-title,
+.ag-modern .fc .evento-evento .fc-event-title-container{
   color:#14306e !important;
 }
-.ag-modern .fc .evento-actividad:hover{ background:#c7dcfd !important; }
+.ag-modern .fc .evento-evento:hover{ background:#c7dcfd !important; }
 
 /* CUMPLEAÑOS — ámbar, texto oscuro */
 .ag-modern .fc .evento-cumple{

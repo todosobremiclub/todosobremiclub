@@ -111,22 +111,32 @@
   }
 
   // =============================
-  // Filtro Actividades / Cumpleaños (checkboxes de la leyenda)
+  // Filtro Actividades / Eventos / Cumpleaños (checkboxes de la leyenda)
   // =============================
-  // Sin nada tildado: se ve todo. Con un solo check tildado: se ve solo esa
-  // categoría. Con los dos tildados: se ve todo (equivale a no filtrar).
+  // Sin nada tildado: se ve todo. Con uno o más tildados: se ven solo esas
+  // categorías (ej: Actividades + Eventos tildados = todo menos cumpleaños).
+  function categoriaDeEvento(e) {
+    const kind = e.extendedProps?.kind;
+    if (kind === 'cumple') return 'cumple';
+    if (kind === 'actividad') {
+      // ✅ 'evento' es una actividad más (misma tabla), solo que con
+      // tipo='evento' en vez de 'actividad' — se distingue por color.
+      return e.extendedProps?.tipo === 'evento' ? 'evento' : 'actividad';
+    }
+    return null;
+  }
+
   function aplicarFiltroEventos() {
     if (!calendar) return;
 
-    const soloActividades = !!$('chkFiltroActividades')?.checked;
-    const soloCumples = !!$('chkFiltroCumples')?.checked;
+    const activas = [];
+    if ($('chkFiltroActividades')?.checked) activas.push('actividad');
+    if ($('chkFiltroEventos')?.checked) activas.push('evento');
+    if ($('chkFiltroCumples')?.checked) activas.push('cumple');
 
-    let eventos = ultimosEventos;
-    if (soloActividades && !soloCumples) {
-      eventos = ultimosEventos.filter((e) => e.extendedProps?.kind === 'actividad');
-    } else if (soloCumples && !soloActividades) {
-      eventos = ultimosEventos.filter((e) => e.extendedProps?.kind === 'cumple');
-    }
+    const eventos = activas.length
+      ? ultimosEventos.filter((e) => activas.includes(categoriaDeEvento(e)))
+      : ultimosEventos;
 
     calendar.setOption('events', eventos);
   }
@@ -379,6 +389,8 @@
     $('modalActividad').classList.remove('hidden');
 
     $('actividadId').value = data.id || '';
+    // ✅ Por default (actividad nueva) queda seleccionado "Actividad".
+    $('actividadTipo').value = data.tipo === 'evento' ? 'evento' : 'actividad';
     $('actividadFecha').value = data.fecha || '';
     $('actividadHoraDesde').value = data.hora_desde || '18:00';
     $('actividadHoraHasta').value = data.hora_hasta || '19:00';
@@ -420,6 +432,7 @@
     const clubId = getActiveClubId();
 
     const body = {
+      tipo: $('actividadTipo').value === 'evento' ? 'evento' : 'actividad',
       fecha: $('actividadFecha').value,
       hora_desde: $('actividadHoraDesde').value,
       hora_hasta: $('actividadHoraHasta').value,
@@ -510,8 +523,9 @@
     $('btnActividadDelete')?.addEventListener('click', deleteActividad);
     $('formActividad')?.addEventListener('submit', saveActividad);
 
-    // ✅ Filtro de la leyenda (Actividades / Cumpleaños)
+    // ✅ Filtro de la leyenda (Actividades / Eventos / Cumpleaños)
     $('chkFiltroActividades')?.addEventListener('change', aplicarFiltroEventos);
+    $('chkFiltroEventos')?.addEventListener('change', aplicarFiltroEventos);
     $('chkFiltroCumples')?.addEventListener('change', aplicarFiltroEventos);
 
     // ✅ Recurrencia
