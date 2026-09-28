@@ -377,4 +377,39 @@ router.post('/:clubId/asistencia/:eventoId/socio', requireAuth, requireClubAcces
   }
 });
 
+// ============================================================
+// DELETE /club/:clubId/asistencia/:eventoId/socio/:socioId
+// Quita a un socio (convocado o invitado) de un evento de asistencia
+// ya guardado, sin borrar el evento completo. Para corregir un alta
+// de más o un socio cargado por error, sin tener que eliminar y
+// volver a cargar todo el entrenamiento/partido.
+// ============================================================
+router.delete('/:clubId/asistencia/:eventoId/socio/:socioId', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, eventoId, socioId } = req.params;
+
+  try {
+    const rEvento = await db.query(
+      `SELECT id FROM asistencia_eventos WHERE id = $1 AND club_id = $2`,
+      [eventoId, clubId]
+    );
+    if (!rEvento.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Evento no encontrado' });
+    }
+
+    const r = await db.query(
+      `DELETE FROM asistencia_detalle WHERE evento_id = $1 AND socio_id = $2 RETURNING id`,
+      [eventoId, socioId]
+    );
+
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'El socio no estaba cargado en este evento' });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ asistencia DELETE socio de evento', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 module.exports = router;

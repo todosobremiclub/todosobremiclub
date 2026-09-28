@@ -3047,10 +3047,17 @@ async function verDetalleEventoAsistencia(eventoId) {
     return (a + n).toUpperCase() || '?';
   };
 
+  // ✅ NUEVO: cada fila tiene un botón "✕" para poder quitar a ese socio
+  // puntual del evento ya guardado (sin tener que eliminar el evento
+  // entero y volver a cargarlo).
   const fila = (d) => `
-    <div class="asist2r-detalle-row">
-      <span class="asist2-avatar" style="width:24px; height:24px; font-size:10.5px;">${iniciales(d.nombre, d.apellido)}</span>
-      <span>${d.apellido}, ${d.nombre} <span class="muted small">(#${d.numero_socio ?? '-'})</span></span>
+    <div class="asist2r-detalle-row" style="justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="asist2-avatar" style="width:24px; height:24px; font-size:10.5px;">${iniciales(d.nombre, d.apellido)}</span>
+        <span>${d.apellido}, ${d.nombre} <span class="muted small">(#${d.numero_socio ?? '-'})</span></span>
+      </div>
+      <button type="button" class="asist-quitar-socio" data-socio-id="${d.socio_id}" title="Quitar de este evento"
+              style="border:none; background:none; color:#dc2626; cursor:pointer; font-size:13px; padding:2px 4px;">✕</button>
     </div>
   `;
 
@@ -3081,9 +3088,13 @@ async function verDetalleEventoAsistencia(eventoId) {
         <div style="margin-top:12px; border-top:1px solid #eef0f3; padding-top:10px;">
           <div class="asist2r-detalle-col-title">★ Invitados de otra categoría (${invitados.length})</div>
           ${invitados.map(d => `
-            <div class="asist2r-detalle-row">
-              <span class="asist2-avatar" style="width:24px; height:24px; font-size:10.5px;">${iniciales(d.nombre, d.apellido)}</span>
-              <span>${d.apellido}, ${d.nombre} <span class="muted small">(${d.categoria_socio})</span></span>
+            <div class="asist2r-detalle-row" style="justify-content:space-between;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="asist2-avatar" style="width:24px; height:24px; font-size:10.5px;">${iniciales(d.nombre, d.apellido)}</span>
+                <span>${d.apellido}, ${d.nombre} <span class="muted small">(${d.categoria_socio})</span></span>
+              </div>
+              <button type="button" class="asist-quitar-socio" data-socio-id="${d.socio_id}" title="Quitar de este evento"
+                      style="border:none; background:none; color:#dc2626; cursor:pointer; font-size:13px; padding:2px 4px;">✕</button>
             </div>
           `).join('')}
         </div>
@@ -3103,6 +3114,27 @@ async function verDetalleEventoAsistencia(eventoId) {
 
   $('btnAsistEliminarEvento')?.addEventListener('click', () => eliminarEventoAsistencia(eventoId));
   $('btnAsistAgregarSocioBuscar')?.addEventListener('click', () => buscarSocioParaAgregar(eventoId));
+  cont.querySelectorAll('.asist-quitar-socio').forEach(btn => {
+    btn.addEventListener('click', () => quitarSocioDeEvento(eventoId, btn.dataset.socioId));
+  });
+}
+
+// ✅ NUEVO: quita a un socio puntual (convocado o invitado) de un evento
+// ya guardado, sin eliminar el evento completo.
+async function quitarSocioDeEvento(eventoId, socioId) {
+  const confirmado = confirm('¿Quitar a este socio de este entrenamiento/partido?');
+  if (!confirmado) return;
+
+  const clubId = getActiveClubId();
+  const { res, data } = await fetchAuth(`/club/${clubId}/asistencia/${eventoId}/socio/${socioId}`, { method: 'DELETE' });
+
+  if (!res.ok || !data.ok) {
+    alert(data.error || 'No se pudo quitar al socio.');
+    return;
+  }
+
+  await verDetalleEventoAsistencia(eventoId);
+  await loadAsistReporteMes();
 }
 
 async function eliminarEventoAsistencia(eventoId) {
