@@ -517,10 +517,12 @@ router.get('/tienda/productos', requireAuth, async (req, res) => {
 
     const r = await db.query(
       `
-      SELECT id, nombre, descripcion, precio, stock, imagen_url
-      FROM tienda_productos
-      WHERE club_id = $1 AND activo = true
-      ORDER BY nombre ASC
+      SELECT p.id, p.nombre, p.descripcion, p.precio, p.stock, p.imagen_url,
+             p.categoria_id, c.nombre AS categoria_nombre
+      FROM tienda_productos p
+      LEFT JOIN tienda_categorias c ON c.id = p.categoria_id
+      WHERE p.club_id = $1 AND p.activo = true
+      ORDER BY p.nombre ASC
       `,
       [clubId]
     );
