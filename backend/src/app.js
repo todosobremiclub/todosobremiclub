@@ -83,6 +83,7 @@ app.use('/club', require('./routes/cumplesRoutes'));
 app.use('/club', require('./routes/pagosRoutes'));
 app.use('/club', require('./routes/reportesRoutes'));
 app.use('/club', require('./routes/noticiasRoutes'));
+app.use('/club', require('./routes/tiendaRoutes')); // ✅ NUEVO: Tienda Online (productos + reservas, panel admin)
 
 app.use('/app', appTransferRoutes);
 app.use('/admin', adminTransferRoutes);

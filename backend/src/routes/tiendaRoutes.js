@@ -1,0 +1,461 @@
+// src/routes/tiendaRoutes.js
+//
+// Módulo "Tienda Online": CRUD de productos + gestión de reservas, del
+// lado del panel admin del club (montado bajo /club, requiere
+// requireClubAccess). Los endpoints que usa la APP del socio (ver
+// catálogo, reservar, ver "mis reservas") viven en appRoutes.js, no acá
+// — ver claude/tienda-online-plan.md en el proyecto para el detalle.
+const express = require('express');
+const db = require('../db');
+const requireAuth = require('../middleware/requireAuth');
+const { uploadImageBuffer } = require('../utils/uploadToFirebase');
+const { initFirebase } = require('../config/firebaseAdmin');
+
+const router = express.Router();
+
+// CORS simple para Flutter Web (mismo bloque que el resto de /club/...)
+router.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+  );
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+// ===============================
+// Helper: validar acceso al club (mismo patrón que noticiasRoutes.js)
+// ===============================
+function requireClubAccess(req, res, next) {
+  const { clubId } = req.params;
+  const roles = req.user?.roles ?? [];
+  const allowed = roles.some(
+    r => String(r.club_id) === String(clubId) || r.role === 'superadmin'
+  );
+  if (!allowed) {
+    return res.status(403).json({ ok: false, error: 'No autorizado para este club' });
+  }
+  next();
+}
+
+// ===============================
+// Helper: borrar imagen vieja de Firebase (mismo patrón que noticiasRoutes.js)
+// ===============================
+function extractFirebaseObjectPath(url) {
+  try {
+    const u = new URL(url);
+    const marker = '/o/';
+    const i = u.pathname.indexOf(marker);
+    if (i < 0) return null;
+    return decodeURIComponent(u.pathname.slice(i + marker.length));
+  } catch {
+    return null;
+  }
+}
+
+async function deleteFirebaseObjectByUrl(url) {
+  const objectPath = extractFirebaseObjectPath(url);
+  if (!objectPath) return;
+  const admin = initFirebase();
+  if (!admin) return;
+  const bucket = admin.storage().bucket();
+  await bucket.file(objectPath).delete({ ignoreNotFound: true });
+}
+
+// ============================================================
+// PRODUCTOS
+// ============================================================
+
+// ------------------------------------------------------------
+// GET /club/:clubId/tienda/productos
+// Lista completa (incluye inactivos, para que el admin los vea y pueda
+// reactivarlos/editarlos).
+// ------------------------------------------------------------
+router.get('/:clubId/tienda/productos', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const r = await db.query(
+      `
+      SELECT id, nombre, descripcion, precio, stock, imagen_url, activo, created_at, updated_at
+      FROM tienda_productos
+      WHERE club_id = $1
+      ORDER BY activo DESC, nombre ASC
+      `,
+      [clubId]
+    );
+    return res.json({ ok: true, productos: r.rows });
+  } catch (e) {
+    console.error('❌ GET tienda/productos', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ------------------------------------------------------------
+// POST /club/:clubId/tienda/productos
+// body: { nombre, descripcion?, precio, stock, imagen_base64?, imagen_mimetype? }
+// ------------------------------------------------------------
+router.post('/:clubId/tienda/productos', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const {
+    nombre,
+    descripcion = null,
+    precio,
+    stock,
+    imagen_base64,
+    imagen_mimetype,
+  } = req.body || {};
+
+  try {
+    if (!nombre?.trim()) {
+      return res.status(400).json({ ok: false, error: 'Falta el nombre del producto' });
+    }
+    const precioNum = Number(precio);
+    const stockNum = Number(stock);
+    if (!Number.isFinite(precioNum) || precioNum < 0) {
+      return res.status(400).json({ ok: false, error: 'Precio inválido' });
+    }
+    if (!Number.isInteger(stockNum) || stockNum < 0) {
+      return res.status(400).json({ ok: false, error: 'Stock inválido' });
+    }
+
+    let imagen_url = null;
+    if (imagen_base64 && imagen_mimetype) {
+      const buffer = Buffer.from(imagen_base64, 'base64');
+      const up = await uploadImageBuffer({
+        buffer,
+        mimetype: imagen_mimetype,
+        originalname: 'producto.jpg',
+        folder: `clubs/${clubId}/tienda`,
+      });
+      imagen_url = up.url;
+    }
+
+    const r = await db.query(
+      `
+      INSERT INTO tienda_productos (club_id, nombre, descripcion, precio, stock, imagen_url, activo, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())
+      RETURNING id, nombre, descripcion, precio, stock, imagen_url, activo, created_at, updated_at
+      `,
+      [clubId, nombre.trim(), descripcion?.trim() || null, precioNum, stockNum, imagen_url]
+    );
+
+    return res.status(201).json({ ok: true, producto: r.rows[0] });
+  } catch (e) {
+    console.error('❌ POST tienda/productos', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ------------------------------------------------------------
+// PUT /club/:clubId/tienda/productos/:id
+// body: igual que POST, más { activo? } para activar/desactivar.
+// Si viene imagen_base64, reemplaza la imagen anterior.
+// ------------------------------------------------------------
+router.put('/:clubId/tienda/productos/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  const {
+    nombre,
+    descripcion = null,
+    precio,
+    stock,
+    activo,
+    imagen_base64,
+    imagen_mimetype,
+  } = req.body || {};
+
+  try {
+    const prev = await db.query(
+      `SELECT imagen_url FROM tienda_productos WHERE id = $1 AND club_id = $2`,
+      [id, clubId]
+    );
+    if (!prev.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Producto no encontrado' });
+    }
+
+    if (!nombre?.trim()) {
+      return res.status(400).json({ ok: false, error: 'Falta el nombre del producto' });
+    }
+    const precioNum = Number(precio);
+    const stockNum = Number(stock);
+    if (!Number.isFinite(precioNum) || precioNum < 0) {
+      return res.status(400).json({ ok: false, error: 'Precio inválido' });
+    }
+    if (!Number.isInteger(stockNum) || stockNum < 0) {
+      return res.status(400).json({ ok: false, error: 'Stock inválido' });
+    }
+
+    let imagen_url = prev.rows[0].imagen_url;
+    if (imagen_base64 && imagen_mimetype) {
+      const buffer = Buffer.from(imagen_base64, 'base64');
+      const up = await uploadImageBuffer({
+        buffer,
+        mimetype: imagen_mimetype,
+        originalname: 'producto.jpg',
+        folder: `clubs/${clubId}/tienda`,
+      });
+      const nuevaUrl = up.url;
+      if (imagen_url && imagen_url !== nuevaUrl) {
+        try {
+          await deleteFirebaseObjectByUrl(imagen_url);
+        } catch (err) {
+          console.warn('⚠ No se pudo borrar imagen previa de producto:', err.message);
+        }
+      }
+      imagen_url = nuevaUrl;
+    }
+
+    const activoBool = typeof activo === 'boolean' ? activo : (activo === 'true' ? true : (activo === 'false' ? false : prev.rows[0].activo));
+
+    const r = await db.query(
+      `
+      UPDATE tienda_productos
+      SET nombre = $1, descripcion = $2, precio = $3, stock = $4, imagen_url = $5, activo = $6, updated_at = NOW()
+      WHERE id = $7 AND club_id = $8
+      RETURNING id, nombre, descripcion, precio, stock, imagen_url, activo, created_at, updated_at
+      `,
+      [nombre.trim(), descripcion?.trim() || null, precioNum, stockNum, imagen_url, activoBool, id, clubId]
+    );
+
+    return res.json({ ok: true, producto: r.rows[0] });
+  } catch (e) {
+    console.error('❌ PUT tienda/productos', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ------------------------------------------------------------
+// DELETE /club/:clubId/tienda/productos/:id
+// Baja física solo si el producto no tiene reservas asociadas. Si tiene,
+// se desactiva en su lugar (para no romper el historial de reservas).
+// ------------------------------------------------------------
+router.delete('/:clubId/tienda/productos/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    const rTiene = await db.query(
+      `SELECT 1 FROM tienda_reservas WHERE producto_id = $1 LIMIT 1`,
+      [id]
+    );
+
+    if (rTiene.rowCount) {
+      const r = await db.query(
+        `UPDATE tienda_productos SET activo = false, updated_at = NOW() WHERE id = $1 AND club_id = $2`,
+        [id, clubId]
+      );
+      if (!r.rowCount) {
+        return res.status(404).json({ ok: false, error: 'Producto no encontrado' });
+      }
+      return res.json({ ok: true, desactivado: true, mensaje: 'El producto tiene reservas asociadas: se desactivó en vez de eliminarse.' });
+    }
+
+    const r = await db.query(
+      `DELETE FROM tienda_productos WHERE id = $1 AND club_id = $2`,
+      [id, clubId]
+    );
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Producto no encontrado' });
+    }
+    return res.json({ ok: true, eliminado: true });
+  } catch (e) {
+    console.error('❌ DELETE tienda/productos', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// RESERVAS (gestión admin — se muestran en la sección Pendientes)
+// ============================================================
+
+// ------------------------------------------------------------
+// GET /club/:clubId/tienda/reservas?estado=pendiente
+// Si no se pasa "estado", trae todas.
+// ------------------------------------------------------------
+router.get('/:clubId/tienda/reservas', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { estado } = req.query;
+
+  const ESTADOS_VALIDOS = new Set(['pendiente', 'aceptada', 'rechazada', 'retirada', 'cancelada']);
+  if (estado && !ESTADOS_VALIDOS.has(estado)) {
+    return res.status(400).json({ ok: false, error: 'estado inválido' });
+  }
+
+  try {
+    const r = await db.query(
+      `
+      SELECT
+        r.id,
+        r.cantidad,
+        r.estado,
+        r.mensaje_admin,
+        r.created_at,
+        r.gestionada_at,
+        p.id AS producto_id,
+        p.nombre AS producto_nombre,
+        p.precio AS producto_precio,
+        p.imagen_url AS producto_imagen_url,
+        s.id AS socio_id,
+        s.numero_socio,
+        s.nombre AS socio_nombre,
+        s.apellido AS socio_apellido
+      FROM tienda_reservas r
+      JOIN tienda_productos p ON p.id = r.producto_id
+      JOIN socios s ON s.id = r.socio_id
+      WHERE r.club_id = $1
+        ${estado ? 'AND r.estado = $2' : ''}
+      ORDER BY r.created_at DESC
+      `,
+      estado ? [clubId, estado] : [clubId]
+    );
+    return res.json({ ok: true, reservas: r.rows });
+  } catch (e) {
+    console.error('❌ GET tienda/reservas', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ------------------------------------------------------------
+// POST /club/:clubId/tienda/reservas/:id/aceptar
+// body: { mensaje? }
+// Descuenta stock (valida que alcance) y marca la reserva como aceptada.
+// ------------------------------------------------------------
+router.post('/:clubId/tienda/reservas/:id/aceptar', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  const { mensaje = null } = req.body || {};
+  const adminUserId = req.user?.userId || req.user?.id || null;
+
+  try {
+    await db.query('BEGIN');
+
+    const rRes = await db.query(
+      `SELECT id, producto_id, cantidad, estado FROM tienda_reservas WHERE id = $1 AND club_id = $2 FOR UPDATE`,
+      [id, clubId]
+    );
+    if (!rRes.rowCount) {
+      await db.query('ROLLBACK');
+      return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
+    }
+    const reserva = rRes.rows[0];
+    if (reserva.estado !== 'pendiente') {
+      await db.query('ROLLBACK');
+      return res.status(400).json({ ok: false, error: `La reserva ya fue gestionada (estado: ${reserva.estado})` });
+    }
+
+    const rProd = await db.query(
+      `SELECT stock FROM tienda_productos WHERE id = $1 AND club_id = $2 FOR UPDATE`,
+      [reserva.producto_id, clubId]
+    );
+    if (!rProd.rowCount) {
+      await db.query('ROLLBACK');
+      return res.status(404).json({ ok: false, error: 'Producto no encontrado' });
+    }
+    if (rProd.rows[0].stock < reserva.cantidad) {
+      await db.query('ROLLBACK');
+      return res.status(409).json({ ok: false, error: `No hay stock suficiente (disponible: ${rProd.rows[0].stock}, pedido: ${reserva.cantidad})` });
+    }
+
+    await db.query(
+      `UPDATE tienda_productos SET stock = stock - $1, updated_at = NOW() WHERE id = $2`,
+      [reserva.cantidad, reserva.producto_id]
+    );
+
+    const rUpd = await db.query(
+      `
+      UPDATE tienda_reservas
+      SET estado = 'aceptada', mensaje_admin = $1, gestionada_por = $2, gestionada_at = NOW(), updated_at = NOW()
+      WHERE id = $3
+      RETURNING id, estado, mensaje_admin, gestionada_at
+      `,
+      [mensaje?.trim() || null, adminUserId, id]
+    );
+
+    await db.query('COMMIT');
+
+    // TODO (paso 6 del plan): disparar notificarSocio() con el mensaje al socio.
+
+    return res.json({ ok: true, reserva: rUpd.rows[0] });
+  } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ POST tienda/reservas/aceptar', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ------------------------------------------------------------
+// POST /club/:clubId/tienda/reservas/:id/rechazar
+// body: { mensaje? }
+// No toca stock.
+// ------------------------------------------------------------
+router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  const { mensaje = null } = req.body || {};
+  const adminUserId = req.user?.userId || req.user?.id || null;
+
+  try {
+    const rRes = await db.query(
+      `SELECT id, estado FROM tienda_reservas WHERE id = $1 AND club_id = $2`,
+      [id, clubId]
+    );
+    if (!rRes.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
+    }
+    if (rRes.rows[0].estado !== 'pendiente') {
+      return res.status(400).json({ ok: false, error: `La reserva ya fue gestionada (estado: ${rRes.rows[0].estado})` });
+    }
+
+    const r = await db.query(
+      `
+      UPDATE tienda_reservas
+      SET estado = 'rechazada', mensaje_admin = $1, gestionada_por = $2, gestionada_at = NOW(), updated_at = NOW()
+      WHERE id = $3
+      RETURNING id, estado, mensaje_admin, gestionada_at
+      `,
+      [mensaje?.trim() || null, adminUserId, id]
+    );
+
+    // TODO (paso 6 del plan): disparar notificarSocio() con el mensaje al socio.
+
+    return res.json({ ok: true, reserva: r.rows[0] });
+  } catch (e) {
+    console.error('❌ POST tienda/reservas/rechazar', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ------------------------------------------------------------
+// POST /club/:clubId/tienda/reservas/:id/retirado
+// Se usa cuando el socio pasa a buscar el producto por el club.
+// ------------------------------------------------------------
+router.post('/:clubId/tienda/reservas/:id/retirado', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+
+  try {
+    const rRes = await db.query(
+      `SELECT id, estado FROM tienda_reservas WHERE id = $1 AND club_id = $2`,
+      [id, clubId]
+    );
+    if (!rRes.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
+    }
+    if (rRes.rows[0].estado !== 'aceptada') {
+      return res.status(400).json({ ok: false, error: 'Solo se puede marcar como retirada una reserva aceptada' });
+    }
+
+    const r = await db.query(
+      `
+      UPDATE tienda_reservas
+      SET estado = 'retirada', updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, estado
+      `,
+      [id]
+    );
+
+    return res.json({ ok: true, reserva: r.rows[0] });
+  } catch (e) {
+    console.error('❌ POST tienda/reservas/retirado', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+module.exports = router;

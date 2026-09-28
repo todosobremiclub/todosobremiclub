@@ -104,7 +104,8 @@ const rClub = await db.query(
     transferencia_habilitada,
     transferencia_cvu,
     transferencia_alias,
-    transferencia_titular
+    transferencia_titular,
+    tienda_habilitada
 
   FROM clubs
   WHERE id = $1
@@ -214,7 +215,8 @@ instagram_url: club.instagram_url,
 transferencia_habilitada: club.transferencia_habilitada,
 transferencia_cvu: club.transferencia_cvu,
 transferencia_alias: club.transferencia_alias,
-transferencia_titular: club.transferencia_titular
+transferencia_titular: club.transferencia_titular,
+tienda_habilitada: club.tienda_habilitada
 }
     });
   } catch (e) {
@@ -484,6 +486,141 @@ router.get('/config', (req, res) => {
     storeUrlAndroid: APP_STORE_URL_ANDROID,
     storeUrlIOS: APP_STORE_URL_IOS,
   });
+});
+
+// ======================================================
+// TIENDA ONLINE (app del socio)
+// clubId y socioId salen siempre del token (requireAuth), nunca de la URL,
+// mismo criterio que /app/asistencias y /app/socios/photo-request.
+// ======================================================
+
+// ------------------------------------------------------
+// GET /app/tienda/productos
+// Catálogo de productos activos del club del socio logueado.
+// ------------------------------------------------------
+router.get('/tienda/productos', requireAuth, async (req, res) => {
+  try {
+    const clubId = req.user?.clubId || req.user?.club_id || null;
+    if (!clubId) {
+      return res.status(401).json({ ok: false, error: 'Token inválido para la app' });
+    }
+
+    // ✅ Defensivo: si el club no tiene Tienda habilitada, no exponemos el
+    // catálogo aunque alguien pegue directo al endpoint.
+    const rClub = await db.query(
+      `SELECT tienda_habilitada FROM clubs WHERE id = $1 LIMIT 1`,
+      [clubId]
+    );
+    if (!rClub.rowCount || rClub.rows[0].tienda_habilitada !== true) {
+      return res.status(403).json({ ok: false, error: 'Este club no tiene Tienda Online habilitada' });
+    }
+
+    const r = await db.query(
+      `
+      SELECT id, nombre, descripcion, precio, stock, imagen_url
+      FROM tienda_productos
+      WHERE club_id = $1 AND activo = true
+      ORDER BY nombre ASC
+      `,
+      [clubId]
+    );
+
+    return res.json({ ok: true, productos: r.rows });
+  } catch (e) {
+    console.error('❌ GET /app/tienda/productos', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ------------------------------------------------------
+// POST /app/tienda/reservas
+// body: { producto_id, cantidad }
+// No valida stock acá: el stock recién se descuenta cuando el admin
+// acepta la reserva desde el panel (ver plan del módulo).
+// ------------------------------------------------------
+router.post('/tienda/reservas', requireAuth, async (req, res) => {
+  try {
+    const clubId = req.user?.clubId || req.user?.club_id || null;
+    const socioId = req.user?.socioId || req.user?.socio_id || null;
+    if (!clubId || !socioId) {
+      return res.status(401).json({ ok: false, error: 'Token inválido para la app' });
+    }
+
+    const { producto_id, cantidad = 1 } = req.body || {};
+    const cantidadNum = Number(cantidad);
+
+    if (!producto_id) {
+      return res.status(400).json({ ok: false, error: 'Falta producto_id' });
+    }
+    if (!Number.isInteger(cantidadNum) || cantidadNum < 1) {
+      return res.status(400).json({ ok: false, error: 'Cantidad inválida' });
+    }
+
+    const rProd = await db.query(
+      `SELECT id, activo FROM tienda_productos WHERE id = $1 AND club_id = $2 LIMIT 1`,
+      [producto_id, clubId]
+    );
+    if (!rProd.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Producto no encontrado' });
+    }
+    if (!rProd.rows[0].activo) {
+      return res.status(400).json({ ok: false, error: 'Este producto ya no está disponible' });
+    }
+
+    const r = await db.query(
+      `
+      INSERT INTO tienda_reservas (club_id, producto_id, socio_id, cantidad, estado)
+      VALUES ($1, $2, $3, $4, 'pendiente')
+      RETURNING id, club_id, producto_id, socio_id, cantidad, estado, created_at
+      `,
+      [clubId, producto_id, socioId, cantidadNum]
+    );
+
+    return res.status(201).json({ ok: true, reserva: r.rows[0] });
+  } catch (e) {
+    console.error('❌ POST /app/tienda/reservas', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ------------------------------------------------------
+// GET /app/tienda/reservas/mias
+// Historial de reservas del socio logueado, más recientes primero.
+// ------------------------------------------------------
+router.get('/tienda/reservas/mias', requireAuth, async (req, res) => {
+  try {
+    const clubId = req.user?.clubId || req.user?.club_id || null;
+    const socioId = req.user?.socioId || req.user?.socio_id || null;
+    if (!clubId || !socioId) {
+      return res.status(401).json({ ok: false, error: 'Token inválido para la app' });
+    }
+
+    const r = await db.query(
+      `
+      SELECT
+        r.id,
+        r.cantidad,
+        r.estado,
+        r.mensaje_admin,
+        r.created_at,
+        r.gestionada_at,
+        p.id AS producto_id,
+        p.nombre AS producto_nombre,
+        p.precio AS producto_precio,
+        p.imagen_url AS producto_imagen_url
+      FROM tienda_reservas r
+      JOIN tienda_productos p ON p.id = r.producto_id
+      WHERE r.socio_id = $1 AND r.club_id = $2
+      ORDER BY r.created_at DESC
+      `,
+      [socioId, clubId]
+    );
+
+    return res.json({ ok: true, reservas: r.rows });
+  } catch (e) {
+    console.error('❌ GET /app/tienda/reservas/mias', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 module.exports = router;

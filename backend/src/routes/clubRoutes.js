@@ -33,7 +33,8 @@ router.get('/:clubId', requireAuth, async (req, res) => {
   transferencia_cvu,
   transferencia_alias,
   transferencia_titular,
-  whatsapp_habilitado
+  whatsapp_habilitado,
+  tienda_habilitada
 
 FROM clubs
 WHERE id = $1
