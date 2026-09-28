@@ -80,6 +80,10 @@
 
   <h3 class="tw-section-title">📦 Productos publicados</h3>
 
+  <div class="tw-search-row">
+    <input type="text" id="tiendaBuscarProducto" placeholder="🔍 Buscar por nombre o descripción..." />
+  </div>
+
   <div class="table-wrapper" style="margin-top:12px;">
     <table class="socios-table">
       <thead>
@@ -223,6 +227,20 @@
   }
 
   .tw-section-title { margin-top: 24px; }
+
+  .tw-search-row {
+    margin-top: 12px;
+  }
+
+  .tw-search-row input[type="text"] {
+    width: 100%;
+    max-width: 360px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    background: #fff;
+  }
 
   .tw-file-row {
     display: flex;

@@ -74,6 +74,7 @@
   let productosCache = [];
   let editingId = null;
   let currentImagenUrl = null;
+  let filtroProductos = ''; // ✅ NUEVO: buscador de productos publicados
 
   // =============================
   // Helpers imagen (base64)
@@ -175,17 +176,36 @@
     }
   }
 
+  // ✅ NUEVO: filtra por nombre o descripción (sin distinguir mayúsculas)
+  // según lo tipeado en #tiendaBuscarProducto.
+  function productosFiltrados() {
+    const q = filtroProductos.trim().toLowerCase();
+    if (!q) return productosCache;
+    return productosCache.filter(p => {
+      const nombre = (p.nombre || '').toLowerCase();
+      const descripcion = (p.descripcion || '').toLowerCase();
+      return nombre.includes(q) || descripcion.includes(q);
+    });
+  }
+
   function renderProductosTable() {
     const tbody = $('#tiendaTableBody');
     if (!tbody) return;
     tbody.innerHTML = '';
+
+    const productos = productosFiltrados();
 
     if (!productosCache.length) {
       tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay productos publicados todavía.</td></tr>`;
       return;
     }
 
-    productosCache.forEach(p => {
+    if (!productos.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">No se encontraron productos que coincidan con "${escapeHtml(filtroProductos.trim())}".</td></tr>`;
+      return;
+    }
+
+    productos.forEach(p => {
       const tr = document.createElement('tr');
       const img = p.imagen_url || '';
       const activo = p.activo !== false;
@@ -432,6 +452,15 @@
         if (imagenInput) imagenInput.value = '';
         currentImagenUrl = null;
         updatePreview();
+      });
+    }
+
+    // ✅ NUEVO: buscador de productos publicados (filtra en vivo mientras se tipea)
+    const buscarInput = root.querySelector('#tiendaBuscarProducto');
+    if (buscarInput) {
+      buscarInput.addEventListener('input', (e) => {
+        filtroProductos = e.target.value || '';
+        renderProductosTable();
       });
     }
 
