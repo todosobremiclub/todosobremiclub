@@ -4795,6 +4795,96 @@ router.get('/:clubId/reportes/asistencia/evento/:eventoId', requireAuth, require
 // 2b) Matriz Socios x Fechas del mes (reemplaza a los recuadros):
 //     filas = socios, columnas = cada entrenamiento/partido del mes,
 //     celda = presente/ausente/sin registro, + tally de asistencias/faltas.
+// ============================================================
+// GET /:clubId/reportes/asistencia/actividades-disponibles
+// Devuelve solo las actividades que tienen AL MENOS UN entrenamiento o
+// partido cargado (asistencia_eventos), a diferencia del selector de
+// "Tomar asistencia" (que muestra todas las actividades configuradas,
+// porque ahí todavía no hay nada cargado). Así el reporte no ofrece
+// combinaciones vacías.
+// ============================================================
+router.get('/:clubId/reportes/asistencia/actividades-disponibles', requireAuth, requireClubAccess, async (req, res) => {
+  try {
+    const { clubId } = req.params;
+
+    const r = await db.query(
+      `SELECT DISTINCT e.actividad
+         FROM asistencia_eventos e
+        WHERE e.club_id = $1 AND e.actividad IS NOT NULL AND e.actividad <> ''
+        ORDER BY e.actividad ASC`,
+      [clubId]
+    );
+
+    res.json({ ok: true, actividades: r.rows.map(row => row.actividad) });
+  } catch (e) {
+    console.error('❌ reporte asistencia actividades-disponibles', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// GET /:clubId/reportes/asistencia/categorias-disponibles?actividad=X
+// Solo las categorías, de esa actividad, que tienen al menos un evento
+// cargado.
+// ============================================================
+router.get('/:clubId/reportes/asistencia/categorias-disponibles', requireAuth, requireClubAccess, async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const { actividad = '' } = req.query;
+
+    if (!actividad.trim()) {
+      return res.status(400).json({ ok: false, error: 'Falta actividad' });
+    }
+
+    const r = await db.query(
+      `SELECT DISTINCT e.categoria
+         FROM asistencia_eventos e
+        WHERE e.club_id = $1 AND e.actividad = $2
+          AND e.categoria IS NOT NULL AND e.categoria <> ''
+        ORDER BY e.categoria ASC`,
+      [clubId, actividad]
+    );
+
+    res.json({ ok: true, categorias: r.rows.map(row => row.categoria) });
+  } catch (e) {
+    console.error('❌ reporte asistencia categorias-disponibles', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// GET /:clubId/reportes/asistencia/anios-disponibles?actividad=X&categoria=Y
+// Años de nacimiento (de los que se puede filtrar con "Año de nacimiento"
+// en el reporte) que efectivamente se usaron al tomar asistencia para esa
+// actividad + categoría. El reporte filtra por e.anio_nacimiento_convocado
+// EXACTO (ver matriz-mes más abajo), así que acá se listan justamente esos
+// valores ya cargados, para no ofrecer años sin ningún evento.
+// ============================================================
+router.get('/:clubId/reportes/asistencia/anios-disponibles', requireAuth, requireClubAccess, async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const { actividad = '', categoria = '' } = req.query;
+
+    if (!actividad.trim() || !categoria.trim()) {
+      return res.status(400).json({ ok: false, error: 'Faltan actividad y/o categoría' });
+    }
+
+    const r = await db.query(
+      `SELECT DISTINCT e.anio_nacimiento_convocado AS anio
+         FROM asistencia_eventos e
+        WHERE e.club_id = $1 AND e.actividad = $2 AND e.categoria = $3
+          AND e.anio_nacimiento_convocado IS NOT NULL
+        ORDER BY anio DESC`,
+      [clubId, actividad, categoria]
+    );
+
+    res.json({ ok: true, anios: r.rows.map(row => row.anio) });
+  } catch (e) {
+    console.error('❌ reporte asistencia anios-disponibles', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // GET /:clubId/reportes/asistencia/matriz-mes?anio=&mes=&actividad=&categoria=&actividadAdicional=&anioNacimiento=&tipo=
 router.get('/:clubId/reportes/asistencia/matriz-mes', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;

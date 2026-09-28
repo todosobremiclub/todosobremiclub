@@ -2687,31 +2687,35 @@ const asistReporteState = {
   sociosRaw: []
 };
 
-// ✅ NUEVO: catálogo completo de categorías del club (para filtrar por
-// actividad sin perder el orden configurado) y cache para no repetir
-// pedidos al ir y venir entre actividades ya consultadas.
-let asistReporteTodasCategorias = [];
+// ✅ NUEVO: a diferencia de "Tomar asistencia" (que ofrece todas las
+// actividades/categorías configuradas, porque ahí es donde se carga la
+// primera asistencia), el REPORTE solo debe ofrecer combinaciones que ya
+// tienen algún entrenamiento o partido cargado. Por eso acá se consultan
+// endpoints propios (basados en asistencia_eventos), no el catálogo del
+// club ni los socios inscriptos. Cache simple para no repetir pedidos al
+// ir y venir entre actividades/categorías ya consultadas.
 let asistReporteCacheCategoriasPorActividad = new Map();
 
 async function cargarFiltrosAsistReporte() {
   const clubId = getActiveClubId();
 
-  const [rAct, rCat, rAdic] = await Promise.all([
-    fetchAuth(`/club/${clubId}/config/actividades`),
-    fetchAuth(`/club/${clubId}/config/categorias`),
+  const [rAct, rAdic] = await Promise.all([
+    fetchAuth(`/club/${clubId}/reportes/asistencia/actividades-disponibles`),
     fetchAuth(`/club/${clubId}/config/actividades-adicionales`)
   ]);
 
-  asistReporteTodasCategorias = rCat.data.categorias || [];
   asistReporteCacheCategoriasPorActividad = new Map();
 
   const selAct = $('asistReporteActividad');
   if (selAct) {
-    selAct.innerHTML = '<option value="">Seleccioná...</option>';
-    (rAct.data.actividades || []).forEach(a => {
+    const actividades = rAct.data.actividades || [];
+    selAct.innerHTML = actividades.length
+      ? '<option value="">Seleccioná...</option>'
+      : '<option value="">Todavía no hay asistencias cargadas</option>';
+    actividades.forEach(nombre => {
       const opt = document.createElement('option');
-      opt.value = a.nombre;
-      opt.textContent = a.nombre;
+      opt.value = nombre;
+      opt.textContent = nombre;
       selAct.appendChild(opt);
     });
   }
@@ -2747,9 +2751,8 @@ function asistReporteResetAnioSelect(placeholder) {
   sel.disabled = true;
 }
 
-// ✅ NUEVO: al elegir Actividad, trae solo las categorías que tienen
-// socios activos en esa actividad (mismo endpoint que usa el modal de
-// "Tomar asistencia").
+// ✅ NUEVO: al elegir Actividad, trae solo las categorías que ya tienen
+// algún entrenamiento o partido cargado para esa actividad.
 async function asistReporteActualizarCategoriasPorActividad(actividad) {
   asistReporteResetAnioSelect('Elegí actividad y categoría');
 
@@ -2762,39 +2765,40 @@ async function asistReporteActualizarCategoriasPorActividad(actividad) {
 
   try {
     const clubId = getActiveClubId();
-    let nombres = asistReporteCacheCategoriasPorActividad.get(actividad);
-    if (!nombres) {
-      const { data } = await fetchAuth(`/club/${clubId}/asistencia/categorias-por-actividad?actividad=${encodeURIComponent(actividad)}`);
-      nombres = data.categorias || [];
-      asistReporteCacheCategoriasPorActividad.set(actividad, nombres);
+    let categorias = asistReporteCacheCategoriasPorActividad.get(actividad);
+    if (!categorias) {
+      const { data } = await fetchAuth(`/club/${clubId}/reportes/asistencia/categorias-disponibles?actividad=${encodeURIComponent(actividad)}`);
+      categorias = data.categorias || [];
+      asistReporteCacheCategoriasPorActividad.set(actividad, categorias);
     }
-
-    const nombresSet = new Set(nombres);
-    const categoriasFiltradas = asistReporteTodasCategorias.filter(c => nombresSet.has(c.nombre));
 
     const selCat = $('asistReporteCategoria');
     if (!selCat) return;
+
+    if (!categorias.length) {
+      selCat.innerHTML = '<option value="">Sin asistencias cargadas para esta actividad</option>';
+      selCat.disabled = true;
+      return;
+    }
+
     selCat.innerHTML = '<option value="">Seleccioná...</option>';
-    categoriasFiltradas.forEach(c => {
+    categorias.forEach(nombre => {
       const opt = document.createElement('option');
-      opt.value = c.nombre;
-      opt.textContent = c.nombre;
+      opt.value = nombre;
+      opt.textContent = nombre;
       selCat.appendChild(opt);
     });
     selCat.disabled = false;
-
-    if (!categoriasFiltradas.length) {
-      selCat.innerHTML = '<option value="">Sin categorías para esta actividad</option>';
-      selCat.disabled = true;
-    }
   } catch (e) {
-    console.error('❌ categorias-por-actividad (reporte)', e);
+    console.error('❌ categorias-disponibles (reporte)', e);
     asistReporteResetCategoriaSelect('Error al cargar categorías');
   }
 }
 
 // ✅ NUEVO: al elegir Categoría (con Actividad ya elegida), trae solo los
-// años de nacimiento que tienen socios en esa combinación.
+// años de nacimiento con los que efectivamente se tomó asistencia para
+// esa actividad + categoría (el filtro de año del reporte compara contra
+// el valor exacto guardado en el evento, ver matriz-mes en el backend).
 async function asistReporteActualizarAniosPorActividadCategoria(actividad, categoria) {
   if (!actividad || !categoria) {
     asistReporteResetAnioSelect('Elegí actividad y categoría');
@@ -2806,7 +2810,7 @@ async function asistReporteActualizarAniosPorActividadCategoria(actividad, categ
   try {
     const clubId = getActiveClubId();
     const { data } = await fetchAuth(
-      `/club/${clubId}/asistencia/anios-por-actividad-categoria?actividad=${encodeURIComponent(actividad)}&categoria=${encodeURIComponent(categoria)}`
+      `/club/${clubId}/reportes/asistencia/anios-disponibles?actividad=${encodeURIComponent(actividad)}&categoria=${encodeURIComponent(categoria)}`
     );
     const anios = data.anios || [];
 
@@ -2821,7 +2825,7 @@ async function asistReporteActualizarAniosPorActividadCategoria(actividad, categ
     });
     selAnio.disabled = false;
   } catch (e) {
-    console.error('❌ anios-por-actividad-categoria (reporte)', e);
+    console.error('❌ anios-disponibles (reporte)', e);
     asistReporteResetAnioSelect('Error al cargar años');
   }
 }

@@ -518,6 +518,14 @@ if (sectionName === 'notificaciones' && window.initNotificacionesSection) {
     // Pequeño delay: initReportesSection recién termina de armar el DOM
     // de la tarjeta de asistencia después del await de arriba.
     setTimeout(() => {
+      // La tarjeta de Asistencia vive en la solapa "Socios" del dashboard
+      // de Reportes, que NO es la vista por defecto (arranca en
+      // "Finanzas"). Si el rol tiene el switch (admin/finanzas/comunicación),
+      // lo clickeamos para asegurarnos de estar parados ahí antes de
+      // hacer scroll. Los roles "asistencias"/"profesor" no tienen el
+      // switch (ya ven directo la tarjeta de asistencia), así que el click
+      // simplemente no encuentra el botón y no hace nada.
+      document.getElementById('btnSwitchSocios')?.click();
       document.getElementById('card-asistencia')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
   };
