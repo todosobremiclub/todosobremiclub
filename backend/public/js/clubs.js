@@ -207,6 +207,14 @@
     syncWhatsappFieldsVisibility();
   }
 
+  // ✅ NUEVO: Tienda Online (mismo patrón que whatsapp_habilitado, sin caja
+  // dependiente porque no tiene ningún campo adicional que mostrar/ocultar).
+  function setTiendaFormFromClub(c) {
+    if ($('club_tienda_habilitada')) {
+      $('club_tienda_habilitada').checked = c?.tienda_habilitada === true;
+    }
+  }
+
   async function saveTransferConfigForClub(clubId) {
     if (!clubId) return;
 
@@ -294,6 +302,7 @@
 
     if ($('club_whatsapp_habilitado')) $('club_whatsapp_habilitado').checked = false; // ✅ NUEVO
     if ($('club_whatsapp_limite_mensual')) $('club_whatsapp_limite_mensual').value = '300'; // ✅ NUEVO
+    if ($('club_tienda_habilitada')) $('club_tienda_habilitada').checked = false; // ✅ NUEVO
 
 if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
 
@@ -520,6 +529,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     fd.append('payment_mode', getPaymentMode()); // ✅ NUEVO: reemplaza a transferencia_habilitada
     fd.append('whatsapp_habilitado', $('club_whatsapp_habilitado')?.checked ? 'true' : 'false'); // ✅ NUEVO
     fd.append('whatsapp_limite_mensual', $('club_whatsapp_limite_mensual')?.value?.trim() || '300'); // ✅ NUEVO
+    fd.append('tienda_habilitada', $('club_tienda_habilitada')?.checked ? 'true' : 'false'); // ✅ NUEVO
     fd.append('color_primary', color_primary || '#2563eb');
     fd.append('color_secondary', color_secondary || '#1e40af');
     fd.append('color_accent', color_accent || '#facc15');
@@ -573,6 +583,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     setTransferFormFromClub(c);
     setTransferEnabledFromClub(c);
     setWhatsappFormFromClub(c); // ✅ NUEVO
+    setTiendaFormFromClub(c); // ✅ NUEVO
 
     if ($('club_socios_cantidad')) $('club_socios_cantidad').value = c.socios_cantidad ?? '';
     if ($('club_valor_mensual')) $('club_valor_mensual').value = c.valor_mensual ?? '';
