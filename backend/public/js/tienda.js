@@ -417,6 +417,33 @@
     if (root.dataset.bound === '1') return;
     root.dataset.bound = '1';
 
+    // ✅ NUEVO: cambio de estado de pago desde el Historial de ventas
+    root.addEventListener('change', async (ev) => {
+      const select = ev.target.closest('select[data-act="v_estado_pago"]');
+      if (!select) return;
+
+      const tr = select.closest('tr');
+      const rowId = tr?.dataset?.id;
+      if (!rowId) return;
+
+      const clubId = getActiveClubId();
+      const nuevoEstado = select.value;
+      const estadoAnterior = select.dataset.estado;
+
+      const { res, data } = await fetchAuth(
+        `/club/${clubId}/tienda/reservas/${rowId}/estado-pago`,
+        { method: 'PATCH', json: true, body: JSON.stringify({ estado_pago: nuevoEstado }) }
+      );
+
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'Error actualizando el estado de pago');
+        select.value = estadoAnterior;
+        return;
+      }
+
+      select.dataset.estado = nuevoEstado;
+    });
+
     const btnGuardar = root.querySelector('#btnTiendaGuardar');
     const btnCancelar = root.querySelector('#btnTiendaCancelar');
 
@@ -492,12 +519,108 @@
   }
 
   // =============================
+  // ✅ NUEVO: Historial de ventas (reservas aceptadas + retiradas)
+  // =============================
+  const ESTADOS_PAGO_TIENDA = [
+    ['sin_pago', 'Sin pago'],
+    ['parcial', 'Seña / parcial'],
+    ['pagado', 'Pagado'],
+  ];
+
+  const ESTADO_RESERVA_LABEL = {
+    aceptada: 'A retirar',
+    retirada: 'Retirada',
+  };
+
+  function formatDateISOToDMY_tienda(iso) {
+    if (!iso) return '—';
+    const s = String(iso).slice(0, 10);
+    const [y, m, d] = s.split('-');
+    if (!y || !m || !d) return s;
+    return `${d}/${m}/${y}`;
+  }
+
+  function ventaSocioLabel(r) {
+    return `#${r.numero_socio ?? '—'} ${escapeHtml(r.socio_apellido ?? '')} ${escapeHtml(r.socio_nombre ?? '')}`.trim();
+  }
+
+  function ventaImgHtml(r) {
+    return r.producto_imagen_url
+      ? `<img src="${escapeHtml(r.producto_imagen_url)}" class="tienda-img-mini" style="cursor:pointer;" onclick="window.open('${escapeHtml(r.producto_imagen_url)}','_blank')" />`
+      : '—';
+  }
+
+  function ventaEstadoPagoSelectHtml(r) {
+    const actual = r.estado_pago || 'sin_pago';
+    const opciones = ESTADOS_PAGO_TIENDA
+      .map(([val, label]) => `<option value="${val}"${val === actual ? ' selected' : ''}>${label}</option>`)
+      .join('');
+    return `
+      <select class="tw-estado-pago-select" data-act="v_estado_pago" data-estado="${actual}">
+        ${opciones}
+      </select>
+    `;
+  }
+
+  function renderHistorialVentas(items) {
+    const tbody = $('#tiendaHistorialVentasBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="muted">Todavía no hay ventas registradas.</td></tr>`;
+      return;
+    }
+
+    items.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.dataset.id = r.id;
+
+      tr.innerHTML = `
+        <td>${ventaImgHtml(r)}</td>
+        <td><b>${escapeHtml(r.producto_nombre)}</b></td>
+        <td>${ventaSocioLabel(r)}</td>
+        <td>${escapeHtml(r.cantidad)}</td>
+        <td>${formatPrecio(r.producto_precio)}</td>
+        <td>${ESTADO_RESERVA_LABEL[r.estado] || escapeHtml(r.estado)}</td>
+        <td>${ventaEstadoPagoSelectHtml(r)}</td>
+        <td>${formatDateISOToDMY_tienda(r.gestionada_at || r.created_at)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Trae reservas aceptadas ("a retirar") + retiradas y las junta en una
+  // sola lista, más recientes primero. Las rechazadas/canceladas no cuentan
+  // como venta.
+  async function loadHistorialVentas() {
+    const clubId = getActiveClubId();
+
+    const [{ res: resAcept, data: dataAcept }, { res: resRet, data: dataRet }] = await Promise.all([
+      fetchAuth(`/club/${clubId}/tienda/reservas?estado=aceptada`),
+      fetchAuth(`/club/${clubId}/tienda/reservas?estado=retirada`),
+    ]);
+
+    const aceptadas = (resAcept.ok && dataAcept.ok) ? (dataAcept.reservas || []) : [];
+    const retiradas = (resRet.ok && dataRet.ok) ? (dataRet.reservas || []) : [];
+
+    const todas = [...aceptadas, ...retiradas].sort((a, b) => {
+      const fa = new Date(a.gestionada_at || a.created_at).getTime();
+      const fb = new Date(b.gestionada_at || b.created_at).getTime();
+      return fb - fa;
+    });
+
+    renderHistorialVentas(todas);
+  }
+
+  // =============================
   // Init sección
   // =============================
   async function initTiendaSection() {
     bindOnce();
     resetForm();
     await loadProductos();
+    await loadHistorialVentas();
   }
 
   // Exponer para club.js

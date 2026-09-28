@@ -354,6 +354,25 @@ tr.innerHTML = `
     });
   }
 
+  // ✅ NUEVO: estado de pago de una reserva de tienda.
+  const ESTADOS_PAGO = [
+    ['sin_pago', 'Sin pago'],
+    ['parcial', 'Seña / parcial'],
+    ['pagado', 'Pagado'],
+  ];
+
+  function estadoPagoSelectHtml(r) {
+    const actual = r.estado_pago || 'sin_pago';
+    const opciones = ESTADOS_PAGO
+      .map(([val, label]) => `<option value="${val}"${val === actual ? ' selected' : ''}>${label}</option>`)
+      .join('');
+    return `
+      <select class="tw-estado-pago-select" data-act="r_estado_pago" data-estado="${actual}">
+        ${opciones}
+      </select>
+    `;
+  }
+
   function renderReservasTiendaARetirar(items) {
     const tbody = $('reservasTiendaARetirarBody');
     if (!tbody) return;
@@ -361,7 +380,7 @@ tr.innerHTML = `
     tbody.innerHTML = '';
 
     if (!items.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay reservas esperando retiro.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="muted">No hay reservas esperando retiro.</td></tr>`;
       return;
     }
 
@@ -374,6 +393,7 @@ tr.innerHTML = `
         <td><b>${escapeHtmlPend(r.producto_nombre)}</b></td>
         <td>${reservaSocioLabel(r)}</td>
         <td>${escapeHtmlPend(r.cantidad)}</td>
+        <td>${estadoPagoSelectHtml(r)}</td>
         <td>${escapeHtmlPend(r.mensaje_admin || '—')}</td>
         <td style="white-space:nowrap;">
           <button class="btn-ok" data-act="r_retirado">Marcar retirado</button>
@@ -418,6 +438,33 @@ tr.innerHTML = `
     const root = document.getElementById('pendientes-section');
     if (!root || root.dataset.bound === '1') return;
     root.dataset.bound = '1';
+
+    // ✅ NUEVO: cambio de estado de pago (select) en la tabla "a retirar"
+    root.addEventListener('change', async (ev) => {
+      const select = ev.target.closest('select[data-act="r_estado_pago"]');
+      if (!select) return;
+
+      const tr = select.closest('tr');
+      const rowId = tr?.dataset?.id;
+      if (!rowId) return;
+
+      const clubId = getActiveClubId();
+      const nuevoEstado = select.value;
+      const estadoAnterior = select.dataset.estado;
+
+      const { res, data } = await fetchAuth(
+        `/club/${clubId}/tienda/reservas/${rowId}/estado-pago`,
+        { method: 'PATCH', json: true, body: JSON.stringify({ estado_pago: nuevoEstado }) }
+      );
+
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'Error actualizando el estado de pago');
+        select.value = estadoAnterior;
+        return;
+      }
+
+      select.dataset.estado = nuevoEstado;
+    });
 
     // Clicks en ambas tablas dentro de la sección
     root.addEventListener('click', async (ev) => {

@@ -21,7 +21,7 @@ router.use((req, res, next) => {
     'Access-Control-Allow-Headers',
     'Origin, X-Requested-With, Content-Type, Accept, Authorization'
   );
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -288,6 +288,7 @@ router.get('/:clubId/tienda/reservas', requireAuth, requireClubAccess, async (re
         r.id,
         r.cantidad,
         r.estado,
+        r.estado_pago,
         r.mensaje_admin,
         r.created_at,
         r.gestionada_at,
@@ -318,7 +319,9 @@ router.get('/:clubId/tienda/reservas', requireAuth, requireClubAccess, async (re
 // ------------------------------------------------------------
 // POST /club/:clubId/tienda/reservas/:id/aceptar
 // body: { mensaje? }
-// Descuenta stock (valida que alcance) y marca la reserva como aceptada.
+// ✅ El stock ya se descontó cuando el socio reservó (POST /app/tienda/reservas
+// en appRoutes.js), así que acá NO se vuelve a tocar el stock: solo se marca
+// la reserva como aceptada.
 // ------------------------------------------------------------
 router.post('/:clubId/tienda/reservas/:id/aceptar', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
@@ -343,22 +346,13 @@ router.post('/:clubId/tienda/reservas/:id/aceptar', requireAuth, requireClubAcce
     }
 
     const rProd = await db.query(
-      `SELECT nombre, stock FROM tienda_productos WHERE id = $1 AND club_id = $2 FOR UPDATE`,
+      `SELECT nombre FROM tienda_productos WHERE id = $1 AND club_id = $2`,
       [reserva.producto_id, clubId]
     );
     if (!rProd.rowCount) {
       await db.query('ROLLBACK');
       return res.status(404).json({ ok: false, error: 'Producto no encontrado' });
     }
-    if (rProd.rows[0].stock < reserva.cantidad) {
-      await db.query('ROLLBACK');
-      return res.status(409).json({ ok: false, error: `No hay stock suficiente (disponible: ${rProd.rows[0].stock}, pedido: ${reserva.cantidad})` });
-    }
-
-    await db.query(
-      `UPDATE tienda_productos SET stock = stock - $1, updated_at = NOW() WHERE id = $2`,
-      [reserva.cantidad, reserva.producto_id]
-    );
 
     const rUpd = await db.query(
       `
@@ -403,7 +397,8 @@ router.post('/:clubId/tienda/reservas/:id/aceptar', requireAuth, requireClubAcce
 // ------------------------------------------------------------
 // POST /club/:clubId/tienda/reservas/:id/rechazar
 // body: { mensaje? }
-// No toca stock.
+// ✅ Devuelve al stock del producto la cantidad que se había descontado al
+// crear la reserva (ver POST /app/tienda/reservas en appRoutes.js).
 // ------------------------------------------------------------
 router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
@@ -411,19 +406,24 @@ router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAcc
   const adminUserId = req.user?.userId || req.user?.id || null;
 
   try {
+    await db.query('BEGIN');
+
     const rRes = await db.query(
       `
-      SELECT r.id, r.estado, r.socio_id, r.producto_id, p.nombre AS producto_nombre
+      SELECT r.id, r.estado, r.socio_id, r.producto_id, r.cantidad, p.nombre AS producto_nombre
       FROM tienda_reservas r
       JOIN tienda_productos p ON p.id = r.producto_id
       WHERE r.id = $1 AND r.club_id = $2
+      FOR UPDATE OF r
       `,
       [id, clubId]
     );
     if (!rRes.rowCount) {
+      await db.query('ROLLBACK');
       return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
     }
     if (rRes.rows[0].estado !== 'pendiente') {
+      await db.query('ROLLBACK');
       return res.status(400).json({ ok: false, error: `La reserva ya fue gestionada (estado: ${rRes.rows[0].estado})` });
     }
 
@@ -436,6 +436,14 @@ router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAcc
       `,
       [mensaje?.trim() || null, adminUserId, id]
     );
+
+    // Repone el stock reservado por esta solicitud.
+    await db.query(
+      `UPDATE tienda_productos SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
+      [rRes.rows[0].cantidad, rRes.rows[0].producto_id]
+    );
+
+    await db.query('COMMIT');
 
     // ✅ paso 6: avisar al socio por push que su reserva fue rechazada.
     const cuerpoRechazada = mensaje?.trim()
@@ -456,6 +464,7 @@ router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAcc
 
     return res.json({ ok: true, reserva: r.rows[0] });
   } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ POST tienda/reservas/rechazar', e);
     return res.status(500).json({ ok: false, error: e.message });
   }
@@ -493,6 +502,41 @@ router.post('/:clubId/tienda/reservas/:id/retirado', requireAuth, requireClubAcc
     return res.json({ ok: true, reserva: r.rows[0] });
   } catch (e) {
     console.error('❌ POST tienda/reservas/retirado', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ------------------------------------------------------------
+// PATCH /club/:clubId/tienda/reservas/:id/estado-pago
+// body: { estado_pago } con estado_pago en 'sin_pago' | 'parcial' | 'pagado'.
+// Se puede cambiar en cualquier momento (reserva aceptada o ya retirada),
+// para que el admin pueda marcar que el socio pagó después de retirar.
+// ------------------------------------------------------------
+router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  const { estado_pago } = req.body || {};
+
+  const ESTADOS_PAGO_VALIDOS = new Set(['sin_pago', 'parcial', 'pagado']);
+  if (!ESTADOS_PAGO_VALIDOS.has(estado_pago)) {
+    return res.status(400).json({ ok: false, error: 'estado_pago inválido' });
+  }
+
+  try {
+    const r = await db.query(
+      `
+      UPDATE tienda_reservas
+      SET estado_pago = $1, updated_at = NOW()
+      WHERE id = $2 AND club_id = $3
+      RETURNING id, estado, estado_pago
+      `,
+      [estado_pago, id, clubId]
+    );
+    if (!r.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
+    }
+    return res.json({ ok: true, reserva: r.rows[0] });
+  } catch (e) {
+    console.error('❌ PATCH tienda/reservas/estado-pago', e);
     return res.status(500).json({ ok: false, error: e.message });
   }
 });

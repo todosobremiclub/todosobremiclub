@@ -100,6 +100,26 @@
     </table>
   </div>
 
+  <h3 class="tw-section-title">📈 Historial de ventas</h3>
+
+  <div class="table-wrapper" style="margin-top:12px;">
+    <table class="socios-table">
+      <thead>
+        <tr>
+          <th style="width:70px;">Imagen</th>
+          <th>Producto</th>
+          <th>Socio</th>
+          <th style="width:80px;">Cantidad</th>
+          <th style="width:110px;">Precio</th>
+          <th style="width:100px;">Estado</th>
+          <th style="width:150px;">Estado de pago</th>
+          <th style="width:100px;">Fecha</th>
+        </tr>
+      </thead>
+      <tbody id="tiendaHistorialVentasBody"></tbody>
+    </table>
+  </div>
+
 </section>
 
 <style>
@@ -241,6 +261,19 @@
     font-size: 14px;
     background: #fff;
   }
+
+  .tw-estado-pago-select {
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 12.5px;
+    font-weight: 600;
+    background: #fff;
+  }
+  .tw-estado-pago-select[data-estado="sin_pago"] { color: #b91c1c; border-color: #fca5a5; }
+  .tw-estado-pago-select[data-estado="parcial"] { color: #b45309; border-color: #fcd34d; }
+  .tw-estado-pago-select[data-estado="pagado"] { color: #15803d; border-color: #86efac; }
 
   .tw-file-row {
     display: flex;

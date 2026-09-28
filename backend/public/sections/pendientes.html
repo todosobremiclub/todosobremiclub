@@ -75,6 +75,7 @@
             <th>Producto</th>
             <th>Socio</th>
             <th style="width:80px;">Cantidad</th>
+            <th style="width:150px;">Estado de pago</th>
             <th>Mensaje al socio</th>
             <th style="width:140px;">Acciones</th>
           </tr>
@@ -100,6 +101,19 @@
 </div>
 
 <style>
+  .tw-estado-pago-select{
+    width:100%;
+    padding:6px 8px;
+    border-radius:8px;
+    border:1px solid #ccc;
+    font-size:12.5px;
+    font-weight:600;
+    background:#fff;
+  }
+  .tw-estado-pago-select[data-estado="sin_pago"]{ color:#b91c1c; border-color:#fca5a5; }
+  .tw-estado-pago-select[data-estado="parcial"]{ color:#b45309; border-color:#fcd34d; }
+  .tw-estado-pago-select[data-estado="pagado"]{ color:#15803d; border-color:#86efac; }
+
   .pend-mini{
     width:34px;
     height:34px;
