@@ -1,0 +1,483 @@
+// public/js/tienda.js
+//
+// Panel admin: alta/edición/baja de productos de la Tienda Online.
+// La gestión de reservas (aceptar / rechazar / retirado) vive en la
+// sección "Pendientes" (ver claude/tienda-online-plan.md, paso 5).
+(() => {
+  const $ = (selector) => document.querySelector(selector);
+
+  // =============================
+  // Auth / helpers comunes (mismo patrón que noticias.js)
+  // =============================
+  function getToken() {
+    const t = localStorage.getItem('token');
+    if (!t) {
+      alert('Tu sesión expiró. Iniciá sesión nuevamente.');
+      window.location.href = '/admin.html';
+      throw new Error('No token');
+    }
+    return t;
+  }
+
+  function getActiveClubId() {
+    const c = localStorage.getItem('activeClubId');
+    if (!c) {
+      alert('No hay club activo seleccionado.');
+      window.location.href = '/club.html';
+      throw new Error('No activeClubId');
+    }
+    return c;
+  }
+
+  async function fetchAuth(url, options = {}) {
+    const headers = options.headers ?? {};
+    headers['Authorization'] = 'Bearer ' + getToken();
+    if (options.json) headers['Content-Type'] = 'application/json';
+
+    const { json, ...rest } = options;
+    const res = await fetch(url, { ...rest, headers });
+
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch { data = { ok: false, error: text }; }
+
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('activeClubId');
+      alert('Sesión inválida o expirada.');
+      window.location.href = '/admin.html';
+      throw new Error('401');
+    }
+
+    return { res, data };
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function formatPrecio(n) {
+    const num = Number(n);
+    if (!Number.isFinite(num)) return '—';
+    return num.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 });
+  }
+
+  // =============================
+  // Estado
+  // =============================
+  let productosCache = [];
+  let editingId = null;
+  let currentImagenUrl = null;
+
+  // =============================
+  // Helpers imagen (base64)
+  // =============================
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => {
+        const dataUrl = String(r.result || '');
+        const comma = dataUrl.indexOf(',');
+        if (comma < 0) return reject(new Error('No se pudo leer la imagen'));
+        resolve({
+          base64: dataUrl.slice(comma + 1),
+          mimetype: file.type || 'image/jpeg',
+        });
+      };
+      r.onerror = () => reject(new Error('Error leyendo archivo'));
+      r.readAsDataURL(file);
+    });
+  }
+
+  // =============================
+  // Vista previa en vivo
+  // =============================
+  function setQuitarBtnVisible(visible) {
+    const btn = $('#btnTiendaImagenQuitar');
+    if (btn) btn.style.display = visible ? 'inline-flex' : 'none';
+  }
+
+  function setPreviewImg(src) {
+    const img = $('#tiendaPreviewImg');
+    const placeholder = $('#tiendaPreviewImgPlaceholder');
+    if (!img || !placeholder) return;
+
+    if (src) {
+      img.src = src;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
+    } else {
+      img.removeAttribute('src');
+      img.style.display = 'none';
+      placeholder.style.display = 'flex';
+    }
+  }
+
+  function updatePreview() {
+    const nombre = $('#tiendaNombre')?.value?.trim();
+    const precio = $('#tiendaPrecio')?.value;
+    const stock = $('#tiendaStock')?.value;
+
+    const previewNombre = $('#tiendaPreviewNombre');
+    const previewPrecio = $('#tiendaPreviewPrecio');
+    const previewStock = $('#tiendaPreviewStock');
+
+    if (previewNombre) previewNombre.textContent = nombre || 'Nombre del producto';
+    if (previewPrecio) previewPrecio.textContent = precio !== '' && precio != null ? formatPrecio(precio) : '$0';
+    if (previewStock) {
+      const stockNum = Number(stock);
+      previewStock.textContent = Number.isFinite(stockNum) && stock !== ''
+        ? `Stock disponible: ${stockNum}`
+        : 'Sin stock cargado';
+    }
+
+    const fileInput = $('#tiendaImagen');
+    const file = fileInput?.files?.[0] || null;
+
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setPreviewImg(String(reader.result || ''));
+      reader.readAsDataURL(file);
+      setQuitarBtnVisible(true);
+    } else {
+      setPreviewImg(currentImagenUrl || null);
+      setQuitarBtnVisible(!!currentImagenUrl);
+    }
+  }
+
+  // =============================
+  // Carga / render de productos
+  // =============================
+  async function loadProductos() {
+    const clubId = getActiveClubId();
+    const tbody = $('#tiendaTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="6">Cargando productos...</td></tr>`;
+
+    try {
+      const { res, data } = await fetchAuth(`/club/${clubId}/tienda/productos`);
+      if (!res.ok || !data.ok) {
+        tbody.innerHTML = `<tr><td colspan="6">Error cargando productos</td></tr>`;
+        return;
+      }
+      productosCache = data.productos || [];
+      renderProductosTable();
+    } catch (e) {
+      console.error('loadProductos:', e);
+      tbody.innerHTML = `<tr><td colspan="6">Error cargando productos</td></tr>`;
+    }
+  }
+
+  function renderProductosTable() {
+    const tbody = $('#tiendaTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (!productosCache.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay productos publicados todavía.</td></tr>`;
+      return;
+    }
+
+    productosCache.forEach(p => {
+      const tr = document.createElement('tr');
+      const img = p.imagen_url || '';
+      const activo = p.activo !== false;
+
+      tr.innerHTML = `
+        <td>
+          ${img
+            ? `<img src="${escapeHtml(img)}" class="tienda-img-mini" alt="imagen producto"
+                    onerror="this.style.display='none';" />`
+            : '—'}
+        </td>
+        <td>
+          <div style="font-weight:600;">${escapeHtml(p.nombre ?? '')}</div>
+          <div style="font-size:12.5px; color:#6b7280;">
+            ${escapeHtml((p.descripcion || '').slice(0, 100))}${(p.descripcion || '').length > 100 ? '…' : ''}
+          </div>
+        </td>
+        <td>${formatPrecio(p.precio)}</td>
+        <td>${escapeHtml(String(p.stock ?? 0))}</td>
+        <td>
+          <span class="tw-badge-estado ${activo ? 'tw-badge-estado--activo' : 'tw-badge-estado--inactivo'}">
+            ${activo ? 'Activo' : 'Inactivo'}
+          </span>
+        </td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-secondary" data-act="edit" data-id="${p.id}" title="Editar">✏️</button>
+          <button class="btn btn-secondary" data-act="toggle" data-id="${p.id}" title="${activo ? 'Desactivar' : 'Activar'}">
+            ${activo ? '⏸️' : '▶️'}
+          </button>
+          <button class="btn btn-secondary" style="background:#ef4444;border-color:#ef4444;"
+                  data-act="del" data-id="${p.id}" title="Eliminar">🗑️</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // =============================
+  // Alta / edición de producto
+  // =============================
+  function resetForm() {
+    editingId = null;
+    currentImagenUrl = null;
+
+    if ($('#tiendaNombre')) $('#tiendaNombre').value = '';
+    if ($('#tiendaDescripcion')) $('#tiendaDescripcion').value = '';
+    if ($('#tiendaPrecio')) $('#tiendaPrecio').value = '';
+    if ($('#tiendaStock')) $('#tiendaStock').value = '';
+    if ($('#tiendaImagen')) $('#tiendaImagen').value = '';
+
+    updatePreview();
+
+    const btn = $('#btnTiendaGuardar');
+    if (btn) btn.textContent = '➕ Publicar producto';
+
+    const btnCancelar = $('#btnTiendaCancelar');
+    if (btnCancelar) btnCancelar.style.display = 'none';
+  }
+
+  function fillFormForEdit(p) {
+    editingId = p.id;
+    currentImagenUrl = p.imagen_url || null;
+
+    $('#tiendaNombre').value = p.nombre ?? '';
+    $('#tiendaDescripcion').value = p.descripcion ?? '';
+    $('#tiendaPrecio').value = p.precio ?? '';
+    $('#tiendaStock').value = p.stock ?? '';
+    $('#tiendaImagen').value = '';
+
+    updatePreview();
+
+    const btn = $('#btnTiendaGuardar');
+    if (btn) btn.textContent = '💾 Guardar cambios';
+
+    const btnCancelar = $('#btnTiendaCancelar');
+    if (btnCancelar) btnCancelar.style.display = 'inline-flex';
+  }
+
+  async function saveProducto() {
+    const clubId = getActiveClubId();
+    const nombre = $('#tiendaNombre')?.value?.trim() || '';
+    const descripcion = $('#tiendaDescripcion')?.value?.trim() || '';
+    const precio = $('#tiendaPrecio')?.value;
+    const stock = $('#tiendaStock')?.value;
+
+    if (!nombre) {
+      alert('Completá el nombre del producto.');
+      return;
+    }
+    const precioNum = Number(precio);
+    if (!Number.isFinite(precioNum) || precioNum < 0) {
+      alert('El precio no es válido.');
+      return;
+    }
+    const stockNum = Number(stock);
+    if (!Number.isInteger(stockNum) || stockNum < 0) {
+      alert('El stock no es válido (debe ser un número entero mayor o igual a 0).');
+      return;
+    }
+
+    const payload = {
+      nombre,
+      descripcion: descripcion || null,
+      precio: precioNum,
+      stock: stockNum,
+    };
+
+    const fileInput = $('#tiendaImagen');
+    const file = fileInput?.files?.[0] || null;
+    if (file) {
+      if (file.size > 3 * 1024 * 1024) {
+        alert('La imagen supera los 3MB. Elegí una más liviana.');
+        return;
+      }
+      const img = await readFileAsBase64(file);
+      payload.imagen_base64 = img.base64;
+      payload.imagen_mimetype = img.mimetype;
+    }
+
+    const btn = $('#btnTiendaGuardar');
+    if (btn) btn.disabled = true;
+
+    try {
+      let url = `/club/${clubId}/tienda/productos`;
+      let method = 'POST';
+
+      if (editingId) {
+        url = `/club/${clubId}/tienda/productos/${editingId}`;
+        method = 'PUT';
+        payload.activo = true;
+      }
+
+      const { res, data } = await fetchAuth(url, {
+        method,
+        json: true,
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'No se pudo guardar el producto');
+        return;
+      }
+
+      alert(editingId ? '✅ Producto actualizado' : '✅ Producto publicado');
+      resetForm();
+      await loadProductos();
+    } catch (e) {
+      console.error('saveProducto:', e);
+      alert(e.message || 'Error guardando el producto');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function toggleActivoProducto(p) {
+    const clubId = getActiveClubId();
+    const nuevoActivo = !(p.activo !== false);
+
+    try {
+      const { res, data } = await fetchAuth(`/club/${clubId}/tienda/productos/${p.id}`, {
+        method: 'PUT',
+        json: true,
+        body: JSON.stringify({
+          nombre: p.nombre,
+          descripcion: p.descripcion,
+          precio: p.precio,
+          stock: p.stock,
+          activo: nuevoActivo,
+        }),
+      });
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'No se pudo actualizar el estado del producto');
+        return;
+      }
+      await loadProductos();
+    } catch (e) {
+      console.error('toggleActivoProducto:', e);
+      alert(e.message || 'Error actualizando el producto');
+    }
+  }
+
+  async function deleteProducto(id) {
+    const clubId = getActiveClubId();
+    if (!confirm('¿Eliminar este producto? Si tiene reservas asociadas, se desactivará en su lugar.')) return;
+
+    try {
+      const { res, data } = await fetchAuth(`/club/${clubId}/tienda/productos/${id}`, { method: 'DELETE' });
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'No se pudo eliminar el producto');
+        return;
+      }
+      if (data.desactivado) {
+        alert(data.mensaje || 'El producto tenía reservas asociadas: se desactivó en vez de eliminarse.');
+      }
+      await loadProductos();
+    } catch (e) {
+      console.error('deleteProducto:', e);
+      alert(e.message || 'Error eliminando el producto');
+    }
+  }
+
+  // =============================
+  // Bind de eventos
+  // =============================
+  function bindOnce() {
+    const root = document.getElementById('tienda-section');
+    if (!root) return;
+
+    if (root.dataset.bound === '1') return;
+    root.dataset.bound = '1';
+
+    const btnGuardar = root.querySelector('#btnTiendaGuardar');
+    const btnCancelar = root.querySelector('#btnTiendaCancelar');
+
+    if (btnGuardar) {
+      btnGuardar.addEventListener('click', (e) => {
+        e.preventDefault();
+        saveProducto();
+      });
+    }
+
+    if (btnCancelar) {
+      btnCancelar.addEventListener('click', (e) => {
+        e.preventDefault();
+        resetForm();
+      });
+    }
+
+    // Vista previa en vivo (nombre / precio / stock / imagen)
+    const nombreInput = root.querySelector('#tiendaNombre');
+    const precioInput = root.querySelector('#tiendaPrecio');
+    const stockInput = root.querySelector('#tiendaStock');
+    const imagenInput = root.querySelector('#tiendaImagen');
+    const btnQuitarImagen = root.querySelector('#btnTiendaImagenQuitar');
+
+    if (nombreInput) nombreInput.addEventListener('input', updatePreview);
+    if (precioInput) precioInput.addEventListener('input', updatePreview);
+    if (stockInput) stockInput.addEventListener('input', updatePreview);
+    if (imagenInput) imagenInput.addEventListener('change', updatePreview);
+
+    if (btnQuitarImagen) {
+      btnQuitarImagen.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (imagenInput) imagenInput.value = '';
+        currentImagenUrl = null;
+        updatePreview();
+      });
+    }
+
+    const tbody = $('#tiendaTableBody');
+    if (tbody) {
+      tbody.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('button[data-act]');
+        if (!btn) return;
+
+        const act = btn.dataset.act;
+        const id = btn.dataset.id;
+        const p = productosCache.find(x => String(x.id) === String(id));
+        if (!p) return;
+
+        if (act === 'edit') {
+          fillFormForEdit(p);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        if (act === 'toggle') {
+          toggleActivoProducto(p);
+        }
+
+        if (act === 'del') {
+          deleteProducto(id);
+        }
+      });
+    }
+  }
+
+  // =============================
+  // Init sección
+  // =============================
+  async function initTiendaSection() {
+    bindOnce();
+    resetForm();
+    await loadProductos();
+  }
+
+  // Exponer para club.js
+  window.initTiendaSection = initTiendaSection;
+
+  // Por si abren tienda.html directo
+  document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('tienda-section')) {
+      initTiendaSection();
+    }
+  });
+})();

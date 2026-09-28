@@ -251,6 +251,17 @@ currentClub = club; // ✅ guardamos para el QR
 window.currentClub = club; // ✅ para el onclick global
 bindQROnce(); // (puede quedar, no molesta)
 
+// ✅ NUEVO: el botón "Tienda" del menú solo se muestra si el club tiene
+// Tienda Online habilitada (flag que activa el superadmin). Esto se
+// evalúa acá (no en applyNavVisibility) porque recién en este punto ya
+// tenemos los datos del club recién cargado.
+const btnTienda = document.querySelector('[data-section="tienda"]');
+if (btnTienda) {
+  const perms = window.__clubPerms;
+  const puedeVerPorRol = !perms || perms.canAccess('tienda');
+  btnTienda.style.display = (club.tienda_habilitada === true && puedeVerPorRol) ? '' : 'none';
+}
+
 
     // ===============================
     // Título / info
@@ -314,7 +325,7 @@ document.body.style.backgroundBlendMode = 'overlay';
 const ALL_SECTIONS = [
   'socios','pendientes','pagos','gastos',
   'noticias','notificaciones','cumples',
-  'configuracion','reportes','acceso'
+  'configuracion','reportes','acceso','tienda' // ✅ NUEVO: Tienda Online
 ];
 
 function normalizeRole(role){
@@ -498,6 +509,9 @@ if (sectionName === 'acceso' && window.initAccesoSection) {
       }
 if (sectionName === 'notificaciones' && window.initNotificacionesSection) {
   await window.initNotificacionesSection();
+}
+if (sectionName === 'tienda' && window.initTiendaSection) { // ✅ NUEVO
+  await window.initTiendaSection();
 }
     } catch (e) {
       container.innerHTML = `<pre>Error: ${e.message}</pre>`;

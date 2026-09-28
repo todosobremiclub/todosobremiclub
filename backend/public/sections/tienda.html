@@ -1,0 +1,365 @@
+<section id="tienda-section" class="section-tienda tw-modern">
+
+  <div class="tw-header">
+    <div class="tw-header-icon">🛒</div>
+    <div>
+      <h2 class="tw-header-title">Tienda Online</h2>
+      <p class="tw-header-sub">Publicá productos con foto, precio y stock para que los socios los reserven desde la app.</p>
+    </div>
+  </div>
+
+  <div class="tw-layout">
+
+    <!-- ================= COLUMNA IZQUIERDA: FORMULARIO ================= -->
+    <div class="tw-form-col">
+
+      <div class="tw-card">
+        <div class="tw-card-title"><span class="tw-card-title-ico">✏️</span> Producto</div>
+
+        <label>Nombre</label>
+        <input type="text" id="tiendaNombre" placeholder="Nombre del producto" />
+
+        <label style="margin-top:10px;">Descripción</label>
+        <textarea id="tiendaDescripcion" rows="4" placeholder="Detalle del producto (talles, colores, condición, etc.)"></textarea>
+
+        <div class="tw-row2">
+          <div>
+            <label style="margin-top:10px;">Precio</label>
+            <input type="number" id="tiendaPrecio" min="0" step="0.01" placeholder="0.00" />
+          </div>
+          <div>
+            <label style="margin-top:10px;">Stock</label>
+            <input type="number" id="tiendaStock" min="0" step="1" placeholder="0" />
+          </div>
+        </div>
+
+        <label style="margin-top:10px;">Imagen</label>
+        <div class="tw-file-row">
+          <input type="file" id="tiendaImagen" accept="image/*" />
+          <button type="button" id="btnTiendaImagenQuitar" class="btn btn-secondary tw-file-quitar" style="display:none;">✖ Quitar</button>
+        </div>
+        <div class="muted" style="margin-top:6px;">Hasta 3MB. Formatos JPG, PNG o WEBP.</div>
+      </div>
+
+      <div class="tw-btn-row">
+        <button id="btnTiendaGuardar" class="btn btn-primary tw-submit-btn">➕ Publicar producto</button>
+        <button id="btnTiendaCancelar" class="btn btn-secondary" style="display:none;">Cancelar edición</button>
+      </div>
+    </div>
+
+    <!-- ================= COLUMNA DERECHA: VISTA PREVIA ================= -->
+    <div class="tw-preview-col">
+      <div class="tw-preview-sticky">
+        <div class="tw-preview-label">👁️ Vista previa</div>
+
+        <div class="tw-preview-phone">
+          <div class="tw-preview-phone-topbar">
+            <span class="tw-preview-dot"></span>
+            <span class="tw-preview-dot"></span>
+            <span class="tw-preview-dot"></span>
+          </div>
+
+          <div class="tw-preview-card">
+            <div class="tw-preview-img-wrap" id="tiendaPreviewImgWrap">
+              <div class="tw-preview-img-placeholder" id="tiendaPreviewImgPlaceholder">🖼️</div>
+              <img id="tiendaPreviewImg" class="tw-preview-img" style="display:none;" alt="Vista previa de la imagen" />
+            </div>
+            <div class="tw-preview-body">
+              <div class="tw-preview-nombre" id="tiendaPreviewNombre">Nombre del producto</div>
+              <div class="tw-preview-precio" id="tiendaPreviewPrecio">$0</div>
+              <div class="tw-preview-stock" id="tiendaPreviewStock">Sin stock cargado</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="muted tw-preview-hint">Así se va a ver, aproximadamente, en la app de los socios.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <h3 class="tw-section-title">📦 Productos publicados</h3>
+
+  <div class="table-wrapper" style="margin-top:12px;">
+    <table class="socios-table">
+      <thead>
+        <tr>
+          <th style="width:90px;">Imagen</th>
+          <th>Nombre</th>
+          <th style="width:110px;">Precio</th>
+          <th style="width:90px;">Stock</th>
+          <th style="width:100px;">Estado</th>
+          <th style="width:140px;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tiendaTableBody"></tbody>
+    </table>
+  </div>
+
+</section>
+
+<style>
+  /* =========================
+     BASE (mismo look que Noticias)
+  ========================= */
+  .tw-modern input[type="text"],
+  .tw-modern input[type="number"],
+  .tw-modern textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    background: #fff;
+  }
+
+  .tw-modern textarea { resize: vertical; }
+
+  .tw-modern label {
+    display: block;
+    font-size: 0.85rem;
+    color: #444;
+    margin-bottom: 6px;
+  }
+
+  .tw-row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  /* Tarjeta de imagen miniatura (tabla) */
+  .tienda-img-mini {
+    width: 65px;
+    height: 65px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+  }
+
+  /* =========================
+     HEADER
+  ========================= */
+  .tw-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .tw-header-icon {
+    flex: none;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--color-primary, #2563eb), var(--color-secondary, #1e40af));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  }
+
+  .tw-header-title {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 800;
+    color: #111827;
+  }
+
+  .tw-header-sub {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #6b7280;
+  }
+
+  /* =========================
+     LAYOUT
+  ========================= */
+  .tw-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .tw-form-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .tw-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  }
+
+  .tw-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--color-secondary, #1e40af);
+    margin-bottom: 10px;
+  }
+
+  .tw-card-title-ico { font-size: 16px; }
+
+  .tw-btn-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .tw-submit-btn {
+    flex: 1;
+    font-size: 15px;
+    padding: 12px;
+    font-weight: 700;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
+  }
+
+  .tw-section-title { margin-top: 24px; }
+
+  .tw-file-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tw-file-row input[type="file"] { flex: 1; }
+
+  .tw-file-quitar {
+    flex: none;
+    font-size: 12px;
+    padding: 8px 10px;
+    color: #b91c1c;
+    border-color: #fca5a5;
+  }
+
+  /* =========================
+     VISTA PREVIA
+  ========================= */
+  .tw-preview-sticky { position: sticky; top: 12px; }
+
+  .tw-preview-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b7280;
+    margin-bottom: 10px;
+  }
+
+  .tw-preview-phone {
+    background: #eef1f5;
+    border-radius: 16px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #e2e5ea;
+  }
+
+  .tw-preview-phone-topbar {
+    display: flex;
+    gap: 4px;
+    padding: 2px 4px 8px;
+  }
+
+  .tw-preview-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #c7cbd1;
+  }
+
+  .tw-preview-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.10);
+  }
+
+  .tw-preview-img-wrap {
+    width: 100%;
+    height: 150px;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .tw-preview-img-placeholder {
+    font-size: 32px;
+    opacity: .35;
+  }
+
+  .tw-preview-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .tw-preview-body { padding: 10px 12px 12px; }
+
+  .tw-preview-nombre {
+    font-weight: 700;
+    font-size: 13.5px;
+    color: #111827;
+    word-break: break-word;
+  }
+
+  .tw-preview-precio {
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--color-secondary, #1e40af);
+    margin-top: 4px;
+  }
+
+  .tw-preview-stock {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .tw-preview-hint { font-size: 12px; }
+
+  /* =========================
+     BADGES DE ESTADO (tabla)
+  ========================= */
+  .tw-badge-estado {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .tw-badge-estado--activo {
+    background: color-mix(in srgb, #16a34a 12%, #fff);
+    color: #15803d;
+  }
+
+  .tw-badge-estado--inactivo {
+    background: color-mix(in srgb, #6b7280 12%, #fff);
+    color: #4b5563;
+  }
+
+  /* =========================
+     RESPONSIVE
+  ========================= */
+  @media (max-width: 860px) {
+    .tw-layout { grid-template-columns: 1fr; }
+    .tw-preview-sticky { position: static; }
+    .tw-row2 { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 768px) {
+    table { font-size: 12px; }
+    th, td { padding: 6px; }
+    .tienda-img-mini { width: 48px; height: 48px; }
+  }
+</style>
