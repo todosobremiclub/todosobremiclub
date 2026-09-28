@@ -3021,6 +3021,14 @@ function renderAsistTablaMes(eventos, socios) {
 }
 
 
+// ✅ NUEVO: estado local de edición del detalle de un evento. Todos los
+// cambios (quitar socios, agregar socios, cambiar presente/ausente) se
+// acumulan acá en memoria y recién se mandan al servidor -en un solo
+// pedido- cuando el usuario aprieta "Guardar cambios". Así se pueden
+// hacer varios cambios seguidos sin tener que volver a entrar al
+// detalle después de cada uno.
+let asistDetalleEdit = null;
+
 async function verDetalleEventoAsistencia(eventoId) {
   const cont = $('asistDetalleDia');
   if (!cont) return;
@@ -3031,14 +3039,29 @@ async function verDetalleEventoAsistencia(eventoId) {
 
   if (!res.ok || !data.ok) {
     cont.innerHTML = `<div class="muted small">${data.error || 'Error al cargar el detalle.'}</div>`;
+    asistDetalleEdit = null;
     return;
   }
 
   const { evento, detalle } = data;
-  const convocados = detalle.filter(d => d.origen === 'convocado');
-  const invitados = detalle.filter(d => d.origen === 'invitado');
-  const presentes = convocados.filter(d => d.presente);
-  const ausentes = convocados.filter(d => !d.presente);
+
+  asistDetalleEdit = {
+    eventoId,
+    evento,
+    // _quitar: marcado localmente para sacar (no se borra hasta guardar).
+    // _nuevo: agregado localmente en esta edición (todavía no existe en el servidor).
+    items: detalle.map(d => ({ ...d, _quitar: false, _nuevo: false })),
+    dirty: false
+  };
+
+  renderDetalleEventoEdit();
+}
+
+function renderDetalleEventoEdit() {
+  const cont = $('asistDetalleDia');
+  if (!cont || !asistDetalleEdit) return;
+
+  const { eventoId, evento, items, dirty } = asistDetalleEdit;
   const esPartido = evento.tipo === 'partido';
 
   const iniciales = (nombre, apellido) => {
@@ -3047,17 +3070,39 @@ async function verDetalleEventoAsistencia(eventoId) {
     return (a + n).toUpperCase() || '?';
   };
 
-  // ✅ NUEVO: cada fila tiene un botón "✕" para poder quitar a ese socio
-  // puntual del evento ya guardado (sin tener que eliminar el evento
-  // entero y volver a cargarlo).
+  const convocados = items.filter(d => d.origen === 'convocado');
+  const invitados = items.filter(d => d.origen === 'invitado');
+  const presentes = convocados.filter(d => d.presente);
+  const ausentes = convocados.filter(d => !d.presente);
+  const presentesActivos = presentes.filter(d => !d._quitar).length;
+  const ausentesActivos = ausentes.filter(d => !d._quitar).length;
+  const invitadosActivos = invitados.filter(d => !d._quitar).length;
+
+  // ✅ NUEVO: cada fila tiene un botón para marcar/desmarcar a ese socio
+  // para quitarlo. Mientras está marcado (tachado) sigue visible por si
+  // el usuario se arrepiente ("↺ deshacer"); recién se saca de verdad al
+  // guardar los cambios.
   const fila = (d) => `
-    <div class="asist2r-detalle-row" style="justify-content:space-between;">
-      <div style="display:flex; align-items:center; gap:8px;">
+    <div class="asist2r-detalle-row" style="justify-content:space-between; ${d._quitar ? 'opacity:.5;' : ''}">
+      <div style="display:flex; align-items:center; gap:8px; ${d._quitar ? 'text-decoration:line-through;' : ''}">
         <span class="asist2-avatar" style="width:24px; height:24px; font-size:10.5px;">${iniciales(d.nombre, d.apellido)}</span>
         <span>${d.apellido}, ${d.nombre} <span class="muted small">(#${d.numero_socio ?? '-'})</span></span>
+        ${d._nuevo ? '<span class="muted small" style="color:#16a34a;"> · nuevo</span>' : ''}
       </div>
-      <button type="button" class="asist-quitar-socio" data-socio-id="${d.socio_id}" title="Quitar de este evento"
-              style="border:none; background:none; color:#dc2626; cursor:pointer; font-size:13px; padding:2px 4px;">✕</button>
+      <button type="button" class="asist-toggle-quitar" data-socio-id="${d.socio_id}" title="${d._quitar ? 'Deshacer' : 'Quitar de este evento'}"
+              style="border:none; background:none; color:${d._quitar ? '#16a34a' : '#dc2626'}; cursor:pointer; font-size:13px; padding:2px 4px;">${d._quitar ? '↺' : '✕'}</button>
+    </div>
+  `;
+
+  const filaInvitado = (d) => `
+    <div class="asist2r-detalle-row" style="justify-content:space-between; ${d._quitar ? 'opacity:.5;' : ''}">
+      <div style="display:flex; align-items:center; gap:8px; ${d._quitar ? 'text-decoration:line-through;' : ''}">
+        <span class="asist2-avatar" style="width:24px; height:24px; font-size:10.5px;">${iniciales(d.nombre, d.apellido)}</span>
+        <span>${d.apellido}, ${d.nombre} <span class="muted small">(${d.categoria_socio})</span></span>
+        ${d._nuevo ? '<span class="muted small" style="color:#16a34a;"> · nuevo</span>' : ''}
+      </div>
+      <button type="button" class="asist-toggle-quitar" data-socio-id="${d.socio_id}" title="${d._quitar ? 'Deshacer' : 'Quitar de este evento'}"
+              style="border:none; background:none; color:${d._quitar ? '#16a34a' : '#dc2626'}; cursor:pointer; font-size:13px; padding:2px 4px;">${d._quitar ? '↺' : '✕'}</button>
     </div>
   `;
 
@@ -3075,28 +3120,19 @@ async function verDetalleEventoAsistencia(eventoId) {
 
       <div class="asist2r-detalle-cols">
         <div>
-          <div class="asist2r-detalle-col-title" style="color:#16a34a;">✔ Presentes (${presentes.length})</div>
+          <div class="asist2r-detalle-col-title" style="color:#16a34a;">✔ Presentes (${presentesActivos})</div>
           ${presentes.map(fila).join('') || '<div class="muted small">—</div>'}
         </div>
         <div>
-          <div class="asist2r-detalle-col-title" style="color:#dc2626;">✘ Ausentes (${ausentes.length})</div>
+          <div class="asist2r-detalle-col-title" style="color:#dc2626;">✘ Ausentes (${ausentesActivos})</div>
           ${ausentes.map(fila).join('') || '<div class="muted small">—</div>'}
         </div>
       </div>
 
       ${invitados.length ? `
         <div style="margin-top:12px; border-top:1px solid #eef0f3; padding-top:10px;">
-          <div class="asist2r-detalle-col-title">★ Invitados de otra categoría (${invitados.length})</div>
-          ${invitados.map(d => `
-            <div class="asist2r-detalle-row" style="justify-content:space-between;">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span class="asist2-avatar" style="width:24px; height:24px; font-size:10.5px;">${iniciales(d.nombre, d.apellido)}</span>
-                <span>${d.apellido}, ${d.nombre} <span class="muted small">(${d.categoria_socio})</span></span>
-              </div>
-              <button type="button" class="asist-quitar-socio" data-socio-id="${d.socio_id}" title="Quitar de este evento"
-                      style="border:none; background:none; color:#dc2626; cursor:pointer; font-size:13px; padding:2px 4px;">✕</button>
-            </div>
-          `).join('')}
+          <div class="asist2r-detalle-col-title">★ Invitados de otra categoría (${invitadosActivos})</div>
+          ${invitados.map(filaInvitado).join('')}
         </div>
       ` : ''}
 
@@ -3109,32 +3145,35 @@ async function verDetalleEventoAsistencia(eventoId) {
         </div>
         <div id="asistAgregarSocioResultados" class="muted small"></div>
       </div>
+
+      ${dirty ? `
+        <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end; margin-top:14px; border-top:1px solid #eef0f3; padding-top:12px;">
+          <span class="muted small" style="margin-right:auto;">Tenés cambios sin guardar</span>
+          <button type="button" id="btnAsistDescartarCambios" class="asist2-btn">Descartar cambios</button>
+          <button type="button" id="btnAsistGuardarCambios" class="asist2-btn asist2-btn-primary">💾 Guardar cambios</button>
+        </div>
+      ` : ''}
     </div>
   `;
 
   $('btnAsistEliminarEvento')?.addEventListener('click', () => eliminarEventoAsistencia(eventoId));
-  $('btnAsistAgregarSocioBuscar')?.addEventListener('click', () => buscarSocioParaAgregar(eventoId));
-  cont.querySelectorAll('.asist-quitar-socio').forEach(btn => {
-    btn.addEventListener('click', () => quitarSocioDeEvento(eventoId, btn.dataset.socioId));
+  $('btnAsistAgregarSocioBuscar')?.addEventListener('click', () => buscarSocioParaAgregar());
+  $('btnAsistDescartarCambios')?.addEventListener('click', () => verDetalleEventoAsistencia(eventoId));
+  $('btnAsistGuardarCambios')?.addEventListener('click', () => guardarCambiosDetalleEvento());
+  cont.querySelectorAll('.asist-toggle-quitar').forEach(btn => {
+    btn.addEventListener('click', () => toggleQuitarSocio(btn.dataset.socioId));
   });
 }
 
-// ✅ NUEVO: quita a un socio puntual (convocado o invitado) de un evento
-// ya guardado, sin eliminar el evento completo.
-async function quitarSocioDeEvento(eventoId, socioId) {
-  const confirmado = confirm('¿Quitar a este socio de este entrenamiento/partido?');
-  if (!confirmado) return;
-
-  const clubId = getActiveClubId();
-  const { res, data } = await fetchAuth(`/club/${clubId}/asistencia/${eventoId}/socio/${socioId}`, { method: 'DELETE' });
-
-  if (!res.ok || !data.ok) {
-    alert(data.error || 'No se pudo quitar al socio.');
-    return;
-  }
-
-  await verDetalleEventoAsistencia(eventoId);
-  await loadAsistReporteMes();
+// ✅ NUEVO: marca/desmarca localmente a un socio para quitarlo del
+// evento. No pega al servidor hasta "Guardar cambios".
+function toggleQuitarSocio(socioId) {
+  if (!asistDetalleEdit) return;
+  const item = asistDetalleEdit.items.find(d => String(d.socio_id) === String(socioId));
+  if (!item) return;
+  item._quitar = !item._quitar;
+  asistDetalleEdit.dirty = true;
+  renderDetalleEventoEdit();
 }
 
 async function eliminarEventoAsistencia(eventoId) {
@@ -3149,11 +3188,12 @@ async function eliminarEventoAsistencia(eventoId) {
     return;
   }
 
+  asistDetalleEdit = null;
   $('asistDetalleDia').innerHTML = '<div class="muted small">Evento eliminado. Hacé clic en otro entrenamiento o partido para ver el detalle.</div>';
   await loadAsistReporteMes();
 }
 
-async function buscarSocioParaAgregar(eventoId) {
+async function buscarSocioParaAgregar() {
   const input = $('asistAgregarSocioInput');
   const cont = $('asistAgregarSocioResultados');
   const q = (input?.value || '').trim();
@@ -3178,25 +3218,92 @@ async function buscarSocioParaAgregar(eventoId) {
   cont.innerHTML = socios.map(s => `
     <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
       <span>${s.apellido}, ${s.nombre} <span class="muted small">(${s.categoria})</span></span>
-      <button type="button" class="asist-confirmar-agregar navbtn navbtn--top" data-id="${s.id}" style="padding:2px 8px; font-size:12px;">+ Agregar</button>
+      <button type="button" class="asist-confirmar-agregar navbtn navbtn--top" data-id="${s.id}" data-nombre="${s.nombre}" data-apellido="${s.apellido}" data-numero="${s.numero_socio ?? ''}" style="padding:2px 8px; font-size:12px;">+ Agregar</button>
     </div>
   `).join('');
 
   cont.querySelectorAll('.asist-confirmar-agregar').forEach(btn => {
-    btn.addEventListener('click', () => agregarSocioAEvento(eventoId, btn.dataset.id));
+    btn.addEventListener('click', () => agregarSocioLocal({
+      id: btn.dataset.id,
+      nombre: btn.dataset.nombre,
+      apellido: btn.dataset.apellido,
+      numero_socio: btn.dataset.numero
+    }));
   });
 }
 
-async function agregarSocioAEvento(eventoId, socioId) {
+// ✅ NUEVO: agrega (o reactiva, o ajusta) un socio en el estado local de
+// edición. No pega al servidor hasta "Guardar cambios". Si el socio ya
+// estaba cargado en el evento, en vez de tirar error pregunta si se le
+// quiere cambiar la condición (presente/ausente).
+function agregarSocioLocal(socio) {
+  if (!asistDetalleEdit) return;
+
+  const existente = asistDetalleEdit.items.find(d => String(d.socio_id) === String(socio.id));
+
+  if (existente && existente._quitar) {
+    // Estaba marcado para quitar en esta misma edición -> se deshace.
+    existente._quitar = false;
+    asistDetalleEdit.dirty = true;
+    renderDetalleEventoEdit();
+    return;
+  }
+
+  if (existente) {
+    const estadoActual = existente.presente ? 'Presente' : 'Ausente';
+    const estadoNuevo = existente.presente ? 'Ausente' : 'Presente';
+    const cambiar = confirm(`${socio.apellido}, ${socio.nombre} ya está cargado como ${estadoActual}. ¿Querés cambiarlo a ${estadoNuevo}?`);
+    if (cambiar) {
+      existente.presente = !existente.presente;
+      asistDetalleEdit.dirty = true;
+      renderDetalleEventoEdit();
+    }
+    return;
+  }
+
+  // No estaba cargado -> se agrega como convocado presente (mismo
+  // criterio que ya usaba "agregar socio que faltó cargar"; el origen y
+  // la categoría real se recalculan de nuevo en el servidor al guardar).
+  asistDetalleEdit.items.push({
+    socio_id: socio.id,
+    nombre: socio.nombre,
+    apellido: socio.apellido,
+    numero_socio: socio.numero_socio,
+    categoria_socio: asistDetalleEdit.evento.categoria,
+    origen: 'convocado',
+    presente: true,
+    _quitar: false,
+    _nuevo: true
+  });
+  asistDetalleEdit.dirty = true;
+  renderDetalleEventoEdit();
+}
+
+// ✅ NUEVO: manda TODOS los cambios pendientes (quitar / agregar /
+// cambiar presente-ausente) juntos, en un solo pedido al servidor.
+async function guardarCambiosDetalleEvento() {
+  if (!asistDetalleEdit) return;
+
+  const { eventoId, items } = asistDetalleEdit;
+
+  const quitar = items.filter(d => d._quitar && !d._nuevo).map(d => d.socio_id);
+  const agregarOModificar = items
+    .filter(d => !d._quitar)
+    .map(d => ({ socioId: d.socio_id, presente: !!d.presente }));
+
+  const btn = $('btnAsistGuardarCambios');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
   const clubId = getActiveClubId();
-  const { res, data } = await fetchAuth(`/club/${clubId}/asistencia/${eventoId}/socio`, {
-    method: 'POST',
+  const { res, data } = await fetchAuth(`/club/${clubId}/asistencia/${eventoId}/detalle`, {
+    method: 'PUT',
     json: true,
-    body: JSON.stringify({ socioId, presente: true })
+    body: JSON.stringify({ quitar, agregarOModificar })
   });
 
   if (!res.ok || !data.ok) {
-    alert(data.error || 'No se pudo agregar el socio.');
+    alert(data.error || 'No se pudieron guardar los cambios.');
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar cambios'; }
     return;
   }
 

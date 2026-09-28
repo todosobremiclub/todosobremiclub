@@ -412,4 +412,93 @@ router.delete('/:clubId/asistencia/:eventoId/socio/:socioId', requireAuth, requi
   }
 });
 
+// ============================================================
+// PUT /club/:clubId/asistencia/:eventoId/detalle
+// Aplica en un solo paso varios cambios sobre un evento de asistencia
+// ya guardado: quitar socios y/o agregar socios nuevos o cambiarles la
+// condición (presente/ausente). Pensado para el modo "editar" del
+// detalle del evento (panel y app): el usuario arma todos los cambios
+// en pantalla y recién acá se guardan todos juntos, en una sola
+// transacción.
+// body: {
+//   quitar: [socioId, ...],
+//   agregarOModificar: [{ socioId, presente }, ...]
+// }
+// ============================================================
+router.put('/:clubId/asistencia/:eventoId/detalle', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, eventoId } = req.params;
+  const { quitar = [], agregarOModificar = [] } = req.body ?? {};
+
+  try {
+    const rEvento = await db.query(
+      `SELECT id, categoria FROM asistencia_eventos WHERE id = $1 AND club_id = $2`,
+      [eventoId, clubId]
+    );
+    if (!rEvento.rowCount) {
+      return res.status(404).json({ ok: false, error: 'Evento no encontrado' });
+    }
+    const categoriaEvento = rEvento.rows[0].categoria;
+
+    const quitarIds = Array.isArray(quitar) ? quitar.filter(Boolean) : [];
+    const upserts = Array.isArray(agregarOModificar)
+      ? agregarOModificar.filter((u) => u?.socioId)
+      : [];
+
+    await db.query('BEGIN');
+
+    if (quitarIds.length) {
+      await db.query(
+        `DELETE FROM asistencia_detalle WHERE evento_id = $1 AND socio_id = ANY($2::uuid[])`,
+        [eventoId, quitarIds]
+      );
+    }
+
+    if (upserts.length) {
+      const socioIds = [...new Set(upserts.map((u) => u.socioId))];
+      const rSocios = await db.query(
+        `SELECT id, categoria FROM socios WHERE club_id = $1 AND id = ANY($2::uuid[])`,
+        [clubId, socioIds]
+      );
+      const categoriaPorSocio = new Map(rSocios.rows.map((s) => [String(s.id), s.categoria]));
+
+      if (categoriaPorSocio.size !== socioIds.length) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ ok: false, error: 'Alguno de los socios no pertenece a este club' });
+      }
+
+      for (const u of upserts) {
+        const categoriaSocio = categoriaPorSocio.get(String(u.socioId));
+        const origen = categoriaSocio === categoriaEvento ? 'convocado' : 'invitado';
+
+        const rExistente = await db.query(
+          `SELECT id FROM asistencia_detalle WHERE evento_id = $1 AND socio_id = $2`,
+          [eventoId, u.socioId]
+        );
+
+        if (rExistente.rowCount) {
+          await db.query(
+            `UPDATE asistencia_detalle
+               SET presente = $1, categoria_socio = $2, origen = $3
+             WHERE evento_id = $4 AND socio_id = $5`,
+            [!!u.presente, categoriaSocio, origen, eventoId, u.socioId]
+          );
+        } else {
+          await db.query(
+            `INSERT INTO asistencia_detalle (evento_id, socio_id, categoria_socio, origen, presente)
+             VALUES ($1,$2,$3,$4,$5)`,
+            [eventoId, u.socioId, categoriaSocio, origen, !!u.presente]
+          );
+        }
+      }
+    }
+
+    await db.query('COMMIT');
+    res.json({ ok: true });
+  } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ asistencia PUT detalle', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 module.exports = router;
