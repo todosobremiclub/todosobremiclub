@@ -238,12 +238,23 @@
       },
       events: [],
 
-      // ✅ Encabezado de días custom (estilo calendario moderno)
+      // ✅ Encabezado de días custom (estilo calendario moderno).
+      //
+      // 🔧 FIX: en la vista de mes (dayGridMonth), FullCalendar tiene un bug
+      // conocido donde el "arg.date" que le llega a dayHeaderContent no es
+      // el correcto (ver https://github.com/fullcalendar/fullcalendar/issues/5854),
+      // lo que hacía que el nombre del día (DOM/LUN/MAR/...) quedara corrido
+      // una columna respecto a los números de día reales (ej: el 28, un
+      // lunes, aparecía bajo la columna "DOM"). Los números de día sí se
+      // calculan bien porque los arma FullCalendar internamente, sin pasar
+      // por este callback.
+      //
+      // La solución es no confiar en "arg.date" para el nombre del día, y
+      // usar en cambio "arg.dow" (0=domingo … 6=sábado), que FullCalendar
+      // sí informa correctamente para cada columna del encabezado.
       dayHeaderContent: (arg) => {
-        const dow = arg.date
-          .toLocaleDateString('es-AR', { weekday: 'short' })
-          .replace('.', '');
-        const dowCap = dow.charAt(0).toUpperCase() + dow.slice(1);
+        const DOW_CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        const dowCap = DOW_CORTO[arg.dow];
 
         if (arg.view.type === 'dayGridMonth') {
           return { html: `<span class="ag-dh-dow">${dowCap}</span>` };
