@@ -72,6 +72,7 @@
   // Estado
   // =============================
   let productosCache = [];
+  let categoriasProductoCache = []; // ✅ NUEVO: tipificación de productos (Configuración > Tipos de producto)
   let editingId = null;
   let currentImagenUrl = null;
   let filtroProductos = ''; // ✅ NUEVO: buscador de productos publicados
@@ -153,6 +154,28 @@
   }
 
   // =============================
+  // Tipificación de productos (Configuración > Tipos de producto)
+  // =============================
+  async function loadCategoriasProducto() {
+    const clubId = getActiveClubId();
+    const select = $('#tiendaCategoria');
+
+    try {
+      const { res, data } = await fetchAuth(`/club/${clubId}/config/tienda-categorias`);
+      categoriasProductoCache = (res.ok && data.ok) ? (data.categorias || []) : [];
+    } catch (e) {
+      console.error('loadCategoriasProducto:', e);
+      categoriasProductoCache = [];
+    }
+
+    if (!select) return;
+    const valorActual = select.value;
+    select.innerHTML = '<option value="">Sin tipificar</option>' +
+      categoriasProductoCache.map(c => `<option value="${c.id}">${escapeHtml(c.nombre)}</option>`).join('');
+    select.value = valorActual || '';
+  }
+
+  // =============================
   // Carga / render de productos
   // =============================
   async function loadProductos() {
@@ -160,19 +183,19 @@
     const tbody = $('#tiendaTableBody');
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="6">Cargando productos...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">Cargando productos...</td></tr>`;
 
     try {
       const { res, data } = await fetchAuth(`/club/${clubId}/tienda/productos`);
       if (!res.ok || !data.ok) {
-        tbody.innerHTML = `<tr><td colspan="6">Error cargando productos</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7">Error cargando productos</td></tr>`;
         return;
       }
       productosCache = data.productos || [];
       renderProductosTable();
     } catch (e) {
       console.error('loadProductos:', e);
-      tbody.innerHTML = `<tr><td colspan="6">Error cargando productos</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7">Error cargando productos</td></tr>`;
     }
   }
 
@@ -196,12 +219,12 @@
     const productos = productosFiltrados();
 
     if (!productosCache.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay productos publicados todavía.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="muted">No hay productos publicados todavía.</td></tr>`;
       return;
     }
 
     if (!productos.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="muted">No se encontraron productos que coincidan con "${escapeHtml(filtroProductos.trim())}".</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="muted">No se encontraron productos que coincidan con "${escapeHtml(filtroProductos.trim())}".</td></tr>`;
       return;
     }
 
@@ -223,6 +246,7 @@
             ${escapeHtml((p.descripcion || '').slice(0, 100))}${(p.descripcion || '').length > 100 ? '…' : ''}
           </div>
         </td>
+        <td>${p.categoria_nombre ? escapeHtml(p.categoria_nombre) : '<span class="muted">—</span>'}</td>
         <td>${formatPrecio(p.precio)}</td>
         <td>${escapeHtml(String(p.stock ?? 0))}</td>
         <td>
@@ -254,6 +278,7 @@
     if ($('#tiendaDescripcion')) $('#tiendaDescripcion').value = '';
     if ($('#tiendaPrecio')) $('#tiendaPrecio').value = '';
     if ($('#tiendaStock')) $('#tiendaStock').value = '';
+    if ($('#tiendaCategoria')) $('#tiendaCategoria').value = '';
     if ($('#tiendaImagen')) $('#tiendaImagen').value = '';
 
     updatePreview();
@@ -273,6 +298,7 @@
     $('#tiendaDescripcion').value = p.descripcion ?? '';
     $('#tiendaPrecio').value = p.precio ?? '';
     $('#tiendaStock').value = p.stock ?? '';
+    if ($('#tiendaCategoria')) $('#tiendaCategoria').value = p.categoria_id ?? '';
     $('#tiendaImagen').value = '';
 
     updatePreview();
@@ -311,6 +337,7 @@
       descripcion: descripcion || null,
       precio: precioNum,
       stock: stockNum,
+      categoria_id: $('#tiendaCategoria')?.value || null,
     };
 
     const fileInput = $('#tiendaImagen');
@@ -556,14 +583,26 @@
     });
   }
 
+  function pagoLabelTexto(estadoPago, monto, formaPago) {
+    if (estadoPago === 'parcial') {
+      const cuentaTxt = formaPago ? ` · ${formaPago}` : '';
+      return `Abonado: ${formatPrecio(monto)}${cuentaTxt}`;
+    }
+    if (estadoPago === 'pagado') {
+      return formaPago ? `Pagado · ${formaPago}` : 'Pagado';
+    }
+    return '';
+  }
+
   function estadoPagoSelectHtml(r, act) {
     const actual = r.estado_pago || 'sin_pago';
     const monto = Number(r.monto_pagado || 0);
     const opciones = ESTADOS_PAGO_TIENDA
       .map(([val, label]) => `<option value="${val}"${val === actual ? ' selected' : ''}>${label}</option>`)
       .join('');
-    const montoLabelHtml = (actual === 'parcial' && monto > 0)
-      ? `<div class="tw-monto-pagado-label">Abonado: ${formatPrecio(monto)}</div>`
+    const textoLabel = pagoLabelTexto(actual, monto, r.forma_pago);
+    const montoLabelHtml = textoLabel
+      ? `<div class="tw-monto-pagado-label">${escapeHtml(textoLabel)}</div>`
       : '';
     return `
       <select class="tw-estado-pago-select" data-act="${act}" data-estado="${actual}" data-monto="${monto}">
@@ -571,6 +610,70 @@
       </select>
       ${montoLabelHtml}
     `;
+  }
+
+  // ✅ NUEVO: modal que pide el monto (solo para "parcial") y siempre la
+  // cuenta / forma de pago (misma lista que se usa para cargar un pago de
+  // cuota o un ingreso general: /club/:clubId/config/responsables).
+  // Devuelve { monto, cuentaId } o null si el admin canceló.
+  function pedirDetallePago({ clubId, requiereMonto, montoSugerido }) {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('modalEstadoPagoOverlay');
+      if (!overlay) {
+        // Fallback defensivo por si el modal no está en el HTML.
+        const monto = requiereMonto ? prompt('Monto abonado:', montoSugerido || '') : null;
+        if (requiereMonto && monto === null) return resolve(null);
+        resolve({ monto: requiereMonto ? Number(monto) : null, cuentaId: null });
+        return;
+      }
+
+      const montoWrap = document.getElementById('modalEstadoPagoMontoWrap');
+      const montoInput = document.getElementById('modalEstadoPagoMonto');
+      const cuentaSelect = document.getElementById('modalEstadoPagoCuenta');
+      const btnConfirm = document.getElementById('modalEstadoPagoConfirm');
+      const btnCancel = document.getElementById('modalEstadoPagoCancel');
+
+      montoWrap.style.display = requiereMonto ? '' : 'none';
+      montoInput.value = montoSugerido || '';
+      cuentaSelect.innerHTML = '<option value="">Cargando cuentas...</option>';
+
+      overlay.style.display = 'flex';
+
+      fetchAuth(`/club/${clubId}/config/responsables`).then(({ res, data }) => {
+        const cuentas = (res.ok && data.ok) ? (data.responsables || []) : [];
+        cuentaSelect.innerHTML = cuentas.length
+          ? cuentas.map(c => `<option value="${c.id}">${escapeHtml(c.nombre)}</option>`).join('')
+          : '<option value="">(no hay cuentas configuradas)</option>';
+      });
+
+      function cerrar(resultado) {
+        overlay.style.display = 'none';
+        btnConfirm.removeEventListener('click', onConfirm);
+        btnCancel.removeEventListener('click', onCancel);
+        resolve(resultado);
+      }
+
+      function onConfirm() {
+        if (!cuentaSelect.value) {
+          alert('Seleccioná la cuenta / forma de pago.');
+          return;
+        }
+        if (requiereMonto) {
+          const montoNum = Number(String(montoInput.value).replace(',', '.'));
+          if (!Number.isFinite(montoNum) || montoNum <= 0) {
+            alert('Ingresá un monto válido, mayor a 0.');
+            return;
+          }
+          cerrar({ monto: montoNum, cuentaId: cuentaSelect.value });
+        } else {
+          cerrar({ monto: null, cuentaId: cuentaSelect.value });
+        }
+      }
+      function onCancel() { cerrar(null); }
+
+      btnConfirm.addEventListener('click', onConfirm);
+      btnCancel.addEventListener('click', onCancel);
+    });
   }
 
   // ✅ Compartido entre el Historial de ventas (tienda.js) y la tabla
@@ -588,20 +691,18 @@
 
     const body = { estado_pago: nuevoEstado };
 
-    if (nuevoEstado === 'parcial') {
-      const sugerido = montoAnterior && montoAnterior !== '0' ? montoAnterior : '';
-      const ingresado = prompt('¿Cuánto abonó el socio como adelanto/seña? (solo números, ej: 5000)', sugerido);
-      if (ingresado === null) {
+    if (nuevoEstado === 'parcial' || nuevoEstado === 'pagado') {
+      const detalle = await pedirDetallePago({
+        clubId,
+        requiereMonto: nuevoEstado === 'parcial',
+        montoSugerido: montoAnterior && montoAnterior !== '0' ? montoAnterior : '',
+      });
+      if (!detalle) {
         select.value = estadoAnterior;
         return;
       }
-      const montoNum = Number(String(ingresado).replace(',', '.'));
-      if (!Number.isFinite(montoNum) || montoNum <= 0) {
-        alert('Ingresá un monto válido, mayor a 0.');
-        select.value = estadoAnterior;
-        return;
-      }
-      body.monto_pagado = montoNum;
+      if (nuevoEstado === 'parcial') body.monto_pagado = detalle.monto;
+      body.cuenta_id = detalle.cuentaId;
     }
 
     const { res, data } = await fetchAuth(
@@ -618,20 +719,22 @@
     select.dataset.estado = data.reserva.estado_pago;
     select.dataset.monto = String(data.reserva.monto_pagado ?? 0);
 
-    // Actualiza también el registro en memoria y el label de "Abonado: $..."
-    // sin tener que recargar todo el historial contra el servidor.
+    // Actualiza también el registro en memoria y el label ("Abonado: $... ·
+    // cuenta" / "Pagado · cuenta") sin recargar todo el historial.
     const item = historialVentasCache.find(x => String(x.id) === String(rowId));
     if (item) {
       item.estado_pago = data.reserva.estado_pago;
       item.monto_pagado = data.reserva.monto_pagado;
+      item.forma_pago = data.reserva.forma_pago;
     }
     const wrapper = select.parentElement;
     const labelPrevio = wrapper?.querySelector('.tw-monto-pagado-label');
     if (labelPrevio) labelPrevio.remove();
-    if (data.reserva.estado_pago === 'parcial' && Number(data.reserva.monto_pagado) > 0) {
+    const textoLabel = pagoLabelTexto(data.reserva.estado_pago, data.reserva.monto_pagado, data.reserva.forma_pago);
+    if (textoLabel) {
       const div = document.createElement('div');
       div.className = 'tw-monto-pagado-label';
-      div.textContent = `Abonado: ${formatPrecio(data.reserva.monto_pagado)}`;
+      div.textContent = textoLabel;
       select.insertAdjacentElement('afterend', div);
     }
   }
@@ -698,6 +801,7 @@
   async function initTiendaSection() {
     bindOnce();
     resetForm();
+    await loadCategoriasProducto();
     await loadProductos();
     await loadHistorialVentas();
   }

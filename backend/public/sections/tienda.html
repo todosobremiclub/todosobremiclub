@@ -33,6 +33,14 @@
           </div>
         </div>
 
+        <label style="margin-top:10px;">Tipo de producto</label>
+        <select id="tiendaCategoria">
+          <option value="">Sin tipificar</option>
+        </select>
+        <div class="muted" style="margin-top:4px;">
+          Los tipos se cargan en Configuración, debajo de "Cuentas $".
+        </div>
+
         <label style="margin-top:10px;">Imagen</label>
         <div class="tw-file-row">
           <input type="file" id="tiendaImagen" accept="image/*" />
@@ -90,6 +98,7 @@
         <tr>
           <th style="width:90px;">Imagen</th>
           <th>Nombre</th>
+          <th style="width:130px;">Tipo</th>
           <th style="width:110px;">Precio</th>
           <th style="width:90px;">Stock</th>
           <th style="width:100px;">Estado</th>
@@ -125,6 +134,25 @@
   </div>
 
 </section>
+
+<!-- ================= MODAL: REGISTRAR PAGO (adelanto/seña o pago completo) ================= -->
+<div id="modalEstadoPagoOverlay" class="modal-estadopago-overlay" style="display:none;">
+  <div class="modal-estadopago-box">
+    <h3 style="margin-top:0;">Registrar pago</h3>
+    <div id="modalEstadoPagoMontoWrap" style="margin-bottom:12px;">
+      <label>Monto abonado</label>
+      <input type="number" id="modalEstadoPagoMonto" min="0" step="0.01" placeholder="0.00" />
+    </div>
+    <div>
+      <label>Cuenta / forma de pago</label>
+      <select id="modalEstadoPagoCuenta"></select>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+      <button id="modalEstadoPagoCancel" class="btn btn-secondary">Cancelar</button>
+      <button id="modalEstadoPagoConfirm" class="btn-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <style>
   /* =========================
@@ -285,6 +313,56 @@
     color: #b45309;
     font-weight: 600;
   }
+
+  /* =========================
+     MODAL: REGISTRAR PAGO
+  ========================= */
+  .modal-estadopago-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    display: flex;
+  }
+
+  .modal-estadopago-box {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 380px;
+    width: 90%;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  }
+
+  .modal-estadopago-box label {
+    display: block;
+    font-size: 0.85rem;
+    color: #444;
+    margin-bottom: 6px;
+  }
+
+  .modal-estadopago-box input[type="number"],
+  .modal-estadopago-box select {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    background: #fff;
+  }
+
+  .modal-estadopago-box .btn-ok {
+    background-color: #16a34a;
+    border: 1px solid #16a34a;
+    color: #ffffff;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+  .modal-estadopago-box .btn-ok:hover { background-color: #15803d; border-color: #15803d; }
 
   .tw-file-row {
     display: flex;

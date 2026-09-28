@@ -924,6 +924,78 @@ async function deleteResponsable(id) {
 }
 
 /* ============================================================
+   TIPOS DE PRODUCTO (TIENDA ONLINE)
+   Se usan para tipificar cada producto al publicarlo/editarlo en la
+   sección Tienda (mismo patrón que Cuentas $ / responsables_gasto).
+============================================================ */
+
+function tiendaCategoriasUrl() {
+  return `/club/${getActiveClubId()}/config/tienda-categorias`;
+}
+
+async function loadTiendaCategorias() {
+  // Esta tarjeta solo tiene sentido si el club tiene la Tienda Online
+  // habilitada (flag que activa el superadmin).
+  const card = document.getElementById('tiendaCategoriasCard');
+  const habilitada = window.currentClub?.tienda_habilitada === true;
+  if (card) card.style.display = habilitada ? '' : 'none';
+  if (!habilitada) return;
+
+  const res = await fetchAuth(tiendaCategoriasUrl());
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    alert(data.error ?? 'Error cargando tipos de producto');
+    return;
+  }
+
+  renderTiendaCategorias(data.categorias ?? []);
+}
+
+function renderTiendaCategorias(items) {
+  const tbody = $('tiendaCategoriasTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  items.forEach(c => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" id="tcat_${c.id}" value="${escapeHtml(c.nombre)}" /></td>
+      <td style="text-align:center"><button class="btn-save" data-act="save-tcat" data-id="${c.id}">💾</button></td>
+      <td style="text-align:center"><button class="btn-del" data-act="del-tcat" data-id="${c.id}">🗑️</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function createTiendaCategoria(nombre) {
+  const res = await fetchAuth(tiendaCategoriasUrl(), {
+    method: 'POST',
+    json: true,
+    body: JSON.stringify({ nombre })
+  });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando tipo de producto');
+}
+
+async function updateTiendaCategoria(id, nombre) {
+  const res = await fetchAuth(`${tiendaCategoriasUrl()}/${id}`, {
+    method: 'PUT',
+    json: true,
+    body: JSON.stringify({ nombre })
+  });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error guardando tipo de producto');
+}
+
+async function deleteTiendaCategoria(id) {
+  const res = await fetchAuth(`${tiendaCategoriasUrl()}/${id}`, { method: 'DELETE' });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error eliminando tipo de producto');
+}
+
+/* ============================================================
    EVENTOS
 ============================================================ */
 
@@ -1129,6 +1201,59 @@ function bindEvents() {
       await createResponsable(nombre);
       input.value = '';
       await loadResponsables();
+    } catch (err) {
+      alert(err.message ?? 'Error');
+    }
+  });
+
+  // tipos de producto (tienda)
+  $('tiendaCategoriasTableBody')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const act = btn.dataset.act;
+    const id = btn.dataset.id;
+
+    if (act === 'save-tcat') {
+      const nombre = ($(`tcat_${id}`)?.value ?? '').trim();
+      if (!nombre) return alert('Nombre vacío');
+      btn.disabled = true;
+      try {
+        await updateTiendaCategoria(id, nombre);
+        await loadTiendaCategorias();
+      } catch (err) {
+        alert(err.message ?? 'Error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    if (act === 'del-tcat') {
+      if (!confirm('¿Eliminar este tipo de producto?')) return;
+      btn.disabled = true;
+      try {
+        await deleteTiendaCategoria(id);
+        await loadTiendaCategorias();
+      } catch (err) {
+        alert(err.message ?? 'Error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  });
+
+  $('btnTiendaCategoriaAdd')?.addEventListener('click', async () => {
+    const input = document.getElementById('newTiendaCategoriaNombre');
+    const nombre = (input?.value ?? '').trim();
+
+    if (!nombre) {
+      alert('Ingresá un nombre de tipo de producto');
+      return;
+    }
+
+    try {
+      await createTiendaCategoria(nombre);
+      input.value = '';
+      await loadTiendaCategorias();
     } catch (err) {
       alert(err.message ?? 'Error');
     }
@@ -1367,6 +1492,7 @@ async function initConfiguracionSection() {
   await loadTiposGasto();
   await loadTiposIngreso(); // importante para que se llene la tabla
   await loadResponsables();
+  await loadTiendaCategorias();
   await loadActividades();
   await loadActividadesAdicionales();
 

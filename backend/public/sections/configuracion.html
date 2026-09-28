@@ -236,6 +236,37 @@
     </div>
   </div>
 
+  <!-- =========================================================
+       TIPOS DE PRODUCTO (TIENDA ONLINE)
+       Se usan para tipificar cada producto al publicarlo/editarlo en la
+       sección Tienda. Solo se muestra si el club tiene la Tienda Online
+       habilitada (ver configuracion.js: window.currentClub.tienda_habilitada).
+  ========================================================== -->
+  <div id="tiendaCategoriasCard" class="config-card config-collapsible collapsed" style="display:none;">
+    <div class="config-header">
+      <span class="arrow">▶</span>
+      <h3 class="config-title">🏷️ Tipos de producto (Tienda)</h3>
+    </div>
+
+    <div class="config-content">
+      <div class="config-input-row">
+        <input id="newTiendaCategoriaNombre" placeholder="Nombre (ej: Indumentaria, Accesorios)">
+        <button id="btnTiendaCategoriaAdd" class="btn-add">➕ Agregar</button>
+      </div>
+
+      <table class="config-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th style="width:90px;">Guardar</th>
+            <th style="width:90px;">Eliminar</th>
+          </tr>
+        </thead>
+        <tbody id="tiendaCategoriasTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
 </section>
 
 <style>

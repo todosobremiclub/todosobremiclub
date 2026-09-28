@@ -1059,4 +1059,90 @@ router.delete('/:clubId/config/responsables/:id', requireAuth, requireClubAccess
   }
 });
 
+/* ============================================================
+   TIPOS DE PRODUCTO (TIENDA ONLINE)
+   GET/POST/PUT/DELETE /club/:clubId/config/tienda-categorias
+   Se usan para "tipificar" cada producto al publicarlo/editarlo en la
+   sección Tienda (ver POST/PUT /club/:clubId/tienda/productos en
+   tiendaRoutes.js). Mismo patrón que "Cuentas $" (responsables_gasto).
+============================================================ */
+router.get('/:clubId/config/tienda-categorias', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const r = await db.query(
+      `SELECT id, nombre
+       FROM tienda_categorias
+       WHERE club_id = $1 AND activo = true
+       ORDER BY nombre ASC`,
+      [clubId]
+    );
+    res.json({ ok: true, categorias: r.rows });
+  } catch (e) {
+    console.error('❌ get tienda-categorias', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/:clubId/config/tienda-categorias', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId } = req.params;
+  const { nombre } = req.body || {};
+  try {
+    if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
+
+    const r = await db.query(
+      `INSERT INTO tienda_categorias (id, club_id, nombre, activo, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, true, NOW())
+       RETURNING id, nombre`,
+      [clubId, nombre.trim()]
+    );
+
+    res.json({ ok: true, categoria: r.rows[0] });
+  } catch (e) {
+    console.error('❌ create tienda-categoria', e);
+    if (e.code === '23505') return res.status(409).json({ ok: false, error: 'Esa tipificación ya existe' });
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.put('/:clubId/config/tienda-categorias/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  const { nombre } = req.body || {};
+  try {
+    if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
+
+    const r = await db.query(
+      `UPDATE tienda_categorias
+       SET nombre=$1, updated_at=NOW()
+       WHERE id=$2 AND club_id=$3
+       RETURNING id, nombre`,
+      [nombre.trim(), id, clubId]
+    );
+
+    if (!r.rowCount) return res.status(404).json({ ok: false, error: 'No encontrado' });
+    res.json({ ok: true, categoria: r.rows[0] });
+  } catch (e) {
+    console.error('❌ update tienda-categoria', e);
+    if (e.code === '23505') return res.status(409).json({ ok: false, error: 'Esa tipificación ya existe' });
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.delete('/:clubId/config/tienda-categorias/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    const r = await db.query(
+      `UPDATE tienda_categorias
+       SET activo=false, updated_at=NOW()
+       WHERE id=$1 AND club_id=$2`,
+      [id, clubId]
+    );
+
+    if (!r.rowCount) return res.status(404).json({ ok: false, error: 'No encontrado' });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ delete tienda-categoria', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 module.exports = router;
