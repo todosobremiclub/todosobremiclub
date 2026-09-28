@@ -309,6 +309,66 @@ async function crearYEnviarNotificacion({ clubId, titulo, cuerpo, data, canal })
   };
 }
 
+// ===============================
+// ✅ NUEVO (Tienda Online, paso 6): notificación push a UN socio puntual,
+// no a un topic segmentado del club. Usa un topic personal por socio al
+// que la app se suscribe en PushService.syncTopicsForSocio() (ver
+// push_service.dart, _topicSocio). Pensado para avisos 1 a 1 como
+// "tu reserva fue aceptada/rechazada".
+//
+// No inserta nada en la tabla `notificaciones` (esa tabla es para los
+// avisos masivos que arma el panel, no para estos eventos puntuales del
+// flujo de Tienda) ni relanza excepción si el envío falla: un socio que
+// todavía no sincronizó el topic (app cerrada, primera vez, etc.) no debe
+// hacer fallar la acción del admin (aceptar/rechazar la reserva).
+// ===============================
+function topicSocio(clubId, socioId) {
+  return `club_${clubId}_socio_${socioId}`;
+}
+
+async function notificarSocio({ clubId, socioId, titulo, cuerpo, data }) {
+  const admin = initFirebase();
+  if (!admin) {
+    console.warn('⚠ notificarSocio: Firebase no inicializado (faltan FIREBASE_*), no se envía push');
+    return { ok: false, error: 'Firebase no inicializado' };
+  }
+
+  const topic = topicSocio(clubId, socioId);
+
+  const extraData = {};
+  if (data && typeof data === 'object') {
+    for (const [k, v] of Object.entries(data)) {
+      if (v === undefined || v === null) continue;
+      extraData[k] = String(v);
+    }
+  }
+
+  const message = {
+    topic,
+    notification: {
+      title: String(titulo ?? '').slice(0, 120),
+      body: String(cuerpo ?? '').slice(0, 200),
+    },
+    data: {
+      ...extraData,
+      type: extraData.type || 'notificacion_personal',
+      clubId: String(clubId),
+      socioId: String(socioId),
+    },
+  };
+
+  try {
+    const messageId = await admin.messaging().send(message);
+    return { ok: true, messageId };
+  } catch (e) {
+    // No debe romper el flujo principal (ej: aceptar/rechazar una reserva
+    // de tienda) si el socio todavía no tiene el topic suscripto o falla
+    // el envío a Firebase.
+    console.warn(`⚠ notificarSocio: no se pudo enviar a ${topic}:`, e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 module.exports = {
   slugForTopic,
   DESTINO_TIPOS_VALIDOS,
@@ -317,4 +377,6 @@ module.exports = {
   sendPushToClubTopic,
   buildSociosWhereFromDestino,
   crearYEnviarNotificacion,
+  topicSocio,
+  notificarSocio,
 };

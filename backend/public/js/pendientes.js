@@ -295,6 +295,123 @@ tr.innerHTML = `
   }
 
   // =========================
+  // RESERVAS DE TIENDA (NUEVO)
+  // =========================
+  function escapeHtmlPend(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function formatDateISOToDMY_pend(iso) {
+    if (!iso) return '';
+    const s = String(iso).slice(0, 10);
+    const [y, m, d] = s.split('-');
+    if (!y || !m || !d) return s;
+    return `${d}/${m}/${y}`;
+  }
+
+  function reservaImgHtml(r) {
+    return r.producto_imagen_url
+      ? `<img src="${escapeHtmlPend(r.producto_imagen_url)}" class="pend-mini" style="cursor:pointer;" onclick="window.open('${escapeHtmlPend(r.producto_imagen_url)}','_blank')" />`
+      : '—';
+  }
+
+  function reservaSocioLabel(r) {
+    return `#${r.numero_socio ?? '—'} ${escapeHtmlPend(r.socio_apellido ?? '')} ${escapeHtmlPend(r.socio_nombre ?? '')}`.trim();
+  }
+
+  function renderReservasTiendaPendientes(items) {
+    const tbody = $('reservasTiendaPendientesBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay reservas de tienda pendientes.</td></tr>`;
+      return;
+    }
+
+    items.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.dataset.id = r.id;
+
+      tr.innerHTML = `
+        <td>${reservaImgHtml(r)}</td>
+        <td><b>${escapeHtmlPend(r.producto_nombre)}</b></td>
+        <td>${reservaSocioLabel(r)}</td>
+        <td>${escapeHtmlPend(r.cantidad)}</td>
+        <td>${formatDateISOToDMY_pend(r.created_at)}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn-ok" data-act="r_aceptar">Aceptar</button>
+          <button data-act="r_rechazar" style="background:#ef4444;border-color:#ef4444;color:#fff;padding:6px 12px;border-radius:8px;">Rechazar</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderReservasTiendaARetirar(items) {
+    const tbody = $('reservasTiendaARetirarBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay reservas esperando retiro.</td></tr>`;
+      return;
+    }
+
+    items.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.dataset.id = r.id;
+
+      tr.innerHTML = `
+        <td>${reservaImgHtml(r)}</td>
+        <td><b>${escapeHtmlPend(r.producto_nombre)}</b></td>
+        <td>${reservaSocioLabel(r)}</td>
+        <td>${escapeHtmlPend(r.cantidad)}</td>
+        <td>${escapeHtmlPend(r.mensaje_admin || '—')}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn-ok" data-act="r_retirado">Marcar retirado</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadReservasTienda() {
+    const wrapper = $('tiendaReservasWrapper');
+    if (!wrapper) return;
+
+    // Solo mostramos este bloque si el club tiene Tienda Online habilitada.
+    const habilitada = window.currentClub?.tienda_habilitada === true;
+    wrapper.style.display = habilitada ? '' : 'none';
+    if (!habilitada) return;
+
+    const clubId = getActiveClubId();
+
+    const { res: resPend, data: dataPend } = await fetchAuth(`/club/${clubId}/tienda/reservas?estado=pendiente`);
+    if (!resPend.ok || !dataPend.ok) {
+      console.warn('No se pudieron cargar las reservas de tienda pendientes:', dataPend.error);
+      renderReservasTiendaPendientes([]);
+    } else {
+      renderReservasTiendaPendientes(dataPend.reservas || []);
+    }
+
+    const { res: resAcept, data: dataAcept } = await fetchAuth(`/club/${clubId}/tienda/reservas?estado=aceptada`);
+    if (!resAcept.ok || !dataAcept.ok) {
+      console.warn('No se pudieron cargar las reservas de tienda a retirar:', dataAcept.error);
+      renderReservasTiendaARetirar([]);
+    } else {
+      renderReservasTiendaARetirar(dataAcept.reservas || []);
+    }
+  }
+
+  // =========================
   // EVENTOS / ACCIONES (UNA SOLA VEZ)
   // =========================
   function bindOnce() {
@@ -444,6 +561,61 @@ await loadSociosPendientes();
         await loadTransferPendientes();
         return;
       }
+
+      // ======= RESERVAS DE TIENDA =======
+      if (btn.dataset.act === 'r_aceptar') {
+        const mensaje = prompt('Mensaje para el socio (opcional):') || null;
+
+        const { res, data } = await fetchAuth(
+          `/club/${clubId}/tienda/reservas/${rowId}/aceptar`,
+          { method: 'POST', json: true, body: JSON.stringify({ mensaje }) }
+        );
+
+        if (!res.ok || !data.ok) {
+          alert(data.error || 'Error aceptando la reserva');
+          return;
+        }
+
+        alert('✅ Reserva aceptada. Se descontó el stock del producto.');
+        await loadReservasTienda();
+        return;
+      }
+
+      if (btn.dataset.act === 'r_rechazar') {
+        const mensaje = prompt('Motivo del rechazo (opcional, se le muestra al socio):') || null;
+
+        const { res, data } = await fetchAuth(
+          `/club/${clubId}/tienda/reservas/${rowId}/rechazar`,
+          { method: 'POST', json: true, body: JSON.stringify({ mensaje }) }
+        );
+
+        if (!res.ok || !data.ok) {
+          alert(data.error || 'Error rechazando la reserva');
+          return;
+        }
+
+        alert('✅ Reserva rechazada');
+        await loadReservasTienda();
+        return;
+      }
+
+      if (btn.dataset.act === 'r_retirado') {
+        if (!confirm('¿Confirmar que el socio retiró el producto en el club?')) return;
+
+        const { res, data } = await fetchAuth(
+          `/club/${clubId}/tienda/reservas/${rowId}/retirado`,
+          { method: 'POST' }
+        );
+
+        if (!res.ok || !data.ok) {
+          alert(data.error || 'Error marcando la reserva como retirada');
+          return;
+        }
+
+        alert('✅ Reserva marcada como retirada');
+        await loadReservasTienda();
+        return;
+      }
     });
   }
 
@@ -454,6 +626,7 @@ await loadSociosPendientes();
     bindOnce();
     await loadSociosPendientes();
     await loadTransferPendientes();
+    await loadReservasTienda();
   }
 
   window.initPendientesSection = initPendientesSection;

@@ -42,6 +42,49 @@
     </table>
   </div>
 
+  <!-- ================= RESERVAS DE TIENDA (NUEVO) ================= -->
+  <!-- Todo este bloque se oculta por completo (ver pendientes.js) si el
+       club no tiene la Tienda Online habilitada (club.tienda_habilitada !== true). -->
+  <div id="tiendaReservasWrapper" style="display:none;">
+
+    <h2 style="margin:32px 0 16px;">🛒 Reservas de tienda pendientes</h2>
+
+    <div class="table-wrapper">
+      <table class="socios-table">
+        <thead>
+          <tr>
+            <th style="width:70px;">Imagen</th>
+            <th>Producto</th>
+            <th>Socio</th>
+            <th style="width:80px;">Cantidad</th>
+            <th style="width:110px;">Fecha</th>
+            <th style="width:170px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="reservasTiendaPendientesBody"></tbody>
+      </table>
+    </div>
+
+    <h2 style="margin:32px 0 16px;">📦 Tienda: a retirar (reservas aceptadas)</h2>
+
+    <div class="table-wrapper">
+      <table class="socios-table">
+        <thead>
+          <tr>
+            <th style="width:70px;">Imagen</th>
+            <th>Producto</th>
+            <th>Socio</th>
+            <th style="width:80px;">Cantidad</th>
+            <th>Mensaje al socio</th>
+            <th style="width:140px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="reservasTiendaARetirarBody"></tbody>
+      </table>
+    </div>
+
+  </div>
+
 </section>
 
 <!-- ================= MODAL COMPARACIÓN: ACTUALIZAR INFORMACIÓN ================= -->

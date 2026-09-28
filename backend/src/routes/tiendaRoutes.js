@@ -10,6 +10,7 @@ const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 const { initFirebase } = require('../config/firebaseAdmin');
+const { notificarSocio } = require('../services/notificacionesService'); // ✅ NUEVO (paso 6)
 
 const router = express.Router();
 
@@ -328,7 +329,7 @@ router.post('/:clubId/tienda/reservas/:id/aceptar', requireAuth, requireClubAcce
     await db.query('BEGIN');
 
     const rRes = await db.query(
-      `SELECT id, producto_id, cantidad, estado FROM tienda_reservas WHERE id = $1 AND club_id = $2 FOR UPDATE`,
+      `SELECT id, producto_id, socio_id, cantidad, estado FROM tienda_reservas WHERE id = $1 AND club_id = $2 FOR UPDATE`,
       [id, clubId]
     );
     if (!rRes.rowCount) {
@@ -342,7 +343,7 @@ router.post('/:clubId/tienda/reservas/:id/aceptar', requireAuth, requireClubAcce
     }
 
     const rProd = await db.query(
-      `SELECT stock FROM tienda_productos WHERE id = $1 AND club_id = $2 FOR UPDATE`,
+      `SELECT nombre, stock FROM tienda_productos WHERE id = $1 AND club_id = $2 FOR UPDATE`,
       [reserva.producto_id, clubId]
     );
     if (!rProd.rowCount) {
@@ -371,7 +372,25 @@ router.post('/:clubId/tienda/reservas/:id/aceptar', requireAuth, requireClubAcce
 
     await db.query('COMMIT');
 
-    // TODO (paso 6 del plan): disparar notificarSocio() con el mensaje al socio.
+    // ✅ paso 6: avisar al socio por push que su reserva fue aceptada.
+    // Se dispara después del COMMIT (la reserva ya quedó aceptada en la
+    // base pase lo que pase con el envío del push) y no bloquea la
+    // respuesta si falla.
+    const cuerpoAceptada = mensaje?.trim()
+      ? `Tu reserva de "${rProd.rows[0].nombre}" fue aceptada. Podés retirarla en el club. Mensaje del club: ${mensaje.trim()}`
+      : `Tu reserva de "${rProd.rows[0].nombre}" fue aceptada. Podés retirarla en el club.`;
+
+    notificarSocio({
+      clubId,
+      socioId: reserva.socio_id,
+      titulo: '🛒 Reserva aceptada',
+      cuerpo: cuerpoAceptada,
+      data: {
+        type: 'tienda_reserva_aceptada',
+        reservaId: String(id),
+        productoId: String(reserva.producto_id),
+      },
+    }).catch(err => console.warn('⚠ No se pudo notificar al socio (reserva aceptada):', err.message));
 
     return res.json({ ok: true, reserva: rUpd.rows[0] });
   } catch (e) {
@@ -393,7 +412,12 @@ router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAcc
 
   try {
     const rRes = await db.query(
-      `SELECT id, estado FROM tienda_reservas WHERE id = $1 AND club_id = $2`,
+      `
+      SELECT r.id, r.estado, r.socio_id, r.producto_id, p.nombre AS producto_nombre
+      FROM tienda_reservas r
+      JOIN tienda_productos p ON p.id = r.producto_id
+      WHERE r.id = $1 AND r.club_id = $2
+      `,
       [id, clubId]
     );
     if (!rRes.rowCount) {
@@ -413,7 +437,22 @@ router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAcc
       [mensaje?.trim() || null, adminUserId, id]
     );
 
-    // TODO (paso 6 del plan): disparar notificarSocio() con el mensaje al socio.
+    // ✅ paso 6: avisar al socio por push que su reserva fue rechazada.
+    const cuerpoRechazada = mensaje?.trim()
+      ? `Tu reserva de "${rRes.rows[0].producto_nombre}" fue rechazada. Motivo: ${mensaje.trim()}`
+      : `Tu reserva de "${rRes.rows[0].producto_nombre}" fue rechazada.`;
+
+    notificarSocio({
+      clubId,
+      socioId: rRes.rows[0].socio_id,
+      titulo: '🛒 Reserva rechazada',
+      cuerpo: cuerpoRechazada,
+      data: {
+        type: 'tienda_reserva_rechazada',
+        reservaId: String(id),
+        productoId: String(rRes.rows[0].producto_id),
+      },
+    }).catch(err => console.warn('⚠ No se pudo notificar al socio (reserva rechazada):', err.message));
 
     return res.json({ ok: true, reserva: r.rows[0] });
   } catch (e) {
