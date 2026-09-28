@@ -535,8 +535,10 @@ router.get('/tienda/productos', requireAuth, async (req, res) => {
 // ------------------------------------------------------
 // POST /app/tienda/reservas
 // body: { producto_id, cantidad }
-// No valida stock acá: el stock recién se descuenta cuando el admin
-// acepta la reserva desde el panel (ver plan del módulo).
+// ✅ El stock se descuenta ACÁ, al momento de reservar (no cuando el admin
+// acepta): así dos socios no pueden reservar más unidades de las que hay
+// disponibles mientras la reserva está pendiente. Si el admin la rechaza,
+// tiendaRoutes.js (endpoint /rechazar) devuelve el stock reservado.
 // ------------------------------------------------------
 router.post('/tienda/reservas', requireAuth, async (req, res) => {
   try {
@@ -556,16 +558,31 @@ router.post('/tienda/reservas', requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Cantidad inválida' });
     }
 
+    await db.query('BEGIN');
+
+    // FOR UPDATE: bloquea la fila del producto para que dos reservas
+    // simultáneas no descuenten stock que ya no está disponible.
     const rProd = await db.query(
-      `SELECT id, activo FROM tienda_productos WHERE id = $1 AND club_id = $2 LIMIT 1`,
+      `SELECT id, activo, stock FROM tienda_productos WHERE id = $1 AND club_id = $2 FOR UPDATE`,
       [producto_id, clubId]
     );
     if (!rProd.rowCount) {
+      await db.query('ROLLBACK');
       return res.status(404).json({ ok: false, error: 'Producto no encontrado' });
     }
     if (!rProd.rows[0].activo) {
+      await db.query('ROLLBACK');
       return res.status(400).json({ ok: false, error: 'Este producto ya no está disponible' });
     }
+    if (rProd.rows[0].stock < cantidadNum) {
+      await db.query('ROLLBACK');
+      return res.status(409).json({ ok: false, error: `No hay stock suficiente (disponible: ${rProd.rows[0].stock})` });
+    }
+
+    await db.query(
+      `UPDATE tienda_productos SET stock = stock - $1, updated_at = NOW() WHERE id = $2`,
+      [cantidadNum, producto_id]
+    );
 
     const r = await db.query(
       `
@@ -576,8 +593,11 @@ router.post('/tienda/reservas', requireAuth, async (req, res) => {
       [clubId, producto_id, socioId, cantidadNum]
     );
 
+    await db.query('COMMIT');
+
     return res.status(201).json({ ok: true, reserva: r.rows[0] });
   } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ POST /app/tienda/reservas', e);
     return res.status(500).json({ ok: false, error: e.message });
   }
