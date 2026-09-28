@@ -356,21 +356,85 @@ tr.innerHTML = `
 
   // ✅ NUEVO: estado de pago de una reserva de tienda.
   const ESTADOS_PAGO = [
-    ['sin_pago', 'Sin pago'],
-    ['parcial', 'Seña / parcial'],
-    ['pagado', 'Pagado'],
+    ['sin_pago', 'Falta de pago'],
+    ['parcial', 'Adelanto / seña'],
+    ['pagado', 'Pago completo'],
   ];
+
+  function moneyArsCompacto(n) {
+    return moneyArs(n); // ya definido más arriba en este archivo
+  }
 
   function estadoPagoSelectHtml(r) {
     const actual = r.estado_pago || 'sin_pago';
+    const monto = Number(r.monto_pagado || 0);
     const opciones = ESTADOS_PAGO
       .map(([val, label]) => `<option value="${val}"${val === actual ? ' selected' : ''}>${label}</option>`)
       .join('');
+    const montoLabelHtml = (actual === 'parcial' && monto > 0)
+      ? `<div class="tw-monto-pagado-label">Abonado: ${moneyArsCompacto(monto)}</div>`
+      : '';
     return `
-      <select class="tw-estado-pago-select" data-act="r_estado_pago" data-estado="${actual}">
+      <select class="tw-estado-pago-select" data-act="r_estado_pago" data-estado="${actual}" data-monto="${monto}">
         ${opciones}
       </select>
+      ${montoLabelHtml}
     `;
+  }
+
+  // ✅ NUEVO: maneja el cambio de estado de pago, pidiendo el monto abonado
+  // cuando corresponde a "Adelanto / seña" (mismo contrato que tienda.js).
+  async function manejarCambioEstadoPago(select) {
+    const tr = select.closest('tr');
+    const rowId = tr?.dataset?.id;
+    if (!rowId) return;
+
+    const clubId = getActiveClubId();
+    const nuevoEstado = select.value;
+    const estadoAnterior = select.dataset.estado;
+    const montoAnterior = select.dataset.monto || '0';
+
+    const body = { estado_pago: nuevoEstado };
+
+    if (nuevoEstado === 'parcial') {
+      const sugerido = montoAnterior && montoAnterior !== '0' ? montoAnterior : '';
+      const ingresado = prompt('¿Cuánto abonó el socio como adelanto/seña? (solo números, ej: 5000)', sugerido);
+      if (ingresado === null) {
+        select.value = estadoAnterior;
+        return;
+      }
+      const montoNum = Number(String(ingresado).replace(',', '.'));
+      if (!Number.isFinite(montoNum) || montoNum <= 0) {
+        alert('Ingresá un monto válido, mayor a 0.');
+        select.value = estadoAnterior;
+        return;
+      }
+      body.monto_pagado = montoNum;
+    }
+
+    const { res, data } = await fetchAuth(
+      `/club/${clubId}/tienda/reservas/${rowId}/estado-pago`,
+      { method: 'PATCH', json: true, body: JSON.stringify(body) }
+    );
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error actualizando el estado de pago');
+      select.value = estadoAnterior;
+      return;
+    }
+
+    select.dataset.estado = data.reserva.estado_pago;
+    select.dataset.monto = String(data.reserva.monto_pagado ?? 0);
+
+    const wrapper = select.parentElement;
+    const labelPrevio = wrapper?.querySelector('.tw-monto-pagado-label');
+    if (labelPrevio) labelPrevio.remove();
+    if (data.reserva.estado_pago === 'parcial' && Number(data.reserva.monto_pagado) > 0) {
+      const div = document.createElement('div');
+      div.className = 'tw-monto-pagado-label';
+      div.textContent = `Abonado: ${moneyArsCompacto(data.reserva.monto_pagado)}`;
+      select.insertAdjacentElement('afterend', div);
+    }
   }
 
   function renderReservasTiendaARetirar(items) {
@@ -443,27 +507,7 @@ tr.innerHTML = `
     root.addEventListener('change', async (ev) => {
       const select = ev.target.closest('select[data-act="r_estado_pago"]');
       if (!select) return;
-
-      const tr = select.closest('tr');
-      const rowId = tr?.dataset?.id;
-      if (!rowId) return;
-
-      const clubId = getActiveClubId();
-      const nuevoEstado = select.value;
-      const estadoAnterior = select.dataset.estado;
-
-      const { res, data } = await fetchAuth(
-        `/club/${clubId}/tienda/reservas/${rowId}/estado-pago`,
-        { method: 'PATCH', json: true, body: JSON.stringify({ estado_pago: nuevoEstado }) }
-      );
-
-      if (!res.ok || !data.ok) {
-        alert(data.error || 'Error actualizando el estado de pago');
-        select.value = estadoAnterior;
-        return;
-      }
-
-      select.dataset.estado = nuevoEstado;
+      await manejarCambioEstadoPago(select);
     });
 
     // Clicks en ambas tablas dentro de la sección

@@ -2377,6 +2377,9 @@ $('socioEmail').value = '';
   if ($('socioObraSocial')) $('socioObraSocial').value = '';
   if ($('socioObraSocialNumero')) $('socioObraSocialNumero').value = '';
 
+  // ✅ NUEVO: Número de camiseta
+  if ($('socioNumeroCamiseta')) $('socioNumeroCamiseta').value = '';
+
   $('socioActivo').checked = true;
   $('socioBecado').checked = false;
 
@@ -2493,6 +2496,9 @@ function toggleTutorField(forceValue) {
   // ✅ NUEVO: Obra social / Prepaga y N° de afiliado
   if ($('socioObraSocial')) $('socioObraSocial').value = socio.obra_social ?? '';
   if ($('socioObraSocialNumero')) $('socioObraSocialNumero').value = socio.obra_social_numero ?? '';
+
+  // ✅ NUEVO: Número de camiseta
+  if ($('socioNumeroCamiseta')) $('socioNumeroCamiseta').value = socio.numero_camiseta ?? '';
 
   const catSel = $('socioCategoria');
   if (catSel) catSel.dataset.pendingValue = (socio.categoria ?? '').toString();
@@ -3288,7 +3294,9 @@ fecha_nacimiento: $('socioNacimiento').value,
       becado: $('socioBecado').checked,
       // ✅ NUEVO: Obra social / Prepaga y N° de afiliado (opcionales, alfanumérico)
       obra_social: $('socioObraSocial')?.value.trim() || null,
-      obra_social_numero: $('socioObraSocialNumero')?.value.trim() || null
+      obra_social_numero: $('socioObraSocialNumero')?.value.trim() || null,
+      // ✅ NUEVO: Número de camiseta (opcional, alfanumérico)
+      numero_camiseta: $('socioNumeroCamiseta')?.value.trim() || null
     };
 
 const adicionalesSeleccionadas = $('socioTieneAdicionales')?.checked

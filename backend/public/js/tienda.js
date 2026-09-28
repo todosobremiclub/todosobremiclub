@@ -421,28 +421,17 @@
     root.addEventListener('change', async (ev) => {
       const select = ev.target.closest('select[data-act="v_estado_pago"]');
       if (!select) return;
-
-      const tr = select.closest('tr');
-      const rowId = tr?.dataset?.id;
-      if (!rowId) return;
-
-      const clubId = getActiveClubId();
-      const nuevoEstado = select.value;
-      const estadoAnterior = select.dataset.estado;
-
-      const { res, data } = await fetchAuth(
-        `/club/${clubId}/tienda/reservas/${rowId}/estado-pago`,
-        { method: 'PATCH', json: true, body: JSON.stringify({ estado_pago: nuevoEstado }) }
-      );
-
-      if (!res.ok || !data.ok) {
-        alert(data.error || 'Error actualizando el estado de pago');
-        select.value = estadoAnterior;
-        return;
-      }
-
-      select.dataset.estado = nuevoEstado;
+      await manejarCambioEstadoPago(select);
     });
+
+    // ✅ NUEVO: buscador de ventas por socio o producto (Historial de ventas)
+    const buscarVentaInput = root.querySelector('#tiendaBuscarVenta');
+    if (buscarVentaInput) {
+      buscarVentaInput.addEventListener('input', (e) => {
+        filtroVentas = e.target.value || '';
+        renderHistorialVentas(ventasFiltradas());
+      });
+    }
 
     const btnGuardar = root.querySelector('#btnTiendaGuardar');
     const btnCancelar = root.querySelector('#btnTiendaCancelar');
@@ -521,10 +510,15 @@
   // =============================
   // ✅ NUEVO: Historial de ventas (reservas aceptadas + retiradas)
   // =============================
+  let historialVentasCache = [];
+  let filtroVentas = '';
+
+  // Mismas etiquetas/valores que en pendientes.js (tabla "a retirar"): las
+  // dos pantallas hablan contra el mismo endpoint PATCH estado-pago.
   const ESTADOS_PAGO_TIENDA = [
-    ['sin_pago', 'Sin pago'],
-    ['parcial', 'Seña / parcial'],
-    ['pagado', 'Pagado'],
+    ['sin_pago', 'Falta de pago'],
+    ['parcial', 'Adelanto / seña'],
+    ['pagado', 'Pago completo'],
   ];
 
   const ESTADO_RESERVA_LABEL = {
@@ -550,16 +544,96 @@
       : '—';
   }
 
-  function ventaEstadoPagoSelectHtml(r) {
+  // ✅ NUEVO: filtra el historial por nombre/apellido/número de socio o por
+  // nombre de producto (según lo tipeado en #tiendaBuscarVenta).
+  function ventasFiltradas() {
+    const q = filtroVentas.trim().toLowerCase();
+    if (!q) return historialVentasCache;
+    return historialVentasCache.filter(r => {
+      const producto = (r.producto_nombre || '').toLowerCase();
+      const socio = `${r.numero_socio ?? ''} ${r.socio_nombre || ''} ${r.socio_apellido || ''}`.toLowerCase();
+      return producto.includes(q) || socio.includes(q);
+    });
+  }
+
+  function estadoPagoSelectHtml(r, act) {
     const actual = r.estado_pago || 'sin_pago';
+    const monto = Number(r.monto_pagado || 0);
     const opciones = ESTADOS_PAGO_TIENDA
       .map(([val, label]) => `<option value="${val}"${val === actual ? ' selected' : ''}>${label}</option>`)
       .join('');
+    const montoLabelHtml = (actual === 'parcial' && monto > 0)
+      ? `<div class="tw-monto-pagado-label">Abonado: ${formatPrecio(monto)}</div>`
+      : '';
     return `
-      <select class="tw-estado-pago-select" data-act="v_estado_pago" data-estado="${actual}">
+      <select class="tw-estado-pago-select" data-act="${act}" data-estado="${actual}" data-monto="${monto}">
         ${opciones}
       </select>
+      ${montoLabelHtml}
     `;
+  }
+
+  // ✅ Compartido entre el Historial de ventas (tienda.js) y la tabla
+  // "a retirar" de Pendientes (pendientes.js expone la misma función con el
+  // mismo contrato, ver bindOnce() de ese archivo).
+  async function manejarCambioEstadoPago(select) {
+    const tr = select.closest('tr');
+    const rowId = tr?.dataset?.id;
+    if (!rowId) return;
+
+    const clubId = getActiveClubId();
+    const nuevoEstado = select.value;
+    const estadoAnterior = select.dataset.estado;
+    const montoAnterior = select.dataset.monto || '0';
+
+    const body = { estado_pago: nuevoEstado };
+
+    if (nuevoEstado === 'parcial') {
+      const sugerido = montoAnterior && montoAnterior !== '0' ? montoAnterior : '';
+      const ingresado = prompt('¿Cuánto abonó el socio como adelanto/seña? (solo números, ej: 5000)', sugerido);
+      if (ingresado === null) {
+        select.value = estadoAnterior;
+        return;
+      }
+      const montoNum = Number(String(ingresado).replace(',', '.'));
+      if (!Number.isFinite(montoNum) || montoNum <= 0) {
+        alert('Ingresá un monto válido, mayor a 0.');
+        select.value = estadoAnterior;
+        return;
+      }
+      body.monto_pagado = montoNum;
+    }
+
+    const { res, data } = await fetchAuth(
+      `/club/${clubId}/tienda/reservas/${rowId}/estado-pago`,
+      { method: 'PATCH', json: true, body: JSON.stringify(body) }
+    );
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Error actualizando el estado de pago');
+      select.value = estadoAnterior;
+      return;
+    }
+
+    select.dataset.estado = data.reserva.estado_pago;
+    select.dataset.monto = String(data.reserva.monto_pagado ?? 0);
+
+    // Actualiza también el registro en memoria y el label de "Abonado: $..."
+    // sin tener que recargar todo el historial contra el servidor.
+    const item = historialVentasCache.find(x => String(x.id) === String(rowId));
+    if (item) {
+      item.estado_pago = data.reserva.estado_pago;
+      item.monto_pagado = data.reserva.monto_pagado;
+    }
+    const wrapper = select.parentElement;
+    const labelPrevio = wrapper?.querySelector('.tw-monto-pagado-label');
+    if (labelPrevio) labelPrevio.remove();
+    if (data.reserva.estado_pago === 'parcial' && Number(data.reserva.monto_pagado) > 0) {
+      const div = document.createElement('div');
+      div.className = 'tw-monto-pagado-label';
+      div.textContent = `Abonado: ${formatPrecio(data.reserva.monto_pagado)}`;
+      select.insertAdjacentElement('afterend', div);
+    }
   }
 
   function renderHistorialVentas(items) {
@@ -567,8 +641,13 @@
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    if (!items.length) {
+    if (!historialVentasCache.length) {
       tbody.innerHTML = `<tr><td colspan="8" class="muted">Todavía no hay ventas registradas.</td></tr>`;
+      return;
+    }
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="muted">No se encontraron ventas que coincidan con "${escapeHtml(filtroVentas.trim())}".</td></tr>`;
       return;
     }
 
@@ -583,7 +662,7 @@
         <td>${escapeHtml(r.cantidad)}</td>
         <td>${formatPrecio(r.producto_precio)}</td>
         <td>${ESTADO_RESERVA_LABEL[r.estado] || escapeHtml(r.estado)}</td>
-        <td>${ventaEstadoPagoSelectHtml(r)}</td>
+        <td>${estadoPagoSelectHtml(r, 'v_estado_pago')}</td>
         <td>${formatDateISOToDMY_tienda(r.gestionada_at || r.created_at)}</td>
       `;
       tbody.appendChild(tr);
@@ -604,13 +683,13 @@
     const aceptadas = (resAcept.ok && dataAcept.ok) ? (dataAcept.reservas || []) : [];
     const retiradas = (resRet.ok && dataRet.ok) ? (dataRet.reservas || []) : [];
 
-    const todas = [...aceptadas, ...retiradas].sort((a, b) => {
+    historialVentasCache = [...aceptadas, ...retiradas].sort((a, b) => {
       const fa = new Date(a.gestionada_at || a.created_at).getTime();
       const fb = new Date(b.gestionada_at || b.created_at).getTime();
       return fb - fa;
     });
 
-    renderHistorialVentas(todas);
+    renderHistorialVentas(ventasFiltradas());
   }
 
   // =============================

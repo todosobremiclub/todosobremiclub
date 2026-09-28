@@ -1397,6 +1397,7 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
         s.fecha_nacimiento,
         s.obra_social,
         s.obra_social_numero,
+        s.numero_camiseta,
         s.fecha_ingreso,
         s.activo,
         s.becado,
@@ -2419,10 +2420,11 @@ const r = await db.query(
     es_menor,
     tutor_nombre,
     tiene_actividades_adicionales,
-    actividades_adicionales
+    actividades_adicionales,
+    numero_camiseta
   )
   VALUES (
-    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24
   )
   RETURNING *
   `,
@@ -2449,7 +2451,8 @@ const r = await db.query(
     !!es_menor,
     (tutor_nombre ?? null),
     !!tiene_actividades_adicionales,
-    (actividades_adicionales ?? null)
+    (actividades_adicionales ?? null),
+    (numero_camiseta ?? null)
   ]
 );
 
@@ -2496,7 +2499,8 @@ const {
   es_menor,
   tutor_nombre,
   tiene_actividades_adicionales = false,
-  actividades_adicionales = null
+  actividades_adicionales = null,
+  numero_camiseta = null
 } = req.body ?? {};
 
   try {
@@ -2537,6 +2541,7 @@ const r = await db.query(
     tutor_nombre = $20,
     tiene_actividades_adicionales = $21,
     actividades_adicionales = $22,
+    numero_camiseta = $28,
     bienvenida_enviada_at = CASE
       WHEN email IS DISTINCT FROM $25 THEN NULL
       WHEN dni IS DISTINCT FROM $26 THEN NULL
@@ -2574,6 +2579,7 @@ const r = await db.query(
     email ?? null,   // ✅ mismo valor que $9, en parámetro aparte para el CASE
     dniLimpio,       // ✅ mismo valor que $2, en parámetro aparte para el CASE
     numero_socio,    // ✅ mismo valor que $1, en parámetro aparte para el CASE
+    (numero_camiseta ?? null), // $28 — ✅ NUEVO
   ]
 );
 

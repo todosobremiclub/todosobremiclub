@@ -289,6 +289,7 @@ router.get('/:clubId/tienda/reservas', requireAuth, requireClubAccess, async (re
         r.cantidad,
         r.estado,
         r.estado_pago,
+        r.monto_pagado,
         r.mensaje_admin,
         r.created_at,
         r.gestionada_at,
@@ -507,14 +508,67 @@ router.post('/:clubId/tienda/reservas/:id/retirado', requireAuth, requireClubAcc
 });
 
 // ------------------------------------------------------------
+// Helper: busca (o crea) el tipo de ingreso "Tienda" del club, para que
+// los cobros de la Tienda Online aparezcan en los reportes financieros
+// (Ingresos por tipo, Ingresos vs Gastos, etc.) igual que cualquier otro
+// ingreso cargado manualmente desde /club/:clubId/ingresos.
+// ------------------------------------------------------------
+async function getOrCrearTipoIngresoTienda(clubId) {
+  const rExist = await db.query(
+    `SELECT id, activo FROM tipos_ingreso WHERE club_id = $1 AND nombre = 'Tienda' LIMIT 1`,
+    [clubId]
+  );
+  if (rExist.rowCount) {
+    const fila = rExist.rows[0];
+    if (!fila.activo) {
+      await db.query(`UPDATE tipos_ingreso SET activo = true WHERE id = $1`, [fila.id]);
+    }
+    return fila.id;
+  }
+
+  try {
+    const rNew = await db.query(
+      `
+      INSERT INTO tipos_ingreso (id, club_id, nombre, activo, created_at)
+      VALUES (gen_random_uuid(), $1, 'Tienda', true, NOW())
+      RETURNING id
+      `,
+      [clubId]
+    );
+    return rNew.rows[0].id;
+  } catch (e) {
+    // Carrera entre dos requests creando el mismo tipo a la vez: si choca
+    // por unique constraint, releemos el que quedó creado.
+    if (e.code === '23505') {
+      const rRetry = await db.query(
+        `SELECT id FROM tipos_ingreso WHERE club_id = $1 AND nombre = 'Tienda' LIMIT 1`,
+        [clubId]
+      );
+      if (rRetry.rowCount) return rRetry.rows[0].id;
+    }
+    throw e;
+  }
+}
+
+// ------------------------------------------------------------
 // PATCH /club/:clubId/tienda/reservas/:id/estado-pago
-// body: { estado_pago } con estado_pago en 'sin_pago' | 'parcial' | 'pagado'.
+// body: { estado_pago, monto_pagado? }
+//   estado_pago: 'sin_pago' | 'parcial' | 'pagado'
+//   monto_pagado: obligatorio y > 0 solo si estado_pago = 'parcial'
+//     (para 'pagado' se calcula solo como precio × cantidad; para
+//     'sin_pago' queda en 0).
 // Se puede cambiar en cualquier momento (reserva aceptada o ya retirada),
 // para que el admin pueda marcar que el socio pagó después de retirar.
+//
+// ✅ Cada vez que queda un monto > 0, se refleja en ingresos_generales bajo
+// el tipo "Tienda" (se crea o actualiza una única fila por reserva, enlazada
+// por tienda_reservas.ingreso_generado_id) para que aparezca en los
+// reportes financieros. Si se vuelve a "sin_pago", ese ingreso se desactiva
+// en vez de borrarse, para no perder trazabilidad.
 // ------------------------------------------------------------
 router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
-  const { estado_pago } = req.body || {};
+  const { estado_pago, monto_pagado: montoBody } = req.body || {};
 
   const ESTADOS_PAGO_VALIDOS = new Set(['sin_pago', 'parcial', 'pagado']);
   if (!ESTADOS_PAGO_VALIDOS.has(estado_pago)) {
@@ -522,20 +576,88 @@ router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClu
   }
 
   try {
-    const r = await db.query(
+    await db.query('BEGIN');
+
+    const rRes = await db.query(
       `
-      UPDATE tienda_reservas
-      SET estado_pago = $1, updated_at = NOW()
-      WHERE id = $2 AND club_id = $3
-      RETURNING id, estado, estado_pago
+      SELECT
+        r.id, r.cantidad, r.ingreso_generado_id, r.socio_id,
+        p.nombre AS producto_nombre, p.precio,
+        s.numero_socio, s.nombre AS socio_nombre, s.apellido AS socio_apellido
+      FROM tienda_reservas r
+      JOIN tienda_productos p ON p.id = r.producto_id
+      JOIN socios s ON s.id = r.socio_id
+      WHERE r.id = $1 AND r.club_id = $2
+      FOR UPDATE OF r
       `,
-      [estado_pago, id, clubId]
+      [id, clubId]
     );
-    if (!r.rowCount) {
+    if (!rRes.rowCount) {
+      await db.query('ROLLBACK');
       return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
     }
-    return res.json({ ok: true, reserva: r.rows[0] });
+    const reserva = rRes.rows[0];
+    const total = Number(reserva.precio) * Number(reserva.cantidad);
+
+    let montoPagado = 0;
+    if (estado_pago === 'pagado') {
+      montoPagado = total;
+    } else if (estado_pago === 'parcial') {
+      montoPagado = Number(String(montoBody).replace(',', '.'));
+      if (!Number.isFinite(montoPagado) || montoPagado <= 0) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ ok: false, error: 'Ingresá el monto abonado (mayor a 0)' });
+      }
+      if (montoPagado > total) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ ok: false, error: `El monto no puede superar el total de la reserva ($${total})` });
+      }
+    }
+    // estado_pago === 'sin_pago' → montoPagado queda en 0
+
+    let ingresoId = reserva.ingreso_generado_id;
+
+    if (montoPagado > 0) {
+      const tipoIngresoId = await getOrCrearTipoIngresoTienda(clubId);
+      const socioLabel = `#${reserva.numero_socio ?? '—'} ${reserva.socio_apellido ?? ''} ${reserva.socio_nombre ?? ''}`.trim();
+      const observacion = `Tienda: ${reserva.producto_nombre} x${reserva.cantidad} — ${socioLabel}`;
+
+      if (ingresoId) {
+        await db.query(
+          `UPDATE ingresos_generales SET monto = $1, observacion = $2, activo = true WHERE id = $3`,
+          [montoPagado, observacion, ingresoId]
+        );
+      } else {
+        const rIng = await db.query(
+          `
+          INSERT INTO ingresos_generales (id, club_id, tipo_ingreso_id, fecha, monto, observacion, cuenta, created_at, activo)
+          VALUES (gen_random_uuid(), $1, $2, CURRENT_DATE, $3, $4, 'Tienda', NOW(), true)
+          RETURNING id
+          `,
+          [clubId, tipoIngresoId, montoPagado, observacion]
+        );
+        ingresoId = rIng.rows[0].id;
+      }
+    } else if (ingresoId) {
+      // Volvió a "sin_pago": el ingreso ya generado se desactiva (no se
+      // borra, para no perder el registro histórico).
+      await db.query(`UPDATE ingresos_generales SET activo = false WHERE id = $1`, [ingresoId]);
+    }
+
+    const rUpd = await db.query(
+      `
+      UPDATE tienda_reservas
+      SET estado_pago = $1, monto_pagado = $2, ingreso_generado_id = $3, updated_at = NOW()
+      WHERE id = $4
+      RETURNING id, estado, estado_pago, monto_pagado
+      `,
+      [estado_pago, montoPagado, ingresoId, id]
+    );
+
+    await db.query('COMMIT');
+    return res.json({ ok: true, reserva: rUpd.rows[0] });
   } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ PATCH tienda/reservas/estado-pago', e);
     return res.status(500).json({ ok: false, error: e.message });
   }
