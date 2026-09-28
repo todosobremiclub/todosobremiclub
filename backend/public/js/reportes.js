@@ -2687,6 +2687,12 @@ const asistReporteState = {
   sociosRaw: []
 };
 
+// ✅ NUEVO: catálogo completo de categorías del club (para filtrar por
+// actividad sin perder el orden configurado) y cache para no repetir
+// pedidos al ir y venir entre actividades ya consultadas.
+let asistReporteTodasCategorias = [];
+let asistReporteCacheCategoriasPorActividad = new Map();
+
 async function cargarFiltrosAsistReporte() {
   const clubId = getActiveClubId();
 
@@ -2695,6 +2701,9 @@ async function cargarFiltrosAsistReporte() {
     fetchAuth(`/club/${clubId}/config/categorias`),
     fetchAuth(`/club/${clubId}/config/actividades-adicionales`)
   ]);
+
+  asistReporteTodasCategorias = rCat.data.categorias || [];
+  asistReporteCacheCategoriasPorActividad = new Map();
 
   const selAct = $('asistReporteActividad');
   if (selAct) {
@@ -2707,17 +2716,6 @@ async function cargarFiltrosAsistReporte() {
     });
   }
 
-  const selCat = $('asistReporteCategoria');
-  if (selCat) {
-    selCat.innerHTML = '<option value="">Seleccioná...</option>';
-    (rCat.data.categorias || []).forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.nombre;
-      opt.textContent = c.nombre;
-      selCat.appendChild(opt);
-    });
-  }
-
   const selAdic = $('asistReporteActividadAdicional');
   if (selAdic) {
     selAdic.innerHTML = '<option value="">Ninguna</option>';
@@ -2727,6 +2725,104 @@ async function cargarFiltrosAsistReporte() {
       opt.textContent = a.nombre;
       selAdic.appendChild(opt);
     });
+  }
+
+  // ✅ NUEVO: Categoría y Año arrancan vacíos/deshabilitados; se llenan en
+  // cascada según la Actividad (y después la Categoría) elegida.
+  asistReporteResetCategoriaSelect('Elegí una actividad primero');
+  asistReporteResetAnioSelect('Elegí actividad y categoría');
+}
+
+function asistReporteResetCategoriaSelect(placeholder) {
+  const sel = $('asistReporteCategoria');
+  if (!sel) return;
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  sel.disabled = true;
+}
+
+function asistReporteResetAnioSelect(placeholder) {
+  const sel = $('asistReporteAnioNacimiento');
+  if (!sel) return;
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  sel.disabled = true;
+}
+
+// ✅ NUEVO: al elegir Actividad, trae solo las categorías que tienen
+// socios activos en esa actividad (mismo endpoint que usa el modal de
+// "Tomar asistencia").
+async function asistReporteActualizarCategoriasPorActividad(actividad) {
+  asistReporteResetAnioSelect('Elegí actividad y categoría');
+
+  if (!actividad) {
+    asistReporteResetCategoriaSelect('Elegí una actividad primero');
+    return;
+  }
+
+  asistReporteResetCategoriaSelect('Cargando categorías...');
+
+  try {
+    const clubId = getActiveClubId();
+    let nombres = asistReporteCacheCategoriasPorActividad.get(actividad);
+    if (!nombres) {
+      const { data } = await fetchAuth(`/club/${clubId}/asistencia/categorias-por-actividad?actividad=${encodeURIComponent(actividad)}`);
+      nombres = data.categorias || [];
+      asistReporteCacheCategoriasPorActividad.set(actividad, nombres);
+    }
+
+    const nombresSet = new Set(nombres);
+    const categoriasFiltradas = asistReporteTodasCategorias.filter(c => nombresSet.has(c.nombre));
+
+    const selCat = $('asistReporteCategoria');
+    if (!selCat) return;
+    selCat.innerHTML = '<option value="">Seleccioná...</option>';
+    categoriasFiltradas.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.nombre;
+      opt.textContent = c.nombre;
+      selCat.appendChild(opt);
+    });
+    selCat.disabled = false;
+
+    if (!categoriasFiltradas.length) {
+      selCat.innerHTML = '<option value="">Sin categorías para esta actividad</option>';
+      selCat.disabled = true;
+    }
+  } catch (e) {
+    console.error('❌ categorias-por-actividad (reporte)', e);
+    asistReporteResetCategoriaSelect('Error al cargar categorías');
+  }
+}
+
+// ✅ NUEVO: al elegir Categoría (con Actividad ya elegida), trae solo los
+// años de nacimiento que tienen socios en esa combinación.
+async function asistReporteActualizarAniosPorActividadCategoria(actividad, categoria) {
+  if (!actividad || !categoria) {
+    asistReporteResetAnioSelect('Elegí actividad y categoría');
+    return;
+  }
+
+  asistReporteResetAnioSelect('Cargando años...');
+
+  try {
+    const clubId = getActiveClubId();
+    const { data } = await fetchAuth(
+      `/club/${clubId}/asistencia/anios-por-actividad-categoria?actividad=${encodeURIComponent(actividad)}&categoria=${encodeURIComponent(categoria)}`
+    );
+    const anios = data.anios || [];
+
+    const selAnio = $('asistReporteAnioNacimiento');
+    if (!selAnio) return;
+    selAnio.innerHTML = '<option value="">Todos los años</option>';
+    anios.forEach(anio => {
+      const opt = document.createElement('option');
+      opt.value = anio;
+      opt.textContent = anio;
+      selAnio.appendChild(opt);
+    });
+    selAnio.disabled = false;
+  } catch (e) {
+    console.error('❌ anios-por-actividad-categoria (reporte)', e);
+    asistReporteResetAnioSelect('Error al cargar años');
   }
 }
 
@@ -3154,6 +3250,11 @@ function bindAsistenciaReporte() {
 
   selActividad?.addEventListener('change', () => {
     asistReporteState.actividad = selActividad.value;
+    // ✅ NUEVO: la categoría (y el año) quedan obsoletos al cambiar de
+    // actividad, así que se resetean acá y se recargan en cascada.
+    asistReporteState.categoria = '';
+    asistReporteState.anioNacimiento = '';
+    asistReporteActualizarCategoriasPorActividad(selActividad.value).catch(e => console.error(e));
     loadAsistReporteMes().catch(e => console.error(e));
   });
   selAdic?.addEventListener('change', () => {
@@ -3162,15 +3263,13 @@ function bindAsistenciaReporte() {
   });
   selCategoria?.addEventListener('change', () => {
     asistReporteState.categoria = selCategoria.value;
+    asistReporteState.anioNacimiento = '';
+    asistReporteActualizarAniosPorActividadCategoria(asistReporteState.actividad, selCategoria.value).catch(e => console.error(e));
     loadAsistReporteMes().catch(e => console.error(e));
   });
-  let anioNacDebounce = null;
-  inputAnio?.addEventListener('input', () => {
-    clearTimeout(anioNacDebounce);
-    anioNacDebounce = setTimeout(() => {
-      asistReporteState.anioNacimiento = inputAnio.value || '';
-      loadAsistReporteMes().catch(e => console.error(e));
-    }, 500);
+  inputAnio?.addEventListener('change', () => {
+    asistReporteState.anioNacimiento = inputAnio.value || '';
+    loadAsistReporteMes().catch(e => console.error(e));
   });
 
   $('btnAsistReporteMesPrev')?.addEventListener('click', () => {

@@ -98,6 +98,12 @@
     return (a + n).toUpperCase() || '?';
   }
 
+  // ✅ NUEVO: catálogo completo de categorías del club (para filtrar por
+  // actividad sin perder el orden configurado) y caches para no repetir
+  // pedidos cuando el usuario va y viene entre selects.
+  let todasCategorias = [];
+  let cacheCategoriasPorActividad = new Map(); // actividad -> string[]
+
   async function cargarSelects() {
     const clubId = getActiveClubId();
 
@@ -107,6 +113,9 @@
       fetchAuth(`/club/${clubId}/config/actividades-adicionales`).then(safeJson)
     ]);
 
+    todasCategorias = rCat.categorias || [];
+    cacheCategoriasPorActividad = new Map();
+
     const selAct = $('asistActividad');
     selAct.innerHTML = '<option value="">Seleccioná...</option>';
     (rAct.actividades || []).forEach(a => {
@@ -114,15 +123,6 @@
       opt.value = a.nombre;
       opt.textContent = a.nombre;
       selAct.appendChild(opt);
-    });
-
-    const selCat = $('asistCategoria');
-    selCat.innerHTML = '<option value="">Seleccioná...</option>';
-    (rCat.categorias || []).forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.nombre;
-      opt.textContent = c.nombre;
-      selCat.appendChild(opt);
     });
 
     const selAdic = $('asistActividadAdicional');
@@ -134,22 +134,133 @@
       selAdic.appendChild(opt);
     });
 
-    // ✅ NUEVO: chips seleccionables de categorías adicionales (mismo catálogo
-    // que la categoría principal), para poder tocar más de una a la hora de
-    // buscar convocados. Se re-generan cada vez que se abre el modal, así que
-    // arrancan siempre "sin tocar" (todas deseleccionadas).
+    // ✅ NUEVO: Categoría y Año de nacimiento arrancan vacíos/deshabilitados:
+    // se llenan en cascada según la Actividad (y después la Categoría)
+    // elegida, para no ofrecer categorías/años que no tienen ningún socio.
+    resetCategoriaSelect('Elegí una actividad primero');
+    resetAnioSelect('Elegí actividad y categoría');
     categoriasAdicionalesSeleccionadas = new Set();
-    renderCategoriasAdicionalesChips(rCat.categorias || []);
+    renderCategoriasAdicionalesChips([], 'Elegí una actividad primero');
+  }
+
+  function resetCategoriaSelect(placeholder) {
+    const selCat = $('asistCategoria');
+    if (!selCat) return;
+    selCat.innerHTML = `<option value="">${placeholder}</option>`;
+    selCat.disabled = true;
+  }
+
+  function resetAnioSelect(placeholder) {
+    const selAnio = $('asistAnioNacimiento');
+    if (!selAnio) return;
+    selAnio.innerHTML = `<option value="">${placeholder}</option>`;
+    selAnio.disabled = true;
+  }
+
+  // ✅ NUEVO: al elegir Actividad, trae SOLO las categorías que tienen
+  // socios activos en esa actividad (en vez de mostrar el catálogo
+  // completo del club, que puede incluir categorías vacías para ella).
+  async function actualizarCategoriasPorActividad() {
+    const clubId = getActiveClubId();
+    const actividad = $('asistActividad').value;
+
+    // La categoría (y el año, que depende de ella) siempre se resetean
+    // al cambiar de actividad: lo que valía para la actividad anterior
+    // puede no existir en la nueva.
+    resetAnioSelect('Elegí actividad y categoría');
+
+    if (!actividad) {
+      resetCategoriaSelect('Elegí una actividad primero');
+      categoriasAdicionalesSeleccionadas = new Set();
+      renderCategoriasAdicionalesChips([], 'Elegí una actividad primero');
+      return;
+    }
+
+    resetCategoriaSelect('Cargando categorías...');
+    categoriasAdicionalesSeleccionadas = new Set();
+    renderCategoriasAdicionalesChips([], 'Cargando categorías...');
+
+    try {
+      let nombres = cacheCategoriasPorActividad.get(actividad);
+      if (!nombres) {
+        const data = await fetchAuth(`/club/${clubId}/asistencia/categorias-por-actividad?actividad=${encodeURIComponent(actividad)}`).then(safeJson);
+        nombres = data.categorias || [];
+        cacheCategoriasPorActividad.set(actividad, nombres);
+      }
+
+      const nombresSet = new Set(nombres);
+      // Se filtra el catálogo completo (mantiene el orden configurado) en
+      // vez de usar directamente lo que devuelve el endpoint, para que la
+      // lista se vea igual que en el resto del panel.
+      const categoriasFiltradas = todasCategorias.filter(c => nombresSet.has(c.nombre));
+
+      const selCat = $('asistCategoria');
+      selCat.innerHTML = '<option value="">Seleccioná...</option>';
+      categoriasFiltradas.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.nombre;
+        opt.textContent = c.nombre;
+        selCat.appendChild(opt);
+      });
+      selCat.disabled = false;
+
+      if (!categoriasFiltradas.length) {
+        selCat.innerHTML = '<option value="">Sin categorías para esta actividad</option>';
+        selCat.disabled = true;
+      }
+
+      renderCategoriasAdicionalesChips(categoriasFiltradas);
+    } catch (e) {
+      console.error('❌ categorias-por-actividad', e);
+      resetCategoriaSelect('Error al cargar categorías');
+      renderCategoriasAdicionalesChips([], 'Error al cargar categorías');
+    }
+  }
+
+  // ✅ NUEVO: al elegir Categoría (con Actividad ya elegida), trae SOLO los
+  // años de nacimiento que efectivamente tienen socios en esa combinación,
+  // para que "Año de nacimiento" pase de número libre a selector.
+  async function actualizarAniosPorActividadCategoria() {
+    const clubId = getActiveClubId();
+    const actividad = $('asistActividad').value;
+    const categoria = $('asistCategoria').value;
+
+    if (!actividad || !categoria) {
+      resetAnioSelect('Elegí actividad y categoría');
+      return;
+    }
+
+    resetAnioSelect('Cargando años...');
+
+    try {
+      const data = await fetchAuth(
+        `/club/${clubId}/asistencia/anios-por-actividad-categoria?actividad=${encodeURIComponent(actividad)}&categoria=${encodeURIComponent(categoria)}`
+      ).then(safeJson);
+      const anios = data.anios || [];
+
+      const selAnio = $('asistAnioNacimiento');
+      selAnio.innerHTML = '<option value="">Todos los años</option>';
+      anios.forEach(anio => {
+        const opt = document.createElement('option');
+        opt.value = anio;
+        opt.textContent = anio;
+        selAnio.appendChild(opt);
+      });
+      selAnio.disabled = false;
+    } catch (e) {
+      console.error('❌ anios-por-actividad-categoria', e);
+      resetAnioSelect('Error al cargar años');
+    }
   }
 
   // ✅ NUEVO: dibuja los chips de categorías adicionales y bindea el toggle
   // (tocar un chip lo prende/apaga, como un filtro).
-  function renderCategoriasAdicionalesChips(categoriasList) {
+  function renderCategoriasAdicionalesChips(categoriasList, mensajeVacio = 'No hay categorías para esta actividad.') {
     const wrap = $('asistCategoriasAdicionalesWrap');
     if (!wrap) return;
 
     if (!categoriasList.length) {
-      wrap.innerHTML = '<span class="muted small">No hay categorías configuradas.</span>';
+      wrap.innerHTML = `<span class="muted small">${mensajeVacio}</span>`;
       return;
     }
 
@@ -491,6 +602,15 @@
     }));
     $('btnAsistVolverDatos')?.addEventListener('click', () => mostrarPaso(1));
     $('btnAsistGuardar')?.addEventListener('click', () => guardarAsistencia());
+
+    // ✅ NUEVO: cascada Actividad -> Categoría -> Año de nacimiento (solo
+    // muestran opciones que efectivamente tienen socios cargados).
+    $('asistActividad')?.addEventListener('change', () => {
+      actualizarCategoriasPorActividad().catch(e => console.error(e));
+    });
+    $('asistCategoria')?.addEventListener('change', () => {
+      actualizarAniosPorActividadCategoria().catch(e => console.error(e));
+    });
 
     // ✅ NUEVO: buscador de convocados (filtra sin refetch) y los botones
     // "Marcar todos" / "Ninguno", ahora fijos en el HTML del paso 2.

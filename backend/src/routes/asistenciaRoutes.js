@@ -19,6 +19,70 @@ function requireClubAccess(req, res, next) {
 }
 
 // ============================================================
+// GET /club/:clubId/asistencia/categorias-por-actividad?actividad=X
+// Devuelve solo las categorías que efectivamente tienen socios activos
+// cargados en esa actividad, para que el selector de Categoría (tanto en
+// "Tomar asistencia" como en el Reporte de asistencia) no muestre
+// categorías vacías para la actividad elegida.
+// ============================================================
+router.get('/:clubId/asistencia/categorias-por-actividad', requireAuth, requireClubAccess, async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const { actividad = '' } = req.query;
+
+    if (!actividad.trim()) {
+      return res.status(400).json({ ok: false, error: 'Falta actividad' });
+    }
+
+    const r = await db.query(
+      `SELECT DISTINCT s.categoria
+         FROM socios s
+        WHERE s.club_id = $1 AND s.activo = true AND s.actividad = $2
+          AND s.categoria IS NOT NULL AND s.categoria <> ''
+        ORDER BY s.categoria ASC`,
+      [clubId, actividad]
+    );
+
+    res.json({ ok: true, categorias: r.rows.map(row => row.categoria) });
+  } catch (e) {
+    console.error('❌ asistencia categorias-por-actividad', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// GET /club/:clubId/asistencia/anios-por-actividad-categoria?actividad=X&categoria=Y
+// Devuelve los años de nacimiento que efectivamente tienen socios activos
+// en esa actividad + categoría, para que el filtro de "Año de nacimiento"
+// deje de ser un número libre y pase a ser un selector con los años reales.
+// ============================================================
+router.get('/:clubId/asistencia/anios-por-actividad-categoria', requireAuth, requireClubAccess, async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const { actividad = '', categoria = '' } = req.query;
+
+    if (!actividad.trim() || !categoria.trim()) {
+      return res.status(400).json({ ok: false, error: 'Faltan actividad y/o categoría' });
+    }
+
+    const r = await db.query(
+      `SELECT DISTINCT EXTRACT(YEAR FROM s.fecha_nacimiento)::int AS anio
+         FROM socios s
+        WHERE s.club_id = $1 AND s.activo = true
+          AND s.actividad = $2 AND s.categoria = $3
+          AND s.fecha_nacimiento IS NOT NULL
+        ORDER BY anio DESC`,
+      [clubId, actividad, categoria]
+    );
+
+    res.json({ ok: true, anios: r.rows.map(row => row.anio) });
+  } catch (e) {
+    console.error('❌ asistencia anios-por-actividad-categoria', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
 // GET /club/:clubId/asistencia/socios-filtrados
 // Trae los socios activos que matchean Actividad + Categoría
 // (+ Actividad adicional, si se envía) para armar el listado

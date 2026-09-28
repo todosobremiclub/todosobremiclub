@@ -948,8 +948,8 @@ textarea:focus{
 
           <div class="asist2-field asist2-field-full">
             <label>Categoría</label>
-            <select id="asistCategoria">
-              <option value="">Seleccioná...</option>
+            <select id="asistCategoria" disabled>
+              <option value="">Elegí una actividad primero</option>
             </select>
           </div>
 
@@ -968,7 +968,9 @@ textarea:focus{
 
           <div class="asist2-field">
             <label>Año de nacimiento (opcional)</label>
-            <input id="asistAnioNacimiento" type="number" min="1900" max="2100" placeholder="Ej: 2012" />
+            <select id="asistAnioNacimiento" disabled>
+              <option value="">Elegí actividad y categoría</option>
+            </select>
           </div>
 
           <!-- ✅ años adicionales, misma lógica que las categorías adicionales -->
