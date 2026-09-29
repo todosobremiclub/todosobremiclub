@@ -658,6 +658,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     $('formClub')?.addEventListener('submit', saveClub);
     $('btnOpenClubForm')?.addEventListener('click', () => openClubForm(false));
     $('btnCloseClubForm')?.addEventListener('click', closeClubForm);
+    $('btnCloseClubFormX')?.addEventListener('click', closeClubForm); // ✅ NUEVO: botón "✕" del header del modal
     $('clubSearch')?.addEventListener('input', applyFilters);
     $('clubStatusFilter')?.addEventListener('change', applyFilters);
     $('btnAddClubComment')?.addEventListener('click', addClubComment);

@@ -81,25 +81,79 @@
     label {
       font-size: 12px;
       color: var(--muted);
+      font-weight: 600;
     }
 
     input, select, textarea {
       width: 100%;
-      padding: 6px 8px;
-      border-radius: 8px;
+      padding: 9px 11px;
+      border-radius: 9px;
       border: 1px solid var(--border);
       margin: 4px 0 10px;
-      font-size: 13px;
+      font-size: 13.5px;
+      font-family: inherit;
+      color: var(--text);
+      background: #fff;
+      box-sizing: border-box;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    input:hover, select:hover, textarea:hover {
+      border-color: #c7cdd6;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, .14);
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: #b3b9c4;
+    }
+
+    input[readonly] {
+      background: #f3f4f6;
+      color: var(--muted);
+      cursor: not-allowed;
     }
 
     input[type="color"] {
-      height: 32px;
-      padding: 2px;
+      height: 42px;
+      padding: 3px;
+      cursor: pointer;
     }
 
     input[type="checkbox"] {
-      width: auto;
+      width: 17px;
+      height: 17px;
       margin: 0;
+      accent-color: var(--primary);
+      cursor: pointer;
+      flex: none;
+    }
+
+    input[type="file"] {
+      padding: 8px;
+      cursor: pointer;
+      background: #f9fafb;
+    }
+
+    input[type="file"]::file-selector-button {
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 7px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 10px;
+      transition: background .15s ease;
+    }
+
+    input[type="file"]::file-selector-button:hover {
+      background: var(--primary-hover);
     }
 
     textarea {
@@ -109,7 +163,18 @@
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 0 14px;
+    }
+
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); }
+    .small { font-size: 11.5px; }
+
+    .field-hint {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin: -6px 0 10px;
+      line-height: 1.45;
     }
 
     .toolbar-filters {
@@ -130,14 +195,73 @@
       .toolbar-filters { flex-direction: column; align-items: stretch; }
     }
 
+    button {
+      font-family: inherit;
+    }
+
     button.primary {
       background: var(--primary);
       color: white;
       border: none;
-      padding: 8px 12px;
-      border-radius: 8px;
+      padding: 9px 16px;
+      border-radius: 9px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 13.5px;
+      font-weight: 600;
+      transition: background .15s ease, transform .05s ease;
+    }
+    button.primary:hover { background: var(--primary-hover); }
+    button.primary:active { transform: scale(.98); }
+
+    /* ✅ NUEVO: botones secundarios/danger/xs — usados por Mercado Pago,
+       "Cancelar", "Cerrar", etc. (antes quedaban sin ningún estilo). */
+    .btn-secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 9px 16px;
+      border-radius: 9px;
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 600;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .btn-secondary:hover { background: #f3f4f6; border-color: #c7cdd6; }
+
+    .btn-danger {
+      background: #fff;
+      color: var(--danger);
+      border: 1px solid #fca5a5;
+      padding: 9px 16px;
+      border-radius: 9px;
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+    .btn-danger:hover { background: #fef2f2; }
+
+    .btn-xs {
+      padding: 5px 10px !important;
+      font-size: 12px !important;
+      border-radius: 7px !important;
+    }
+
+    form > button:not([class]),
+    #clubUsersCard button:not([class]),
+    #clubUserFormCard button:not([class]) {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 9px 16px;
+      border-radius: 9px;
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+    form > button:not([class]):hover,
+    #clubUsersCard button:not([class]):hover,
+    #clubUserFormCard button:not([class]):hover {
+      background: #f3f4f6;
     }
 
     table {
@@ -247,11 +371,175 @@
     .modal-content {
       width: min(950px, 95vw);
       max-height: 90vh;
-      overflow-y: auto;
       background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.22);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    /* =========================
+       ✅ NUEVO: formulario de club — rediseño moderno
+       (header/footer fijos, cuerpo con scroll, secciones con tarjeta)
+    ========================= */
+    .club-modal {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      max-height: 90vh;
+    }
+
+    .club-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--border);
+      flex: none;
+    }
+
+    .club-modal-header h4 {
+      margin: 0;
+      font-size: 17px;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .modal-close-x {
+      background: #f3f4f6;
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      font-size: 15px;
+      line-height: 1;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+      transition: background .15s ease, color .15s ease;
+    }
+    .modal-close-x:hover { background: #e5e7eb; color: var(--text); }
+
+    #formClub {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      flex: 1;
+    }
+
+    .club-modal-body {
+      padding: 20px 22px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .form-section {
+      border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 16px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      background: #fbfcfe;
+    }
+
+    .form-section:last-child { margin-bottom: 0; }
+
+    .form-section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0 0 12px;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+
+    .form-section-title .ico {
+      font-size: 15px;
+    }
+
+    .form-section .form-section {
+      background: #fff;
+      margin-top: 4px;
+      margin-bottom: 12px;
+    }
+
+    .field-name-row {
+      margin-bottom: 0;
+    }
+    .field-name-row label { font-size: 13px; }
+    .field-name-row input {
+      font-size: 16px;
+      font-weight: 700;
+      padding: 10px 12px;
+    }
+
+    /* Fila tipo "switch": checkbox + texto, con tarjeta clickeable */
+    .switch-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    .switch-row:hover { border-color: #c7cdd6; }
+    .switch-row input[type="checkbox"] { margin-top: 2px; }
+    .switch-row .switch-row-text { display: flex; flex-direction: column; gap: 2px; }
+    .switch-row .switch-row-text strong { font-size: 13.5px; color: var(--text); }
+    .switch-row .switch-row-text span { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+
+    .color-field { text-align: center; }
+    .color-field label { display: block; margin-bottom: 4px; }
+    .color-field input[type="color"] { width: 100%; }
+
+    .mp-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .club-modal-footer {
+      flex: none;
+      border-top: 1px solid var(--border);
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #fff;
+    }
+
+    .club-modal-footer-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .club-modal-footer .msg {
+      margin: 0;
+      flex: 1;
+    }
+
+    @media (max-width: 640px) {
+      .club-modal-header, .club-modal-body, .club-modal-footer { padding-left: 16px; padding-right: 16px; }
     }
   </style>
 </head>
@@ -293,76 +581,121 @@
       <!-- FORM CLUB -->
       <div id="clubModal" class="modal hidden">
         <div class="modal-content">
-          <div id="clubFormCard" class="subcard" style="display:block; margin-top:0;">
-            <h4 id="clubFormTitle">Crear club</h4>
+          <div id="clubFormCard" class="club-modal">
+            <div class="club-modal-header">
+              <h4 id="clubFormTitle">Crear club</h4>
+              <button type="button" id="btnCloseClubFormX" class="modal-close-x" aria-label="Cerrar">✕</button>
+            </div>
+
             <form id="formClub">
-              <input type="hidden" id="club_id">
-              <label>Nombre *</label>
-              <input id="club_name" required>
-              <label>Dirección</label>
-              <input id="club_address">
-              <div class="form-grid">
-                <div>
-                  <label>Ciudad</label>
-                  <input id="club_city">
-                </div>
-                <div>
-                  <label>Provincia</label>
-                  <input id="club_province">
-                </div>
-              </div>
-              <h4>Contacto</h4>
-              <div class="form-grid">
-                <div>
-                  <label>Persona de contacto</label>
-                  <input id="club_contact_name">
-                </div>
-                <div>
-                  <label>Teléfono</label>
-                  <input id="club_contact_phone">
-                </div>
-              </div>
-              <label>Instagram</label>
-              <input id="club_instagram">
-              <h4>Datos del club</h4>
-              <div class="form-grid">
-                <div>
-                  <label>Cantidad de socios</label>
-                  <input id="club_socios_cantidad" type="number" min="0" placeholder="Ej: 120">
-                </div>
-                <div>
-                  <label>Valor mensual</label>
-                  <input id="club_valor_mensual" type="number" step="0.01" min="0" placeholder="Ej: 15000">
+              <div class="club-modal-body">
+                <input type="hidden" id="club_id">
 
-<label>Día límite para considerar vigente el mes anterior</label>
-<input
-  id="club_payment_due_day"
-  type="number"
-  min="1"
-  max="31"
-  value="31"
-  placeholder="Ej: 15">
-<div style="font-size:12px; color:#6b7280; margin:-6px 0 10px;">
-  Hasta este día inclusive, si el socio pagó el mes anterior seguirá figurando en verde.
-  Desde el día siguiente, deberá tener pago el mes actual.
-</div>
+                <!-- Datos generales -->
+                <div class="form-section">
+                  <div class="form-section-title"><span class="ico">🏷️</span> Datos generales</div>
 
+                  <div class="field-name-row">
+                    <label>Nombre del club *</label>
+                    <input id="club_name" required placeholder="Ej: Academia de Padel AV">
+                  </div>
+
+                  <label>Dirección</label>
+                  <input id="club_address" placeholder="Calle y número">
+
+                  <div class="form-grid">
+                    <div>
+                      <label>Ciudad</label>
+                      <input id="club_city">
+                    </div>
+                    <div>
+                      <label>Provincia</label>
+                      <input id="club_province">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Contacto -->
+                <div class="form-section">
+                  <div class="form-section-title"><span class="ico">📇</span> Contacto</div>
+
+                  <div class="form-grid">
+                    <div>
+                      <label>Persona de contacto</label>
+                      <input id="club_contact_name">
+                    </div>
+                    <div>
+                      <label>Teléfono</label>
+                      <input id="club_contact_phone">
+                    </div>
+                  </div>
+
+                  <label>Instagram</label>
+                  <input id="club_instagram" placeholder="https://instagram.com/...">
+                </div>
+
+                <!-- Datos del club -->
+                <div class="form-section">
+                  <div class="form-section-title"><span class="ico">📋</span> Datos del club</div>
+
+                  <div class="form-grid">
+                    <div>
+                      <label>Cantidad de socios</label>
+                      <input id="club_socios_cantidad" type="number" min="0" placeholder="Ej: 120">
+                    </div>
+                    <div>
+                      <label>Valor mensual</label>
+                      <input id="club_valor_mensual" type="number" step="0.01" min="0" placeholder="Ej: 15000">
+                    </div>
+                  </div>
+
+                  <label>Día límite para considerar vigente el mes anterior</label>
+                  <input
+                    id="club_payment_due_day"
+                    type="number"
+                    min="1"
+                    max="31"
+                    value="31"
+                    placeholder="Ej: 15">
+                  <div class="field-hint">
+                    Hasta este día inclusive, si el socio pagó el mes anterior seguirá figurando en verde.
+                    Desde el día siguiente, deberá tener pago el mes actual.
+                  </div>
+
+                  <div>
+                    <label>Estado</label>
+                    <select id="club_estado">
+                      <option value="productivo">Productivo</option>
+                      <option value="avanzado">Avanzado</option>
+                      <option value="pendiente" selected>Pendiente</option>
+                      <option value="sin_respuesta">Sin respuesta</option>
+                      <option value="bajo">Baja</option>
+                    </select>
+                  </div>
+
+                  <label>Socios activos</label>
+                  <input id="club_socios_activos" type="number" readonly placeholder="—">
+                </div>
+
+                <!-- Cobros -->
+                <div class="form-section">
+                  <div class="form-section-title"><span class="ico">💳</span> Cobros</div>
 
                   <!-- ✅ NUEVO: reemplaza al viejo checkbox único "Permitir pagos por
                        transferencia" por un selector de 3 modos excluyentes entre sí. -->
-                  <label style="margin-top:10px;">Modo de pago del socio en la app</label>
+                  <label>Modo de pago del socio en la app</label>
                   <select id="club_payment_mode">
                     <option value="ninguno">Sin pago automatizado (el socio no ve ningún botón de pago)</option>
                     <option value="transferencia_manual">Transferencia informada por el socio (revisa un admin)</option>
                     <option value="mercadopago_auto">Mercado Pago (pago 100% automático)</option>
                     <option value="ambos">Ambos (el socio elige: Mercado Pago o transferencia)</option>
                   </select>
-                  <div style="font-size:12px; color:#6b7280; margin:4px 0 10px;">
+                  <div class="field-hint">
                     "Mercado Pago" y "Ambos" solo se pueden elegir si el club ya conectó su cuenta más abajo.
                   </div>
 
-                  <div id="clubTransferBox">
-                    <h4>💳 Datos para transferencias</h4>
+                  <div id="clubTransferBox" class="form-section">
+                    <div class="form-section-title"><span class="ico">🏦</span> Datos para transferencias</div>
                     <div class="form-grid">
                       <div>
                         <label>CVU</label>
@@ -388,42 +721,53 @@
                   </div>
 
                   <!-- ✅ NUEVO: conexión de Mercado Pago -->
-                  <div id="clubMpBox">
-                    <h4>💳 Mercado Pago</h4>
-                    <div id="clubMpStatus" style="font-size:13px; margin-bottom:8px;">—</div>
-                    <button type="button" id="btnConectarMp" class="btn-secondary">Conectar cuenta de Mercado Pago</button>
-                    <button type="button" id="btnDesconectarMp" class="btn-secondary" style="display:none; color:#dc2626;">Desconectar Mercado Pago</button>
+                  <div id="clubMpBox" class="form-section">
+                    <div class="form-section-title"><span class="ico">🔵</span> Mercado Pago</div>
+                    <div id="clubMpStatus" class="mp-status-pill">—</div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                      <button type="button" id="btnConectarMp" class="btn-secondary">Conectar cuenta de Mercado Pago</button>
+                      <button type="button" id="btnDesconectarMp" class="btn-danger" style="display:none;">Desconectar Mercado Pago</button>
+                    </div>
 
                     <!-- ✅ NUEVO: link para que el club conecte su propia cuenta de MP -->
                     <div style="margin-top:10px;">
                       <button type="button" id="btnGenerarLinkMp" class="btn-secondary">
                         🔗 Generar link para que el club lo conecte
                       </button>
-                      <div id="clubMpLinkBox" class="hidden" style="margin-top:8px; display:none;">
+                      <div id="clubMpLinkBox" class="hidden" style="margin-top:8px;">
                         <label class="muted small" style="display:block; margin-bottom:2px;">
                           Pasaselo al club (tesorero/administrador) para que lo abra logueado con SU cuenta de Mercado Pago:
                         </label>
                         <div style="display:flex; gap:6px;">
-                          <input id="clubMpLinkInput" type="text" readonly style="flex:1; font-size:12px;">
+                          <input id="clubMpLinkInput" type="text" readonly style="flex:1; font-size:12px; margin:0;">
                           <button type="button" id="btnCopiarLinkMp" class="btn-secondary btn-xs">Copiar</button>
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                <!-- Funcionalidades -->
+                <div class="form-section">
+                  <div class="form-section-title"><span class="ico">🧩</span> Funcionalidades</div>
+
+                  <label class="switch-row" for="club_tienda_habilitada">
                     <input type="checkbox" id="club_tienda_habilitada">
-                    Tienda Online habilitada
+                    <span class="switch-row-text">
+                      <strong>Tienda Online habilitada</strong>
+                      <span>
+                        El club puede cargar productos (foto, precio, stock) y los socios pueden
+                        reservarlos desde la app. Si está apagado, el club no ve la sección Tienda
+                        en el panel ni en la app.
+                      </span>
+                    </span>
                   </label>
-                  <div style="font-size:12px; color:#6b7280; margin:-4px 0 10px;">
-                    El club puede cargar productos (foto, precio, stock) y los socios pueden
-                    reservarlos desde la app. Si está apagado, el club no ve la sección Tienda
-                    en el panel ni en la app.
-                  </div>
 
-                  <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                  <label class="switch-row" for="club_whatsapp_habilitado">
                     <input type="checkbox" id="club_whatsapp_habilitado">
-                    WhatsApp habilitado (add-on pago)
+                    <span class="switch-row-text">
+                      <strong>WhatsApp habilitado (add-on pago)</strong>
+                    </span>
                   </label>
 
                   <div id="clubWhatsappBox">
@@ -434,68 +778,70 @@
                       min="0"
                       value="300"
                       placeholder="Ej: 300">
-                    <div style="font-size:12px; color:#6b7280; margin:-6px 0 10px;">
+                    <div class="field-hint">
                       Tope de bienvenidas + notificaciones por WhatsApp que puede mandar este club
                       en el mes. Al llegar al límite, los envíos de WhatsApp se cortan (la app y el
                       email siguen funcionando igual).
                     </div>
                   </div>
+                </div>
 
-                  <div>
-                    <label>Estado</label>
-                    <select id="club_estado">
-  <option value="productivo">Productivo</option>
-  <option value="avanzado">Avanzado</option>
-  <option value="pendiente" selected>Pendiente</option>
-  <option value="sin_respuesta">Sin respuesta</option>
-  <option value="bajo">Baja</option>
-</select>
+                <!-- Identidad visual -->
+                <div class="form-section">
+                  <div class="form-section-title"><span class="ico">🎨</span> Identidad visual</div>
+
+                  <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="color-field">
+                      <label>Primario</label>
+                      <input type="color" id="club_color_primary" value="#2563eb">
+                    </div>
+                    <div class="color-field">
+                      <label>Secundario</label>
+                      <input type="color" id="club_color_secondary" value="#1e40af">
+                    </div>
+                    <div class="color-field">
+                      <label>Acento</label>
+                      <input type="color" id="club_color_accent" value="#facc15">
+                    </div>
                   </div>
+                </div>
 
-                  <div></div>
+                <!-- Imágenes -->
+                <div class="form-section">
+                  <div class="form-section-title"><span class="ico">🖼️</span> Imágenes</div>
 
-                  <div>
-                    <label>Socios activos</label>
-                    <input id="club_socios_activos" type="number" readonly placeholder="—">
+                  <div class="form-grid">
+                    <div>
+                      <label>Logo</label>
+                      <input type="file" id="club_logo" accept="image/*">
+                    </div>
+                    <div>
+                      <label>Fondo</label>
+                      <input type="file" id="club_background" accept="image/*">
+                    </div>
                   </div>
+                </div>
+
+                <!-- Comentarios -->
+                <div class="form-section">
+                  <div class="form-section-title"><span class="ico">📝</span> Comentarios</div>
+
+                  <textarea id="club_new_comment" rows="2"
+                    placeholder="Agregar comentario (queda como historial)"></textarea>
+                  <button type="button" id="btnAddClubComment" class="btn-secondary">➕ Agregar comentario</button>
+
+                  <div id="clubCommentsList" style="margin-top:10px;"></div>
                 </div>
               </div>
 
-              <h4>Identidad visual</h4>
-              <div class="form-grid">
-                <div>
-                  <label>Color primario</label>
-                  <input type="color" id="club_color_primary" value="#2563eb">
+              <div class="club-modal-footer">
+                <div id="clubMsg" class="msg"></div>
+                <div class="club-modal-footer-actions">
+                  <button type="button" id="btnCloseClubForm" class="btn-secondary">Cancelar</button>
+                  <button class="primary" type="submit">Guardar club</button>
                 </div>
-                <div>
-                  <label>Color secundario</label>
-                  <input type="color" id="club_color_secondary" value="#1e40af">
-                </div>
-              </div>
-
-              <label>Color acento</label>
-              <input type="color" id="club_color_accent" value="#facc15">
-
-              <h4>Imágenes</h4>
-              <label>Logo</label>
-              <input type="file" id="club_logo" accept="image/*">
-              <label>Fondo</label>
-              <input type="file" id="club_background" accept="image/*">
-
-              <h4>Comentarios</h4>
-              <textarea id="club_new_comment" rows="2"
-                placeholder="Agregar comentario (queda como historial)"></textarea>
-              <button type="button" id="btnAddClubComment">➕ Agregar comentario</button>
-
-              <div id="clubCommentsList" style="margin-top:10px;"></div>
-
-              <div style="margin-top:10px; display:flex; gap:10px;">
-                <button class="primary" type="submit">Guardar club</button>
-                <button type="button" id="btnCloseClubForm">Cancelar</button>
               </div>
             </form>
-
-            <div id="clubMsg" class="msg"></div>
           </div>
         </div>
       </div>
@@ -576,6 +922,7 @@
         <tbody id="clubs-table"></tbody>
       </table>
     </div>
+  </div>
 
   <script src="/js/clubs.js?v=20260921-1"></script>
   <script src="/js/users.js"></script>
