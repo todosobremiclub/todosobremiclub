@@ -324,6 +324,15 @@ tr.innerHTML = `
     return `#${r.numero_socio ?? '—'} ${escapeHtmlPend(r.socio_apellido ?? '')} ${escapeHtmlPend(r.socio_nombre ?? '')}`.trim();
   }
 
+  // ✅ NUEVO: cuántas líneas comparten cada pedido_id (carrito con varios
+  // productos) — se usa para agrupar visualmente y para saber si se puede
+  // editar la cantidad a entregar de una línea suelta.
+  function contarLineasPorPedido(items) {
+    const mapa = new Map();
+    items.forEach(r => mapa.set(r.pedido_id, (mapa.get(r.pedido_id) || 0) + 1));
+    return mapa;
+  }
+
   function renderReservasTiendaPendientes(items) {
     const tbody = $('reservasTiendaPendientesBody');
     if (!tbody) return;
@@ -335,22 +344,38 @@ tr.innerHTML = `
       return;
     }
 
+    const lineasPorPedido = contarLineasPorPedido(items);
+
     items.forEach(r => {
       const tr = document.createElement('tr');
-      tr.dataset.id = r.id;
+      // ✅ NUEVO: se usa el pedido_id (no el id de la línea) como
+      // identificador de la fila: aceptar/rechazar actúan sobre TODO el
+      // pedido/carrito de una vez, aunque tenga varios productos.
+      tr.dataset.id = r.pedido_id;
 
       const cantidadPedida = Number(r.cantidad) || 1;
+      const esCarritoMultiple = (lineasPorPedido.get(r.pedido_id) || 1) > 1;
+      const nombreConTalle = r.talle
+        ? `${escapeHtmlPend(r.producto_nombre)} <span class="muted">(talle ${escapeHtmlPend(r.talle)})</span>`
+        : escapeHtmlPend(r.producto_nombre);
+      const badgePedido = esCarritoMultiple
+        ? `<div style="font-size:10.5px; color:#2563eb; margin-top:2px;">🛒 Pedido con varios productos — se gestiona junto</div>`
+        : '';
 
-      tr.innerHTML = `
-        <td>${reservaImgHtml(r)}</td>
-        <td><b>${escapeHtmlPend(r.producto_nombre)}</b></td>
-        <td>${reservaSocioLabel(r)}</td>
-        <td>
+      const cantidadHtml = esCarritoMultiple
+        ? `${escapeHtmlPend(cantidadPedida)}`
+        : `
           <input type="number" class="tw-cantidad-entregar" data-cantidad-original="${cantidadPedida}"
                  min="1" max="${cantidadPedida}" step="1" value="${cantidadPedida}"
                  style="width:64px; padding:5px 6px; border-radius:8px; border:1px solid #ccc; font-size:13px;">
           <div style="font-size:10.5px; color:#6b7280; margin-top:2px;">de ${cantidadPedida} pedidas</div>
-        </td>
+        `;
+
+      tr.innerHTML = `
+        <td>${reservaImgHtml(r)}</td>
+        <td><b>${nombreConTalle}</b>${badgePedido}</td>
+        <td>${reservaSocioLabel(r)}</td>
+        <td>${cantidadHtml}</td>
         <td>${formatDateISOToDMY_pend(r.created_at)}</td>
         <td style="white-space:nowrap;">
           <button class="btn-ok" data-act="r_aceptar">Aceptar</button>
@@ -504,28 +529,32 @@ tr.innerHTML = `
       return;
     }
 
-    select.dataset.estado = data.reserva.estado_pago;
-    select.dataset.monto = String(data.reserva.monto_pagado ?? 0);
+    const pedidoActualizado = data.pedido;
 
-    const wrapper = select.parentElement;
-    const labelPrevio = wrapper?.querySelector('.tw-monto-pagado-label');
-    if (labelPrevio) labelPrevio.remove();
-    const textoLabel = pagoLabelTexto(data.reserva.estado_pago, data.reserva.monto_pagado, data.reserva.forma_pago);
-    if (textoLabel) {
-      const div = document.createElement('div');
-      div.className = 'tw-monto-pagado-label';
-      div.textContent = textoLabel;
-      select.insertAdjacentElement('afterend', div);
-    }
+    // ✅ El pago se gestiona por pedido (todas sus líneas comparten el mismo
+    // estado_pago): si esta fila comparte pedido_id con otras, se
+    // actualizan todos los selects hermanos para que no queden desfasados.
+    const root = document.getElementById('pendientes-section');
+    const filasDelPedido = root
+      ? root.querySelectorAll(`tr[data-id="${rowId}"] select.tw-estado-pago-select`)
+      : [select];
 
-    // ✅ El botón "Marcar retirado" solo se habilita con el pago completo
-    // (hasta que no paga, no se le entrega el pedido).
-    const btnRetirar = tr?.querySelector('button[data-act="r_retirado"]');
-    if (btnRetirar) {
-      const habilitado = data.reserva.estado_pago === 'pagado';
-      btnRetirar.disabled = !habilitado;
-      btnRetirar.title = habilitado ? '' : 'Hay que registrar el pago completo antes de entregar el pedido';
-    }
+    filasDelPedido.forEach(sel => {
+      sel.value = pedidoActualizado.estado_pago;
+      sel.dataset.estado = pedidoActualizado.estado_pago;
+      sel.dataset.monto = String(pedidoActualizado.monto_pagado ?? 0);
+
+      const wrapper = sel.parentElement;
+      const labelPrevio = wrapper?.querySelector('.tw-monto-pagado-label');
+      if (labelPrevio) labelPrevio.remove();
+      const textoLabel = pagoLabelTexto(pedidoActualizado.estado_pago, pedidoActualizado.monto_pagado, pedidoActualizado.forma_pago);
+      if (textoLabel) {
+        const div = document.createElement('div');
+        div.className = 'tw-monto-pagado-label';
+        div.textContent = textoLabel;
+        sel.insertAdjacentElement('afterend', div);
+      }
+    });
   }
 
   function renderReservasTiendaARetirar(items) {
@@ -539,24 +568,33 @@ tr.innerHTML = `
       return;
     }
 
+    const lineasPorPedido = contarLineasPorPedido(items);
+
     items.forEach(r => {
       const tr = document.createElement('tr');
-      tr.dataset.id = r.id;
+      // ✅ NUEVO: "Marcar retirado" ya no se bloquea por falta de pago (se
+      // puede entregar igual, con aviso — ver el click handler más abajo).
+      // Se usa pedido_id para que, en un carrito con varios productos, el
+      // botón entregue todo el pedido de una vez.
+      tr.dataset.id = r.pedido_id;
 
-      const puedeRetirar = r.estado_pago === 'pagado';
-      const btnRetirarAttrs = puedeRetirar
-        ? ''
-        : 'disabled title="Hay que registrar el pago completo antes de entregar el pedido"';
+      const esCarritoMultiple = (lineasPorPedido.get(r.pedido_id) || 1) > 1;
+      const nombreConTalle = r.talle
+        ? `${escapeHtmlPend(r.producto_nombre)} <span class="muted">(talle ${escapeHtmlPend(r.talle)})</span>`
+        : escapeHtmlPend(r.producto_nombre);
+      const badgePedido = esCarritoMultiple
+        ? `<div style="font-size:10.5px; color:#2563eb; margin-top:2px;">🛒 Pedido con varios productos — se gestiona junto</div>`
+        : '';
 
       tr.innerHTML = `
         <td>${reservaImgHtml(r)}</td>
-        <td><b>${escapeHtmlPend(r.producto_nombre)}</b></td>
+        <td><b>${nombreConTalle}</b>${badgePedido}</td>
         <td>${reservaSocioLabel(r)}</td>
         <td>${escapeHtmlPend(r.cantidad)}</td>
         <td>${estadoPagoSelectHtml(r)}</td>
         <td>${escapeHtmlPend(r.mensaje_admin || '—')}</td>
         <td style="white-space:nowrap;">
-          <button class="btn-ok" data-act="r_retirado" ${btnRetirarAttrs}>Marcar retirado</button>
+          <button class="btn-ok" data-act="r_retirado">Marcar retirado</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -753,33 +791,38 @@ await loadSociosPendientes();
       if (btn.dataset.act === 'r_aceptar') {
         // ✅ NUEVO: el admin puede reducir la cantidad a entregar (ej: pidieron
         // 2 y solo hay/entregan 1). Lo que se resta vuelve al stock del producto.
+        // Solo aplica a pedidos de un solo producto — si el pedido tiene
+        // varios (carrito), no se muestra el input y se acepta con las
+        // cantidades originales de cada línea (gestión "todo el pedido junto").
         const inputCantidad = tr.querySelector('.tw-cantidad-entregar');
-        const cantidadOriginal = Number(inputCantidad?.dataset?.cantidadOriginal || 1);
-        let cantidadAEntregar = cantidadOriginal;
+        const body = { mensaje: prompt('Mensaje para el socio (opcional):') || null };
+        let cantidadAEntregar = null;
+        let cantidadOriginal = null;
+
         if (inputCantidad) {
+          cantidadOriginal = Number(inputCantidad.dataset.cantidadOriginal || 1);
           cantidadAEntregar = Number(inputCantidad.value);
           if (!Number.isInteger(cantidadAEntregar) || cantidadAEntregar < 1 || cantidadAEntregar > cantidadOriginal) {
             alert(`Ingresá una cantidad entre 1 y ${cantidadOriginal}.`);
             return;
           }
+          body.cantidad = cantidadAEntregar;
         }
-
-        const mensaje = prompt('Mensaje para el socio (opcional):') || null;
 
         const { res, data } = await fetchAuth(
           `/club/${clubId}/tienda/reservas/${rowId}/aceptar`,
-          { method: 'POST', json: true, body: JSON.stringify({ mensaje, cantidad: cantidadAEntregar }) }
+          { method: 'POST', json: true, body: JSON.stringify(body) }
         );
 
         if (!res.ok || !data.ok) {
-          alert(data.error || 'Error aceptando la reserva');
+          alert(data.error || 'Error aceptando el pedido');
           return;
         }
 
-        if (cantidadAEntregar < cantidadOriginal) {
-          alert(`✅ Reserva aceptada por ${cantidadAEntregar} de ${cantidadOriginal} unidades. La diferencia (${cantidadOriginal - cantidadAEntregar}) volvió al stock del producto.`);
+        if (cantidadAEntregar !== null && cantidadAEntregar < cantidadOriginal) {
+          alert(`✅ Pedido aceptado por ${cantidadAEntregar} de ${cantidadOriginal} unidades. La diferencia (${cantidadOriginal - cantidadAEntregar}) volvió al stock del producto.`);
         } else {
-          alert('✅ Reserva aceptada.');
+          alert('✅ Pedido aceptado.');
         }
         await loadReservasTienda();
         return;
@@ -794,17 +837,27 @@ await loadSociosPendientes();
         );
 
         if (!res.ok || !data.ok) {
-          alert(data.error || 'Error rechazando la reserva');
+          alert(data.error || 'Error rechazando el pedido');
           return;
         }
 
-        alert('✅ Reserva rechazada');
+        alert('✅ Pedido rechazado');
         await loadReservasTienda();
         return;
       }
 
       if (btn.dataset.act === 'r_retirado') {
-        if (!confirm('¿Confirmar que el socio retiró el producto en el club?')) return;
+        // ✅ NUEVO: se permite entregar aunque no esté pagado, pero se avisa
+        // antes con un texto explícito (la deuda queda visible en el
+        // historial gracias a estado_pago).
+        const selectPago = tr.querySelector('select.tw-estado-pago-select');
+        const estadoPagoActual = selectPago?.dataset?.estado || 'sin_pago';
+
+        const mensajeConfirm = estadoPagoActual === 'pagado'
+          ? '¿Confirmar que el socio retiró el pedido en el club?'
+          : '⚠️ Este pedido todavía NO está pagado por completo. ¿Confirmás igual la entrega? Va a quedar marcado como retirado con el pago pendiente.';
+
+        if (!confirm(mensajeConfirm)) return;
 
         const { res, data } = await fetchAuth(
           `/club/${clubId}/tienda/reservas/${rowId}/retirado`,
@@ -812,11 +865,11 @@ await loadSociosPendientes();
         );
 
         if (!res.ok || !data.ok) {
-          alert(data.error || 'Error marcando la reserva como retirada');
+          alert(data.error || 'Error marcando el pedido como retirado');
           return;
         }
 
-        alert('✅ Reserva marcada como retirada');
+        alert('✅ Pedido marcado como retirado');
         await loadReservasTienda();
         return;
       }

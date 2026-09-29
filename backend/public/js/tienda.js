@@ -5,6 +5,7 @@
 // sección "Pendientes" (ver claude/tienda-online-plan.md, paso 5).
 (() => {
   const $ = (selector) => document.querySelector(selector);
+  const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
   // =============================
   // Auth / helpers comunes (mismo patrón que noticias.js)
@@ -124,7 +125,13 @@
   function updatePreview() {
     const nombre = $('#tiendaNombre')?.value?.trim();
     const precio = $('#tiendaPrecio')?.value;
-    const stock = $('#tiendaStock')?.value;
+    const tieneTalles = !!$('#tiendaTieneTalles')?.checked;
+    const stock = tieneTalles
+      ? $$('.tw-talle-stock').reduce((acc, input) => {
+          const n = Number(input.value);
+          return acc + (Number.isFinite(n) ? n : 0);
+        }, 0)
+      : $('#tiendaStock')?.value;
 
     const previewNombre = $('#tiendaPreviewNombre');
     const previewPrecio = $('#tiendaPreviewPrecio');
@@ -151,6 +158,60 @@
       setPreviewImg(currentImagenUrl || null);
       setQuitarBtnVisible(!!currentImagenUrl);
     }
+  }
+
+  // =============================
+  // ✅ NUEVO: builder de talles + stock por talle
+  // =============================
+  function tiendaTalleFilaHtml(talle = '', stock = '') {
+    return `
+      <div class="tw-talle-fila" data-talle-fila>
+        <input type="text" class="tw-talle-nombre" placeholder="Talle (ej: 38, S, M)" value="${escapeHtml(talle)}" />
+        <input type="number" class="tw-talle-stock" min="0" step="1" placeholder="Stock" value="${escapeHtml(String(stock ?? ''))}" />
+        <button type="button" class="tw-talle-quitar" title="Quitar talle">✖</button>
+      </div>
+    `;
+  }
+
+  function tiendaTalleAgregarFila(talle = '', stock = '') {
+    const cont = $('#tiendaTallesFilas');
+    if (!cont) return;
+    cont.insertAdjacentHTML('beforeend', tiendaTalleFilaHtml(talle, stock));
+    tiendaTallesRecalcularTotal();
+  }
+
+  function tiendaTallesRecalcularTotal() {
+    const total = $$('.tw-talle-stock').reduce((acc, input) => {
+      const n = Number(input.value);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
+    const totalEl = $('#tiendaTallesStockTotal');
+    if (totalEl) totalEl.textContent = String(total);
+  }
+
+  function tiendaTallesObtenerValores() {
+    return $$('#tiendaTallesFilas [data-talle-fila]').map(fila => ({
+      talle: fila.querySelector('.tw-talle-nombre')?.value?.trim() || '',
+      stock: Number(fila.querySelector('.tw-talle-stock')?.value),
+    }));
+  }
+
+  function tiendaTallesLimpiar() {
+    const cont = $('#tiendaTallesFilas');
+    if (cont) cont.innerHTML = '';
+    tiendaTallesRecalcularTotal();
+  }
+
+  function tiendaTieneTallesActualizarUI() {
+    const checked = !!$('#tiendaTieneTalles')?.checked;
+    const tallesWrap = $('#tiendaTallesWrap');
+    const stockWrap = $('#tiendaStockWrap');
+    if (tallesWrap) tallesWrap.style.display = checked ? '' : 'none';
+    if (stockWrap) stockWrap.style.display = checked ? 'none' : '';
+    if (checked && !$('#tiendaTallesFilas')?.children.length) {
+      tiendaTalleAgregarFila();
+    }
+    updatePreview();
   }
 
   // =============================
@@ -248,7 +309,7 @@
         </td>
         <td>${p.categoria_nombre ? escapeHtml(p.categoria_nombre) : '<span class="muted">—</span>'}</td>
         <td>${formatPrecio(p.precio)}</td>
-        <td>${escapeHtml(String(p.stock ?? 0))}</td>
+        <td>${escapeHtml(String(p.stock ?? 0))}${p.tiene_talles ? ' <span class="muted">(por talle)</span>' : ''}</td>
         <td>
           <span class="tw-badge-estado ${activo ? 'tw-badge-estado--activo' : 'tw-badge-estado--inactivo'}">
             ${activo ? 'Activo' : 'Inactivo'}
@@ -280,6 +341,9 @@
     if ($('#tiendaStock')) $('#tiendaStock').value = '';
     if ($('#tiendaCategoria')) $('#tiendaCategoria').value = '';
     if ($('#tiendaImagen')) $('#tiendaImagen').value = '';
+    if ($('#tiendaTieneTalles')) $('#tiendaTieneTalles').checked = false;
+    tiendaTallesLimpiar();
+    tiendaTieneTallesActualizarUI();
 
     updatePreview();
 
@@ -301,6 +365,14 @@
     if ($('#tiendaCategoria')) $('#tiendaCategoria').value = p.categoria_id ?? '';
     $('#tiendaImagen').value = '';
 
+    tiendaTallesLimpiar();
+    const tieneTalles = p.tiene_talles === true;
+    if ($('#tiendaTieneTalles')) $('#tiendaTieneTalles').checked = tieneTalles;
+    if (tieneTalles && Array.isArray(p.talles) && p.talles.length) {
+      p.talles.forEach(t => tiendaTalleAgregarFila(t.talle, t.stock));
+    }
+    tiendaTieneTallesActualizarUI();
+
     updatePreview();
 
     const btn = $('#btnTiendaGuardar');
@@ -316,6 +388,7 @@
     const descripcion = $('#tiendaDescripcion')?.value?.trim() || '';
     const precio = $('#tiendaPrecio')?.value;
     const stock = $('#tiendaStock')?.value;
+    const tieneTalles = !!$('#tiendaTieneTalles')?.checked;
 
     if (!nombre) {
       alert('Completá el nombre del producto.');
@@ -326,19 +399,44 @@
       alert('El precio no es válido.');
       return;
     }
-    const stockNum = Number(stock);
-    if (!Number.isInteger(stockNum) || stockNum < 0) {
-      alert('El stock no es válido (debe ser un número entero mayor o igual a 0).');
-      return;
-    }
 
     const payload = {
       nombre,
       descripcion: descripcion || null,
       precio: precioNum,
-      stock: stockNum,
       categoria_id: $('#tiendaCategoria')?.value || null,
+      tiene_talles: tieneTalles,
     };
+
+    if (tieneTalles) {
+      const talles = tiendaTallesObtenerValores();
+      const talleConNombre = talles.filter(t => t.talle);
+      if (!talleConNombre.length) {
+        alert('Agregá al menos un talle con su stock.');
+        return;
+      }
+      for (const t of talleConNombre) {
+        if (!Number.isInteger(t.stock) || t.stock < 0) {
+          alert(`El stock del talle "${t.talle}" no es válido (debe ser un número entero mayor o igual a 0).`);
+          return;
+        }
+      }
+      const nombresRepetidos = talleConNombre.map(t => t.talle.toLowerCase());
+      if (new Set(nombresRepetidos).size !== nombresRepetidos.length) {
+        alert('Hay talles repetidos. Cada talle debe ser único.');
+        return;
+      }
+      payload.talles = talleConNombre;
+      payload.stock = talleConNombre.reduce((acc, t) => acc + t.stock, 0);
+    } else {
+      const stockNum = Number(stock);
+      if (!Number.isInteger(stockNum) || stockNum < 0) {
+        alert('El stock no es válido (debe ser un número entero mayor o igual a 0).');
+        return;
+      }
+      payload.stock = stockNum;
+      payload.talles = [];
+    }
 
     const fileInput = $('#tiendaImagen');
     const file = fileInput?.files?.[0] || null;
@@ -400,6 +498,9 @@
           descripcion: p.descripcion,
           precio: p.precio,
           stock: p.stock,
+          categoria_id: p.categoria_id || null,
+          tiene_talles: p.tiene_talles === true,
+          talles: p.tiene_talles === true ? (p.talles || []) : [],
           activo: nuevoActivo,
         }),
       });
@@ -460,6 +561,57 @@
       });
     }
 
+    // ✅ NUEVO: modal "Cargar venta manual"
+    const btnVentaManualAbrir = root.querySelector('#btnVentaManualAbrir');
+    if (btnVentaManualAbrir) {
+      btnVentaManualAbrir.addEventListener('click', (e) => {
+        e.preventDefault();
+        ventaManualAbrir();
+      });
+    }
+
+    const btnVentaManualCancel = document.getElementById('ventaManualCancel');
+    if (btnVentaManualCancel) {
+      btnVentaManualCancel.addEventListener('click', (e) => {
+        e.preventDefault();
+        ventaManualCerrar();
+      });
+    }
+
+    const btnVentaManualConfirm = document.getElementById('ventaManualConfirm');
+    if (btnVentaManualConfirm) {
+      btnVentaManualConfirm.addEventListener('click', (e) => {
+        e.preventDefault();
+        ventaManualConfirmar();
+      });
+    }
+
+    const selectVentaManualProducto = document.getElementById('ventaManualProducto');
+    if (selectVentaManualProducto) {
+      selectVentaManualProducto.addEventListener('change', ventaManualActualizarSegunProducto);
+    }
+
+    const selectVentaManualEstadoPago = document.getElementById('ventaManualEstadoPago');
+    if (selectVentaManualEstadoPago) {
+      selectVentaManualEstadoPago.addEventListener('change', ventaManualActualizarSegunEstadoPago);
+    }
+
+    const inputVentaManualSocioBusqueda = document.getElementById('ventaManualSocioBusqueda');
+    if (inputVentaManualSocioBusqueda) {
+      inputVentaManualSocioBusqueda.addEventListener('input', (e) => {
+        const q = e.target.value || '';
+        if (timeoutBusquedaSocioVentaManual) clearTimeout(timeoutBusquedaSocioVentaManual);
+        timeoutBusquedaSocioVentaManual = setTimeout(() => ventaManualBuscarSocios(q), 300);
+      });
+    }
+
+    const overlayVentaManual = document.getElementById('modalVentaManualOverlay');
+    if (overlayVentaManual) {
+      overlayVentaManual.addEventListener('click', (e) => {
+        if (e.target === overlayVentaManual) ventaManualCerrar();
+      });
+    }
+
     const btnGuardar = root.querySelector('#btnTiendaGuardar');
     const btnCancelar = root.querySelector('#btnTiendaCancelar');
 
@@ -488,6 +640,38 @@
     if (precioInput) precioInput.addEventListener('input', updatePreview);
     if (stockInput) stockInput.addEventListener('input', updatePreview);
     if (imagenInput) imagenInput.addEventListener('change', updatePreview);
+
+    // ✅ NUEVO: talles configurables por producto
+    const checkboxTieneTalles = root.querySelector('#tiendaTieneTalles');
+    if (checkboxTieneTalles) {
+      checkboxTieneTalles.addEventListener('change', tiendaTieneTallesActualizarUI);
+    }
+
+    const btnTalleAgregar = root.querySelector('#btnTiendaTalleAgregar');
+    if (btnTalleAgregar) {
+      btnTalleAgregar.addEventListener('click', (e) => {
+        e.preventDefault();
+        tiendaTalleAgregarFila();
+      });
+    }
+
+    const tallesFilas = root.querySelector('#tiendaTallesFilas');
+    if (tallesFilas) {
+      tallesFilas.addEventListener('click', (e) => {
+        const btn = e.target.closest('.tw-talle-quitar');
+        if (!btn) return;
+        e.preventDefault();
+        btn.closest('[data-talle-fila]')?.remove();
+        tiendaTallesRecalcularTotal();
+        updatePreview();
+      });
+      tallesFilas.addEventListener('input', (e) => {
+        if (e.target.classList.contains('tw-talle-stock')) {
+          tiendaTallesRecalcularTotal();
+          updatePreview();
+        }
+      });
+    }
 
     if (btnQuitarImagen) {
       btnQuitarImagen.addEventListener('click', (e) => {
@@ -716,27 +900,37 @@
       return;
     }
 
-    select.dataset.estado = data.reserva.estado_pago;
-    select.dataset.monto = String(data.reserva.monto_pagado ?? 0);
+    const pedidoActualizado = data.pedido;
 
-    // Actualiza también el registro en memoria y el label ("Abonado: $... ·
-    // cuenta" / "Pagado · cuenta") sin recargar todo el historial.
-    const item = historialVentasCache.find(x => String(x.id) === String(rowId));
-    if (item) {
-      item.estado_pago = data.reserva.estado_pago;
-      item.monto_pagado = data.reserva.monto_pagado;
-      item.forma_pago = data.reserva.forma_pago;
-    }
-    const wrapper = select.parentElement;
-    const labelPrevio = wrapper?.querySelector('.tw-monto-pagado-label');
-    if (labelPrevio) labelPrevio.remove();
-    const textoLabel = pagoLabelTexto(data.reserva.estado_pago, data.reserva.monto_pagado, data.reserva.forma_pago);
-    if (textoLabel) {
-      const div = document.createElement('div');
-      div.className = 'tw-monto-pagado-label';
-      div.textContent = textoLabel;
-      select.insertAdjacentElement('afterend', div);
-    }
+    // ✅ El pago se gestiona por pedido (todas sus líneas comparten el mismo
+    // estado_pago): actualiza en memoria TODAS las filas del historial que
+    // compartan este pedido_id (rowId), no solo la que se tocó.
+    historialVentasCache.forEach(item => {
+      if (String(item.pedido_id) === String(rowId)) {
+        item.estado_pago = pedidoActualizado.estado_pago;
+        item.monto_pagado = pedidoActualizado.monto_pagado;
+        item.forma_pago = pedidoActualizado.forma_pago;
+      }
+    });
+
+    document
+      .querySelectorAll(`#tiendaHistorialVentasBody tr[data-id="${rowId}"] select.tw-estado-pago-select`)
+      .forEach(sel => {
+        sel.value = pedidoActualizado.estado_pago;
+        sel.dataset.estado = pedidoActualizado.estado_pago;
+        sel.dataset.monto = String(pedidoActualizado.monto_pagado ?? 0);
+
+        const wrapper = sel.parentElement;
+        const labelPrevio = wrapper?.querySelector('.tw-monto-pagado-label');
+        if (labelPrevio) labelPrevio.remove();
+        const textoLabel = pagoLabelTexto(pedidoActualizado.estado_pago, pedidoActualizado.monto_pagado, pedidoActualizado.forma_pago);
+        if (textoLabel) {
+          const div = document.createElement('div');
+          div.className = 'tw-monto-pagado-label';
+          div.textContent = textoLabel;
+          sel.insertAdjacentElement('afterend', div);
+        }
+      });
   }
 
   function renderHistorialVentas(items) {
@@ -756,11 +950,20 @@
 
     items.forEach(r => {
       const tr = document.createElement('tr');
-      tr.dataset.id = r.id;
+      // ✅ NUEVO: se usa pedido_id porque el pago se gestiona por pedido
+      // completo (carrito), no por línea suelta.
+      tr.dataset.id = r.pedido_id;
+
+      const nombreConTalle = r.talle
+        ? `${escapeHtml(r.producto_nombre)} <span class="muted">(talle ${escapeHtml(r.talle)})</span>`
+        : escapeHtml(r.producto_nombre);
+      const origenBadge = r.origen === 'manual'
+        ? ' <span class="muted" style="font-size:11px;">· venta manual</span>'
+        : '';
 
       tr.innerHTML = `
         <td>${ventaImgHtml(r)}</td>
-        <td><b>${escapeHtml(r.producto_nombre)}</b></td>
+        <td><b>${nombreConTalle}</b>${origenBadge}</td>
         <td>${ventaSocioLabel(r)}</td>
         <td>${escapeHtml(r.cantidad)}</td>
         <td>${formatPrecio(r.producto_precio)}</td>
@@ -793,6 +996,214 @@
     });
 
     renderHistorialVentas(ventasFiltradas());
+  }
+
+  // =============================
+  // ✅ NUEVO: Cargar venta manual (socios que compran en el club, no por la app)
+  // =============================
+  let socioSeleccionadoVentaManual = null;
+  let responsablesCacheVentaManual = [];
+  let timeoutBusquedaSocioVentaManual = null;
+
+  function ventaManualPoblarProductos() {
+    const select = $('#ventaManualProducto');
+    if (!select) return;
+    const activos = productosCache.filter(p => p.activo !== false);
+    select.innerHTML = activos.length
+      ? activos.map(p => `<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('')
+      : '<option value="">(no hay productos activos)</option>';
+    ventaManualActualizarSegunProducto();
+  }
+
+  function ventaManualActualizarSegunProducto() {
+    const select = $('#ventaManualProducto');
+    const talleWrap = $('#ventaManualTalleWrap');
+    const talleSelect = $('#ventaManualTalle');
+    const precioInput = $('#ventaManualPrecio');
+    if (!select) return;
+
+    const p = productosCache.find(x => String(x.id) === String(select.value));
+    if (!p) {
+      if (talleWrap) talleWrap.style.display = 'none';
+      return;
+    }
+
+    if (precioInput) precioInput.value = p.precio ?? '';
+
+    const tieneTalles = p.tiene_talles === true && Array.isArray(p.talles) && p.talles.length > 0;
+    if (talleWrap) talleWrap.style.display = tieneTalles ? '' : 'none';
+    if (tieneTalles && talleSelect) {
+      const conStock = p.talles.filter(t => Number(t.stock) > 0);
+      talleSelect.innerHTML = conStock.length
+        ? conStock.map(t => `<option value="${t.id}">${escapeHtml(t.talle)} (stock: ${t.stock})</option>`).join('')
+        : '<option value="">(sin stock en ningún talle)</option>';
+    }
+  }
+
+  function ventaManualActualizarSegunEstadoPago() {
+    const estado = $('#ventaManualEstadoPago')?.value;
+    const montoWrap = $('#ventaManualMontoWrap');
+    const cuentaWrap = $('#ventaManualCuentaWrap');
+    if (montoWrap) montoWrap.style.display = estado === 'parcial' ? '' : 'none';
+    if (cuentaWrap) cuentaWrap.style.display = (estado === 'parcial' || estado === 'pagado') ? '' : 'none';
+  }
+
+  async function ventaManualCargarCuentas() {
+    const clubId = getActiveClubId();
+    const select = $('#ventaManualCuenta');
+    if (!select) return;
+    select.innerHTML = '<option value="">Cargando cuentas...</option>';
+    const { res, data } = await fetchAuth(`/club/${clubId}/config/responsables`);
+    responsablesCacheVentaManual = (res.ok && data.ok) ? (data.responsables || []) : [];
+    select.innerHTML = responsablesCacheVentaManual.length
+      ? responsablesCacheVentaManual.map(c => `<option value="${c.id}">${escapeHtml(c.nombre)}</option>`).join('')
+      : '<option value="">(no hay cuentas configuradas)</option>';
+  }
+
+  function ventaManualSeleccionarSocio(s) {
+    socioSeleccionadoVentaManual = s;
+    const resultados = $('#ventaManualSocioResultados');
+    const seleccionado = $('#ventaManualSocioSeleccionado');
+    const busqueda = $('#ventaManualSocioBusqueda');
+    if (resultados) { resultados.style.display = 'none'; resultados.innerHTML = ''; }
+    if (busqueda) busqueda.value = '';
+    if (seleccionado) {
+      seleccionado.style.display = 'block';
+      seleccionado.textContent = `Seleccionado: #${s.numero_socio ?? '—'} ${s.apellido ?? ''} ${s.nombre ?? ''}`.trim();
+    }
+  }
+
+  async function ventaManualBuscarSocios(q) {
+    const resultados = $('#ventaManualSocioResultados');
+    if (!resultados) return;
+    if (!q || q.trim().length < 2) {
+      resultados.style.display = 'none';
+      resultados.innerHTML = '';
+      return;
+    }
+    const clubId = getActiveClubId();
+    const { res, data } = await fetchAuth(`/club/${clubId}/socios?search=${encodeURIComponent(q.trim())}&limit=8`);
+    const items = (res.ok && data.ok) ? (data.socios || []) : [];
+    if (!items.length) {
+      resultados.style.display = 'block';
+      resultados.innerHTML = `<div class="item muted">Sin resultados</div>`;
+      return;
+    }
+    resultados.style.display = 'block';
+    resultados.innerHTML = items.map(s => `
+      <div class="item" data-id="${s.id}">#${escapeHtml(s.numero_socio ?? '—')} ${escapeHtml(s.apellido ?? '')} ${escapeHtml(s.nombre ?? '')}</div>
+    `).join('');
+    resultados.querySelectorAll('.item[data-id]').forEach(el => {
+      el.addEventListener('click', () => {
+        const s = items.find(x => String(x.id) === el.dataset.id);
+        if (s) ventaManualSeleccionarSocio(s);
+      });
+    });
+  }
+
+  function ventaManualResetear() {
+    socioSeleccionadoVentaManual = null;
+    const busqueda = $('#ventaManualSocioBusqueda');
+    const seleccionado = $('#ventaManualSocioSeleccionado');
+    const resultados = $('#ventaManualSocioResultados');
+    if (busqueda) busqueda.value = '';
+    if (seleccionado) { seleccionado.style.display = 'none'; seleccionado.textContent = ''; }
+    if (resultados) { resultados.style.display = 'none'; resultados.innerHTML = ''; }
+    if ($('#ventaManualCantidad')) $('#ventaManualCantidad').value = '1';
+    if ($('#ventaManualEstadoPago')) $('#ventaManualEstadoPago').value = 'pagado';
+    if ($('#ventaManualMonto')) $('#ventaManualMonto').value = '';
+    if ($('#ventaManualRetirado')) $('#ventaManualRetirado').checked = true;
+    ventaManualActualizarSegunEstadoPago();
+  }
+
+  function ventaManualAbrir() {
+    const overlay = $('#modalVentaManualOverlay');
+    if (!overlay) return;
+    ventaManualResetear();
+    ventaManualPoblarProductos();
+    ventaManualCargarCuentas();
+    overlay.style.display = 'flex';
+  }
+
+  function ventaManualCerrar() {
+    const overlay = $('#modalVentaManualOverlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  async function ventaManualConfirmar() {
+    if (!socioSeleccionadoVentaManual) {
+      alert('Buscá y seleccioná el socio.');
+      return;
+    }
+    const productoId = $('#ventaManualProducto')?.value;
+    if (!productoId) {
+      alert('Seleccioná un producto.');
+      return;
+    }
+    const p = productosCache.find(x => String(x.id) === String(productoId));
+    const talleWrap = $('#ventaManualTalleWrap');
+    const talleId = (talleWrap && talleWrap.style.display !== 'none') ? $('#ventaManualTalle')?.value : null;
+    if (p?.tiene_talles && !talleId) {
+      alert('Seleccioná el talle.');
+      return;
+    }
+
+    const cantidad = Number($('#ventaManualCantidad')?.value);
+    if (!Number.isInteger(cantidad) || cantidad < 1) {
+      alert('Ingresá una cantidad válida.');
+      return;
+    }
+
+    const estadoPago = $('#ventaManualEstadoPago')?.value || 'sin_pago';
+    const body = {
+      socio_id: socioSeleccionadoVentaManual.id,
+      producto_id: productoId,
+      talle_id: talleId || null,
+      cantidad,
+      estado_pago: estadoPago,
+      marcar_retirado: !!$('#ventaManualRetirado')?.checked,
+    };
+
+    if (estadoPago === 'parcial' || estadoPago === 'pagado') {
+      const cuentaId = $('#ventaManualCuenta')?.value;
+      if (!cuentaId) {
+        alert('Seleccioná la cuenta / forma de pago.');
+        return;
+      }
+      body.cuenta_id = cuentaId;
+    }
+    if (estadoPago === 'parcial') {
+      const monto = Number(String($('#ventaManualMonto')?.value ?? '').replace(',', '.'));
+      if (!Number.isFinite(monto) || monto <= 0) {
+        alert('Ingresá el monto abonado.');
+        return;
+      }
+      body.monto_pagado = monto;
+    }
+
+    const btnConfirm = $('#ventaManualConfirm');
+    if (btnConfirm) btnConfirm.disabled = true;
+
+    try {
+      const clubId = getActiveClubId();
+      const { res, data } = await fetchAuth(`/club/${clubId}/tienda/ventas-manuales`, {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'Error cargando la venta');
+        return;
+      }
+
+      alert('✅ Venta cargada');
+      ventaManualCerrar();
+      await loadProductos();
+      await loadHistorialVentas();
+    } finally {
+      if (btnConfirm) btnConfirm.disabled = false;
+    }
   }
 
   // =============================

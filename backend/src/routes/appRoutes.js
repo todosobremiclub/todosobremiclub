@@ -518,7 +518,15 @@ router.get('/tienda/productos', requireAuth, async (req, res) => {
     const r = await db.query(
       `
       SELECT p.id, p.nombre, p.descripcion, p.precio, p.stock, p.imagen_url,
-             p.categoria_id, c.nombre AS categoria_nombre
+             p.categoria_id, c.nombre AS categoria_nombre, p.tiene_talles,
+             COALESCE(
+               (
+                 SELECT json_agg(json_build_object('id', t.id, 'talle', t.talle, 'stock', t.stock) ORDER BY t.orden ASC)
+                 FROM tienda_producto_talles t
+                 WHERE t.producto_id = p.id
+               ),
+               '[]'
+             ) AS talles
       FROM tienda_productos p
       LEFT JOIN tienda_categorias c ON c.id = p.categoria_id
       WHERE p.club_id = $1 AND p.activo = true
@@ -536,11 +544,15 @@ router.get('/tienda/productos', requireAuth, async (req, res) => {
 
 // ------------------------------------------------------
 // POST /app/tienda/reservas
-// body: { producto_id, cantidad }
+// body: { items: [{ producto_id, talle_id?, cantidad }, ...] }
+//   (compatibilidad: también acepta el formato viejo de un solo producto
+//   { producto_id, talle_id?, cantidad } sin el array "items").
 // ✅ El stock se descuenta ACÁ, al momento de reservar (no cuando el admin
 // acepta): así dos socios no pueden reservar más unidades de las que hay
 // disponibles mientras la reserva está pendiente. Si el admin la rechaza,
-// tiendaRoutes.js (endpoint /rechazar) devuelve el stock reservado.
+// tiendaRoutes.js (endpoint /rechazar) devuelve el stock reservado. Todas
+// las líneas del carrito comparten un mismo pedido_id y el admin las
+// gestiona juntas (ver claude/tienda-talles-carrito-venta-manual-plan.md).
 // ------------------------------------------------------
 router.post('/tienda/reservas', requireAuth, async (req, res) => {
   try {
@@ -550,54 +562,89 @@ router.post('/tienda/reservas', requireAuth, async (req, res) => {
       return res.status(401).json({ ok: false, error: 'Token inválido para la app' });
     }
 
-    const { producto_id, cantidad = 1 } = req.body || {};
-    const cantidadNum = Number(cantidad);
+    const body = req.body || {};
+    const items = Array.isArray(body.items) && body.items.length
+      ? body.items
+      : [{ producto_id: body.producto_id, talle_id: body.talle_id ?? null, cantidad: body.cantidad ?? 1 }];
 
-    if (!producto_id) {
-      return res.status(400).json({ ok: false, error: 'Falta producto_id' });
+    if (!items.length || items.some(it => !it?.producto_id)) {
+      return res.status(400).json({ ok: false, error: 'Faltan productos en el carrito' });
     }
-    if (!Number.isInteger(cantidadNum) || cantidadNum < 1) {
-      return res.status(400).json({ ok: false, error: 'Cantidad inválida' });
+    for (const it of items) {
+      const cantidadNum = Number(it.cantidad);
+      if (!Number.isInteger(cantidadNum) || cantidadNum < 1) {
+        return res.status(400).json({ ok: false, error: 'Cantidad inválida' });
+      }
     }
 
     await db.query('BEGIN');
 
-    // FOR UPDATE: bloquea la fila del producto para que dos reservas
-    // simultáneas no descuenten stock que ya no está disponible.
-    const rProd = await db.query(
-      `SELECT id, activo, stock FROM tienda_productos WHERE id = $1 AND club_id = $2 FOR UPDATE`,
-      [producto_id, clubId]
-    );
-    if (!rProd.rowCount) {
-      await db.query('ROLLBACK');
-      return res.status(404).json({ ok: false, error: 'Producto no encontrado' });
-    }
-    if (!rProd.rows[0].activo) {
-      await db.query('ROLLBACK');
-      return res.status(400).json({ ok: false, error: 'Este producto ya no está disponible' });
-    }
-    if (rProd.rows[0].stock < cantidadNum) {
-      await db.query('ROLLBACK');
-      return res.status(409).json({ ok: false, error: `No hay stock suficiente (disponible: ${rProd.rows[0].stock})` });
-    }
+    const pedidoId = require('crypto').randomUUID();
+    const reservasCreadas = [];
 
-    await db.query(
-      `UPDATE tienda_productos SET stock = stock - $1, updated_at = NOW() WHERE id = $2`,
-      [cantidadNum, producto_id]
-    );
+    for (const it of items) {
+      const cantidadNum = Number(it.cantidad);
 
-    const r = await db.query(
-      `
-      INSERT INTO tienda_reservas (club_id, producto_id, socio_id, cantidad, estado)
-      VALUES ($1, $2, $3, $4, 'pendiente')
-      RETURNING id, club_id, producto_id, socio_id, cantidad, estado, created_at
-      `,
-      [clubId, producto_id, socioId, cantidadNum]
-    );
+      // FOR UPDATE: bloquea la fila del producto para que dos reservas
+      // simultáneas no descuenten stock que ya no está disponible.
+      const rProd = await db.query(
+        `SELECT id, nombre, activo, stock, tiene_talles FROM tienda_productos WHERE id = $1 AND club_id = $2 FOR UPDATE`,
+        [it.producto_id, clubId]
+      );
+      if (!rProd.rowCount) {
+        await db.query('ROLLBACK');
+        return res.status(404).json({ ok: false, error: 'Producto no encontrado' });
+      }
+      const producto = rProd.rows[0];
+      if (!producto.activo) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ ok: false, error: `"${producto.nombre}" ya no está disponible` });
+      }
+
+      let talleNombre = null;
+      if (producto.tiene_talles) {
+        if (!it.talle_id) {
+          await db.query('ROLLBACK');
+          return res.status(400).json({ ok: false, error: `Elegí un talle para "${producto.nombre}"` });
+        }
+        const rTalle = await db.query(
+          `SELECT id, talle, stock FROM tienda_producto_talles WHERE id = $1 AND producto_id = $2 FOR UPDATE`,
+          [it.talle_id, it.producto_id]
+        );
+        if (!rTalle.rowCount) {
+          await db.query('ROLLBACK');
+          return res.status(404).json({ ok: false, error: 'Talle no encontrado' });
+        }
+        if (rTalle.rows[0].stock < cantidadNum) {
+          await db.query('ROLLBACK');
+          return res.status(409).json({ ok: false, error: `No hay stock suficiente del talle ${rTalle.rows[0].talle} de "${producto.nombre}" (disponible: ${rTalle.rows[0].stock})` });
+        }
+        talleNombre = rTalle.rows[0].talle;
+        await db.query(`UPDATE tienda_producto_talles SET stock = stock - $1, updated_at = NOW() WHERE id = $2`, [cantidadNum, it.talle_id]);
+      } else if (producto.stock < cantidadNum) {
+        await db.query('ROLLBACK');
+        return res.status(409).json({ ok: false, error: `No hay stock suficiente de "${producto.nombre}" (disponible: ${producto.stock})` });
+      }
+
+      await db.query(
+        `UPDATE tienda_productos SET stock = stock - $1, updated_at = NOW() WHERE id = $2`,
+        [cantidadNum, it.producto_id]
+      );
+
+      const r = await db.query(
+        `
+        INSERT INTO tienda_reservas (club_id, producto_id, socio_id, cantidad, estado, talle_id, talle, pedido_id, origen)
+        VALUES ($1, $2, $3, $4, 'pendiente', $5, $6, $7, 'app')
+        RETURNING id, club_id, producto_id, socio_id, cantidad, estado, talle_id, talle, pedido_id, created_at
+        `,
+        [clubId, it.producto_id, socioId, cantidadNum, it.talle_id || null, talleNombre, pedidoId]
+      );
+      reservasCreadas.push(r.rows[0]);
+    }
 
     await db.query('COMMIT');
 
-    return res.status(201).json({ ok: true, reserva: r.rows[0] });
+    return res.status(201).json({ ok: true, pedido_id: pedidoId, reservas: reservasCreadas });
   } catch (e) {
     try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ POST /app/tienda/reservas', e);
@@ -607,7 +654,8 @@ router.post('/tienda/reservas', requireAuth, async (req, res) => {
 
 // ------------------------------------------------------
 // GET /app/tienda/reservas/mias
-// Historial de reservas del socio logueado, más recientes primero.
+// Historial de reservas del socio logueado, más recientes primero. Las
+// líneas de un mismo carrito comparten pedido_id — la app las agrupa.
 // ------------------------------------------------------
 router.get('/tienda/reservas/mias', requireAuth, async (req, res) => {
   try {
@@ -621,8 +669,11 @@ router.get('/tienda/reservas/mias', requireAuth, async (req, res) => {
       `
       SELECT
         r.id,
+        r.pedido_id,
         r.cantidad,
         r.estado,
+        r.estado_pago,
+        r.talle,
         r.mensaje_admin,
         r.created_at,
         r.gestionada_at,
