@@ -517,7 +517,8 @@ router.get('/tienda/productos', requireAuth, async (req, res) => {
 
     const r = await db.query(
       `
-      SELECT p.id, p.nombre, p.descripcion, p.precio, p.stock, p.imagen_url,
+      SELECT p.id, p.nombre, p.descripcion, p.precio, p.stock,
+             p.imagen_url, p.imagen_url_2, p.imagen_url_3,
              p.categoria_id, c.nombre AS categoria_nombre, p.tiene_talles,
              COALESCE(
                (
@@ -535,7 +536,14 @@ router.get('/tienda/productos', requireAuth, async (req, res) => {
       [clubId]
     );
 
-    return res.json({ ok: true, productos: r.rows });
+    // ✅ NUEVO: hasta 3 fotos por producto — se arma un array "imagenes"
+    // (sin huecos) para que la app las muestre tipo carrete.
+    const productos = r.rows.map(p => ({
+      ...p,
+      imagenes: [p.imagen_url, p.imagen_url_2, p.imagen_url_3].filter(Boolean),
+    }));
+
+    return res.json({ ok: true, productos });
   } catch (e) {
     console.error('❌ GET /app/tienda/productos', e);
     return res.status(500).json({ ok: false, error: e.message });

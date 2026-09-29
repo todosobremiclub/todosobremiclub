@@ -75,7 +75,19 @@
   let productosCache = [];
   let categoriasProductoCache = []; // ✅ NUEVO: tipificación de productos (Configuración > Tipos de producto)
   let editingId = null;
-  let currentImagenUrl = null;
+  // ✅ NUEVO: hasta 3 fotos por producto. currentImagenUrls[i] es la URL ya
+  // guardada en el servidor para ese slot (o null); quitarImagenFlags[i]
+  // se pone en true cuando el admin aprieta "Quitar" sobre una foto
+  // existente (sin elegir una nueva) — eso viaja como quitar_imagen(_N)
+  // al guardar. Elegir un archivo nuevo para un slot cancela el "quitar"
+  // pendiente de ese mismo slot.
+  const FOTO_SLOTS = [
+    { file: '#tiendaImagen', quitarBtn: '#btnTiendaImagenQuitar', thumb: '#tiendaImagenThumb' },
+    { file: '#tiendaImagen2', quitarBtn: '#btnTiendaImagen2Quitar', thumb: '#tiendaImagen2Thumb' },
+    { file: '#tiendaImagen3', quitarBtn: '#btnTiendaImagen3Quitar', thumb: '#tiendaImagen3Thumb' },
+  ];
+  let currentImagenUrls = [null, null, null];
+  let quitarImagenFlags = [false, false, false];
   let filtroProductos = ''; // ✅ NUEVO: buscador de productos publicados
 
   // =============================
@@ -101,9 +113,35 @@
   // =============================
   // Vista previa en vivo
   // =============================
-  function setQuitarBtnVisible(visible) {
-    const btn = $('#btnTiendaImagenQuitar');
-    if (btn) btn.style.display = visible ? 'inline-flex' : 'none';
+
+  // ✅ NUEVO: refresca la miniatura + botón "Quitar" de un slot de foto
+  // (0 = principal, 1 y 2 = adicionales), según haya un archivo nuevo
+  // elegido, una foto existente, o ninguna de las dos cosas.
+  function fotoSlotRefrescarUI(i) {
+    const slot = FOTO_SLOTS[i];
+    const fileInput = $(slot.file);
+    const thumb = $(slot.thumb);
+    const btn = $(slot.quitarBtn);
+    const hayArchivoNuevo = !!(fileInput?.files?.[0]);
+    const urlExistente = (!hayArchivoNuevo && !quitarImagenFlags[i]) ? currentImagenUrls[i] : null;
+
+    if (thumb) {
+      if (urlExistente) {
+        thumb.src = urlExistente;
+        thumb.style.display = 'block';
+      } else {
+        thumb.removeAttribute('src');
+        thumb.style.display = 'none';
+      }
+    }
+    if (btn) {
+      const mostrar = hayArchivoNuevo || (!!currentImagenUrls[i] && !quitarImagenFlags[i]);
+      btn.style.display = mostrar ? 'inline-flex' : 'none';
+    }
+  }
+
+  function fotoSlotsRefrescarTodas() {
+    FOTO_SLOTS.forEach((_, i) => fotoSlotRefrescarUI(i));
   }
 
   function setPreviewImg(src) {
@@ -153,11 +191,11 @@
       const reader = new FileReader();
       reader.onload = () => setPreviewImg(String(reader.result || ''));
       reader.readAsDataURL(file);
-      setQuitarBtnVisible(true);
     } else {
-      setPreviewImg(currentImagenUrl || null);
-      setQuitarBtnVisible(!!currentImagenUrl);
+      setPreviewImg(quitarImagenFlags[0] ? null : (currentImagenUrls[0] || null));
     }
+
+    fotoSlotsRefrescarTodas();
   }
 
   // =============================
@@ -292,14 +330,18 @@
     productos.forEach(p => {
       const tr = document.createElement('tr');
       const img = p.imagen_url || '';
+      const cantidadFotos = [p.imagen_url, p.imagen_url_2, p.imagen_url_3].filter(Boolean).length;
       const activo = p.activo !== false;
 
       tr.innerHTML = `
-        <td>
+        <td style="position:relative;">
           ${img
             ? `<img src="${escapeHtml(img)}" class="tienda-img-mini" alt="imagen producto"
                     onerror="this.style.display='none';" />`
             : '—'}
+          ${cantidadFotos > 1
+            ? `<span class="muted" style="display:block; font-size:10px; text-align:center;">+${cantidadFotos - 1} foto${cantidadFotos - 1 === 1 ? '' : 's'}</span>`
+            : ''}
         </td>
         <td>
           <div style="font-weight:600;">${escapeHtml(p.nombre ?? '')}</div>
@@ -333,14 +375,15 @@
   // =============================
   function resetForm() {
     editingId = null;
-    currentImagenUrl = null;
+    currentImagenUrls = [null, null, null];
+    quitarImagenFlags = [false, false, false];
 
     if ($('#tiendaNombre')) $('#tiendaNombre').value = '';
     if ($('#tiendaDescripcion')) $('#tiendaDescripcion').value = '';
     if ($('#tiendaPrecio')) $('#tiendaPrecio').value = '';
     if ($('#tiendaStock')) $('#tiendaStock').value = '';
     if ($('#tiendaCategoria')) $('#tiendaCategoria').value = '';
-    if ($('#tiendaImagen')) $('#tiendaImagen').value = '';
+    FOTO_SLOTS.forEach(slot => { if ($(slot.file)) $(slot.file).value = ''; });
     if ($('#tiendaTieneTalles')) $('#tiendaTieneTalles').checked = false;
     tiendaTallesLimpiar();
     tiendaTieneTallesActualizarUI();
@@ -356,14 +399,15 @@
 
   function fillFormForEdit(p) {
     editingId = p.id;
-    currentImagenUrl = p.imagen_url || null;
+    currentImagenUrls = [p.imagen_url || null, p.imagen_url_2 || null, p.imagen_url_3 || null];
+    quitarImagenFlags = [false, false, false];
 
     $('#tiendaNombre').value = p.nombre ?? '';
     $('#tiendaDescripcion').value = p.descripcion ?? '';
     $('#tiendaPrecio').value = p.precio ?? '';
     $('#tiendaStock').value = p.stock ?? '';
     if ($('#tiendaCategoria')) $('#tiendaCategoria').value = p.categoria_id ?? '';
-    $('#tiendaImagen').value = '';
+    FOTO_SLOTS.forEach(slot => { if ($(slot.file)) $(slot.file).value = ''; });
 
     tiendaTallesLimpiar();
     const tieneTalles = p.tiene_talles === true;
@@ -438,16 +482,30 @@
       payload.talles = [];
     }
 
-    const fileInput = $('#tiendaImagen');
-    const file = fileInput?.files?.[0] || null;
-    if (file) {
-      if (file.size > 3 * 1024 * 1024) {
-        alert('La imagen supera los 3MB. Elegí una más liviana.');
-        return;
+    // ✅ NUEVO: hasta 3 fotos — cada slot manda su propio par base64/mimetype
+    // si se eligió un archivo nuevo, o quitar_imagen(_N)=true si se apretó
+    // "Quitar" sobre una foto existente sin reemplazarla.
+    const PAYLOAD_KEYS = [
+      { base64: 'imagen_base64', mimetype: 'imagen_mimetype', quitar: 'quitar_imagen' },
+      { base64: 'imagen2_base64', mimetype: 'imagen2_mimetype', quitar: 'quitar_imagen_2' },
+      { base64: 'imagen3_base64', mimetype: 'imagen3_mimetype', quitar: 'quitar_imagen_3' },
+    ];
+    for (let i = 0; i < FOTO_SLOTS.length; i++) {
+      const fileInputSlot = $(FOTO_SLOTS[i].file);
+      const fileSlot = fileInputSlot?.files?.[0] || null;
+      const keys = PAYLOAD_KEYS[i];
+
+      if (fileSlot) {
+        if (fileSlot.size > 3 * 1024 * 1024) {
+          alert(`La foto ${i + 1} supera los 3MB. Elegí una más liviana.`);
+          return;
+        }
+        const img = await readFileAsBase64(fileSlot);
+        payload[keys.base64] = img.base64;
+        payload[keys.mimetype] = img.mimetype;
+      } else if (quitarImagenFlags[i]) {
+        payload[keys.quitar] = true;
       }
-      const img = await readFileAsBase64(file);
-      payload.imagen_base64 = img.base64;
-      payload.imagen_mimetype = img.mimetype;
     }
 
     const btn = $('#btnTiendaGuardar');
@@ -636,17 +694,45 @@
       });
     }
 
-    // Vista previa en vivo (nombre / precio / stock / imagen)
+    // Vista previa en vivo (nombre / precio / stock / fotos)
     const nombreInput = root.querySelector('#tiendaNombre');
     const precioInput = root.querySelector('#tiendaPrecio');
     const stockInput = root.querySelector('#tiendaStock');
-    const imagenInput = root.querySelector('#tiendaImagen');
-    const btnQuitarImagen = root.querySelector('#btnTiendaImagenQuitar');
 
     if (nombreInput) nombreInput.addEventListener('input', updatePreview);
     if (precioInput) precioInput.addEventListener('input', updatePreview);
     if (stockInput) stockInput.addEventListener('input', updatePreview);
-    if (imagenInput) imagenInput.addEventListener('change', updatePreview);
+
+    // ✅ NUEVO: hasta 3 fotos por producto — cada slot (archivo + "Quitar")
+    // se maneja igual, sea la foto principal o una adicional.
+    FOTO_SLOTS.forEach((slot, i) => {
+      const fileInput = root.querySelector(slot.file);
+      const btnQuitar = root.querySelector(slot.quitarBtn);
+
+      if (fileInput) {
+        fileInput.addEventListener('change', () => {
+          quitarImagenFlags[i] = false;
+          if (i === 0) {
+            updatePreview();
+          } else {
+            fotoSlotRefrescarUI(i);
+          }
+        });
+      }
+
+      if (btnQuitar) {
+        btnQuitar.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (fileInput) fileInput.value = '';
+          quitarImagenFlags[i] = true;
+          if (i === 0) {
+            updatePreview();
+          } else {
+            fotoSlotRefrescarUI(i);
+          }
+        });
+      }
+    });
 
     // ✅ NUEVO: talles configurables por producto
     const checkboxTieneTalles = root.querySelector('#tiendaTieneTalles');
@@ -677,15 +763,6 @@
           tiendaTallesRecalcularTotal();
           updatePreview();
         }
-      });
-    }
-
-    if (btnQuitarImagen) {
-      btnQuitarImagen.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (imagenInput) imagenInput.value = '';
-        currentImagenUrl = null;
-        updatePreview();
       });
     }
 

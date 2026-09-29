@@ -53,12 +53,35 @@
           Los tipos se cargan en Configuración, debajo de "Cuentas $".
         </div>
 
-        <label style="margin-top:10px;">Imagen</label>
-        <div class="tw-file-row">
-          <input type="file" id="tiendaImagen" accept="image/*" />
-          <button type="button" id="btnTiendaImagenQuitar" class="btn btn-secondary tw-file-quitar" style="display:none;">✖ Quitar</button>
+        <label style="margin-top:10px;">Fotos (hasta 3)</label>
+        <div class="muted" style="margin-top:2px; margin-bottom:6px;">
+          La primera es la foto principal. Hasta 3MB cada una. Formatos JPG, PNG o WEBP.
+          En la app se ven tipo carrete (deslizando).
         </div>
-        <div class="muted" style="margin-top:6px;">Hasta 3MB. Formatos JPG, PNG o WEBP.</div>
+
+        <div class="tw-foto-slot">
+          <img id="tiendaImagenThumb" class="tw-foto-thumb" style="display:none;" alt="Foto 1 actual" />
+          <div class="tw-file-row">
+            <input type="file" id="tiendaImagen" accept="image/*" />
+            <button type="button" id="btnTiendaImagenQuitar" class="btn btn-secondary tw-file-quitar" style="display:none;">✖ Quitar</button>
+          </div>
+        </div>
+
+        <div class="tw-foto-slot" style="margin-top:8px;">
+          <img id="tiendaImagen2Thumb" class="tw-foto-thumb" style="display:none;" alt="Foto 2 actual" />
+          <div class="tw-file-row">
+            <input type="file" id="tiendaImagen2" accept="image/*" />
+            <button type="button" id="btnTiendaImagen2Quitar" class="btn btn-secondary tw-file-quitar" style="display:none;">✖ Quitar</button>
+          </div>
+        </div>
+
+        <div class="tw-foto-slot" style="margin-top:8px;">
+          <img id="tiendaImagen3Thumb" class="tw-foto-thumb" style="display:none;" alt="Foto 3 actual" />
+          <div class="tw-file-row">
+            <input type="file" id="tiendaImagen3" accept="image/*" />
+            <button type="button" id="btnTiendaImagen3Quitar" class="btn btn-secondary tw-file-quitar" style="display:none;">✖ Quitar</button>
+          </div>
+        </div>
       </div>
 
       <div class="tw-btn-row">
@@ -506,6 +529,18 @@
     padding: 8px 10px;
     color: #b91c1c;
     border-color: #fca5a5;
+  }
+
+  /* ✅ NUEVO: hasta 3 fotos por producto */
+  .tw-foto-slot { display: flex; align-items: center; gap: 8px; }
+  .tw-foto-slot .tw-file-row { flex: 1; }
+  .tw-foto-thumb {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #ddd;
   }
 
   /* =========================

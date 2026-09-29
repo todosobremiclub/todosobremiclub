@@ -65,6 +65,53 @@ async function deleteFirebaseObjectByUrl(url) {
   await bucket.file(objectPath).delete({ ignoreNotFound: true });
 }
 
+// ===============================
+// ✅ NUEVO: hasta 3 fotos por producto (imagen_url / imagen_url_2 / imagen_url_3)
+// ===============================
+// Resuelve un "slot" de foto (1, 2 o 3) a partir del body de POST/PUT:
+// - si viene base64+mimetype: sube la foto nueva a Firebase y borra la
+//   anterior (si había y es distinta).
+// - si viene quitar=true (y no hay base64): borra la foto existente de
+//   Firebase y deja el slot en null.
+// - si no viene nada de lo anterior: deja la foto existente tal cual.
+async function resolverImagenSlot({ prevUrl, base64, mimetype, quitar, clubId }) {
+  if (base64 && mimetype) {
+    const buffer = Buffer.from(base64, 'base64');
+    const up = await uploadImageBuffer({
+      buffer,
+      mimetype,
+      originalname: 'producto.jpg',
+      folder: `clubs/${clubId}/tienda`,
+    });
+    const nuevaUrl = up.url;
+    if (prevUrl && prevUrl !== nuevaUrl) {
+      try {
+        await deleteFirebaseObjectByUrl(prevUrl);
+      } catch (err) {
+        console.warn('⚠ No se pudo borrar imagen previa de producto:', err.message);
+      }
+    }
+    return nuevaUrl;
+  }
+
+  if (quitar && prevUrl) {
+    try {
+      await deleteFirebaseObjectByUrl(prevUrl);
+    } catch (err) {
+      console.warn('⚠ No se pudo borrar imagen de producto:', err.message);
+    }
+    return null;
+  }
+
+  return prevUrl ?? null;
+}
+
+// Arma el array de fotos cargadas (sin huecos) a partir de las 3 columnas,
+// para que el frontend (carrusel de la app) no tenga que pensar en slots.
+function armarImagenesProducto(row) {
+  return [row.imagen_url, row.imagen_url_2, row.imagen_url_3].filter(Boolean);
+}
+
 // ============================================================
 // PRODUCTOS
 // ============================================================
@@ -79,7 +126,8 @@ router.get('/:clubId/tienda/productos', requireAuth, requireClubAccess, async (r
   try {
     const r = await db.query(
       `
-      SELECT p.id, p.nombre, p.descripcion, p.precio, p.stock, p.imagen_url, p.activo,
+      SELECT p.id, p.nombre, p.descripcion, p.precio, p.stock,
+             p.imagen_url, p.imagen_url_2, p.imagen_url_3, p.activo,
              p.created_at, p.updated_at, p.tiene_talles,
              p.categoria_id, c.nombre AS categoria_nombre,
              COALESCE(
@@ -97,7 +145,8 @@ router.get('/:clubId/tienda/productos', requireAuth, requireClubAccess, async (r
       `,
       [clubId]
     );
-    return res.json({ ok: true, productos: r.rows });
+    const productos = r.rows.map(p => ({ ...p, imagenes: armarImagenesProducto(p) }));
+    return res.json({ ok: true, productos });
   } catch (e) {
     console.error('❌ GET tienda/productos', e);
     return res.status(500).json({ ok: false, error: e.message });
@@ -106,7 +155,12 @@ router.get('/:clubId/tienda/productos', requireAuth, requireClubAccess, async (r
 
 // ------------------------------------------------------------
 // POST /club/:clubId/tienda/productos
-// body: { nombre, descripcion?, precio, stock, imagen_base64?, imagen_mimetype? }
+// body: {
+//   nombre, descripcion?, precio, stock, ...,
+//   imagen_base64?, imagen_mimetype?,     // foto 1
+//   imagen2_base64?, imagen2_mimetype?,   // foto 2 (✅ NUEVO)
+//   imagen3_base64?, imagen3_mimetype?,   // foto 3 (✅ NUEVO)
+// }
 // ------------------------------------------------------------
 router.post('/:clubId/tienda/productos', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
@@ -120,6 +174,10 @@ router.post('/:clubId/tienda/productos', requireAuth, requireClubAccess, async (
     talles = [],
     imagen_base64,
     imagen_mimetype,
+    imagen2_base64,
+    imagen2_mimetype,
+    imagen3_base64,
+    imagen3_mimetype,
   } = req.body || {};
 
   try {
@@ -155,27 +213,21 @@ router.post('/:clubId/tienda/productos', requireAuth, requireClubAccess, async (
       categoriaIdFinal = categoria_id;
     }
 
-    let imagen_url = null;
-    if (imagen_base64 && imagen_mimetype) {
-      const buffer = Buffer.from(imagen_base64, 'base64');
-      const up = await uploadImageBuffer({
-        buffer,
-        mimetype: imagen_mimetype,
-        originalname: 'producto.jpg',
-        folder: `clubs/${clubId}/tienda`,
-      });
-      imagen_url = up.url;
-    }
+    // ✅ NUEVO: hasta 3 fotos. En alta no hay foto previa que borrar, así
+    // que cada slot sube directo si vino base64 (si no vino nada, queda null).
+    const imagen_url = await resolverImagenSlot({ prevUrl: null, base64: imagen_base64, mimetype: imagen_mimetype, quitar: false, clubId });
+    const imagen_url_2 = await resolverImagenSlot({ prevUrl: null, base64: imagen2_base64, mimetype: imagen2_mimetype, quitar: false, clubId });
+    const imagen_url_3 = await resolverImagenSlot({ prevUrl: null, base64: imagen3_base64, mimetype: imagen3_mimetype, quitar: false, clubId });
 
     const r = await db.query(
       `
-      INSERT INTO tienda_productos (club_id, nombre, descripcion, precio, stock, categoria_id, tiene_talles, imagen_url, activo, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, NOW(), NOW())
-      RETURNING id, nombre, descripcion, precio, stock, categoria_id, tiene_talles, imagen_url, activo, created_at, updated_at
+      INSERT INTO tienda_productos (club_id, nombre, descripcion, precio, stock, categoria_id, tiene_talles, imagen_url, imagen_url_2, imagen_url_3, activo, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, NOW(), NOW())
+      RETURNING id, nombre, descripcion, precio, stock, categoria_id, tiene_talles, imagen_url, imagen_url_2, imagen_url_3, activo, created_at, updated_at
       `,
-      [clubId, nombre.trim(), descripcion?.trim() || null, precioNum, tieneTallesBool ? 0 : stockNum, categoriaIdFinal, tieneTallesBool, imagen_url]
+      [clubId, nombre.trim(), descripcion?.trim() || null, precioNum, tieneTallesBool ? 0 : stockNum, categoriaIdFinal, tieneTallesBool, imagen_url, imagen_url_2, imagen_url_3]
     );
-    const producto = r.rows[0];
+    const producto = { ...r.rows[0], imagenes: armarImagenesProducto(r.rows[0]) };
 
     if (tieneTallesBool) {
       let stockTotal;
@@ -216,11 +268,18 @@ router.put('/:clubId/tienda/productos/:id', requireAuth, requireClubAccess, asyn
     talles = [],
     imagen_base64,
     imagen_mimetype,
+    quitar_imagen = false,
+    imagen2_base64,
+    imagen2_mimetype,
+    quitar_imagen_2 = false,
+    imagen3_base64,
+    imagen3_mimetype,
+    quitar_imagen_3 = false,
   } = req.body || {};
 
   try {
     const prev = await db.query(
-      `SELECT imagen_url FROM tienda_productos WHERE id = $1 AND club_id = $2`,
+      `SELECT imagen_url, imagen_url_2, imagen_url_3 FROM tienda_productos WHERE id = $1 AND club_id = $2`,
       [id, clubId]
     );
     if (!prev.rowCount) {
@@ -258,25 +317,29 @@ router.put('/:clubId/tienda/productos/:id', requireAuth, requireClubAccess, asyn
       categoriaIdFinal = categoria_id;
     }
 
-    let imagen_url = prev.rows[0].imagen_url;
-    if (imagen_base64 && imagen_mimetype) {
-      const buffer = Buffer.from(imagen_base64, 'base64');
-      const up = await uploadImageBuffer({
-        buffer,
-        mimetype: imagen_mimetype,
-        originalname: 'producto.jpg',
-        folder: `clubs/${clubId}/tienda`,
-      });
-      const nuevaUrl = up.url;
-      if (imagen_url && imagen_url !== nuevaUrl) {
-        try {
-          await deleteFirebaseObjectByUrl(imagen_url);
-        } catch (err) {
-          console.warn('⚠ No se pudo borrar imagen previa de producto:', err.message);
-        }
-      }
-      imagen_url = nuevaUrl;
-    }
+    // ✅ NUEVO: hasta 3 fotos — cada slot se resuelve de forma independiente
+    // (subir nueva / quitar existente / dejar igual).
+    const imagen_url = await resolverImagenSlot({
+      prevUrl: prev.rows[0].imagen_url,
+      base64: imagen_base64,
+      mimetype: imagen_mimetype,
+      quitar: quitar_imagen === true || quitar_imagen === 'true',
+      clubId,
+    });
+    const imagen_url_2 = await resolverImagenSlot({
+      prevUrl: prev.rows[0].imagen_url_2,
+      base64: imagen2_base64,
+      mimetype: imagen2_mimetype,
+      quitar: quitar_imagen_2 === true || quitar_imagen_2 === 'true',
+      clubId,
+    });
+    const imagen_url_3 = await resolverImagenSlot({
+      prevUrl: prev.rows[0].imagen_url_3,
+      base64: imagen3_base64,
+      mimetype: imagen3_mimetype,
+      quitar: quitar_imagen_3 === true || quitar_imagen_3 === 'true',
+      clubId,
+    });
 
     const activoBool = typeof activo === 'boolean' ? activo : (activo === 'true' ? true : (activo === 'false' ? false : prev.rows[0].activo));
 
@@ -295,14 +358,15 @@ router.put('/:clubId/tienda/productos/:id', requireAuth, requireClubAccess, asyn
     const r = await db.query(
       `
       UPDATE tienda_productos
-      SET nombre = $1, descripcion = $2, precio = $3, stock = $4, categoria_id = $5, tiene_talles = $6, imagen_url = $7, activo = $8, updated_at = NOW()
-      WHERE id = $9 AND club_id = $10
-      RETURNING id, nombre, descripcion, precio, stock, categoria_id, tiene_talles, imagen_url, activo, created_at, updated_at
+      SET nombre = $1, descripcion = $2, precio = $3, stock = $4, categoria_id = $5, tiene_talles = $6,
+          imagen_url = $7, imagen_url_2 = $8, imagen_url_3 = $9, activo = $10, updated_at = NOW()
+      WHERE id = $11 AND club_id = $12
+      RETURNING id, nombre, descripcion, precio, stock, categoria_id, tiene_talles, imagen_url, imagen_url_2, imagen_url_3, activo, created_at, updated_at
       `,
-      [nombre.trim(), descripcion?.trim() || null, precioNum, stockNum, categoriaIdFinal, tieneTallesBool, imagen_url, activoBool, id, clubId]
+      [nombre.trim(), descripcion?.trim() || null, precioNum, stockNum, categoriaIdFinal, tieneTallesBool, imagen_url, imagen_url_2, imagen_url_3, activoBool, id, clubId]
     );
 
-    return res.json({ ok: true, producto: r.rows[0] });
+    return res.json({ ok: true, producto: { ...r.rows[0], imagenes: armarImagenesProducto(r.rows[0]) } });
   } catch (e) {
     console.error('❌ PUT tienda/productos', e);
     return res.status(500).json({ ok: false, error: e.message });
