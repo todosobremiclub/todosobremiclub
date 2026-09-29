@@ -851,6 +851,61 @@ router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClu
   }
 });
 
+// ------------------------------------------------------
+// DELETE /:clubId/tienda/reservas/:id  (:id = pedido_id)
+// ✅ NUEVO: elimina definitivamente una compra del Historial de ventas
+// (pedido con estado 'aceptada' o 'retirada' — de la app o venta manual).
+// No restituye stock (se asume que el producto ya salió/se entregó del
+// club de verdad). Si el pedido tenía un pago registrado, se borra
+// también la fila de ingresos_generales asociada para no dejar un
+// ingreso "fantasma" sin la venta que lo originó. Es un borrado
+// definitivo (no soft-delete): no queda rastro en la base.
+// ------------------------------------------------------
+router.delete('/:clubId/tienda/reservas/:id', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+
+  try {
+    await db.query('BEGIN');
+
+    const rRows = await db.query(
+      `SELECT id, estado, ingreso_generado_id FROM tienda_reservas WHERE pedido_id = $1 AND club_id = $2 FOR UPDATE`,
+      [id, clubId]
+    );
+    if (!rRows.rowCount) {
+      await db.query('ROLLBACK');
+      return res.status(404).json({ ok: false, error: 'Pedido no encontrado' });
+    }
+
+    const filas = rRows.rows;
+    const estadosValidos = new Set(['aceptada', 'retirada']);
+    if (!filas.every(f => estadosValidos.has(f.estado))) {
+      await db.query('ROLLBACK');
+      return res.status(400).json({
+        ok: false,
+        error: 'Solo se pueden eliminar compras del Historial de ventas (aceptadas o retiradas)',
+      });
+    }
+
+    // Puede haber más de un ingreso si el pedido se creó antes de que el
+    // pago pasara a gestionarse a nivel de pedido; se borran todos los
+    // que queden referenciados por alguna de las filas.
+    const ingresoIds = [...new Set(filas.map(f => f.ingreso_generado_id).filter(Boolean))];
+
+    await db.query(`DELETE FROM tienda_reservas WHERE pedido_id = $1 AND club_id = $2`, [id, clubId]);
+
+    for (const ingresoId of ingresoIds) {
+      await db.query(`DELETE FROM ingresos_generales WHERE id = $1`, [ingresoId]);
+    }
+
+    await db.query('COMMIT');
+    return res.json({ ok: true, eliminado: true, ingresos_eliminados: ingresoIds.length });
+  } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ DELETE tienda/reservas', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ============================================================
 // TALLES POR PRODUCTO (helper usado por POST/PUT productos)
 // ============================================================

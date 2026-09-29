@@ -552,6 +552,13 @@
       await manejarCambioEstadoPago(select);
     });
 
+    // ✅ NUEVO: eliminar una compra del Historial de ventas
+    root.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button[data-act="v_eliminar"]');
+      if (!btn) return;
+      await eliminarVentaHistorial(btn.dataset.id);
+    });
+
     // ✅ NUEVO: buscador de ventas por socio o producto (Historial de ventas)
     const buscarVentaInput = root.querySelector('#tiendaBuscarVenta');
     if (buscarVentaInput) {
@@ -939,12 +946,12 @@
     tbody.innerHTML = '';
 
     if (!historialVentasCache.length) {
-      tbody.innerHTML = `<tr><td colspan="8" class="muted">Todavía no hay ventas registradas.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="muted">Todavía no hay ventas registradas.</td></tr>`;
       return;
     }
 
     if (!items.length) {
-      tbody.innerHTML = `<tr><td colspan="8" class="muted">No se encontraron ventas que coincidan con "${escapeHtml(filtroVentas.trim())}".</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="muted">No se encontraron ventas que coincidan con "${escapeHtml(filtroVentas.trim())}".</td></tr>`;
       return;
     }
 
@@ -970,9 +977,41 @@
         <td>${ESTADO_RESERVA_LABEL[r.estado] || escapeHtml(r.estado)}</td>
         <td>${estadoPagoSelectHtml(r, 'v_estado_pago')}</td>
         <td>${formatDateISOToDMY_tienda(r.gestionada_at || r.created_at)}</td>
+        <td>
+          <button type="button" class="btn btn-secondary" style="background:#ef4444;border-color:#ef4444;"
+                  data-act="v_eliminar" data-id="${r.pedido_id}" title="Eliminar del historial">🗑️</button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
+  }
+
+  // ✅ NUEVO: elimina definitivamente una compra del Historial de ventas
+  // (y, si tenía un pago registrado, el ingreso asociado en Finanzas). No
+  // restituye stock: se asume que el producto ya salió del club.
+  async function eliminarVentaHistorial(pedidoId) {
+    const confirmado = confirm(
+      '¿Eliminar esta compra del historial?\n\n' +
+      'Esta acción es DEFINITIVA: se borra el registro de la venta y, si tenía ' +
+      'un pago registrado, también el ingreso correspondiente en Finanzas.\n\n' +
+      'El stock del producto NO se modifica (se asume que ya salió del club).'
+    );
+    if (!confirmado) return;
+
+    const clubId = getActiveClubId();
+    try {
+      const { res, data } = await fetchAuth(`/club/${clubId}/tienda/reservas/${pedidoId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'No se pudo eliminar la compra');
+        return;
+      }
+      await loadHistorialVentas();
+    } catch (e) {
+      console.error('eliminarVentaHistorial:', e);
+      alert(e.message || 'Error eliminando la compra');
+    }
   }
 
   // Trae reservas aceptadas ("a retirar") + retiradas y las junta en una
