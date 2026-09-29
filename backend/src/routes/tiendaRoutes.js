@@ -414,18 +414,22 @@ router.delete('/:clubId/tienda/productos/:id', requireAuth, requireClubAccess, a
 // ============================================================
 // RESERVAS / PEDIDOS (gestión admin — se muestran en la sección Pendientes)
 //
-// ✅ NUEVO (carrito): varias reservas compradas juntas comparten el mismo
-// tienda_reservas.pedido_id. Los endpoints de gestión de abajo (aceptar,
-// rechazar, retirado, estado-pago) reciben ese pedido_id en el parámetro
-// :id de la URL (una reserva "suelta" vieja tiene pedido_id = su propio id,
-// así que sigue funcionando igual) y actúan sobre TODAS las líneas del
-// pedido a la vez — ver claude/tienda-talles-carrito-venta-manual-plan.md.
+// ✅ Carrito: varias reservas compradas juntas comparten el mismo
+// tienda_reservas.pedido_id, y se sigue mostrando esa agrupación en el
+// panel admin ("Pedido con N productos") para dar contexto. Pero la
+// GESTIÓN (aceptar, rechazar, retirado, estado-pago, eliminar del
+// historial) es INDIVIDUAL por línea: los endpoints de abajo reciben el
+// :id de UNA reserva puntual (tienda_reservas.id, no pedido_id) y actúan
+// solo sobre esa línea — ver claude/tienda-talles-carrito-venta-manual-plan.md.
 // ============================================================
 
 // ------------------------------------------------------------
 // GET /club/:clubId/tienda/reservas?estado=pendiente
 // Si no se pasa "estado", trae todas. Devuelve filas planas (una por
-// línea/talle); el admin las agrupa por pedido_id para mostrarlas juntas.
+// línea/talle); el admin las agrupa por pedido_id solo para mostrarlas
+// juntas visualmente, pero cada una se gestiona por separado.
+// ✅ LEFT JOIN socios: una venta manual a "no socio" no tiene socio_id, así
+// que ya no puede ser un INNER JOIN (antes excluía esas filas del listado).
 // ------------------------------------------------------------
 router.get('/:clubId/tienda/reservas', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
@@ -449,6 +453,7 @@ router.get('/:clubId/tienda/reservas', requireAuth, requireClubAccess, async (re
         r.monto_pagado,
         r.talle_id,
         r.talle,
+        r.nombre_referencia,
         ing.cuenta AS forma_pago,
         r.mensaje_admin,
         r.created_at,
@@ -457,13 +462,16 @@ router.get('/:clubId/tienda/reservas', requireAuth, requireClubAccess, async (re
         p.nombre AS producto_nombre,
         p.precio AS producto_precio,
         p.imagen_url AS producto_imagen_url,
+        p.categoria_id AS producto_categoria_id,
+        c.nombre AS producto_categoria_nombre,
         s.id AS socio_id,
         s.numero_socio,
         s.nombre AS socio_nombre,
         s.apellido AS socio_apellido
       FROM tienda_reservas r
       JOIN tienda_productos p ON p.id = r.producto_id
-      JOIN socios s ON s.id = r.socio_id
+      LEFT JOIN tienda_categorias c ON c.id = p.categoria_id
+      LEFT JOIN socios s ON s.id = r.socio_id
       LEFT JOIN ingresos_generales ing ON ing.id = r.ingreso_generado_id
       WHERE r.club_id = $1
         ${estado ? 'AND r.estado = $2' : ''}
@@ -479,121 +487,106 @@ router.get('/:clubId/tienda/reservas', requireAuth, requireClubAccess, async (re
 });
 
 // ------------------------------------------------------------
-// POST /club/:clubId/tienda/reservas/:id/aceptar   (:id = pedido_id)
-// body: { mensaje?, cantidad?, items?: [{ id, cantidad }] }
-// ✅ El stock ya se descontó cuando el socio reservó (POST /app/tienda/reservas
-// en appRoutes.js), así que acá NO se vuelve a descontar: solo se marcan
-// aceptadas todas las líneas del pedido. El admin puede entregar MENOS
-// cantidad de la pedida en cada línea (ej: pidieron 2 y solo hay/entregan
-// 1); la diferencia vuelve al stock (del talle, si el producto tiene, y al
+// POST /club/:clubId/tienda/reservas/:id/aceptar   (:id = reserva puntual)
+// body: { mensaje?, cantidad? }
+// ✅ Gestión individual por línea: :id es el id de UNA reserva (un producto
+// del carrito), no del pedido completo. El stock ya se descontó cuando el
+// socio reservó (POST /app/tienda/reservas en appRoutes.js), así que acá NO
+// se vuelve a descontar: solo se marca aceptada esta línea. El admin puede
+// entregar MENOS cantidad de la pedida (ej: pidió 2 y solo hay/entrega 1);
+// la diferencia vuelve al stock (del talle, si el producto tiene, y al
 // total del producto). Nunca se permite entregar más de lo pedido.
 // ------------------------------------------------------------
 router.post('/:clubId/tienda/reservas/:id/aceptar', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
-  const { mensaje = null, cantidad = null, items = null } = req.body || {};
+  const { mensaje = null, cantidad = null } = req.body || {};
   const adminUserId = req.user?.userId || req.user?.id || null;
 
   try {
     await db.query('BEGIN');
 
     const rRows = await db.query(
-      `SELECT id, producto_id, talle_id, socio_id, cantidad, estado FROM tienda_reservas WHERE pedido_id = $1 AND club_id = $2 FOR UPDATE`,
+      `SELECT id, producto_id, talle_id, socio_id, cantidad, estado FROM tienda_reservas WHERE id = $1 AND club_id = $2 FOR UPDATE`,
       [id, clubId]
     );
     if (!rRows.rowCount) {
       await db.query('ROLLBACK');
-      return res.status(404).json({ ok: false, error: 'Pedido no encontrado' });
+      return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
     }
-    const filas = rRows.rows;
-    if (filas.some(f => f.estado !== 'pendiente')) {
+    const fila = rRows.rows[0];
+    if (fila.estado !== 'pendiente') {
       await db.query('ROLLBACK');
-      return res.status(400).json({ ok: false, error: 'El pedido ya fue gestionado' });
+      return res.status(400).json({ ok: false, error: 'La reserva ya fue gestionada' });
     }
 
-    // Cantidad a entregar por línea: { id_de_la_reserva: cantidad }. Si el
-    // pedido tiene una sola línea también se acepta el parámetro plano
-    // "cantidad" (compatibilidad con el flujo anterior, sin carrito).
-    const cantidadPorLinea = new Map();
-    if (Array.isArray(items)) {
-      for (const it of items) {
-        if (it && it.id !== undefined && it.id !== null) cantidadPorLinea.set(String(it.id), it.cantidad);
-      }
-    } else if (filas.length === 1 && cantidad !== null && cantidad !== undefined && String(cantidad).trim() !== '') {
-      cantidadPorLinea.set(String(filas[0].id), cantidad);
-    }
-
-    const nombresProductos = [];
+    const cantidadOriginal = Number(fila.cantidad);
+    let cantidadFinal = cantidadOriginal;
     let huboReduccion = false;
-    let socioId = null;
 
-    for (const fila of filas) {
-      socioId = fila.socio_id;
-      const cantidadOriginal = Number(fila.cantidad);
-      let cantidadFinal = cantidadOriginal;
-
-      if (cantidadPorLinea.has(String(fila.id))) {
-        const cantidadNum = Number(cantidadPorLinea.get(String(fila.id)));
-        if (!Number.isInteger(cantidadNum) || cantidadNum < 1) {
-          await db.query('ROLLBACK');
-          return res.status(400).json({ ok: false, error: 'La cantidad a entregar debe ser un entero mayor o igual a 1' });
-        }
-        if (cantidadNum > cantidadOriginal) {
-          await db.query('ROLLBACK');
-          return res.status(400).json({ ok: false, error: `No se puede entregar más de lo pedido (${cantidadOriginal})` });
-        }
-        cantidadFinal = cantidadNum;
+    if (cantidad !== null && cantidad !== undefined && String(cantidad).trim() !== '') {
+      const cantidadNum = Number(cantidad);
+      if (!Number.isInteger(cantidadNum) || cantidadNum < 1) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ ok: false, error: 'La cantidad a entregar debe ser un entero mayor o igual a 1' });
       }
+      if (cantidadNum > cantidadOriginal) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ ok: false, error: `No se puede entregar más de lo pedido (${cantidadOriginal})` });
+      }
+      cantidadFinal = cantidadNum;
+    }
 
-      const diferencia = cantidadOriginal - cantidadFinal;
-      if (diferencia > 0) {
-        huboReduccion = true;
-        if (fila.talle_id) {
-          await db.query(
-            `UPDATE tienda_producto_talles SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
-            [diferencia, fila.talle_id]
-          );
-        }
+    const diferencia = cantidadOriginal - cantidadFinal;
+    if (diferencia > 0) {
+      huboReduccion = true;
+      if (fila.talle_id) {
         await db.query(
-          `UPDATE tienda_productos SET stock = stock + $1, updated_at = NOW() WHERE id = $2 AND club_id = $3`,
-          [diferencia, fila.producto_id, clubId]
+          `UPDATE tienda_producto_talles SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
+          [diferencia, fila.talle_id]
         );
       }
-
-      const rProd = await db.query(`SELECT nombre FROM tienda_productos WHERE id = $1 AND club_id = $2`, [fila.producto_id, clubId]);
-      if (rProd.rowCount) nombresProductos.push(rProd.rows[0].nombre);
-
       await db.query(
-        `
-        UPDATE tienda_reservas
-        SET estado = 'aceptada', cantidad = $1, mensaje_admin = $2, gestionada_por = $3, gestionada_at = NOW(), updated_at = NOW()
-        WHERE id = $4
-        `,
-        [cantidadFinal, mensaje?.trim() || null, adminUserId, fila.id]
+        `UPDATE tienda_productos SET stock = stock + $1, updated_at = NOW() WHERE id = $2 AND club_id = $3`,
+        [diferencia, fila.producto_id, clubId]
       );
     }
 
+    const rProd = await db.query(`SELECT nombre FROM tienda_productos WHERE id = $1 AND club_id = $2`, [fila.producto_id, clubId]);
+    const nombreProducto = rProd.rowCount ? rProd.rows[0].nombre : 'tu producto';
+
+    await db.query(
+      `
+      UPDATE tienda_reservas
+      SET estado = 'aceptada', cantidad = $1, mensaje_admin = $2, gestionada_por = $3, gestionada_at = NOW(), updated_at = NOW()
+      WHERE id = $4
+      `,
+      [cantidadFinal, mensaje?.trim() || null, adminUserId, fila.id]
+    );
+
     await db.query('COMMIT');
 
-    // ✅ paso 6: avisar al socio por push que su pedido fue aceptado (un
-    // solo push por pedido, aunque tenga varias líneas).
-    const listaProductos = nombresProductos.join(', ');
-    const avisoReduccion = huboReduccion ? ' Alguna cantidad se ajustó según el stock disponible.' : '';
-    const cuerpoAceptada = mensaje?.trim()
-      ? `Tu pedido (${listaProductos}) fue aceptado.${avisoReduccion} Podés retirarlo en el club. Mensaje del club: ${mensaje.trim()}`
-      : `Tu pedido (${listaProductos}) fue aceptado.${avisoReduccion} Podés retirarlo en el club.`;
+    // ✅ Aviso al socio por push, uno por línea aceptada (si la venta no
+    // tiene socio asociado — venta manual a "no socio" — no hay a quién
+    // notificar).
+    if (fila.socio_id) {
+      const avisoReduccion = huboReduccion ? ' Se ajustó la cantidad según el stock disponible.' : '';
+      const cuerpoAceptada = mensaje?.trim()
+        ? `Tu producto (${nombreProducto}) fue aceptado.${avisoReduccion} Podés retirarlo en el club. Mensaje del club: ${mensaje.trim()}`
+        : `Tu producto (${nombreProducto}) fue aceptado.${avisoReduccion} Podés retirarlo en el club.`;
 
-    notificarSocio({
-      clubId,
-      socioId,
-      titulo: '🛒 Pedido aceptado',
-      cuerpo: cuerpoAceptada,
-      data: {
-        type: 'tienda_reserva_aceptada',
-        pedidoId: String(id),
-      },
-    }).catch(err => console.warn('⚠ No se pudo notificar al socio (pedido aceptado):', err.message));
+      notificarSocio({
+        clubId,
+        socioId: fila.socio_id,
+        titulo: '🛒 Producto aceptado',
+        cuerpo: cuerpoAceptada,
+        data: {
+          type: 'tienda_reserva_aceptada',
+          reservaId: String(id),
+        },
+      }).catch(err => console.warn('⚠ No se pudo notificar al socio (producto aceptado):', err.message));
+    }
 
-    return res.json({ ok: true, pedido_id: id });
+    return res.json({ ok: true, reserva_id: id });
   } catch (e) {
     try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ POST tienda/reservas/aceptar', e);
@@ -602,10 +595,11 @@ router.post('/:clubId/tienda/reservas/:id/aceptar', requireAuth, requireClubAcce
 });
 
 // ------------------------------------------------------------
-// POST /club/:clubId/tienda/reservas/:id/rechazar   (:id = pedido_id)
+// POST /club/:clubId/tienda/reservas/:id/rechazar   (:id = reserva puntual)
 // body: { mensaje? }
-// ✅ Devuelve al stock (del talle, si aplica, y al total del producto) la
-// cantidad que se había descontado al crear cada línea del pedido.
+// ✅ Gestión individual por línea. Devuelve al stock (del talle, si aplica,
+// y al total del producto) la cantidad que se había descontado al crear
+// esta línea puntual.
 // ------------------------------------------------------------
 router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
@@ -620,69 +614,62 @@ router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAcc
       SELECT r.id, r.estado, r.socio_id, r.producto_id, r.talle_id, r.cantidad, p.nombre AS producto_nombre
       FROM tienda_reservas r
       JOIN tienda_productos p ON p.id = r.producto_id
-      WHERE r.pedido_id = $1 AND r.club_id = $2
+      WHERE r.id = $1 AND r.club_id = $2
       FOR UPDATE OF r
       `,
       [id, clubId]
     );
     if (!rRows.rowCount) {
       await db.query('ROLLBACK');
-      return res.status(404).json({ ok: false, error: 'Pedido no encontrado' });
+      return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
     }
-    const filas = rRows.rows;
-    if (filas.some(f => f.estado !== 'pendiente')) {
+    const fila = rRows.rows[0];
+    if (fila.estado !== 'pendiente') {
       await db.query('ROLLBACK');
-      return res.status(400).json({ ok: false, error: 'El pedido ya fue gestionado' });
+      return res.status(400).json({ ok: false, error: 'La reserva ya fue gestionada' });
     }
 
-    const nombresProductos = [];
-    let socioId = null;
+    await db.query(
+      `
+      UPDATE tienda_reservas
+      SET estado = 'rechazada', mensaje_admin = $1, gestionada_por = $2, gestionada_at = NOW(), updated_at = NOW()
+      WHERE id = $3
+      `,
+      [mensaje?.trim() || null, adminUserId, fila.id]
+    );
 
-    for (const fila of filas) {
-      socioId = fila.socio_id;
-      nombresProductos.push(fila.producto_nombre);
-
+    if (fila.talle_id) {
       await db.query(
-        `
-        UPDATE tienda_reservas
-        SET estado = 'rechazada', mensaje_admin = $1, gestionada_por = $2, gestionada_at = NOW(), updated_at = NOW()
-        WHERE id = $3
-        `,
-        [mensaje?.trim() || null, adminUserId, fila.id]
-      );
-
-      if (fila.talle_id) {
-        await db.query(
-          `UPDATE tienda_producto_talles SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
-          [fila.cantidad, fila.talle_id]
-        );
-      }
-      await db.query(
-        `UPDATE tienda_productos SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
-        [fila.cantidad, fila.producto_id]
+        `UPDATE tienda_producto_talles SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
+        [fila.cantidad, fila.talle_id]
       );
     }
+    await db.query(
+      `UPDATE tienda_productos SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
+      [fila.cantidad, fila.producto_id]
+    );
 
     await db.query('COMMIT');
 
-    // ✅ paso 6: avisar al socio por push que su pedido fue rechazado.
-    const listaProductos = nombresProductos.join(', ');
-    const cuerpoRechazada = mensaje?.trim()
-      ? `Tu pedido (${listaProductos}) fue rechazado. Motivo: ${mensaje.trim()}`
-      : `Tu pedido (${listaProductos}) fue rechazado.`;
+    // ✅ Aviso al socio por push (si la línea tiene socio asociado).
+    if (fila.socio_id) {
+      const cuerpoRechazada = mensaje?.trim()
+        ? `Tu producto (${fila.producto_nombre}) fue rechazado. Motivo: ${mensaje.trim()}`
+        : `Tu producto (${fila.producto_nombre}) fue rechazado.`;
 
-    notificarSocio({
-      clubId,
-      socioId,
-      titulo: '🛒 Pedido rechazado',
-      cuerpo: cuerpoRechazada,
-      data: {
-        type: 'tienda_reserva_rechazada',
-        pedidoId: String(id),
-      },
-    }).catch(err => console.warn('⚠ No se pudo notificar al socio (pedido rechazado):', err.message));
+      notificarSocio({
+        clubId,
+        socioId: fila.socio_id,
+        titulo: '🛒 Producto rechazado',
+        cuerpo: cuerpoRechazada,
+        data: {
+          type: 'tienda_reserva_rechazada',
+          reservaId: String(id),
+        },
+      }).catch(err => console.warn('⚠ No se pudo notificar al socio (producto rechazado):', err.message));
+    }
 
-    return res.json({ ok: true, pedido_id: id });
+    return res.json({ ok: true, reserva_id: id });
   } catch (e) {
     try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ POST tienda/reservas/rechazar', e);
@@ -691,39 +678,39 @@ router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAcc
 });
 
 // ------------------------------------------------------------
-// POST /club/:clubId/tienda/reservas/:id/retirado   (:id = pedido_id)
-// Se usa cuando el socio pasa a buscar el pedido por el club.
-// ✅ NUEVO: ya NO exige que esté pagado — se puede entregar en cualquier
-// estado de pago (el panel admin pide confirmación extra si falta pagar;
-// ver pendientes.js). Marca "retirada" todas las líneas del pedido que
-// estén en estado "aceptada".
+// POST /club/:clubId/tienda/reservas/:id/retirado   (:id = reserva puntual)
+// Se usa cuando el socio pasa a buscar ese producto por el club.
+// ✅ Gestión individual por línea. No exige que esté pagado — se puede
+// entregar en cualquier estado de pago (el panel admin pide confirmación
+// extra si falta pagar; ver pendientes.js). Marca "retirada" esta línea si
+// está en estado "aceptada".
 // ------------------------------------------------------------
 router.post('/:clubId/tienda/reservas/:id/retirado', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
 
   try {
     const rRows = await db.query(
-      `SELECT id, estado FROM tienda_reservas WHERE pedido_id = $1 AND club_id = $2`,
+      `SELECT id, estado FROM tienda_reservas WHERE id = $1 AND club_id = $2`,
       [id, clubId]
     );
     if (!rRows.rowCount) {
-      return res.status(404).json({ ok: false, error: 'Pedido no encontrado' });
+      return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
     }
-    if (!rRows.rows.some(f => f.estado === 'aceptada')) {
-      return res.status(400).json({ ok: false, error: 'El pedido no tiene líneas en estado "aceptada" para marcar como retiradas' });
+    if (rRows.rows[0].estado !== 'aceptada') {
+      return res.status(400).json({ ok: false, error: 'Esta línea no está en estado "aceptada" para marcarla como retirada' });
     }
 
     const r = await db.query(
       `
       UPDATE tienda_reservas
       SET estado = 'retirada', updated_at = NOW()
-      WHERE pedido_id = $1 AND club_id = $2 AND estado = 'aceptada'
+      WHERE id = $1 AND club_id = $2 AND estado = 'aceptada'
       RETURNING id, estado
       `,
       [id, clubId]
     );
 
-    return res.json({ ok: true, pedido_id: id, reservas: r.rows });
+    return res.json({ ok: true, reserva_id: id, reserva: r.rows[0] });
   } catch (e) {
     console.error('❌ POST tienda/reservas/retirado', e);
     return res.status(500).json({ ok: false, error: e.message });
@@ -774,19 +761,19 @@ async function getOrCrearTipoIngresoTienda(clubId) {
 }
 
 // ------------------------------------------------------------
-// PATCH /club/:clubId/tienda/reservas/:id/estado-pago   (:id = pedido_id)
+// PATCH /club/:clubId/tienda/reservas/:id/estado-pago   (:id = reserva puntual)
 // body: { estado_pago, monto_pagado?, cuenta_id? }
 //   estado_pago: 'sin_pago' | 'parcial' | 'pagado'
 //   monto_pagado: obligatorio y > 0 solo si estado_pago = 'parcial'
-//     (para 'pagado' se calcula solo como la suma de precio × cantidad de
-//     TODAS las líneas del pedido; para 'sin_pago' queda en 0).
+//     (para 'pagado' se calcula como precio × cantidad de ESTA línea; para
+//     'sin_pago' queda en 0).
 //   cuenta_id: obligatorio si estado_pago es 'parcial' o 'pagado' — id de
 //     responsables_gasto (la misma lista de "cuentas" que se usa al cargar
 //     un pago de cuota o un ingreso general). Indica por dónde entró la
 //     plata, igual que cualquier otro ingreso del club.
-// ✅ El pedido se paga como una sola unidad (carrito): el monto y la cuenta
-// se aplican a TODAS las líneas del pedido, y se genera un único ingreso en
-// ingresos_generales por el total del pedido (no uno por línea).
+// ✅ Gestión individual por línea: el cobro se maneja por producto, no por
+// pedido completo. Cada línea genera (o actualiza) su propia fila en
+// ingresos_generales.
 //
 // ✅ Cada vez que queda un monto > 0, se refleja en ingresos_generales:
 // tipo_ingreso = "Tienda" (así se ve agrupado en "Ingresos por tipo") y
@@ -794,6 +781,8 @@ async function getOrCrearTipoIngresoTienda(clubId) {
 // correctamente, en vez de mostrar "Tienda" como si fuera una cuenta). Si
 // se vuelve a "sin_pago", ese ingreso se desactiva en vez de borrarse, para
 // no perder trazabilidad.
+// ✅ LEFT JOIN socios: una venta manual a "no socio" no tiene socio_id; en
+// ese caso el detalle del ingreso usa nombre_referencia en vez del socio.
 // ------------------------------------------------------------
 router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
@@ -810,25 +799,24 @@ router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClu
     const rRows = await db.query(
       `
       SELECT
-        r.id, r.cantidad, r.ingreso_generado_id, r.socio_id,
+        r.id, r.cantidad, r.ingreso_generado_id, r.socio_id, r.nombre_referencia,
         p.nombre AS producto_nombre, p.precio,
         s.numero_socio, s.nombre AS socio_nombre, s.apellido AS socio_apellido
       FROM tienda_reservas r
       JOIN tienda_productos p ON p.id = r.producto_id
-      JOIN socios s ON s.id = r.socio_id
-      WHERE r.pedido_id = $1 AND r.club_id = $2
+      LEFT JOIN socios s ON s.id = r.socio_id
+      WHERE r.id = $1 AND r.club_id = $2
       FOR UPDATE OF r
       `,
       [id, clubId]
     );
     if (!rRows.rowCount) {
       await db.query('ROLLBACK');
-      return res.status(404).json({ ok: false, error: 'Pedido no encontrado' });
+      return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
     }
-    const filas = rRows.rows;
-    const primera = filas[0];
-    const total = filas.reduce((acc, f) => acc + Number(f.precio) * Number(f.cantidad), 0);
-    const ingresoIdExistente = filas.find(f => f.ingreso_generado_id)?.ingreso_generado_id || null;
+    const fila = rRows.rows[0];
+    const total = Number(fila.precio) * Number(fila.cantidad);
+    const ingresoIdExistente = fila.ingreso_generado_id || null;
 
     let montoPagado = 0;
     let cuentaFinal = null;
@@ -859,7 +847,7 @@ router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClu
       }
       if (montoPagado > total) {
         await db.query('ROLLBACK');
-        return res.status(400).json({ ok: false, error: `El monto no puede superar el total del pedido ($${total})` });
+        return res.status(400).json({ ok: false, error: `El monto no puede superar el total de esta línea ($${total})` });
       }
     }
     // estado_pago === 'sin_pago' → montoPagado queda en 0, sin cuenta
@@ -868,9 +856,10 @@ router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClu
 
     if (montoPagado > 0) {
       const tipoIngresoId = await getOrCrearTipoIngresoTienda(clubId);
-      const socioLabel = `#${primera.numero_socio ?? '—'} ${primera.socio_apellido ?? ''} ${primera.socio_nombre ?? ''}`.trim();
-      const detalleProductos = filas.map(f => `${f.producto_nombre} x${f.cantidad}`).join(', ');
-      const observacion = `Tienda: ${detalleProductos} — ${socioLabel}`;
+      const clienteLabel = fila.socio_id
+        ? `#${fila.numero_socio ?? '—'} ${fila.socio_apellido ?? ''} ${fila.socio_nombre ?? ''}`.trim()
+        : (fila.nombre_referencia?.trim() || 'No socio');
+      const observacion = `Tienda: ${fila.producto_nombre} x${fila.cantidad} — ${clienteLabel}`;
 
       if (ingresoId) {
         await db.query(
@@ -898,7 +887,7 @@ router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClu
       `
       UPDATE tienda_reservas
       SET estado_pago = $1, monto_pagado = $2, ingreso_generado_id = $3, updated_at = NOW()
-      WHERE pedido_id = $4 AND club_id = $5
+      WHERE id = $4 AND club_id = $5
       `,
       [estado_pago, montoPagado, ingresoId, id, clubId]
     );
@@ -906,7 +895,7 @@ router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClu
     await db.query('COMMIT');
     return res.json({
       ok: true,
-      pedido: { pedido_id: id, estado_pago, monto_pagado: montoPagado, total, forma_pago: cuentaFinal },
+      reserva: { reserva_id: id, estado_pago, monto_pagado: montoPagado, total, forma_pago: cuentaFinal },
     });
   } catch (e) {
     try { await db.query('ROLLBACK'); } catch (_) {}
@@ -916,14 +905,14 @@ router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClu
 });
 
 // ------------------------------------------------------
-// DELETE /:clubId/tienda/reservas/:id  (:id = pedido_id)
-// ✅ NUEVO: elimina definitivamente una compra del Historial de ventas
-// (pedido con estado 'aceptada' o 'retirada' — de la app o venta manual).
-// No restituye stock (se asume que el producto ya salió/se entregó del
-// club de verdad). Si el pedido tenía un pago registrado, se borra
-// también la fila de ingresos_generales asociada para no dejar un
-// ingreso "fantasma" sin la venta que lo originó. Es un borrado
-// definitivo (no soft-delete): no queda rastro en la base.
+// DELETE /:clubId/tienda/reservas/:id  (:id = reserva puntual)
+// ✅ Elimina definitivamente un producto del Historial de ventas (línea con
+// estado 'aceptada' o 'retirada' — de la app o venta manual). Gestión
+// individual por línea. No restituye stock (se asume que el producto ya
+// salió/se entregó del club de verdad). Si esa línea tenía un pago
+// registrado, se borra también la fila de ingresos_generales asociada
+// para no dejar un ingreso "fantasma" sin la venta que lo originó. Es un
+// borrado definitivo (no soft-delete): no queda rastro en la base.
 // ------------------------------------------------------
 router.delete('/:clubId/tienda/reservas/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
@@ -932,17 +921,17 @@ router.delete('/:clubId/tienda/reservas/:id', requireAuth, requireClubAccess, as
     await db.query('BEGIN');
 
     const rRows = await db.query(
-      `SELECT id, estado, ingreso_generado_id FROM tienda_reservas WHERE pedido_id = $1 AND club_id = $2 FOR UPDATE`,
+      `SELECT id, estado, ingreso_generado_id FROM tienda_reservas WHERE id = $1 AND club_id = $2 FOR UPDATE`,
       [id, clubId]
     );
     if (!rRows.rowCount) {
       await db.query('ROLLBACK');
-      return res.status(404).json({ ok: false, error: 'Pedido no encontrado' });
+      return res.status(404).json({ ok: false, error: 'Reserva no encontrada' });
     }
 
-    const filas = rRows.rows;
+    const fila = rRows.rows[0];
     const estadosValidos = new Set(['aceptada', 'retirada']);
-    if (!filas.every(f => estadosValidos.has(f.estado))) {
+    if (!estadosValidos.has(fila.estado)) {
       await db.query('ROLLBACK');
       return res.status(400).json({
         ok: false,
@@ -950,19 +939,16 @@ router.delete('/:clubId/tienda/reservas/:id', requireAuth, requireClubAccess, as
       });
     }
 
-    // Puede haber más de un ingreso si el pedido se creó antes de que el
-    // pago pasara a gestionarse a nivel de pedido; se borran todos los
-    // que queden referenciados por alguna de las filas.
-    const ingresoIds = [...new Set(filas.map(f => f.ingreso_generado_id).filter(Boolean))];
+    await db.query(`DELETE FROM tienda_reservas WHERE id = $1 AND club_id = $2`, [id, clubId]);
 
-    await db.query(`DELETE FROM tienda_reservas WHERE pedido_id = $1 AND club_id = $2`, [id, clubId]);
-
-    for (const ingresoId of ingresoIds) {
-      await db.query(`DELETE FROM ingresos_generales WHERE id = $1`, [ingresoId]);
+    let ingresosEliminados = 0;
+    if (fila.ingreso_generado_id) {
+      await db.query(`DELETE FROM ingresos_generales WHERE id = $1`, [fila.ingreso_generado_id]);
+      ingresosEliminados = 1;
     }
 
     await db.query('COMMIT');
-    return res.json({ ok: true, eliminado: true, ingresos_eliminados: ingresoIds.length });
+    return res.json({ ok: true, eliminado: true, ingresos_eliminados: ingresosEliminados });
   } catch (e) {
     try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ DELETE tienda/reservas', e);
@@ -1007,7 +993,8 @@ async function reemplazarTallesProducto(productoId, talles) {
 // ------------------------------------------------------------
 // POST /club/:clubId/tienda/ventas-manuales
 // body: {
-//   socio_id, producto_id, talle_id?, cantidad,
+//   socio_id?, no_socio? (bool), nombre_referencia?,
+//   producto_id, talle_id?, cantidad,
 //   estado_pago ('sin_pago'|'parcial'|'pagado'), monto_pagado?, cuenta_id?,
 //   marcar_retirado (bool)
 // }
@@ -1015,11 +1002,18 @@ async function reemplazarTallesProducto(productoId, talles) {
 // club (no por la app): descuenta stock igual que una reserva normal, pero
 // queda directamente en estado "aceptada" (o "retirada" si marcar_retirado)
 // y aparece en el Historial de ventas junto con las de la app.
+// ✅ "No socio": si se manda no_socio=true (o directamente no viene
+// socio_id), la venta queda sin socio asociado — para visitas o clientes
+// que compran en el mostrador sin ser socios del club. En ese caso se
+// puede guardar un nombre_referencia opcional (ej: "Juan - visita") para
+// poder identificarla después en el Historial de ventas.
 // ------------------------------------------------------------
 router.post('/:clubId/tienda/ventas-manuales', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
   const {
-    socio_id,
+    socio_id = null,
+    no_socio = false,
+    nombre_referencia = null,
     producto_id,
     talle_id = null,
     cantidad,
@@ -1030,25 +1024,33 @@ router.post('/:clubId/tienda/ventas-manuales', requireAuth, requireClubAccess, a
   } = req.body || {};
   const adminUserId = req.user?.userId || req.user?.id || null;
 
+  const esVentaSinSocio = !!no_socio || !socio_id;
+
   const ESTADOS_PAGO_VALIDOS = new Set(['sin_pago', 'parcial', 'pagado']);
   if (!ESTADOS_PAGO_VALIDOS.has(estado_pago)) {
     return res.status(400).json({ ok: false, error: 'estado_pago inválido' });
   }
 
   const cantidadNum = Number(cantidad);
-  if (!socio_id) return res.status(400).json({ ok: false, error: 'Falta seleccionar el socio' });
+  if (!esVentaSinSocio && !socio_id) return res.status(400).json({ ok: false, error: 'Falta seleccionar el socio' });
   if (!producto_id) return res.status(400).json({ ok: false, error: 'Falta seleccionar el producto' });
   if (!Number.isInteger(cantidadNum) || cantidadNum < 1) {
     return res.status(400).json({ ok: false, error: 'Cantidad inválida' });
   }
 
+  const nombreReferenciaFinal = esVentaSinSocio && nombre_referencia?.trim() ? nombre_referencia.trim() : null;
+
   try {
     await db.query('BEGIN');
 
-    const rSocio = await db.query(`SELECT id, numero_socio, nombre, apellido FROM socios WHERE id = $1 AND club_id = $2`, [socio_id, clubId]);
-    if (!rSocio.rowCount) {
-      await db.query('ROLLBACK');
-      return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+    let socio = null;
+    if (!esVentaSinSocio) {
+      const rSocio = await db.query(`SELECT id, numero_socio, nombre, apellido FROM socios WHERE id = $1 AND club_id = $2`, [socio_id, clubId]);
+      if (!rSocio.rowCount) {
+        await db.query('ROLLBACK');
+        return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+      }
+      socio = rSocio.rows[0];
     }
 
     const rProd = await db.query(
@@ -1096,18 +1098,18 @@ router.post('/:clubId/tienda/ventas-manuales', requireAuth, requireClubAccess, a
     const rIns = await db.query(
       `
       INSERT INTO tienda_reservas (
-        id, club_id, producto_id, socio_id, cantidad, estado,
+        id, club_id, producto_id, socio_id, nombre_referencia, cantidad, estado,
         talle_id, talle, pedido_id, origen,
         mensaje_admin, gestionada_por, gestionada_at, created_at, updated_at
       )
       VALUES (
-        gen_random_uuid(), $1, $2, $3, $4, $5,
-        $6, $7, $8, 'manual',
-        'Venta cargada manualmente en el club', $9, NOW(), NOW(), NOW()
+        gen_random_uuid(), $1, $2, $3, $4, $5, $6,
+        $7, $8, $9, 'manual',
+        'Venta cargada manualmente en el club', $10, NOW(), NOW(), NOW()
       )
       RETURNING id
       `,
-      [clubId, producto_id, socio_id, cantidadNum, estadoInicial, talle_id, talleNombre, pedidoId, adminUserId]
+      [clubId, producto_id, esVentaSinSocio ? null : socio_id, nombreReferenciaFinal, cantidadNum, estadoInicial, talle_id, talleNombre, pedidoId, adminUserId]
     );
     const reservaId = rIns.rows[0].id;
 
@@ -1151,8 +1153,10 @@ router.post('/:clubId/tienda/ventas-manuales', requireAuth, requireClubAccess, a
     let ingresoId = null;
     if (montoPagado > 0) {
       const tipoIngresoId = await getOrCrearTipoIngresoTienda(clubId);
-      const socioLabel = `#${rSocio.rows[0].numero_socio ?? '—'} ${rSocio.rows[0].apellido ?? ''} ${rSocio.rows[0].nombre ?? ''}`.trim();
-      const observacion = `Tienda (venta manual): ${producto.nombre}${talleNombre ? ` (talle ${talleNombre})` : ''} x${cantidadNum} — ${socioLabel}`;
+      const clienteLabel = socio
+        ? `#${socio.numero_socio ?? '—'} ${socio.apellido ?? ''} ${socio.nombre ?? ''}`.trim()
+        : (nombreReferenciaFinal || 'No socio');
+      const observacion = `Tienda (venta manual): ${producto.nombre}${talleNombre ? ` (talle ${talleNombre})` : ''} x${cantidadNum} — ${clienteLabel}`;
       const rIng = await db.query(
         `
         INSERT INTO ingresos_generales (id, club_id, tipo_ingreso_id, fecha, monto, observacion, cuenta, created_at, activo)

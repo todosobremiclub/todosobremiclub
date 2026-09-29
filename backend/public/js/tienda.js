@@ -89,6 +89,7 @@
   let currentImagenUrls = [null, null, null];
   let quitarImagenFlags = [false, false, false];
   let filtroProductos = ''; // ✅ NUEVO: buscador de productos publicados
+  let filtroCategoriaProducto = ''; // ✅ NUEVO: filtro por tipo/categoría en "Productos publicados"
 
   // =============================
   // Helpers imagen (base64)
@@ -267,11 +268,31 @@
       categoriasProductoCache = [];
     }
 
-    if (!select) return;
-    const valorActual = select.value;
-    select.innerHTML = '<option value="">Sin tipificar</option>' +
+    if (select) {
+      const valorActual = select.value;
+      select.innerHTML = '<option value="">Sin tipificar</option>' +
+        categoriasProductoCache.map(c => `<option value="${c.id}">${escapeHtml(c.nombre)}</option>`).join('');
+      select.value = valorActual || '';
+    }
+
+    // ✅ NUEVO: pobla también los filtros por tipo de producto de las tablas
+    // "Productos publicados" e "Historial de ventas".
+    const opcionesFiltro = '<option value="">Todos los tipos</option>' +
       categoriasProductoCache.map(c => `<option value="${c.id}">${escapeHtml(c.nombre)}</option>`).join('');
-    select.value = valorActual || '';
+
+    const filtroProd = $('#tiendaFiltroCategoriaProducto');
+    if (filtroProd) {
+      const valorActual = filtroProd.value;
+      filtroProd.innerHTML = opcionesFiltro;
+      filtroProd.value = valorActual || '';
+    }
+
+    const filtroVenta = $('#tiendaFiltroCategoriaVenta');
+    if (filtroVenta) {
+      const valorActual = filtroVenta.value;
+      filtroVenta.innerHTML = opcionesFiltro;
+      filtroVenta.value = valorActual || '';
+    }
   }
 
   // =============================
@@ -298,12 +319,14 @@
     }
   }
 
-  // ✅ NUEVO: filtra por nombre o descripción (sin distinguir mayúsculas)
-  // según lo tipeado en #tiendaBuscarProducto.
+  // ✅ Filtra por nombre o descripción (sin distinguir mayúsculas) según lo
+  // tipeado en #tiendaBuscarProducto, y opcionalmente por tipo/categoría
+  // según lo elegido en #tiendaFiltroCategoriaProducto.
   function productosFiltrados() {
     const q = filtroProductos.trim().toLowerCase();
-    if (!q) return productosCache;
     return productosCache.filter(p => {
+      if (filtroCategoriaProducto && String(p.categoria_id ?? '') !== String(filtroCategoriaProducto)) return false;
+      if (!q) return true;
       const nombre = (p.nombre || '').toLowerCase();
       const descripcion = (p.descripcion || '').toLowerCase();
       return nombre.includes(q) || descripcion.includes(q);
@@ -323,7 +346,7 @@
     }
 
     if (!productos.length) {
-      tbody.innerHTML = `<tr><td colspan="7" class="muted">No se encontraron productos que coincidan con "${escapeHtml(filtroProductos.trim())}".</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="muted">No se encontraron productos que coincidan con los filtros aplicados.</td></tr>`;
       return;
     }
 
@@ -626,6 +649,21 @@
       });
     }
 
+    // ✅ NUEVO: filtro por tipo/categoría (Historial de ventas)
+    const filtroCategoriaVentaSelect = root.querySelector('#tiendaFiltroCategoriaVenta');
+    if (filtroCategoriaVentaSelect) {
+      filtroCategoriaVentaSelect.addEventListener('change', (e) => {
+        filtroCategoriaVentas = e.target.value || '';
+        renderHistorialVentas(ventasFiltradas());
+      });
+    }
+
+    // ✅ NUEVO: toggle "No socio" en el modal de venta manual
+    const checkboxNoSocio = document.getElementById('ventaManualNoSocio');
+    if (checkboxNoSocio) {
+      checkboxNoSocio.addEventListener('change', ventaManualActualizarSegunNoSocio);
+    }
+
     // ✅ NUEVO: modal "Cargar venta manual"
     const btnVentaManualAbrir = root.querySelector('#btnVentaManualAbrir');
     if (btnVentaManualAbrir) {
@@ -775,6 +813,15 @@
       });
     }
 
+    // ✅ NUEVO: filtro por tipo/categoría (Productos publicados)
+    const filtroCategoriaProductoSelect = root.querySelector('#tiendaFiltroCategoriaProducto');
+    if (filtroCategoriaProductoSelect) {
+      filtroCategoriaProductoSelect.addEventListener('change', (e) => {
+        filtroCategoriaProducto = e.target.value || '';
+        renderProductosTable();
+      });
+    }
+
     const tbody = $('#tiendaTableBody');
     if (tbody) {
       tbody.addEventListener('click', (ev) => {
@@ -807,6 +854,7 @@
   // =============================
   let historialVentasCache = [];
   let filtroVentas = '';
+  let filtroCategoriaVentas = ''; // ✅ NUEVO: filtro por tipo/categoría en "Historial de ventas"
 
   // Mismas etiquetas/valores que en pendientes.js (tabla "a retirar"): las
   // dos pantallas hablan contra el mismo endpoint PATCH estado-pago.
@@ -830,6 +878,9 @@
   }
 
   function ventaSocioLabel(r) {
+    if (!r.socio_id) {
+      return r.nombre_referencia ? `${escapeHtml(r.nombre_referencia)} (no socio)` : 'No socio';
+    }
     return `#${r.numero_socio ?? '—'} ${escapeHtml(r.socio_apellido ?? '')} ${escapeHtml(r.socio_nombre ?? '')}`.trim();
   }
 
@@ -839,14 +890,17 @@
       : '—';
   }
 
-  // ✅ NUEVO: filtra el historial por nombre/apellido/número de socio o por
-  // nombre de producto (según lo tipeado en #tiendaBuscarVenta).
+  // ✅ Filtra el historial por nombre/apellido/número de socio (o nombre de
+  // referencia, si es venta a "no socio") o por nombre de producto (según
+  // lo tipeado en #tiendaBuscarVenta), y opcionalmente por tipo/categoría
+  // del producto (según lo elegido en #tiendaFiltroCategoriaVenta).
   function ventasFiltradas() {
     const q = filtroVentas.trim().toLowerCase();
-    if (!q) return historialVentasCache;
     return historialVentasCache.filter(r => {
+      if (filtroCategoriaVentas && String(r.producto_categoria_id ?? '') !== String(filtroCategoriaVentas)) return false;
+      if (!q) return true;
       const producto = (r.producto_nombre || '').toLowerCase();
-      const socio = `${r.numero_socio ?? ''} ${r.socio_nombre || ''} ${r.socio_apellido || ''}`.toLowerCase();
+      const socio = `${r.numero_socio ?? ''} ${r.socio_nombre || ''} ${r.socio_apellido || ''} ${r.nombre_referencia || ''}`.toLowerCase();
       return producto.includes(q) || socio.includes(q);
     });
   }
@@ -984,37 +1038,41 @@
       return;
     }
 
-    const pedidoActualizado = data.pedido;
+    // ✅ Cobro individual por producto: esta reserva (línea) es la única
+    // afectada, así que solo actualizamos su propio registro en caché y su
+    // propio select/label — no hace falta buscar filas hermanas.
+    const reservaActualizada = data.reserva;
 
-    // ✅ El pago se gestiona por pedido (todas sus líneas comparten el mismo
-    // estado_pago): actualiza en memoria TODAS las filas del historial que
-    // compartan este pedido_id (rowId), no solo la que se tocó.
-    historialVentasCache.forEach(item => {
-      if (String(item.pedido_id) === String(rowId)) {
-        item.estado_pago = pedidoActualizado.estado_pago;
-        item.monto_pagado = pedidoActualizado.monto_pagado;
-        item.forma_pago = pedidoActualizado.forma_pago;
-      }
-    });
+    const item = historialVentasCache.find(x => String(x.id) === String(rowId));
+    if (item) {
+      item.estado_pago = reservaActualizada.estado_pago;
+      item.monto_pagado = reservaActualizada.monto_pagado;
+      item.forma_pago = reservaActualizada.forma_pago;
+    }
 
-    document
-      .querySelectorAll(`#tiendaHistorialVentasBody tr[data-id="${rowId}"] select.tw-estado-pago-select`)
-      .forEach(sel => {
-        sel.value = pedidoActualizado.estado_pago;
-        sel.dataset.estado = pedidoActualizado.estado_pago;
-        sel.dataset.monto = String(pedidoActualizado.monto_pagado ?? 0);
+    select.value = reservaActualizada.estado_pago;
+    select.dataset.estado = reservaActualizada.estado_pago;
+    select.dataset.monto = String(reservaActualizada.monto_pagado ?? 0);
 
-        const wrapper = sel.parentElement;
-        const labelPrevio = wrapper?.querySelector('.tw-monto-pagado-label');
-        if (labelPrevio) labelPrevio.remove();
-        const textoLabel = pagoLabelTexto(pedidoActualizado.estado_pago, pedidoActualizado.monto_pagado, pedidoActualizado.forma_pago);
-        if (textoLabel) {
-          const div = document.createElement('div');
-          div.className = 'tw-monto-pagado-label';
-          div.textContent = textoLabel;
-          sel.insertAdjacentElement('afterend', div);
-        }
-      });
+    const wrapper = select.parentElement;
+    const labelPrevio = wrapper?.querySelector('.tw-monto-pagado-label');
+    if (labelPrevio) labelPrevio.remove();
+    const textoLabel = pagoLabelTexto(reservaActualizada.estado_pago, reservaActualizada.monto_pagado, reservaActualizada.forma_pago);
+    if (textoLabel) {
+      const div = document.createElement('div');
+      div.className = 'tw-monto-pagado-label';
+      div.textContent = textoLabel;
+      select.insertAdjacentElement('afterend', div);
+    }
+  }
+
+  // ✅ Cuántas líneas comparten cada pedido_id (carrito con varios
+  // productos) — solo para mostrar un badge de contexto; la gestión
+  // (estado de pago, eliminar) es individual por línea.
+  function contarLineasPorPedidoVenta(items) {
+    const mapa = new Map();
+    items.forEach(r => mapa.set(r.pedido_id, (mapa.get(r.pedido_id) || 0) + 1));
+    return mapa;
   }
 
   function renderHistorialVentas(items) {
@@ -1028,26 +1086,33 @@
     }
 
     if (!items.length) {
-      tbody.innerHTML = `<tr><td colspan="9" class="muted">No se encontraron ventas que coincidan con "${escapeHtml(filtroVentas.trim())}".</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="muted">No se encontraron ventas que coincidan con los filtros aplicados.</td></tr>`;
       return;
     }
 
+    const lineasPorPedido = contarLineasPorPedidoVenta(historialVentasCache);
+
     items.forEach(r => {
       const tr = document.createElement('tr');
-      // ✅ NUEVO: se usa pedido_id porque el pago se gestiona por pedido
-      // completo (carrito), no por línea suelta.
-      tr.dataset.id = r.pedido_id;
+      // ✅ Gestión individual por línea: se usa el id de la reserva (no el
+      // pedido_id) — el estado de pago y la eliminación afectan solo a
+      // este producto, aunque haya venido de un carrito con varios.
+      tr.dataset.id = r.id;
 
+      const esCarritoMultiple = (lineasPorPedido.get(r.pedido_id) || 1) > 1;
       const nombreConTalle = r.talle
         ? `${escapeHtml(r.producto_nombre)} <span class="muted">(talle ${escapeHtml(r.talle)})</span>`
         : escapeHtml(r.producto_nombre);
       const origenBadge = r.origen === 'manual'
         ? ' <span class="muted" style="font-size:11px;">· venta manual</span>'
         : '';
+      const badgePedido = esCarritoMultiple
+        ? `<div style="font-size:10.5px; color:#2563eb; margin-top:2px;">🛒 Parte de un pedido con varios productos</div>`
+        : '';
 
       tr.innerHTML = `
         <td>${ventaImgHtml(r)}</td>
-        <td><b>${nombreConTalle}</b>${origenBadge}</td>
+        <td><b>${nombreConTalle}</b>${origenBadge}${badgePedido}</td>
         <td>${ventaSocioLabel(r)}</td>
         <td>${escapeHtml(r.cantidad)}</td>
         <td>${formatPrecio(r.producto_precio)}</td>
@@ -1056,19 +1121,20 @@
         <td>${formatDateISOToDMY_tienda(r.gestionada_at || r.created_at)}</td>
         <td>
           <button type="button" class="btn btn-secondary" style="background:#ef4444;border-color:#ef4444;"
-                  data-act="v_eliminar" data-id="${r.pedido_id}" title="Eliminar del historial">🗑️</button>
+                  data-act="v_eliminar" data-id="${r.id}" title="Eliminar del historial">🗑️</button>
         </td>
       `;
       tbody.appendChild(tr);
     });
   }
 
-  // ✅ NUEVO: elimina definitivamente una compra del Historial de ventas
-  // (y, si tenía un pago registrado, el ingreso asociado en Finanzas). No
-  // restituye stock: se asume que el producto ya salió del club.
-  async function eliminarVentaHistorial(pedidoId) {
+  // ✅ Elimina definitivamente un producto del Historial de ventas (y, si
+  // tenía un pago registrado, el ingreso asociado en Finanzas). No
+  // restituye stock: se asume que el producto ya salió del club. Gestión
+  // individual por línea (reservaId, no pedido_id).
+  async function eliminarVentaHistorial(reservaId) {
     const confirmado = confirm(
-      '¿Eliminar esta compra del historial?\n\n' +
+      '¿Eliminar este producto del historial?\n\n' +
       'Esta acción es DEFINITIVA: se borra el registro de la venta y, si tenía ' +
       'un pago registrado, también el ingreso correspondiente en Finanzas.\n\n' +
       'El stock del producto NO se modifica (se asume que ya salió del club).'
@@ -1077,7 +1143,7 @@
 
     const clubId = getActiveClubId();
     try {
-      const { res, data } = await fetchAuth(`/club/${clubId}/tienda/reservas/${pedidoId}`, {
+      const { res, data } = await fetchAuth(`/club/${clubId}/tienda/reservas/${reservaId}`, {
         method: 'DELETE',
       });
       if (!res.ok || !data.ok) {
@@ -1156,6 +1222,16 @@
     }
   }
 
+  // ✅ NUEVO: toggle "No socio" — oculta el buscador de socio y muestra el
+  // campo de nombre de referencia opcional.
+  function ventaManualActualizarSegunNoSocio() {
+    const esNoSocio = !!$('#ventaManualNoSocio')?.checked;
+    const socioWrap = $('#ventaManualSocioWrap');
+    const nombreRefWrap = $('#ventaManualNombreReferenciaWrap');
+    if (socioWrap) socioWrap.style.display = esNoSocio ? 'none' : '';
+    if (nombreRefWrap) nombreRefWrap.style.display = esNoSocio ? '' : 'none';
+  }
+
   function ventaManualActualizarSegunEstadoPago() {
     const estado = $('#ventaManualEstadoPago')?.value;
     const montoWrap = $('#ventaManualMontoWrap');
@@ -1225,11 +1301,14 @@
     if (busqueda) busqueda.value = '';
     if (seleccionado) { seleccionado.style.display = 'none'; seleccionado.textContent = ''; }
     if (resultados) { resultados.style.display = 'none'; resultados.innerHTML = ''; }
+    if ($('#ventaManualNoSocio')) $('#ventaManualNoSocio').checked = false;
+    if ($('#ventaManualNombreReferencia')) $('#ventaManualNombreReferencia').value = '';
     if ($('#ventaManualCantidad')) $('#ventaManualCantidad').value = '1';
     if ($('#ventaManualEstadoPago')) $('#ventaManualEstadoPago').value = 'pagado';
     if ($('#ventaManualMonto')) $('#ventaManualMonto').value = '';
     if ($('#ventaManualRetirado')) $('#ventaManualRetirado').checked = true;
     ventaManualActualizarSegunEstadoPago();
+    ventaManualActualizarSegunNoSocio();
   }
 
   function ventaManualAbrir() {
@@ -1247,8 +1326,9 @@
   }
 
   async function ventaManualConfirmar() {
-    if (!socioSeleccionadoVentaManual) {
-      alert('Buscá y seleccioná el socio.');
+    const esNoSocio = !!$('#ventaManualNoSocio')?.checked;
+    if (!esNoSocio && !socioSeleccionadoVentaManual) {
+      alert('Buscá y seleccioná el socio, o marcá "Venta a no socio".');
       return;
     }
     const productoId = $('#ventaManualProducto')?.value;
@@ -1272,7 +1352,9 @@
 
     const estadoPago = $('#ventaManualEstadoPago')?.value || 'sin_pago';
     const body = {
-      socio_id: socioSeleccionadoVentaManual.id,
+      no_socio: esNoSocio,
+      socio_id: esNoSocio ? null : socioSeleccionadoVentaManual.id,
+      nombre_referencia: esNoSocio ? ($('#ventaManualNombreReferencia')?.value?.trim() || null) : null,
       producto_id: productoId,
       talle_id: talleId || null,
       cantidad,

@@ -123,8 +123,11 @@
 
   <h3 class="tw-section-title">📦 Productos publicados</h3>
 
-  <div class="tw-search-row">
-    <input type="text" id="tiendaBuscarProducto" placeholder="🔍 Buscar por nombre o descripción..." />
+  <div class="tw-search-row" style="display:flex; gap:10px; align-items:center;">
+    <input type="text" id="tiendaBuscarProducto" placeholder="🔍 Buscar por nombre o descripción..." style="flex:1;" />
+    <select id="tiendaFiltroCategoriaProducto" style="max-width:220px;">
+      <option value="">Todos los tipos</option>
+    </select>
   </div>
 
   <div class="table-wrapper" style="margin-top:12px;">
@@ -148,6 +151,9 @@
 
   <div class="tw-search-row" style="display:flex; gap:10px; align-items:center;">
     <input type="text" id="tiendaBuscarVenta" placeholder="🔍 Buscar por socio o producto..." style="flex:1;" />
+    <select id="tiendaFiltroCategoriaVenta" style="max-width:220px;">
+      <option value="">Todos los tipos</option>
+    </select>
     <button id="btnVentaManualAbrir" class="btn btn-primary" type="button">➕ Cargar venta manual</button>
   </div>
 
@@ -181,10 +187,22 @@
   <div class="modal-estadopago-box" style="max-width:440px;">
     <h3 style="margin-top:0;">Cargar venta manual</h3>
 
-    <label>Socio</label>
-    <input type="text" id="ventaManualSocioBusqueda" placeholder="Buscar por nombre, apellido o N° de socio..." autocomplete="off" />
-    <div id="ventaManualSocioResultados" class="venta-manual-socio-resultados" style="display:none;"></div>
-    <div id="ventaManualSocioSeleccionado" class="muted" style="margin-top:4px; display:none;"></div>
+    <label style="display:flex; align-items:center; gap:8px; font-weight:normal;">
+      <input type="checkbox" id="ventaManualNoSocio" style="width:auto;" />
+      Venta a "No socio" (cliente sin registrar / visita)
+    </label>
+
+    <div id="ventaManualSocioWrap">
+      <label>Socio</label>
+      <input type="text" id="ventaManualSocioBusqueda" placeholder="Buscar por nombre, apellido o N° de socio..." autocomplete="off" />
+      <div id="ventaManualSocioResultados" class="venta-manual-socio-resultados" style="display:none;"></div>
+      <div id="ventaManualSocioSeleccionado" class="muted" style="margin-top:4px; display:none;"></div>
+    </div>
+
+    <div id="ventaManualNombreReferenciaWrap" style="display:none;">
+      <label>Nombre de referencia (opcional)</label>
+      <input type="text" id="ventaManualNombreReferencia" placeholder="Ej: Juan - visita" autocomplete="off" />
+    </div>
 
     <label style="margin-top:10px;">Producto</label>
     <select id="ventaManualProducto"></select>
