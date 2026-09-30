@@ -2334,7 +2334,11 @@ const {
   es_menor = false,
   tutor_nombre = null,
   tiene_actividades_adicionales = false,
-  actividades_adicionales = null
+  actividades_adicionales = null,
+  numero_camiseta = null // ✅ FIX: faltaba destructurarlo de req.body — sin esto, la línea
+                          // del INSERT que lo usa (numero_camiseta ?? null) tiraba
+                          // "ReferenceError: numero_camiseta is not defined" y rompía el
+                          // alta de socio con un 500, tanto desde la web como desde la app.
 } = req.body ?? {};
 
   try {
