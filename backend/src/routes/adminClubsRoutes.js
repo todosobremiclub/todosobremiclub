@@ -108,10 +108,15 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
 
   tienda_habilitada,        -- ✅ NUEVO
 
+  -- ✅ FIX: antes contaba TODOS los socios del club (activos + inactivos/dados
+  -- de baja), por eso en Super Admin se veía un número mayor al de "Socios
+  -- activos" que muestra el panel del club (que sí filtra por s.activo = true,
+  -- ver sociosRoutes.js). Ahora cuenta solo los socios con activo = true.
   (
     SELECT COUNT(*)
     FROM socios s
     WHERE s.club_id = clubs.id
+      AND s.activo = true
   ) AS socios_activos,
 
   -- ✅ NUEVO: mensajes de WhatsApp (bienvenidas + notificaciones) ya usados
