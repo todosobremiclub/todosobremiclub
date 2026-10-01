@@ -1703,6 +1703,19 @@ $('btnIngresoAdd')?.addEventListener('click', async () => {
 $('btnIngresoClose')?.addEventListener('click', closeIngresoModal);
 $('btnIngresoCancel')?.addEventListener('click', closeIngresoModal);
 
+// ✅ NUEVO: al elegir un tipo de ingreso, si tiene un monto habitual
+// configurado (Configuración > Tipos de ingreso), completa el campo Monto.
+// Se puede editar libremente después.
+$('ingresoTipo')?.addEventListener('change', () => {
+  const tipoId = $('ingresoTipo')?.value;
+  const tipo = tiposIngresoCache.find(t => String(t.id) === String(tipoId));
+  const inputMonto = $('ingresoMonto');
+  if (!inputMonto || !tipo) return;
+  if (tipo.monto !== null && tipo.monto !== undefined) {
+    inputMonto.value = Number(tipo.monto);
+  }
+});
+
 $('formIngreso')?.addEventListener('submit', async (ev) => {
   ev.preventDefault();
   await saveIngreso();

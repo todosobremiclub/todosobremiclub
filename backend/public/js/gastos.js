@@ -67,6 +67,10 @@
   // ✅ NUEVO: selector de año (mismo patrón que Ingresos/Pagos: últimos 6 años)
   let selectedAnio = new Date().getFullYear();
 
+  // ✅ NUEVO: cache de tipos de gasto (con su monto habitual opcional), para
+  // autocompletar el campo Monto al elegir un tipo en "Registrar gasto".
+  let tiposGastoCache = [];
+
   function fillAniosGastos() {
     const sel = $('gastosAnioSelect');
     if (!sel) return;
@@ -202,6 +206,7 @@ function todayISO() {
     }
 
     const items = data.tipos || [];
+    tiposGastoCache = items; // ✅ NUEVO: guardamos el monto habitual de cada tipo
     sel.innerHTML = `<option value="">Seleccionar...</option>`;
     items.forEach(t => {
       const opt = document.createElement('option');
@@ -209,6 +214,19 @@ function todayISO() {
       opt.textContent = t.nombre;
       sel.appendChild(opt);
     });
+  }
+
+  // ✅ NUEVO: al elegir un tipo de gasto, si tiene un monto habitual
+  // configurado (Configuración > Tipos de gasto), lo completa en el campo
+  // Monto. Se puede editar libremente después, no queda bloqueado.
+  function autocompletarMontoGasto() {
+    const tipoId = $('gastoTipo')?.value;
+    const tipo = tiposGastoCache.find(t => String(t.id) === String(tipoId));
+    const inputMonto = $('gastoMonto');
+    if (!inputMonto || !tipo) return;
+    if (tipo.monto !== null && tipo.monto !== undefined) {
+      inputMonto.value = Number(tipo.monto);
+    }
   }
 
   async function loadResponsables() {
@@ -441,6 +459,11 @@ const periodo = fecha_gasto ? fecha_gasto.slice(0, 7) : ''; // YYYY-MM
       e.preventDefault();
       createGasto();
     });
+
+    // ✅ NUEVO: autocompletar el monto con el habitual del tipo elegido
+    // (se puede editar después). Va antes de updateResumen para que el
+    // resumen ya muestre el monto autocompletado.
+    $('gastoTipo')?.addEventListener('change', autocompletarMontoGasto);
 
     // ✅ NUEVO: resumen en vivo mientras se completa el formulario
     $('gastoTipo')?.addEventListener('change', updateResumen);

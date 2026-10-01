@@ -799,7 +799,7 @@ router.get('/:clubId/config/tipos-gasto', requireAuth, requireClubAccess, async 
   const { clubId } = req.params;
   try {
     const r = await db.query(
-      `SELECT id, nombre
+      `SELECT id, nombre, monto
        FROM tipos_gasto
        WHERE club_id = $1 AND activo = true
        ORDER BY nombre ASC`,
@@ -815,15 +815,24 @@ router.get('/:clubId/config/tipos-gasto', requireAuth, requireClubAccess, async 
 
 router.post('/:clubId/config/tipos-gasto', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { nombre } = req.body || {};
+  const { nombre, monto } = req.body || {};
   try {
     if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
 
+    // ✅ NUEVO: "monto" es opcional — si viene, queda guardado como el monto
+    // habitual de este tipo de gasto, para autocompletar el formulario de
+    // "Registrar gasto" (ver gastos.js). Si no viene, queda en NULL y el
+    // formulario no autocompleta nada para este tipo.
+    const montoNum = (monto === '' || monto === null || monto === undefined) ? null : Number(monto);
+    if (montoNum !== null && (Number.isNaN(montoNum) || montoNum < 0)) {
+      return res.status(400).json({ ok: false, error: 'Monto inválido' });
+    }
+
     const r = await db.query(
-      `INSERT INTO tipos_gasto (id, club_id, nombre, activo, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, true, NOW())
-       RETURNING id, nombre`,
-      [clubId, nombre.trim()]
+      `INSERT INTO tipos_gasto (id, club_id, nombre, monto, activo, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, true, NOW())
+       RETURNING id, nombre, monto`,
+      [clubId, nombre.trim(), montoNum]
     );
 
     res.json({ ok: true, tipo: r.rows[0] });
@@ -837,16 +846,22 @@ router.post('/:clubId/config/tipos-gasto', requireAuth, requireClubAccess, async
 
 router.put('/:clubId/config/tipos-gasto/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
-  const { nombre } = req.body || {};
+  const { nombre, monto } = req.body || {};
   try {
     if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
 
+    // ✅ NUEVO: mismo criterio que al crear — monto opcional.
+    const montoNum = (monto === '' || monto === null || monto === undefined) ? null : Number(monto);
+    if (montoNum !== null && (Number.isNaN(montoNum) || montoNum < 0)) {
+      return res.status(400).json({ ok: false, error: 'Monto inválido' });
+    }
+
     const r = await db.query(
       `UPDATE tipos_gasto
-       SET nombre=$1, updated_at=NOW()
-       WHERE id=$2 AND club_id=$3
-       RETURNING id, nombre`,
-      [nombre.trim(), id, clubId]
+       SET nombre=$1, monto=$2, updated_at=NOW()
+       WHERE id=$3 AND club_id=$4
+       RETURNING id, nombre, monto`,
+      [nombre.trim(), montoNum, id, clubId]
     );
 
     if (!r.rowCount) return res.status(404).json({ ok: false, error: 'No encontrado' });
@@ -890,7 +905,7 @@ router.get('/:clubId/config/tipos-ingreso', requireAuth, requireClubAccess, asyn
   const { clubId } = req.params;
   try {
     const r = await db.query(
-      `SELECT id, nombre
+      `SELECT id, nombre, monto
        FROM tipos_ingreso
        WHERE club_id = $1 AND activo = true
        ORDER BY nombre ASC`,
@@ -905,17 +920,25 @@ router.get('/:clubId/config/tipos-ingreso', requireAuth, requireClubAccess, asyn
 
 router.post('/:clubId/config/tipos-ingreso', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { nombre } = req.body || {};
+  const { nombre, monto } = req.body || {};
   try {
     if (!nombre?.trim()) {
       return res.status(400).json({ ok: false, error: 'Falta nombre' });
     }
 
+    // ✅ NUEVO: "monto" es opcional — si viene, queda guardado como el monto
+    // habitual de este tipo de ingreso, para autocompletar el formulario de
+    // "Registrar ingreso" (ver pagos.js). Si no viene, queda en NULL.
+    const montoNum = (monto === '' || monto === null || monto === undefined) ? null : Number(monto);
+    if (montoNum !== null && (Number.isNaN(montoNum) || montoNum < 0)) {
+      return res.status(400).json({ ok: false, error: 'Monto inválido' });
+    }
+
     const r = await db.query(
-      `INSERT INTO tipos_ingreso (id, club_id, nombre, activo, created_at)
-       VALUES (gen_random_uuid(), $1, $2, true, NOW())
-       RETURNING id, nombre`,
-      [clubId, nombre.trim()]
+      `INSERT INTO tipos_ingreso (id, club_id, nombre, monto, activo, created_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, true, NOW())
+       RETURNING id, nombre, monto`,
+      [clubId, nombre.trim(), montoNum]
     );
 
     res.json({ ok: true, tipo: r.rows[0] });
@@ -930,18 +953,24 @@ router.post('/:clubId/config/tipos-ingreso', requireAuth, requireClubAccess, asy
 
 router.put('/:clubId/config/tipos-ingreso/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
-  const { nombre } = req.body || {};
+  const { nombre, monto } = req.body || {};
   try {
     if (!nombre?.trim()) {
       return res.status(400).json({ ok: false, error: 'Falta nombre' });
     }
 
+    // ✅ NUEVO: mismo criterio que al crear — monto opcional.
+    const montoNum = (monto === '' || monto === null || monto === undefined) ? null : Number(monto);
+    if (montoNum !== null && (Number.isNaN(montoNum) || montoNum < 0)) {
+      return res.status(400).json({ ok: false, error: 'Monto inválido' });
+    }
+
     const r = await db.query(
       `UPDATE tipos_ingreso
-       SET nombre = $1
-       WHERE id = $2 AND club_id = $3
-       RETURNING id, nombre`,
-      [nombre.trim(), id, clubId]
+       SET nombre = $1, monto = $2
+       WHERE id = $3 AND club_id = $4
+       RETURNING id, nombre, monto`,
+      [nombre.trim(), montoNum, id, clubId]
     );
 
     if (!r.rowCount) {

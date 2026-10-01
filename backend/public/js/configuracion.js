@@ -755,10 +755,31 @@ function renderTiposGasto(items) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
+  const moneyARS = new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
   items.forEach(t => {
+    const montoNum = Number(t.monto ?? 0);
+    const montoSafe = Number.isFinite(montoNum) ? montoNum : 0;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><input type="text" id="tg_${t.id}" value="${escapeHtml(t.nombre)}" /></td>
+      <td>
+        <input
+          type="number"
+          id="tg_monto_${t.id}"
+          min="0"
+          step="0.01"
+          value="${t.monto == null ? '' : montoSafe}"
+          placeholder="Opcional"
+          style="max-width:140px;"
+        />
+      </td>
       <td style="text-align:center"><button class="btn-save" data-act="save-tg" data-id="${t.id}">💾</button></td>
       <td style="text-align:center"><button class="btn-del" data-act="del-tg" data-id="${t.id}">🗑️</button></td>
     `;
@@ -766,21 +787,21 @@ function renderTiposGasto(items) {
   });
 }
 
-async function createTipoGasto(nombre) {
+async function createTipoGasto(nombre, monto) {
   const res = await fetchAuth(tiposGastoUrl(), {
     method: 'POST',
     json: true,
-    body: JSON.stringify({ nombre })
+    body: JSON.stringify({ nombre, monto: (monto === '' || monto == null) ? null : Number(monto) })
   });
   const data = await safeJson(res);
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando tipo de gasto');
 }
 
-async function updateTipoGasto(id, nombre) {
+async function updateTipoGasto(id, nombre, monto) {
   const res = await fetchAuth(`${tiposGastoUrl()}/${id}`, {
     method: 'PUT',
     json: true,
-    body: JSON.stringify({ nombre })
+    body: JSON.stringify({ nombre, monto: (monto === '' || monto == null) ? null : Number(monto) })
   });
   const data = await safeJson(res);
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error guardando tipo de gasto');
@@ -814,7 +835,7 @@ async function loadTiposIngreso() {
   if (!res.ok || !data.ok) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="2" class="muted">Error cargando tipos de ingreso.</td>
+        <td colspan="4" class="muted">Error cargando tipos de ingreso.</td>
       </tr>`;
     alert(data.error ?? 'Error cargando tipos de ingreso');
     return;
@@ -824,15 +845,32 @@ async function loadTiposIngreso() {
   if (!items.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="2" class="muted">No hay tipos de ingreso cargados.</td>
+        <td colspan="4" class="muted">No hay tipos de ingreso cargados.</td>
       </tr>`;
     return;
   }
 
   items.forEach(t => {
+    const montoNum = Number(t.monto ?? 0);
+    const montoSafe = Number.isFinite(montoNum) ? montoNum : 0;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(t.nombre)}</td>
+      <td>
+        <input
+          type="number"
+          id="ti_monto_${t.id}"
+          min="0"
+          step="0.01"
+          value="${t.monto == null ? '' : montoSafe}"
+          placeholder="Opcional"
+          style="max-width:140px;"
+        />
+      </td>
+      <td style="text-align:center">
+        <button class="btn-save" data-act="save-ti" data-id="${t.id}">💾</button>
+      </td>
       <td style="text-align:center">
         <button class="btn-del" data-del="${t.id}">🗑️ Eliminar</button>
       </td>`;
@@ -840,15 +878,27 @@ async function loadTiposIngreso() {
   });
 }
 
-async function createTipoIngreso(nombre) {
+async function createTipoIngreso(nombre, monto) {
   const res = await fetchAuth(tiposIngresoUrl(), {
     method: 'POST',
     json: true,
-    body: JSON.stringify({ nombre })
+    body: JSON.stringify({ nombre, monto: (monto === '' || monto == null) ? null : Number(monto) })
   });
   const data = await safeJson(res);
   if (!res.ok || !data.ok) {
     throw new Error(data.error ?? 'Error creando tipo de ingreso');
+  }
+}
+
+async function updateTipoIngreso(id, nombre, monto) {
+  const res = await fetchAuth(`${tiposIngresoUrl()}/${id}`, {
+    method: 'PUT',
+    json: true,
+    body: JSON.stringify({ nombre, monto: (monto === '' || monto == null) ? null : Number(monto) })
+  });
+  const data = await safeJson(res);
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error guardando tipo de ingreso');
   }
 }
 
@@ -1074,10 +1124,11 @@ function bindEvents() {
 
     if (act === 'save-tg') {
       const nombre = ($(`tg_${id}`)?.value ?? '').trim();
+      const monto = $(`tg_monto_${id}`)?.value ?? '';
       if (!nombre) return alert('Nombre vacío');
       btn.disabled = true;
       try {
-        await updateTipoGasto(id, nombre);
+        await updateTipoGasto(id, nombre, monto);
         await loadTiposGasto();
       } catch (err) {
         alert(err.message ?? 'Error');
@@ -1102,7 +1153,9 @@ function bindEvents() {
 
   $('btnTipoGastoAdd')?.addEventListener('click', async () => {
     const input = document.getElementById('newTipoGastoNombre');
+    const inputMonto = document.getElementById('newTipoGastoMonto');
     const nombre = (input?.value ?? '').trim();
+    const monto = inputMonto?.value ?? '';
 
     if (!nombre) {
       alert('Ingresá un nombre de tipo de gasto');
@@ -1110,8 +1163,9 @@ function bindEvents() {
     }
 
     try {
-      await createTipoGasto(nombre);
+      await createTipoGasto(nombre, monto);
       input.value = '';
+      if (inputMonto) inputMonto.value = '';
       await loadTiposGasto();
     } catch (err) {
       alert(err.message ?? 'Error');
@@ -1121,24 +1175,46 @@ function bindEvents() {
   // TIPOS DE INGRESO: botón Agregar
   $('btnTipoIngresoAdd')?.addEventListener('click', async () => {
     const input = document.getElementById('newTipoIngresoNombre');
+    const inputMonto = document.getElementById('newTipoIngresoMonto');
     const nombre = (input?.value ?? '').trim();
+    const monto = inputMonto?.value ?? '';
     if (!nombre) {
       alert('Ingresá un nombre para el tipo de ingreso');
       return;
     }
     try {
-      await createTipoIngreso(nombre);
+      await createTipoIngreso(nombre, monto);
       if (input) input.value = '';
+      if (inputMonto) inputMonto.value = '';
       await loadTiposIngreso();
     } catch (err) {
       alert(err.message ?? 'Error creando tipo de ingreso');
     }
   });
 
-  // TIPOS DE INGRESO: botón Eliminar
+  // TIPOS DE INGRESO: botones Guardar / Eliminar
   document
     .getElementById('tiposIngresoTableBody')
     ?.addEventListener('click', async (e) => {
+      const btnSave = e.target.closest('button[data-act="save-ti"]');
+      if (btnSave) {
+        const id = btnSave.dataset.id;
+        const monto = $(`ti_monto_${id}`)?.value ?? '';
+        // El nombre no es editable en esta tabla (ver renderTiposIngreso):
+        // se vuelve a mandar el que ya tiene, solo se actualiza el monto.
+        const nombreActual = btnSave.closest('tr')?.querySelector('td')?.textContent?.trim() ?? '';
+        btnSave.disabled = true;
+        try {
+          await updateTipoIngreso(id, nombreActual, monto);
+          await loadTiposIngreso();
+        } catch (err) {
+          alert(err.message ?? 'Error guardando tipo de ingreso');
+        } finally {
+          btnSave.disabled = false;
+        }
+        return;
+      }
+
       const btn = e.target.closest('button[data-del]');
       if (!btn) return;
       if (!confirm('¿Eliminar este tipo de ingreso?')) return;
