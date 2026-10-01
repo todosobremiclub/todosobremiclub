@@ -7,6 +7,7 @@ const multer = require('multer');
 const ExcelJS = require('exceljs');
 const nodemailer = require('nodemailer'); // ✅ NUEVO: para el email de bienvenida
 const { enviarPlantillaWhatsapp } = require('../services/whatsappService'); // ✅ NUEVO: bienvenida por WhatsApp
+const { registrarCambioBecado } = require('../services/becadoHistorialService'); // ✅ NUEVO: historial de becado (ver migración 2026-09-30)
 
 // ✅ NUEVO: tamaño de lote e intervalo entre lotes para la bienvenida por email
 // (se puede ajustar sin tocar código, seteando estas variables de entorno en Render)
@@ -399,6 +400,80 @@ router.delete('/:clubId/grupo-familiar/:jefeSocioId', requireAuth, requireClubAc
   } catch (e) {
     try { await db.query('ROLLBACK'); } catch (_) {}
     console.error('❌ DELETE grupo-familiar', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ======================================
+// ✅ NUEVO: RELACIÓN MANUAL ENTRE SOCIOS
+// (independiente del Grupo Familiar — ver migración
+// 2026-10-02_socios_relaciones_manuales.sql). Se usa junto con el Grupo
+// Familiar para armar el selector "Cambiar de socio" en la app del socio.
+// La relación siempre es mutua: el POST reemplaza TODA la lista de
+// relacionados de este socio (mismo criterio que el POST de grupo
+// familiar), insertando ambas direcciones (A→B y B→A).
+// ======================================
+
+// GET relacionados manuales de un socio
+router.get('/:clubId/socios-relacionados/:socioId', requireAuth, requireClubAccess, async (req, res) => {
+  try {
+    const { clubId, socioId } = req.params;
+
+    const r = await db.query(
+      `
+      SELECT s.id, s.nombre, s.apellido, s.numero_socio
+      FROM socios_relaciones_manuales srm
+      JOIN socios s ON s.id = srm.socio_relacionado_id
+      WHERE srm.club_id = $1 AND srm.socio_id = $2
+      ORDER BY s.apellido ASC, s.nombre ASC
+      `,
+      [clubId, socioId]
+    );
+
+    res.json({ ok: true, relacionados: r.rows });
+  } catch (e) {
+    console.error('❌ GET socios-relacionados', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST reemplaza la lista completa de relacionados manuales de un socio
+router.post('/:clubId/socios-relacionados/:socioId', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, socioId } = req.params;
+  const { relacionadosIds } = req.body;
+
+  const idsLimpios = [...new Set((relacionadosIds || []).map((id) => String(id)))]
+    .filter((id) => id !== String(socioId));
+
+  try {
+    await db.query('BEGIN');
+
+    // Borra TODAS las filas de esta relación para este socio, en ambos
+    // sentidos (como la relación es simétrica, "mis relacionados" pueden
+    // haber quedado guardados con socio_id = este socio o con
+    // socio_relacionado_id = este socio, según desde qué ficha se haya
+    // guardado la relación la primera vez).
+    await db.query(
+      `DELETE FROM socios_relaciones_manuales WHERE club_id = $1 AND (socio_id = $2 OR socio_relacionado_id = $2)`,
+      [clubId, socioId]
+    );
+
+    for (const otroId of idsLimpios) {
+      await db.query(
+        `
+        INSERT INTO socios_relaciones_manuales (club_id, socio_id, socio_relacionado_id)
+        VALUES ($1, $2, $3), ($1, $3, $2)
+        ON CONFLICT (socio_id, socio_relacionado_id) DO NOTHING
+        `,
+        [clubId, socioId, otroId]
+      );
+    }
+
+    await db.query('COMMIT');
+    res.json({ ok: true });
+  } catch (e) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ POST socios-relacionados', e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
@@ -2460,6 +2535,18 @@ const r = await db.query(
   ]
 );
 
+    // ✅ NUEVO: deja constancia del estado inicial de "becado" del socio,
+    // vigente desde su fecha de ingreso. Así los reportes que dependen de
+    // becado (ver reportesRoutes.js) pueden reconstruir correctamente los
+    // meses anteriores a cualquier cambio futuro de este campo.
+    await registrarCambioBecado({
+      clubId,
+      socioId: r.rows[0].id,
+      becado: !!becado,
+      vigenteDesde: fechaIngresoFinal,
+      client: db
+    });
+
     await db.query('COMMIT');
     res.json({ ok: true, socio: r.rows[0] });
   } catch (e) {
@@ -2519,6 +2606,16 @@ if (es_menor && !String(tutor_nombre || '').trim()) {
 const dniLimpio = onlyDigitsDni(dni);
 
 await assertValidExcepcionCuota({ clubId, excepcionCuotaId: excepcion_cuota_id });
+
+// ✅ NUEVO: leemos el becado ANTERIOR (antes del UPDATE) para poder
+// detectar si realmente cambió y, si cambió, registrarlo en el historial
+// (ver socio_becado_historial / becadoHistorialService.js) — así los
+// reportes de meses anteriores a este cambio no se ven afectados.
+const rPrev = await db.query(
+  `SELECT becado FROM socios WHERE id = $1 AND club_id = $2`,
+  [id, clubId]
+);
+const becadoAnterior = rPrev.rows[0]?.becado ?? null;
 
 const r = await db.query(
   `
@@ -2592,7 +2689,17 @@ const r = await db.query(
       return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
     }
 
-
+    // ✅ NUEVO: si el becado cambió con esta edición, lo registramos en el
+    // historial (vigente desde HOY). Si no cambió, no se agrega nada. Es
+    // best-effort: un error acá no debe romper la edición del socio, que
+    // ya se guardó bien arriba.
+    if (becadoAnterior !== null && becadoAnterior !== !!becado) {
+      try {
+        await registrarCambioBecado({ clubId, socioId: id, becado: !!becado, client: db });
+      } catch (eHist) {
+        console.error('⚠️ No se pudo registrar el cambio de becado en el historial:', eHist.message);
+      }
+    }
 
     res.json({ ok: true, socio: r.rows[0] });
   } catch (e) {

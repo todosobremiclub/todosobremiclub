@@ -363,6 +363,63 @@
             </div>
 
             <!-- =========================
+               ✅ NUEVO: SOCIOS RELACIONADOS (manual, independiente del
+               Grupo Familiar). Permite que, al loguearse en la app con
+               este socio, pueda elegir "ver" a otro(s) socio(s) sin volver
+               a loguearse (igual que el Grupo Familiar, pero para casos
+               que no son un grupo familiar formal). La relación es mutua.
+            ========================= -->
+            <div class="socio-group">
+              <label class="socio-group-toggle">
+                <input type="checkbox" id="socioTieneRelacionados">
+                Socios relacionados
+              </label>
+
+              <div id="socioRelacionadosGrupoWrap" class="socio-group-body" style="display:none;">
+                <div class="muted small" style="margin-bottom:10px;">
+                  El socio podrá elegir, dentro de la app, ver el carnet de los socios que relaciones acá sin volver a ingresar DNI (y viceversa: ellos también podrán elegir verlo a él).
+                </div>
+
+                <div style="display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap;">
+
+                  <!-- IZQUIERDA -->
+                  <div>
+                    <label>Socios relacionados</label>
+
+                    <button type="button"
+                            id="btnSeleccionarRelacionados"
+                            class="btn btn-secondary"
+                            style="margin-top:6px;">
+                      Seleccionar socios
+                    </button>
+                  </div>
+
+                  <!-- DERECHA -->
+                  <div class="gf-col-derecha">
+                    <label>
+                      Seleccionados
+                      <span id="relacionadosCantidad" class="muted small" style="margin-left:6px;"></span>
+                    </label>
+
+                    <div id="socioRelacionadosListaVisual"
+                         style="
+                           margin-top:6px;
+                           border:1px solid #e5e7eb;
+                           border-radius:8px;
+                           padding:8px;
+                           background:#fafafa;
+                           max-height:140px;
+                           overflow-y:auto;
+                         ">
+                      <div class="muted small">Sin relacionados</div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- =========================
                PLANES (agrupa: plan de cuotas personalizado, plan de clases)
             ========================= -->
             <div class="socio-group">
@@ -812,6 +869,40 @@
     <div class="modal-actions" style="margin-top:14px;">
       <button id="btnGrupoFamiliarCancel" class="btn btn-secondary" type="button">Cancelar</button>
       <button id="btnGrupoFamiliarAceptar" class="btn btn-primary" type="button">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL SOCIOS RELACIONADOS (manual) ================= -->
+<div id="modalRelacionados" class="modal hidden">
+  <div class="modal-content" style="max-width:720px;">
+    <div class="modal-header-row">
+      <h3>Seleccionar socios relacionados</h3>
+      <button id="btnRelacionadosClose" class="btn btn-secondary" type="button">✕</button>
+    </div>
+
+    <div class="modal-block">
+      <label>Buscar socio</label>
+      <input id="relacionadosSearch"
+       type="text"
+       placeholder="Buscar por apellido o N° de socio" />
+
+    </div>
+
+    <div id="relacionadosLista"
+     class="modal-socio-list"
+     style="margin-top:10px; max-height:320px;">
+
+  <div class="muted small">
+    Escribí para buscar socios (apellido o N°).
+  </div>
+
+</div>
+
+
+    <div class="modal-actions" style="margin-top:14px;">
+      <button id="btnRelacionadosCancel" class="btn btn-secondary" type="button">Cancelar</button>
+      <button id="btnRelacionadosAceptar" class="btn btn-primary" type="button">Aceptar</button>
     </div>
   </div>
 </div>

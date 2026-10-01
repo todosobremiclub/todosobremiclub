@@ -26,6 +26,177 @@ function ymToString(ym) {
   return `${y}-${String(m).padStart(2, '0')}`;
 }
 
+// ======================================================
+// ✅ NUEVO: emisión del token + payload de sesión de la app a partir de
+// una fila de `socios` ya resuelta (no vuelve a pedir DNI). Se extrajo de
+// POST /app/login para poder reutilizarla también en
+// POST /app/socios/cambiar (ver "Cambiar de socio", más abajo), que arma
+// una sesión nueva para otro socio relacionado sin pedir credenciales.
+// Lanza un Error si falta JWT_SECRET o si el club no existe, para que el
+// caller lo capture con su propio try/catch.
+// ======================================================
+async function construirSesionApp(socio) {
+  const clubId = socio.club_id;
+
+  // Registrar que el socio se logueó en la app (para el reporte de Socios logueados)
+  try {
+    await db.query(
+      `UPDATE socios SET ultimo_login_app = NOW() WHERE id = $1`,
+      [socio.id]
+    );
+  } catch (eLogin) {
+    console.error('⚠️ No se pudo registrar ultimo_login_app:', eLogin);
+  }
+
+  // Traer club (para theme dinámico + transferencias)
+  const rClub = await db.query(
+    `
+    SELECT
+      id,
+      name,
+      logo_url,
+      color_primary,
+      color_secondary,
+      color_accent,
+      instagram_url,
+      payment_due_day,
+      transferencia_habilitada,
+      transferencia_cvu,
+      transferencia_alias,
+      transferencia_titular,
+      tienda_habilitada
+
+    FROM clubs
+    WHERE id = $1
+    LIMIT 1
+    `,
+    [clubId]
+  );
+
+  if (rClub.rowCount === 0) {
+    const err = new Error('Club no encontrado');
+    err.status = 404;
+    throw err;
+  }
+
+  const club = rClub.rows[0];
+
+  // Último pago (convertido a índice de meses para comparar correctamente)
+  // Ejemplo: 2026-03 => idx = 2026*12 + 3
+  const rUlt = await db.query(
+    `
+    SELECT
+      MAX( (anio::int * 12) + (mes::int) ) AS ultimo_idx,
+      MAX( (anio::int * 100) + (mes::int) ) AS ultimo_ym
+    FROM pagos_mensuales
+    WHERE socio_id = $1 AND club_id = $2
+    `,
+    [socio.id, clubId]
+  );
+
+  const ultimoIdx = rUlt.rows?.[0]?.ultimo_idx
+    ? Number(rUlt.rows[0].ultimo_idx)
+    : null;
+  const ultimoYM = rUlt.rows?.[0]?.ultimo_ym
+    ? Number(rUlt.rows[0].ultimo_ym)
+    : null;
+
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth() + 1; // 1-12
+  const curDay = now.getDate();
+
+  const ultimo_pago = ultimoYM ? ymToString(ultimoYM) : null;
+
+  const paymentDueDay = Number(rClub.rows?.[0]?.payment_due_day ?? 31);
+
+  // período exigido según fecha actual y corte del club
+  let requiredYear = curYear;
+  let requiredMonth = curMonth;
+
+  if (curDay <= paymentDueDay) {
+    requiredMonth = curMonth - 1;
+    if (requiredMonth === 0) {
+      requiredMonth = 12;
+      requiredYear = curYear - 1;
+    }
+  }
+
+  const requiredIdx = requiredYear * 12 + requiredMonth;
+
+  // becado = siempre al día
+  const al_dia = socio.becado === true
+    ? true
+    : (ultimoIdx ? (ultimoIdx >= requiredIdx) : false);
+
+  // Emitir token APP (JWT)
+  if (!process.env.JWT_SECRET) {
+    const err = new Error('Falta JWT_SECRET en el servidor');
+    err.status = 500;
+    throw err;
+  }
+
+  const token = jwt.sign(
+    {
+      socioId: socio.id,
+      clubId: clubId,
+      numero_socio: socio.numero_socio
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '30d' }
+  );
+
+  return {
+    token,
+    socio: {
+      id: socio.id,
+      club_id: clubId,
+      numero: socio.numero_socio,
+      dni: socio.dni,
+      nombre: socio.nombre,
+      apellido: socio.apellido,
+      actividad: socio.actividad,
+      categoria: socio.categoria,
+      fecha_nacimiento: socio.fecha_nacimiento,
+      fecha_ingreso: socio.fecha_ingreso,
+      foto_url: socio.foto_url,
+      ultimo_pago,
+      al_dia
+    },
+    club: {
+      id: club.id,
+      nombre: club.name,
+      logo_url: club.logo_url,
+      color_primary: club.color_primary,
+      color_secondary: club.color_secondary,
+      color_accent: club.color_accent,
+      instagram_url: club.instagram_url,
+
+      transferencia_habilitada: club.transferencia_habilitada,
+      transferencia_cvu: club.transferencia_cvu,
+      transferencia_alias: club.transferencia_alias,
+      transferencia_titular: club.transferencia_titular,
+      tienda_habilitada: club.tienda_habilitada
+    }
+  };
+}
+
+const SOCIO_SELECT_COLS = `
+    id,
+    club_id,
+    numero_socio,
+    dni,
+    nombre,
+    apellido,
+    actividad,
+    categoria,
+    fecha_nacimiento,
+    fecha_ingreso,
+    foto_url,
+    activo,
+    becado
+`;
+
 /**
  * POST /app/login
  * body: { numero, dni }
@@ -45,183 +216,188 @@ router.post('/login', async (req, res) => {
 
     // 1) Buscar socio (multiclub) por numero + dni
     const rSocio = await db.query(
-  `SELECT 
-    id,
-    club_id,
-    numero_socio,
-    dni,
-    nombre,
-    apellido,
-    actividad,
-    categoria,
-    fecha_nacimiento,
-    fecha_ingreso,
-    foto_url,
-    activo,
-    becado
-  FROM socios
-  WHERE numero_socio = $1 
-    AND dni = $2
-  LIMIT 1`,
-  [numero, dni]
-);
-
+      `SELECT ${SOCIO_SELECT_COLS}
+      FROM socios
+      WHERE numero_socio = $1
+        AND dni = $2
+      LIMIT 1`,
+      [numero, dni]
+    );
 
     if (rSocio.rowCount === 0) {
       return res.status(401).json({ ok: false, error: 'Credenciales incorrectas' });
     }
 
-const socio = rSocio.rows[0];
+    const socio = rSocio.rows[0];
 
     if (!socio.activo) {
       return res.status(403).json({ ok: false, error: 'Socio inactivo' });
     }
 
-    const clubId = socio.club_id;
-
-    // ✅ Registrar que el socio se logueó en la app (para el reporte de Socios logueados)
-    try {
-      await db.query(
-        `UPDATE socios SET ultimo_login_app = NOW() WHERE id = $1`,
-        [socio.id]
-      );
-    } catch (eLogin) {
-      console.error('⚠️ No se pudo registrar ultimo_login_app:', eLogin);
-    }
-
-    /// 2) Traer club (para theme dinámico + transferencias)
-const rClub = await db.query(
-  `
-  SELECT
-    id,
-    name,
-    logo_url,
-    color_primary,
-    color_secondary,
-    color_accent,
-    instagram_url,  
-    payment_due_day,
-    transferencia_habilitada,
-    transferencia_cvu,
-    transferencia_alias,
-    transferencia_titular,
-    tienda_habilitada
-
-  FROM clubs
-  WHERE id = $1
-  LIMIT 1
-  `,
-  [clubId]
-);
-
-
-    if (rClub.rowCount === 0) {
-      return res.status(404).json({ ok: false, error: 'Club no encontrado' });
-    }
-
-    const club = rClub.rows[0];
-
-    // 3) Último pago (convertido a índice de meses para comparar correctamente)
-// Ejemplo: 2026-03 => idx = 2026*12 + 3
-const rUlt = await db.query(
-  `
-  SELECT
-    MAX( (anio::int * 12) + (mes::int) ) AS ultimo_idx,
-    MAX( (anio::int * 100) + (mes::int) ) AS ultimo_ym
-  FROM pagos_mensuales
-  WHERE socio_id = $1 AND club_id = $2
-  `,
-  [socio.id, clubId]
-);
-
-const ultimoIdx = rUlt.rows?.[0]?.ultimo_idx
-  ? Number(rUlt.rows[0].ultimo_idx)
-  : null;
-const ultimoYM = rUlt.rows?.[0]?.ultimo_ym
-  ? Number(rUlt.rows[0].ultimo_ym)
-  : null;
-
-const now = new Date();
-const curYear = now.getFullYear();
-const curMonth = now.getMonth() + 1; // 1-12
-const curDay = now.getDate();
-
-const ultimo_pago = ultimoYM ? ymToString(ultimoYM) : null;
-
-const paymentDueDay = Number(rClub.rows?.[0]?.payment_due_day ?? 31);
-
-// período exigido según fecha actual y corte del club
-let requiredYear = curYear;
-let requiredMonth = curMonth;
-
-if (curDay <= paymentDueDay) {
-  requiredMonth = curMonth - 1;
-  if (requiredMonth === 0) {
-    requiredMonth = 12;
-    requiredYear = curYear - 1;
-  }
-}
-
-const requiredIdx = requiredYear * 12 + requiredMonth;
-
-// becado = siempre al día
-const al_dia = socio.becado === true
-  ? true
-  : (ultimoIdx ? (ultimoIdx >= requiredIdx) : false);
-
-    // 4) Emitir token APP (JWT)
-    if (!process.env.JWT_SECRET) {
-      return res.status(500).json({ ok: false, error: 'Falta JWT_SECRET en el servidor' });
-    }
-
-    const token = jwt.sign(
-      {
-        socioId: socio.id,
-        clubId: clubId,
-        numero_socio: socio.numero_socio
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-
-    // 5) Respuesta para Flutter
-    return res.json({
-      ok: true,
-      token,
-      socio: {
-        id: socio.id,
-        club_id: clubId,
-        numero: socio.numero_socio,
-        dni: socio.dni,
-        nombre: socio.nombre,
-        apellido: socio.apellido,
-        actividad: socio.actividad,
-        categoria: socio.categoria,
-        fecha_nacimiento: socio.fecha_nacimiento,
-        fecha_ingreso: socio.fecha_ingreso,
-        foto_url: socio.foto_url,
-        ultimo_pago,
-        al_dia
-      },
-      club: {
-   id: club.id,
-nombre: club.name,
-logo_url: club.logo_url,
-color_primary: club.color_primary,
-color_secondary: club.color_secondary,
-color_accent: club.color_accent,
-instagram_url: club.instagram_url,
-
-transferencia_habilitada: club.transferencia_habilitada,
-transferencia_cvu: club.transferencia_cvu,
-transferencia_alias: club.transferencia_alias,
-transferencia_titular: club.transferencia_titular,
-tienda_habilitada: club.tienda_habilitada
-}
-    });
+    const sesion = await construirSesionApp(socio);
+    return res.json({ ok: true, ...sesion });
   } catch (e) {
     console.error('❌ /app/login error:', e);
+    return res.status(e.status || 500).json({ ok: false, error: e.message });
+  }
+});
+
+// ======================================================
+// ✅ NUEVO: "Cambiar de socio" sin salir de la app.
+//
+// GET /app/socios-relacionados
+// Devuelve los socios que el socio logueado puede "ver" sin volver a
+// loguearse: los de su mismo Grupo Familiar (jefe + miembros,
+// grupos_familiares/grupos_familiares_miembros) y los relacionados a mano
+// desde el panel admin (socios_relaciones_manuales — ver migración
+// 2026-10-02). Se devuelven combinados y sin duplicados.
+// ======================================================
+router.get('/socios-relacionados', requireAuth, async (req, res) => {
+  try {
+    const clubId = req.user?.clubId || req.user?.club_id || null;
+    const socioId = req.user?.socioId || req.user?.socio_id || null;
+
+    if (!clubId || !socioId) {
+      return res.status(401).json({ ok: false, error: 'Token inválido para la app' });
+    }
+
+    const r = await db.query(
+      `
+      SELECT DISTINCT s.id, s.numero_socio, s.nombre, s.apellido, s.foto_url, s.activo
+      FROM socios s
+      WHERE s.club_id = $1
+        AND s.id <> $2
+        AND s.activo = true
+        AND (
+          -- mismo Grupo Familiar que el socio logueado (como jefe o como miembro)
+          s.id IN (
+            SELECT gfm.socio_id
+            FROM grupos_familiares_miembros gfm
+            JOIN grupos_familiares gf ON gf.id = gfm.grupo_familiar_id
+            WHERE gf.activo = true AND gf.club_id = $1
+              AND (
+                gf.jefe_socio_id = $2
+                OR gf.id IN (
+                  SELECT gfm2.grupo_familiar_id FROM grupos_familiares_miembros gfm2 WHERE gfm2.socio_id = $2
+                )
+              )
+          )
+          OR s.id IN (
+            SELECT gf.jefe_socio_id
+            FROM grupos_familiares gf
+            WHERE gf.activo = true AND gf.club_id = $1
+              AND gf.id IN (
+                SELECT gfm3.grupo_familiar_id FROM grupos_familiares_miembros gfm3 WHERE gfm3.socio_id = $2
+              )
+          )
+          -- relacionado a mano desde el panel admin
+          OR s.id IN (
+            SELECT srm.socio_relacionado_id
+            FROM socios_relaciones_manuales srm
+            WHERE srm.club_id = $1 AND srm.socio_id = $2
+          )
+        )
+      ORDER BY s.apellido ASC, s.nombre ASC
+      `,
+      [clubId, socioId]
+    );
+
+    return res.json({
+      ok: true,
+      socios: r.rows.map((s) => ({
+        id: s.id,
+        numero: s.numero_socio,
+        nombre: s.nombre,
+        apellido: s.apellido,
+        foto_url: s.foto_url
+      }))
+    });
+  } catch (e) {
+    console.error('❌ GET /app/socios-relacionados error:', e);
     return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ======================================================
+// POST /app/socios/cambiar
+// body: { socio_id }
+// El socio logueado elige otro socio relacionado (Grupo Familiar o manual)
+// y recibe una sesión nueva para ese socio, SIN pedir DNI. Reutiliza
+// construirSesionApp (misma forma de respuesta que /app/login) para que
+// la app pueda guardarla con el mismo código que usa tras el login normal.
+//
+// Importante: el destino SIEMPRE se valida de nuevo contra la base (no se
+// confía en que el socio_id recibido venga de la lista que la app mostró),
+// con la misma condición de "relacionado" que usa GET /socios-relacionados.
+// ======================================================
+router.post('/socios/cambiar', requireAuth, async (req, res) => {
+  try {
+    const clubId = req.user?.clubId || req.user?.club_id || null;
+    const socioIdActual = req.user?.socioId || req.user?.socio_id || null;
+    const socioIdDestino = String(req.body?.socio_id || '').trim();
+
+    if (!clubId || !socioIdActual) {
+      return res.status(401).json({ ok: false, error: 'Token inválido para la app' });
+    }
+    if (!socioIdDestino) {
+      return res.status(400).json({ ok: false, error: 'Falta socio_id' });
+    }
+    if (socioIdDestino === String(socioIdActual)) {
+      return res.status(400).json({ ok: false, error: 'Ya estás viendo a ese socio' });
+    }
+
+    const rDestino = await db.query(
+      `
+      SELECT ${SOCIO_SELECT_COLS}
+      FROM socios s
+      WHERE s.id = $2
+        AND s.club_id = $1
+        AND (
+          s.id IN (
+            SELECT gfm.socio_id
+            FROM grupos_familiares_miembros gfm
+            JOIN grupos_familiares gf ON gf.id = gfm.grupo_familiar_id
+            WHERE gf.activo = true AND gf.club_id = $1
+              AND (
+                gf.jefe_socio_id = $3
+                OR gf.id IN (
+                  SELECT gfm2.grupo_familiar_id FROM grupos_familiares_miembros gfm2 WHERE gfm2.socio_id = $3
+                )
+              )
+          )
+          OR s.id IN (
+            SELECT gf.jefe_socio_id
+            FROM grupos_familiares gf
+            WHERE gf.activo = true AND gf.club_id = $1
+              AND gf.id IN (
+                SELECT gfm3.grupo_familiar_id FROM grupos_familiares_miembros gfm3 WHERE gfm3.socio_id = $3
+              )
+          )
+          OR s.id IN (
+            SELECT srm.socio_relacionado_id
+            FROM socios_relaciones_manuales srm
+            WHERE srm.club_id = $1 AND srm.socio_id = $3
+          )
+        )
+      LIMIT 1
+      `,
+      [clubId, socioIdDestino, socioIdActual]
+    );
+
+    if (rDestino.rowCount === 0) {
+      return res.status(403).json({ ok: false, error: 'Ese socio no está relacionado con tu cuenta' });
+    }
+
+    const destino = rDestino.rows[0];
+    if (!destino.activo) {
+      return res.status(403).json({ ok: false, error: 'Ese socio está inactivo' });
+    }
+
+    const sesion = await construirSesionApp(destino);
+    return res.json({ ok: true, ...sesion });
+  } catch (e) {
+    console.error('❌ POST /app/socios/cambiar error:', e);
+    return res.status(e.status || 500).json({ ok: false, error: e.message });
   }
 });
 

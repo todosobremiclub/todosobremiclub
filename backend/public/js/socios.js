@@ -432,6 +432,37 @@ async function deleteGrupoFamiliar(jefeSocioId) {
   return data;
 }
 
+// ✅ NUEVO: "Socios relacionados" (manual, independiente del Grupo
+// Familiar — ver migración 2026-10-02_socios_relaciones_manuales.sql).
+async function fetchRelacionados(socioId) {
+  const clubId = getActiveClubId();
+  const res = await fetchAuth(`/club/${clubId}/socios-relacionados/${socioId}`);
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error cargando socios relacionados');
+  }
+
+  return data;
+}
+
+async function saveRelacionados(socioId, relacionadosIds) {
+  const clubId = getActiveClubId();
+  const res = await fetchAuth(`/club/${clubId}/socios-relacionados/${socioId}`, {
+    method: 'POST',
+    json: true,
+    body: JSON.stringify({ relacionadosIds })
+  });
+
+  const data = await safeJson(res);
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? 'Error guardando socios relacionados');
+  }
+
+  return data;
+}
+
 
   // =============================
   // Helpers texto / formato
@@ -543,6 +574,63 @@ function syncGrupoFamiliarUI() {
   if (info) info.style.display = activo ? 'block' : 'none';
 
   renderGrupoFamiliarResumen();
+}
+
+// ✅ NUEVO: "Socios relacionados" (manual)
+function resetRelacionadosState() {
+  relacionadosSeleccionados = [];
+  relacionadosSeleccionadosDraft = [];
+
+  const chk = $('socioTieneRelacionados');
+  const wrap = $('socioRelacionadosGrupoWrap');
+  const resumen = $('socioRelacionadosListaVisual');
+
+  if (chk) chk.checked = false;
+  if (wrap) wrap.style.display = 'none';
+
+  if (resumen) {
+    resumen.innerHTML = '<div class="muted small">Sin relacionados</div>';
+  }
+}
+
+function renderRelacionadosResumen() {
+  const cont = $('socioRelacionadosListaVisual');
+  const cant = $('relacionadosCantidad');
+  if (!cont) return;
+
+  if (!relacionadosSeleccionados.length) {
+    cont.innerHTML = `<div class="muted small">Sin relacionados</div>`;
+    if (cant) cant.textContent = '';
+    return;
+  }
+
+  // ✅ reutiliza el mismo cache completo de socios que usa Grupo Familiar
+  const fuente = sociosGrupoFamiliarCache || [];
+
+  const rows = relacionadosSeleccionados
+    .map(id => fuente.find(s => String(s.id) === String(id)))
+    .filter(Boolean);
+
+  if (!rows.length) {
+    cont.innerHTML = `<div class="muted small">Sin relacionados</div>`;
+    if (cant) cant.textContent = `(${relacionadosSeleccionados.length})`;
+    return;
+  }
+
+  cont.innerHTML = rows.map(s => `
+    <div style="
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:6px 8px;
+      border-bottom:1px solid #eee;
+    ">
+      <span>${escapeHtml(s.apellido || '')} ${escapeHtml(s.nombre || '')}</span>
+      <small class="muted">N° ${escapeHtml(String(s.numero_socio || ''))}</small>
+    </div>
+  `).join('');
+
+  if (cant) cant.textContent = `(${rows.length})`;
 }
 
 // =============================
@@ -1427,6 +1515,110 @@ function closeGrupoFamiliarModal() {
   $('modalGrupoFamiliar')?.classList.add('hidden');
 }
 
+// ✅ NUEVO: modal "Socios relacionados" (manual)
+async function openRelacionadosModal() {
+  const modal = $('modalRelacionados');
+  if (!modal) return;
+
+  // ✅ reutiliza el mismo cache de socios activos que ya carga Grupo Familiar
+  await loadSociosGrupoFamiliarCache();
+
+  relacionadosSeleccionadosDraft = [...relacionadosSeleccionados];
+
+  const search = $('relacionadosSearch');
+  if (search) search.value = '';
+
+  renderRelacionadosLista('');
+  modal.classList.remove('hidden');
+}
+function closeRelacionadosModal() {
+  $('modalRelacionados')?.classList.add('hidden');
+}
+
+function socioPuedeSerRelacionado(socio) {
+  if (!socio) return false;
+  if (!editingId) return true;
+  return String(socio.id) !== String(editingId);
+}
+
+function renderRelacionadosLista(query = '') {
+  const cont = $('relacionadosLista');
+  if (!cont) return;
+
+  const q = String(query || '').trim().toLowerCase();
+
+  if (!q) {
+    cont.innerHTML = `
+      <div class="muted small">
+        Escribí para buscar (apellido, DNI o N° de socio)
+      </div>
+    `;
+    return;
+  }
+
+  let results = sociosGrupoFamiliarCache.filter(s => socioPuedeSerRelacionado(s));
+
+  results = results.filter(s =>
+    String(s.apellido || '').toLowerCase().includes(q) ||
+    String(s.nombre || '').toLowerCase().includes(q) ||
+    String(s.numero_socio || '').includes(q) ||
+    String(s.dni || '').includes(q)
+  );
+
+  cont.innerHTML = '';
+
+  if (!results.length) {
+    cont.innerHTML = `<div class="muted small">Sin resultados</div>`;
+    return;
+  }
+
+  results.slice(0, 10).forEach(s => {
+    const checked = relacionadosSeleccionadosDraft.includes(String(s.id));
+
+    const bg = checked ? '#e0f2fe' : '#fff';
+    const border = checked ? '1px solid #38bdf8' : '1px solid transparent';
+
+    const row = document.createElement('div');
+    row.className = 'gf-autocomplete-item';
+    row.style = `
+      padding:6px 8px;
+      border-bottom:1px solid #eee;
+      cursor:pointer;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      background:${bg};
+      border:${border};
+      border-radius:6px;
+      margin-bottom:4px;
+    `;
+
+    row.innerHTML = `
+      <span><b>${escapeHtml(s.apellido)} ${escapeHtml(s.nombre)}</b></span>
+      <small class="muted">N° ${escapeHtml(String(s.numero_socio || ''))}</small>
+    `;
+
+    row.addEventListener('click', () => {
+      const id = String(s.id);
+
+      if (relacionadosSeleccionadosDraft.includes(id)) {
+        relacionadosSeleccionadosDraft =
+          relacionadosSeleccionadosDraft.filter(x => x !== id);
+      } else {
+        relacionadosSeleccionadosDraft = [
+          ...relacionadosSeleccionadosDraft,
+          id
+        ];
+      }
+
+      renderRelacionadosLista(q);
+      renderRelacionadosResumen();
+    });
+
+    cont.appendChild(row);
+  });
+}
+
 function socioPuedeSerIntegrante(socio) {
   if (!socio) return false;
   if (!editingId) return true;
@@ -1677,6 +1869,10 @@ let bienvenidaPendientesCache = []; // ✅ NUEVO: socios pendientes de bienvenid
 let grupoFamiliarSeleccionados = [];
 let grupoFamiliarSeleccionadosDraft = [];
 let grupoFamiliarOriginalEraJefe = false;
+
+// ✅ NUEVO: "Socios relacionados" (manual)
+let relacionadosSeleccionados = [];
+let relacionadosSeleccionadosDraft = [];
 
 // ✅ Estado con el que se abrió el modal, para saber si el admin destildó
 // "Tiene plan de cuotas personalizado" / "Tiene plan de clases (paquete)"
@@ -2438,6 +2634,9 @@ if ($('socioActividadAdicional')) $('socioActividadAdicional').value = '';
   const wrapPlanes = $('socioPlanesGrupoWrap');
   if (wrapPlanes) wrapPlanes.style.display = 'none';
 
+  // ✅ NUEVO: "Socios relacionados" (manual)
+  resetRelacionadosState();
+
   resetSocioTabs();
   $('modalSocio').classList.remove('hidden');
 }
@@ -2590,6 +2789,24 @@ if ($('socioActividadAdicional')) $('socioActividadAdicional').value = '';
 
   syncGrupoFamiliarUI();
   renderGrupoFamiliarResumen();
+
+  // =========================
+  // ✅ NUEVO: SOCIOS RELACIONADOS (manual)
+  // =========================
+  try {
+    const dataRel = await fetchRelacionados(socio.id);
+    relacionadosSeleccionados = (dataRel.relacionados || []).map(x => String(x.id));
+  } catch (e) {
+    console.error('Error cargando socios relacionados', e);
+    relacionadosSeleccionados = [];
+  }
+
+  const chkRel = $('socioTieneRelacionados');
+  const wrapRel = $('socioRelacionadosGrupoWrap');
+  const tieneRelacionados = relacionadosSeleccionados.length > 0;
+  if (chkRel) chkRel.checked = tieneRelacionados;
+  if (wrapRel) wrapRel.style.display = tieneRelacionados ? 'block' : 'none';
+  renderRelacionadosResumen();
 
   // ✅ Plan de cuotas personalizado: ya se puede configurar (el socio existe)
   planCuotasSocioId = socio.id;
@@ -3375,6 +3592,13 @@ if (payload.es_menor && !payload.tutor_nombre) {
       }
 
       // =========================
+      // ✅ NUEVO: SOCIOS RELACIONADOS (manual)
+      // =========================
+      if (socioId) {
+        await saveRelacionados(socioId, relacionadosSeleccionados);
+      }
+
+      // =========================
       // PLAN DE CUOTAS PERSONALIZADO / PLAN DE CLASES (PAQUETE)
       // =========================
       // Estos checks se autotildan solos si el socio ya tiene un plan real
@@ -4061,6 +4285,41 @@ $('socioTieneAdicionales')?.addEventListener('change', async function () {
 
 $('socioEsJefePlanFamiliar')?.addEventListener('change', () => {
   syncGrupoFamiliarUI();
+});
+
+// ✅ NUEVO: "Socios relacionados" (manual) — el check maestro solo
+// muestra/oculta el grupo, igual que Excepciones/Planes.
+$('socioTieneRelacionados')?.addEventListener('change', function () {
+  const wrap = $('socioRelacionadosGrupoWrap');
+  if (wrap) wrap.style.display = this.checked ? 'block' : 'none';
+});
+
+$('btnSeleccionarRelacionados')?.addEventListener('click', async () => {
+  await openRelacionadosModal();
+});
+
+$('btnRelacionadosClose')?.addEventListener('click', closeRelacionadosModal);
+$('btnRelacionadosCancel')?.addEventListener('click', closeRelacionadosModal);
+
+$('relacionadosSearch')?.addEventListener('input', (e) => {
+  renderRelacionadosLista(e.target.value);
+});
+
+$('btnRelacionadosAceptar')?.addEventListener('click', async () => {
+  relacionadosSeleccionados = relacionadosSeleccionadosDraft.map(x => String(x));
+  renderRelacionadosResumen();
+  closeRelacionadosModal();
+
+  // 🔥 Guardado automático si ya existe el socio (igual que Grupo Familiar)
+  if (editingId) {
+    try {
+      await saveRelacionados(editingId, relacionadosSeleccionados);
+      console.log('✅ Socios relacionados guardados automáticamente');
+    } catch (e) {
+      console.error('Error guardando socios relacionados', e);
+      alert(e.message || 'Error guardando socios relacionados');
+    }
+  }
 });
 
 // ✅ NUEVO: al elegir una actividad adicional rápida, marcar el checkbox correspondiente
