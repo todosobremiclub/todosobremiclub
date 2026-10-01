@@ -815,7 +815,8 @@ async function deleteTipoGasto(id) {
 
 /* ============================================================
    TIPOS DE INGRESO
-   (input + botón Agregar + sólo Eliminar)
+   (nombre y monto editables en línea + Guardar/Eliminar, igual que
+   Tipos de gasto)
 ============================================================ */
 
 function tiposIngresoUrl() {
@@ -856,7 +857,7 @@ async function loadTiposIngreso() {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${escapeHtml(t.nombre)}</td>
+      <td><input type="text" id="ti_${t.id}" value="${escapeHtml(t.nombre)}" /></td>
       <td>
         <input
           type="number"
@@ -1199,13 +1200,12 @@ function bindEvents() {
       const btnSave = e.target.closest('button[data-act="save-ti"]');
       if (btnSave) {
         const id = btnSave.dataset.id;
+        const nombre = ($(`ti_${id}`)?.value ?? '').trim();
         const monto = $(`ti_monto_${id}`)?.value ?? '';
-        // El nombre no es editable en esta tabla (ver renderTiposIngreso):
-        // se vuelve a mandar el que ya tiene, solo se actualiza el monto.
-        const nombreActual = btnSave.closest('tr')?.querySelector('td')?.textContent?.trim() ?? '';
+        if (!nombre) return alert('Nombre vacío');
         btnSave.disabled = true;
         try {
-          await updateTipoIngreso(id, nombreActual, monto);
+          await updateTipoIngreso(id, nombre, monto);
           await loadTiposIngreso();
         } catch (err) {
           alert(err.message ?? 'Error guardando tipo de ingreso');
