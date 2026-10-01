@@ -1710,9 +1710,13 @@ $('ingresoTipo')?.addEventListener('change', () => {
   const tipoId = $('ingresoTipo')?.value;
   const tipo = tiposIngresoCache.find(t => String(t.id) === String(tipoId));
   const inputMonto = $('ingresoMonto');
-  if (!inputMonto || !tipo) return;
-  if (tipo.monto !== null && tipo.monto !== undefined) {
+  if (!inputMonto) return;
+  // ✅ FIX: si el tipo elegido no tiene monto configurado, limpia el campo
+  // en vez de dejar el monto del tipo anterior seleccionado.
+  if (tipo && tipo.monto !== null && tipo.monto !== undefined) {
     inputMonto.value = Number(tipo.monto);
+  } else {
+    inputMonto.value = '';
   }
 });
 

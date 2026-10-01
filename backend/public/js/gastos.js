@@ -223,9 +223,16 @@ function todayISO() {
     const tipoId = $('gastoTipo')?.value;
     const tipo = tiposGastoCache.find(t => String(t.id) === String(tipoId));
     const inputMonto = $('gastoMonto');
-    if (!inputMonto || !tipo) return;
-    if (tipo.monto !== null && tipo.monto !== undefined) {
+    if (!inputMonto) return;
+    // ✅ FIX: si el tipo elegido tiene monto configurado, lo completa; si NO
+    // tiene (o no se seleccionó ningún tipo), limpia el campo en vez de
+    // dejar el monto del tipo anterior — antes, al cambiar de "Electricidad"
+    // (con monto) a "Compras" (sin monto), el 10000 de Electricidad quedaba
+    // pisado en el campo como si fuera el de Compras.
+    if (tipo && tipo.monto !== null && tipo.monto !== undefined) {
       inputMonto.value = Number(tipo.monto);
+    } else {
+      inputMonto.value = '';
     }
   }
 
