@@ -922,11 +922,64 @@
         <tbody id="clubs-table"></tbody>
       </table>
     </div>
+
+    <!-- ================= LOG DE ACTIVIDAD (ingresos + acciones de admins) ================= -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>🕵️ Log de actividad de administradores</h3>
+      </div>
+      <p style="color:var(--muted); margin-top:-6px;">
+        Registra los inicios de sesión y las acciones (crear / editar / eliminar / cambios) de los usuarios
+        del panel admin. Se conservan los últimos 3 meses; lo más antiguo se borra automáticamente.
+      </p>
+
+      <div class="toolbar-filters">
+        <select id="auditFiltroClub" style="max-width:240px;">
+          <option value="">Todos los clubes</option>
+        </select>
+        <input type="text" id="auditFiltroEmail" placeholder="🔎 Buscar por email..." style="max-width:240px;">
+        <select id="auditFiltroAccion" style="max-width:200px;">
+          <option value="">Todas las acciones</option>
+        </select>
+        <input type="date" id="auditFiltroDesde" style="max-width:170px;" title="Desde">
+        <input type="date" id="auditFiltroHasta" style="max-width:170px;" title="Hasta">
+        <button id="btnAuditFiltrar" class="primary" type="button">Filtrar</button>
+        <button id="btnAuditLimpiar" type="button">Limpiar filtros</button>
+      </div>
+
+      <div class="table-wrapper" style="margin-top:12px; overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:150px;">Fecha</th>
+              <th>Usuario</th>
+              <th>Club</th>
+              <th>Acción</th>
+              <th style="width:130px;">Resultado</th>
+              <th style="width:110px;">IP</th>
+            </tr>
+          </thead>
+          <tbody id="auditLogTableBody">
+            <tr><td colspan="6" style="color:var(--muted);">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+        <span id="auditLogTotalTxt" style="color:var(--muted); font-size:12.5px;"></span>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="btnAuditPagAnterior" type="button">◀ Anterior</button>
+          <span id="auditLogPaginaTxt" style="font-size:12.5px; color:var(--muted);"></span>
+          <button id="btnAuditPagSiguiente" type="button">Siguiente ▶</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/js/clubs.js?v=20260921-1"></script>
   <script src="/js/users.js"></script>
   <script src="/js/transfers_admin.js"></script>
+  <script src="/js/auditlog.js"></script>
 
   <script>
     function logout() {

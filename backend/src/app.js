@@ -25,6 +25,14 @@ const appTransferRoutes = require('./routes/appTransferRoutes');
 const adminTransferRoutes = require('./routes/adminTransferRoutes');
 const clubPaymentsTransferRoutes = require('./routes/clubPaymentsTransferRoutes');
 
+// ✅ NUEVO: log de auditoría (ingresos + acciones de los admins). El
+// middleware se monta ANTES de los routers de /club, /admin/clubs y
+// /admin/users para que registre (best-effort) cada acción de escritura
+// (POST/PUT/PATCH/DELETE) que pasa por esos módulos — ver
+// src/middleware/auditLogMiddleware.js. No audita /app (API de la app de
+// socios), /mp (Mercado Pago) ni /public.
+const auditLogMiddleware = require('./middleware/auditLogMiddleware');
+
 
 
 
@@ -67,9 +75,17 @@ Teléfono: ${telefono}
 
 // ===== API =====
 app.use('/auth', authRoutes);
+
+app.use('/admin/clubs', auditLogMiddleware);
 app.use('/admin/clubs', adminClubsRoutes);
+
+app.use('/admin/users', auditLogMiddleware);
 app.use('/admin/users', adminUsersRoutes);
 
+// ✅ NUEVO: pantalla de "Log de actividad" en el panel Super Admin.
+app.use('/admin/audit-log', require('./routes/auditLogRoutes'));
+
+app.use('/club', auditLogMiddleware);
 app.use('/club', require('./routes/clubRoutes'));
 
 // ✅ Guardamos la referencia (antes se pasaba directo al require) para poder
@@ -127,6 +143,14 @@ const CHEQUEO_NOTIF_PROGRAMADAS_MS = 5 * 60 * 1000; // cada 5 minutos
 setInterval(() => {
   procesarNotificacionesProgramadas();
 }, CHEQUEO_NOTIF_PROGRAMADAS_MS);
+
+// ✅ NUEVO: worker de retención del log de auditoría (admin_activity_log).
+// Corre una vez al iniciar el server y después cada 24hs, borrando lo que
+// tenga más de 3 meses de antigüedad (ver src/services/auditLogPurgeWorker.js).
+const { purgarAuditLogAntiguo } = require('./services/auditLogPurgeWorker');
+const PURGA_AUDIT_LOG_MS = 24 * 60 * 60 * 1000; // cada 24 horas
+purgarAuditLogAntiguo();
+setInterval(purgarAuditLogAntiguo, PURGA_AUDIT_LOG_MS);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ API listening on ${PORT}`));

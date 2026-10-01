@@ -5,6 +5,7 @@ const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
+const { registrarLogin } = require('../services/auditLogService'); // ✅ NUEVO: log de auditoría (ingresos)
 
 const router = express.Router();
 
@@ -31,17 +32,25 @@ router.post('/login', async (req, res) => {
     );
 
     if (rUser.rowCount === 0) {
+      // ✅ NUEVO: log de auditoría — intento de login con un email que no
+      // existe en la base. No hay user_id (el usuario no existe).
+      registrarLogin({ req, email, exitoso: false, descripcion: 'Intento de login con email no registrado' })
+        .catch(() => {});
       return res.status(401).json({ ok: false, error: 'Credenciales incorrectas' });
     }
 
     const user = rUser.rows[0];
     if (!user.is_active) {
+      registrarLogin({ req, userId: user.id, email: user.email, exitoso: false, descripcion: 'Intento de login de usuario inactivo' })
+        .catch(() => {});
       return res.status(403).json({ ok: false, error: 'Usuario inactivo' });
     }
 
     // 2) Validar password
     const okPass = await bcrypt.compare(password, user.password_hash);
     if (!okPass) {
+      registrarLogin({ req, userId: user.id, email: user.email, exitoso: false, descripcion: 'Contraseña incorrecta' })
+        .catch(() => {});
       return res.status(401).json({ ok: false, error: 'Credenciales incorrectas' });
     }
 
@@ -70,6 +79,9 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );
+
+    // ✅ NUEVO: log de auditoría — login exitoso.
+    registrarLogin({ req, userId: user.id, email: user.email, exitoso: true }).catch(() => {});
 
     return res.json({
       ok: true,
