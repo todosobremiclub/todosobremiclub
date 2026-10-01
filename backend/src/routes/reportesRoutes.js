@@ -849,11 +849,15 @@ WITH meses AS (
   SELECT generate_series(1,12)::int AS mes_num
 ),
 socios_activos AS (
+  -- ✅ FIX: el filtro de becado se movió a la CTE "base" de abajo, porque
+  -- ahí es donde tenemos el mes puntual (m.mes_num) de cada fila — becado
+  -- ahora se evalúa por HISTORIAL (socio_becado_historial), no por el
+  -- valor actual de s.becado, para que un cambio de becado hoy no altere
+  -- los meses ya pasados (ver migración 2026-09-30_socio_becado_historial).
   SELECT s.id, s.fecha_ingreso
   FROM socios s
   WHERE s.club_id = $1
     AND s.activo = true
-    AND s.becado = false
     AND ($3::text IS NULL OR s.actividad = $3)
     AND ($4::text IS NULL OR s.categoria = $4)
     AND NOT EXISTS (
@@ -870,13 +874,29 @@ base AS (
     s.id AS socio_id
   FROM meses m
   CROSS JOIN socios_activos s
-  WHERE
+  WHERE (
     s.fecha_ingreso IS NULL
     OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
     OR (
       EXTRACT(YEAR FROM s.fecha_ingreso) = $2
       AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
     )
+  )
+  -- ✅ FIX: becado histórico al cierre de ese mes puntual (m.mes_num), en
+  -- vez de s.becado actual. Si el socio no tiene historial todavía (nunca
+  -- se le tocó el campo desde que existe esta tabla), se usa su becado
+  -- actual como mejor aproximación disponible.
+  AND NOT COALESCE(
+    (
+      SELECT h.becado
+      FROM socio_becado_historial h
+      WHERE h.socio_id = s.id
+        AND h.vigente_desde <= (make_date($2::int, m.mes_num, 1) + INTERVAL '1 month - 1 day')::date
+      ORDER BY h.vigente_desde DESC
+      LIMIT 1
+    ),
+    (SELECT s2.becado FROM socios s2 WHERE s2.id = s.id)
+  )
 ),
 pagos AS (
   SELECT
@@ -1033,7 +1053,19 @@ LEFT JOIN LATERAL (
 ) adic ON true
 WHERE s.club_id = $1
   AND s.activo = true
-  AND s.becado = false
+  -- ✅ FIX: becado histórico del mes $2/$3 (no el valor actual de
+  -- s.becado), ver migración 2026-09-30_socio_becado_historial.
+  AND NOT COALESCE(
+    (
+      SELECT h.becado
+      FROM socio_becado_historial h
+      WHERE h.socio_id = s.id
+        AND h.vigente_desde <= (make_date($2::int, $3::int, 1) + INTERVAL '1 month - 1 day')::date
+      ORDER BY h.vigente_desde DESC
+      LIMIT 1
+    ),
+    s.becado
+  )
   AND COALESCE(act.modalidad_pago, 'mensual') <> 'por_clases'
   AND (
     s.fecha_ingreso IS NULL
@@ -1113,7 +1145,19 @@ LEFT JOIN LATERAL (
 ) adic ON true
 WHERE s.club_id = $1
   AND s.activo = true
-  AND s.becado = false
+  -- ✅ FIX: becado histórico del mes $2/$3 (no el valor actual de
+  -- s.becado), ver migración 2026-09-30_socio_becado_historial.
+  AND NOT COALESCE(
+    (
+      SELECT h.becado
+      FROM socio_becado_historial h
+      WHERE h.socio_id = s.id
+        AND h.vigente_desde <= (make_date($2::int, $3::int, 1) + INTERVAL '1 month - 1 day')::date
+      ORDER BY h.vigente_desde DESC
+      LIMIT 1
+    ),
+    s.becado
+  )
   AND COALESCE(act.modalidad_pago, 'mensual') <> 'por_clases'
   AND (
     s.fecha_ingreso IS NULL
@@ -1189,11 +1233,12 @@ router.get(
             SELECT generate_series(1,12)::int AS mes_num
           ),
           socios_activos AS (
+            -- ✅ FIX: el filtro de becado se movió a "base" (usa historial, no
+            -- el valor actual de s.becado; ver migración 2026-09-30).
             SELECT s.id, s.fecha_ingreso
             FROM socios s
             WHERE s.club_id = $1
               AND s.activo = true
-              AND s.becado = false
               AND ($3::text IS NULL OR s.actividad = $3)
               AND ($4::text IS NULL OR s.categoria = $4)
               AND NOT EXISTS (
@@ -1210,13 +1255,25 @@ router.get(
               s.id AS socio_id
             FROM meses m
             CROSS JOIN socios_activos s
-            WHERE
+            WHERE (
               s.fecha_ingreso IS NULL
               OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
               OR (
                 EXTRACT(YEAR FROM s.fecha_ingreso) = $2
                 AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
               )
+            )
+            AND NOT COALESCE(
+              (
+                SELECT h.becado
+                FROM socio_becado_historial h
+                WHERE h.socio_id = s.id
+                  AND h.vigente_desde <= (make_date($2::int, m.mes_num, 1) + INTERVAL '1 month - 1 day')::date
+                ORDER BY h.vigente_desde DESC
+                LIMIT 1
+              ),
+              (SELECT s2.becado FROM socios s2 WHERE s2.id = s.id)
+            )
           ),
           pagos AS (
             SELECT socio_id, mes AS mes_num
@@ -1282,7 +1339,19 @@ router.get(
          AND act.activo = true
         WHERE s.club_id = $1
           AND s.activo = true
-          AND s.becado = false
+          -- ✅ FIX: becado histórico del mes $2/$3 (no el valor actual de
+          -- s.becado), ver migración 2026-09-30_socio_becado_historial.
+          AND NOT COALESCE(
+            (
+              SELECT h.becado
+              FROM socio_becado_historial h
+              WHERE h.socio_id = s.id
+                AND h.vigente_desde <= (make_date($2::int, $3::int, 1) + INTERVAL '1 month - 1 day')::date
+              ORDER BY h.vigente_desde DESC
+              LIMIT 1
+            ),
+            s.becado
+          )
           AND COALESCE(act.modalidad_pago, 'mensual') <> 'por_clases'
           AND (
             s.fecha_ingreso IS NULL
@@ -1361,11 +1430,12 @@ router.get(
             SELECT generate_series(1,12)::int AS mes_num
           ),
           socios_activos AS (
+            -- ✅ FIX: el filtro de becado se movió a "base" (usa historial, no
+            -- el valor actual de s.becado; ver migración 2026-09-30).
             SELECT s.id, s.fecha_ingreso
             FROM socios s
             WHERE s.club_id = $1
               AND s.activo = true
-              AND s.becado = false
               AND ($3::text IS NULL OR s.actividad = $3)
               AND ($4::text IS NULL OR s.categoria = $4)
               AND NOT EXISTS (
@@ -1382,13 +1452,25 @@ router.get(
               s.id AS socio_id
             FROM meses m
             CROSS JOIN socios_activos s
-            WHERE
+            WHERE (
               s.fecha_ingreso IS NULL
               OR EXTRACT(YEAR FROM s.fecha_ingreso) < $2
               OR (
                 EXTRACT(YEAR FROM s.fecha_ingreso) = $2
                 AND EXTRACT(MONTH FROM s.fecha_ingreso) <= m.mes_num
               )
+            )
+            AND NOT COALESCE(
+              (
+                SELECT h.becado
+                FROM socio_becado_historial h
+                WHERE h.socio_id = s.id
+                  AND h.vigente_desde <= (make_date($2::int, m.mes_num, 1) + INTERVAL '1 month - 1 day')::date
+                ORDER BY h.vigente_desde DESC
+                LIMIT 1
+              ),
+              (SELECT s2.becado FROM socios s2 WHERE s2.id = s.id)
+            )
           ),
           pagos AS (
             SELECT socio_id, mes AS mes_num
@@ -1455,7 +1537,19 @@ router.get(
          AND act.activo = true
         WHERE s.club_id = $1
           AND s.activo = true
-          AND s.becado = false
+          -- ✅ FIX: becado histórico del mes $2/$3 (no el valor actual de
+          -- s.becado), ver migración 2026-09-30_socio_becado_historial.
+          AND NOT COALESCE(
+            (
+              SELECT h.becado
+              FROM socio_becado_historial h
+              WHERE h.socio_id = s.id
+                AND h.vigente_desde <= (make_date($2::int, $3::int, 1) + INTERVAL '1 month - 1 day')::date
+              ORDER BY h.vigente_desde DESC
+              LIMIT 1
+            ),
+            s.becado
+          )
           AND COALESCE(act.modalidad_pago, 'mensual') <> 'por_clases'
           AND (
             s.fecha_ingreso IS NULL
@@ -3825,7 +3919,19 @@ router.get(
       // 2) Calcular esperado en vivo
       const q = `
         SELECT
-          s.becado,
+          -- ✅ FIX: becado histórico del mes $2/$3, no el valor actual de
+          -- s.becado (ver migración 2026-09-30_socio_becado_historial).
+          COALESCE(
+            (
+              SELECT h.becado
+              FROM socio_becado_historial h
+              WHERE h.socio_id = s.id
+                AND h.vigente_desde <= (make_date($2::int, $3::int, 1) + INTERVAL '1 month - 1 day')::date
+              ORDER BY h.vigente_desde DESC
+              LIMIT 1
+            ),
+            s.becado
+          ) AS becado,
           ec.monto AS excepcion_monto,
           a.precio_mensual,
           a.modalidad_pago
@@ -4035,7 +4141,19 @@ router.get(
       if (necesitaRecalcular) {
 const q = `
   SELECT
-    s.becado,
+    -- ✅ FIX: becado histórico del mes $2/$3, no el valor actual de
+    -- s.becado (ver migración 2026-09-30_socio_becado_historial).
+    COALESCE(
+      (
+        SELECT h.becado
+        FROM socio_becado_historial h
+        WHERE h.socio_id = s.id
+          AND h.vigente_desde <= (make_date($2::int, $3::int, 1) + INTERVAL '1 month - 1 day')::date
+        ORDER BY h.vigente_desde DESC
+        LIMIT 1
+      ),
+      s.becado
+    ) AS becado,
     EXISTS (
       SELECT 1
       FROM grupos_familiares gf
@@ -4224,10 +4342,31 @@ router.get(
 try {
 
 const qEsperado = `
-WITH base_conceptos AS (
+WITH becado_hist AS (
+  -- ✅ FIX: becado histórico del mes $2/$3 para cada socio del club, en vez
+  -- del valor actual de socios.becado (ver migración
+  -- 2026-09-30_socio_becado_historial). Se calcula una sola vez acá y se
+  -- usa con LEFT JOIN en base_conceptos y adicionales_conceptos.
+  SELECT
+    s.id AS socio_id,
+    COALESCE(
+      (
+        SELECT h.becado
+        FROM socio_becado_historial h
+        WHERE h.socio_id = s.id
+          AND h.vigente_desde <= (make_date($2::int, $3::int, 1) + INTERVAL '1 month - 1 day')::date
+        ORDER BY h.vigente_desde DESC
+        LIMIT 1
+      ),
+      s.becado
+    ) AS becado
+  FROM socios s
+  WHERE s.club_id = $1
+),
+base_conceptos AS (
   SELECT
     CASE
-      WHEN s.becado THEN NULL
+      WHEN bh.becado THEN NULL
       WHEN COALESCE(a.modalidad_pago, 'mensual') = 'por_clases' THEN NULL
       WHEN EXISTS (
         SELECT 1
@@ -4247,7 +4386,7 @@ WITH base_conceptos AS (
       ELSE COALESCE(TRIM(s.actividad), 'Sin actividad')
     END AS actividad,
     CASE
-      WHEN s.becado THEN 0
+      WHEN bh.becado THEN 0
       WHEN COALESCE(a.modalidad_pago, 'mensual') = 'por_clases' THEN 0
       WHEN EXISTS (
         SELECT 1
@@ -4267,6 +4406,7 @@ WITH base_conceptos AS (
       ELSE COALESCE(a.precio_mensual, 0)
     END AS esperado
   FROM socios s
+  JOIN becado_hist bh ON bh.socio_id = s.id
   LEFT JOIN excepciones_cuota ec
     ON ec.id = s.excepcion_cuota_id
    AND ec.club_id = s.club_id
@@ -4295,6 +4435,7 @@ adicionales_conceptos AS (
     'Adicional: ' || TRIM(ad.nombre) AS actividad,
     COALESCE(aa.precio_mensual, 0) AS esperado
   FROM socios s
+  JOIN becado_hist bh ON bh.socio_id = s.id
   CROSS JOIN LATERAL jsonb_array_elements_text(
     COALESCE(NULLIF(s.actividades_adicionales, ''), '[]')::jsonb
   ) ad(nombre)
@@ -4304,7 +4445,7 @@ adicionales_conceptos AS (
    AND TRIM(aa.nombre) = TRIM(ad.nombre)
   WHERE s.club_id = $1
     AND s.activo = true
-    AND s.becado = false
+    AND bh.becado = false
     AND NOT EXISTS (
       SELECT 1
       FROM grupos_familiares gf
