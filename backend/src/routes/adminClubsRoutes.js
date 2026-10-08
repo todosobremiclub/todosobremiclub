@@ -555,6 +555,14 @@ router.delete('/:id', requireAuth, requireRole('superadmin'), async (req, res) =
 try {
     await db.query('BEGIN');
 
+    // 0) ✅ NUEVO: historial de WhatsApp. whatsapp_mensajes tiene FK a clubs,
+    // socios y notificaciones SIN ON DELETE CASCADE (ver
+    // claude/whatsapp-integracion-plan.md, sección 2.4), así que si el club
+    // alguna vez envió un WhatsApp, borrar notificaciones/socios/clubs más
+    // abajo fallaba con violación de clave foránea (HTTP 500). Tiene que ir
+    // ANTES que todo lo demás.
+    await db.query('DELETE FROM whatsapp_mensajes WHERE club_id=$1', [id]);
+
     // 1) Tablas que dependen de otra tabla hija (deben irse primero que su padre)
     await db.query(
       `DELETE FROM transferencias_pago
