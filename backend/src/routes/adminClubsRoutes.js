@@ -580,6 +580,19 @@ try {
     );
     await db.query('DELETE FROM planes_clases_socio WHERE club_id=$1', [id]);
 
+    // 0c) ✅ NUEVO: planes de actividad por socio (planes_actividad_socio, FK a
+    // clubs y socios sin cascada) y sus cuotas (planes_actividad_cuotas.plan_id).
+    // Mismo criterio: primero los hijos, después el plan.
+    await db.query(
+      `DELETE FROM planes_actividad_cuotas
+       WHERE plan_id IN (SELECT id FROM planes_actividad_socio WHERE club_id=$1)`,
+      [id]
+    );
+    await db.query('DELETE FROM planes_actividad_socio WHERE club_id=$1', [id]);
+
+    // 0d) ✅ NUEVO: notificaciones programadas (FK a clubs sin cascada).
+    await db.query('DELETE FROM notificaciones_programadas WHERE club_id=$1', [id]);
+
     // 1) Tablas que dependen de otra tabla hija (deben irse primero que su padre)
     await db.query(
       `DELETE FROM transferencias_pago
