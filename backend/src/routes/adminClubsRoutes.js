@@ -563,6 +563,23 @@ try {
     // ANTES que todo lo demás.
     await db.query('DELETE FROM whatsapp_mensajes WHERE club_id=$1', [id]);
 
+    // 0b) ✅ NUEVO: planes de clases por socio. planes_clases_socio tiene FK a
+    // socios (planes_clases_socio_socio_id_fkey) y a actividades, y sus hijos
+    // planes_clases_registro / planes_clases_pagos cuelgan de plan_id. Ninguna
+    // tenía ON DELETE CASCADE, por eso borrar socios/actividades fallaba (500).
+    // Orden: primero los hijos, después el plan.
+    await db.query(
+      `DELETE FROM planes_clases_registro
+       WHERE plan_id IN (SELECT id FROM planes_clases_socio WHERE club_id=$1)`,
+      [id]
+    );
+    await db.query(
+      `DELETE FROM planes_clases_pagos
+       WHERE plan_id IN (SELECT id FROM planes_clases_socio WHERE club_id=$1)`,
+      [id]
+    );
+    await db.query('DELETE FROM planes_clases_socio WHERE club_id=$1', [id]);
+
     // 1) Tablas que dependen de otra tabla hija (deben irse primero que su padre)
     await db.query(
       `DELETE FROM transferencias_pago
