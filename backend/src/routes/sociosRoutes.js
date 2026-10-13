@@ -2648,6 +2648,13 @@ const r = await db.query(
       WHEN dni IS DISTINCT FROM $26 THEN NULL
       WHEN numero_socio IS DISTINCT FROM $27 THEN NULL
       ELSE bienvenida_enviada_at
+    END,
+    -- ✅ NUEVO: la bienvenida por WhatsApp se rearma si cambian DNI o N° de socio
+    -- (datos que viajan en el mensaje). Es independiente del flag de email.
+    bienvenida_whatsapp_enviada_at = CASE
+      WHEN dni IS DISTINCT FROM $26 THEN NULL
+      WHEN numero_socio IS DISTINCT FROM $27 THEN NULL
+      ELSE bienvenida_whatsapp_enviada_at
     END
   WHERE id = $23 AND club_id = $24
   RETURNING *
@@ -3177,6 +3184,20 @@ res.setHeader(
   }
 });
 
+// ✅ NUEVO: helpers de segmentación de bienvenida por canal.
+// Valores fijos (nunca vienen del usuario sin validar), por eso se interpolan.
+function sqlFaltaBienvenida(canal) {
+  if (canal === 'whatsapp') return 's.bienvenida_whatsapp_enviada_at IS NULL';
+  if (canal === 'ambos') return '(s.bienvenida_enviada_at IS NULL OR s.bienvenida_whatsapp_enviada_at IS NULL)';
+  return 's.bienvenida_enviada_at IS NULL';
+}
+// Un envío en cola "solapa" con el canal pedido si va a mandar por ese canal.
+function sqlColaSolapa(canal) {
+  if (canal === 'whatsapp') return "e.canal IN ('whatsapp','ambos')";
+  if (canal === 'email') return "e.canal IN ('email','ambos')";
+  return 'TRUE';
+}
+
 // ===============================
 // BIENVENIDA POR EMAIL – LISTAR PENDIENTES
 // GET /club/:clubId/socios/bienvenida/pendientes
@@ -3188,6 +3209,12 @@ router.get(
   requireClubAccess,
   async (req, res) => {
     const { clubId } = req.params;
+    // ✅ NUEVO: la lista se segmenta por canal (?canal=email|whatsapp|ambos).
+    // - email: socios que NO recibieron el mail (bienvenida_enviada_at NULL)
+    // - whatsapp: socios que NO recibieron el WhatsApp (bienvenida_whatsapp_enviada_at NULL)
+    // - ambos: socios a los que les falta al menos uno de los dos
+    // Así, que alguien ya haya recibido el mail no lo saca de la lista de WhatsApp (y viceversa).
+    const canal = ['email', 'whatsapp', 'ambos'].includes(req.query.canal) ? req.query.canal : 'email';
     try {
       const r = await db.query(
         `
@@ -3198,23 +3225,26 @@ router.get(
           nombre,
           apellido,
           email,
-          telefono
+          telefono,
+          (bienvenida_enviada_at IS NOT NULL) AS email_enviado,
+          (bienvenida_whatsapp_enviada_at IS NOT NULL) AS whatsapp_enviado
         FROM socios s
         WHERE club_id = $1
           AND activo = true
-          AND bienvenida_enviada_at IS NULL
+          AND ${sqlFaltaBienvenida(canal)}
           AND NOT EXISTS (
             SELECT 1 FROM bienvenida_envios_programados e
             WHERE e.socio_id = s.id
               AND e.enviado_at IS NULL
               AND e.error IS NULL
+              AND ${sqlColaSolapa(canal)}
           )
         ORDER BY numero_socio ASC
         `,
         [clubId]
       );
 
-      res.json({ ok: true, socios: r.rows });
+      res.json({ ok: true, socios: r.rows, canal });
     } catch (e) {
       console.error('❌ list pendientes bienvenida', e);
       res.status(500).json({ ok: false, error: e.message });
@@ -3260,12 +3290,13 @@ router.post(
         FROM socios s
         WHERE s.club_id = $1
           AND s.id = ANY($2::uuid[])
-          AND s.bienvenida_enviada_at IS NULL
+          AND ${sqlFaltaBienvenida(canalFinal)}
           AND NOT EXISTS (
             SELECT 1 FROM bienvenida_envios_programados e
             WHERE e.socio_id = s.id
               AND e.enviado_at IS NULL
               AND e.error IS NULL
+              AND ${sqlColaSolapa(canalFinal)}
           )
         `,
         [clubId, socioIds]
@@ -3335,6 +3366,8 @@ async function procesarBienvenidasPendientes() {
       `
       SELECT e.id AS envio_id, e.club_id, e.canal, s.id AS socio_id, s.numero_socio,
              s.dni, s.nombre, s.apellido, s.email, s.telefono,
+             (s.bienvenida_enviada_at IS NOT NULL) AS email_ya_enviado,
+             (s.bienvenida_whatsapp_enviada_at IS NOT NULL) AS wa_ya_enviado,
              c.name AS club_name, c.logo_url AS club_logo_url
       FROM bienvenida_envios_programados e
       JOIN socios s ON s.id = e.socio_id
@@ -3358,8 +3391,11 @@ async function procesarBienvenidasPendientes() {
       // pero el default de la migración es 'ambos', así que se comportan igual
       // que antes.
       const canal = row.canal || 'ambos';
-      const quiereEmail = canal === 'email' || canal === 'ambos';
-      const quiereWhatsapp = canal === 'whatsapp' || canal === 'ambos';
+      // ✅ NUEVO: no se reenvía por un canal que ya se entregó antes (p. ej. un
+      // socio que ya recibió el mail y ahora se manda "Email + WhatsApp" o solo
+      // WhatsApp). Cada canal tiene su propio flag en socios.
+      const quiereEmail = (canal === 'email' || canal === 'ambos') && !row.email_ya_enviado;
+      const quiereWhatsapp = (canal === 'whatsapp' || canal === 'ambos') && !row.wa_ya_enviado;
 
       const email = String(row.email ?? '').trim();
 
@@ -3440,7 +3476,11 @@ async function procesarBienvenidasPendientes() {
       let exito;
       let errorFinal;
 
-      if (canal === 'email') {
+      if (!quiereEmail && !quiereWhatsapp) {
+        // Nada que mandar: el/los canal(es) pedido(s) ya se habían entregado.
+        exito = true;
+        errorFinal = null;
+      } else if (canal === 'email') {
         exito = emailOk;
         errorFinal = emailOk ? null : emailError;
       } else if (canal === 'whatsapp') {
@@ -3456,10 +3496,14 @@ async function procesarBienvenidasPendientes() {
           `UPDATE bienvenida_envios_programados SET enviado_at = NOW() WHERE id = $1`,
           [row.envio_id]
         );
-        await db.query(
-          `UPDATE socios SET bienvenida_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
-          [row.socio_id, row.club_id]
-        );
+        // ✅ CAMBIO: bienvenida_enviada_at pasa a significar "mail enviado" (antes
+        // se marcaba también con un envío solo por WhatsApp).
+        if (emailOk) {
+          await db.query(
+            `UPDATE socios SET bienvenida_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,
+            [row.socio_id, row.club_id]
+          );
+        }
         if (waOk) {
           await db.query(
             `UPDATE socios SET bienvenida_whatsapp_enviada_at = NOW() WHERE id = $1 AND club_id = $2`,

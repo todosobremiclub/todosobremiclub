@@ -4032,7 +4032,9 @@ if (payload.es_menor && !payload.tutor_nombre) {
       cont.innerHTML = '<div class="muted small" style="padding:12px;">Cargando socios pendientes…</div>';
     }
 
-    const res = await fetchAuth(`/club/${clubId}/socios/bienvenida/pendientes`);
+    // ✅ NUEVO: la lista depende del canal elegido (email | whatsapp | ambos)
+    const canalSel = $('bienvenidaCanal')?.value || 'email';
+    const res = await fetchAuth(`/club/${clubId}/socios/bienvenida/pendientes?canal=${encodeURIComponent(canalSel)}`);
     const data = await safeJson(res);
 
     if (!res.ok || !data.ok) {
@@ -4065,6 +4067,7 @@ if (payload.es_menor && !payload.tutor_nombre) {
           <span class="muted small"> — N° ${escapeHtml(String(s.numero_socio ?? ''))}</span>
         </span>
         <span class="muted small">
+          ${s.email_enviado ? '✉️✔ ' : ''}${s.whatsapp_enviado ? '💬✔ ' : ''}
           ${s.email ? escapeHtml(s.email) : 'Sin email ⚠️'}
           ${s.telefono ? ` · 📱 ${escapeHtml(s.telefono)}` : ' · Sin teléfono ⚠️'}
         </span>
@@ -4230,6 +4233,12 @@ $('filtroActividad')?.addEventListener('change', async () => {
     $('btnBienvenidaClose')?.addEventListener('click', closeModalBienvenida);
     $('btnBienvenidaCancelar')?.addEventListener('click', closeModalBienvenida);
     $('btnBienvenidaEnviar')?.addEventListener('click', enviarBienvenidaSeleccionados);
+    // ✅ NUEVO: al cambiar el canal se recarga la lista de pendientes de ese canal
+    $('bienvenidaCanal')?.addEventListener('change', async () => {
+      const chkTodos = $('chkBienvenidaSeleccionarTodos');
+      if (chkTodos) chkTodos.checked = false;
+      await loadBienvenidaPendientes();
+    });
 
     $('chkBienvenidaSeleccionarTodos')?.addEventListener('change', (e) => {
       document.querySelectorAll('.chk-bienvenida-socio').forEach((chk) => {
