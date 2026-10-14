@@ -4469,11 +4469,15 @@ plan_conceptos AS (
   -- ("Actividad - Cuota N/Total") para que se agrupen en una sola fila
   -- junto con lo recaudado.
   SELECT
-    a.nombre || ' - Cuota ' || c.numero_cuota || '/' || COUNT(*) OVER (PARTITION BY c.plan_id) AS actividad,
+    COALESCE(aa.nombre, ad.nombre) || ' - Cuota ' || c.numero_cuota || '/' || COUNT(*) OVER (PARTITION BY c.plan_id) AS actividad,
     c.monto AS esperado
   FROM planes_actividad_cuotas c
   JOIN planes_actividad_socio p ON p.id = c.plan_id
-  JOIN actividades_adicionales a ON a.id = p.actividad_id
+  -- ✅ FIX: el plan puede ser de actividad adicional o deportiva
+  LEFT JOIN actividades_adicionales aa
+    ON aa.id = p.actividad_id AND p.tipo_actividad = 'adicional'
+  LEFT JOIN actividades ad
+    ON ad.id = p.actividad_id AND p.tipo_actividad = 'deportiva'
   JOIN socios s ON s.id = p.socio_id
   WHERE p.club_id = $1
     AND p.activo = true

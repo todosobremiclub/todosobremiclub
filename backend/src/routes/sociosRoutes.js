@@ -736,10 +736,18 @@ router.post('/:clubId/planes-actividad/:planId/registrar-pago', requireAuth, req
   try {
     const rPlan = await db.query(
       `
-      SELECT p.id, p.socio_id, p.actividad_id, a.nombre AS actividad_nombre,
+      SELECT p.id, p.socio_id, p.actividad_id,
+             -- ✅ FIX: el plan puede ser de una actividad ADICIONAL o DEPORTIVA
+             -- (planes_actividad_socio.tipo_actividad). Antes se hacía JOIN solo
+             -- con actividades_adicionales, así que los planes de actividades
+             -- deportivas devolvían 404 "Plan no encontrado." al registrar el pago.
+             COALESCE(aa.nombre, ad.nombre) AS actividad_nombre,
              s.nombre AS socio_nombre, s.apellido AS socio_apellido, s.numero_socio
       FROM planes_actividad_socio p
-      JOIN actividades_adicionales a ON a.id = p.actividad_id
+      LEFT JOIN actividades_adicionales aa
+        ON p.tipo_actividad = 'adicional' AND aa.id = p.actividad_id
+      LEFT JOIN actividades ad
+        ON p.tipo_actividad = 'deportiva' AND ad.id = p.actividad_id
       JOIN socios s ON s.id = p.socio_id
       WHERE p.id = $1 AND p.club_id = $2
       `,
