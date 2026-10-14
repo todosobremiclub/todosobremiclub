@@ -703,7 +703,7 @@ function ensureXLSXLibrary() {
   return window.__xlsxLibLoadingPromise;
 }
 
-// Genera y descarga el Excel con el estado de pago (✔ / ✗) mes a mes
+// Genera y descarga el Excel con el importe abonado ($ / ✗) mes a mes
 // de los socios actualmente listados (respeta el filtro de búsqueda y el año elegido).
 async function exportPagosExcel() {
   if (!pagosRowsAll.length) {
@@ -726,15 +726,36 @@ async function exportPagosExcel() {
 
       const nombreCompleto = `${s.apellido ?? ''} ${s.nombre ?? ''}`.trim();
 
+      // ✅ NUEVO: en vez de ✔ se muestra el importe abonado del mes (número);
+      // si el mes no está pagado queda ✗.
+      const montos = s.montos_por_mes && typeof s.montos_por_mes === 'object'
+        ? s.montos_por_mes
+        : {};
+
       const fila = [s.numero_socio ?? '', nombreCompleto];
       for (let mes = 1; mes <= 12; mes++) {
-        fila.push(mesesPagados.includes(mes) ? '✔' : '✗');
+        if (mesesPagados.includes(mes)) {
+          const importe = Number(montos[mes]);
+          // Pagado pero sin importe registrado: se deja ✔ para no mostrar un dato falso
+          fila.push(Number.isFinite(importe) ? importe : '✔');
+        } else {
+          fila.push('✗');
+        }
       }
       return fila;
     });
 
     const aoa = [headers, ...dataRows];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // ✅ NUEVO: formato de moneda en las celdas de importes (columnas C a N)
+    Object.keys(ws).forEach((addr) => {
+      if (addr[0] === '!') return;
+      const cell = ws[addr];
+      if (cell && cell.t === 'n' && !/^[AB]\d+$/.test(addr)) {
+        cell.z = '"$"#,##0';
+      }
+    });
 
     // Ancho de columnas: N° Socio, Socio, y los 12 meses
     ws['!cols'] = [

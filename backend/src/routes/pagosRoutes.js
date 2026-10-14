@@ -168,7 +168,26 @@ router.get(
           COALESCE(
             ARRAY_AGG(pm.mes ORDER BY pm.mes) FILTER (WHERE pm.mes IS NOT NULL),
             '{}'
-          ) AS meses_pagados
+          ) AS meses_pagados,
+          -- ✅ NUEVO: importe abonado por mes ({"1": 15000, "2": 15000, ...}) para el
+          -- Excel "Abono Cuota Social". Usa monto_pagado y, si viniera vacío/0,
+          -- cae a monto. Se suma por si hubiera más de un registro en el mes.
+          (
+            SELECT COALESCE(json_object_agg(x.mes, x.total), '{}'::json)
+            FROM (
+              SELECT pm2.mes,
+                     SUM(
+                       CASE WHEN COALESCE(pm2.monto_pagado, 0) > 0
+                            THEN pm2.monto_pagado
+                            ELSE COALESCE(pm2.monto, 0) END
+                     )::float8 AS total
+              FROM pagos_mensuales pm2
+              WHERE pm2.socio_id = s.id
+                AND pm2.club_id = s.club_id
+                AND pm2.anio = $2
+              GROUP BY pm2.mes
+            ) x
+          ) AS montos_por_mes
         FROM socios s
         LEFT JOIN pagos_mensuales pm
           ON pm.socio_id = s.id
