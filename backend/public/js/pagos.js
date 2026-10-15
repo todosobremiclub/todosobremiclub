@@ -102,6 +102,8 @@ let responsablesCache = [];
 // Paginación de PAGOS (tabla de socios)
 const PAGOS_PAGE_SIZE = 10;
 let pagosRowsAll = [];
+// ✅ NUEVO: filas para el Excel = activos + inactivos con pagos en el año
+let pagosRowsExcel = [];
 let pagosPageCurrent = 1;
 
 function getPagoParcialState() {
@@ -609,7 +611,10 @@ async function loadActividadesAdicionales() {
     );
   }
 
-  renderTabla(rows);
+  // ✅ NUEVO: la pantalla muestra solo socios activos; el Excel incluye
+  // además a los inactivos con pagos del año (en rojo).
+  pagosRowsExcel = rows;
+  renderTabla(rows.filter(s => s.activo !== false));
 }
 
 
@@ -692,13 +697,22 @@ function ensureXLSXLibrary() {
 
   if (window.__xlsxLibLoadingPromise) return window.__xlsxLibLoadingPromise;
 
-  window.__xlsxLibLoadingPromise = new Promise((resolve, reject) => {
+  const loadScript = (src) => new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.src = src;
     script.onload = () => resolve();
     script.onerror = () => reject(new Error('No se pudo cargar la librería para generar el Excel.'));
     document.head.appendChild(script);
   });
+
+  // ✅ CAMBIO: se usa xlsx-js-style (SheetJS con soporte de estilos: color de
+  // letra, etc.) para poder pintar en rojo a los socios inactivos. Si no se
+  // puede cargar, se cae a SheetJS común (el Excel sale igual, sin colores).
+  window.__xlsxLibLoadingPromise = loadScript('https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js')
+    .catch(() => {
+      window.__xlsxStyleUnavailable = true;
+      return loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    });
 
   return window.__xlsxLibLoadingPromise;
 }
@@ -706,7 +720,7 @@ function ensureXLSXLibrary() {
 // Genera y descarga el Excel con el importe abonado ($ / ✗) mes a mes
 // de los socios actualmente listados (respeta el filtro de búsqueda y el año elegido).
 async function exportPagosExcel() {
-  if (!pagosRowsAll.length) {
+  if (!pagosRowsExcel.length) {
     alert('No hay socios para exportar con el filtro/año actual.');
     return;
   }
@@ -719,12 +733,14 @@ async function exportPagosExcel() {
 
     const headers = ['N° Socio', 'Socio', ...MESES_FULL];
 
-    const dataRows = pagosRowsAll.map((s) => {
+    const dataRows = pagosRowsExcel.map((s) => {
       const mesesPagados = Array.isArray(s.meses_pagados)
         ? s.meses_pagados.map(Number)
         : [];
 
       const nombreCompleto = `${s.apellido ?? ''} ${s.nombre ?? ''}`.trim();
+      // ✅ NUEVO: se agrega "(inactivo)" al nombre de los socios dados de baja
+      const nombreFinal = s.activo === false ? `${nombreCompleto} (inactivo)` : nombreCompleto;
 
       // ✅ NUEVO: en vez de ✔ se muestra el importe abonado del mes (número);
       // si el mes no está pagado queda ✗.
@@ -732,7 +748,7 @@ async function exportPagosExcel() {
         ? s.montos_por_mes
         : {};
 
-      const fila = [s.numero_socio ?? '', nombreCompleto];
+      const fila = [s.numero_socio ?? '', nombreFinal];
       for (let mes = 1; mes <= 12; mes++) {
         if (mesesPagados.includes(mes)) {
           const importe = Number(montos[mes]);
@@ -757,10 +773,21 @@ async function exportPagosExcel() {
       }
     });
 
+    // ✅ NUEVO: socios inactivos con TODA la fila (N°, nombre y meses) en letra roja.
+    // Fila de datos i (0-based en pagosRowsExcel) = fila Excel i + 1 (0-based; 0 es el encabezado).
+    pagosRowsExcel.forEach((s, i) => {
+      if (s.activo !== false) return;
+      for (let c = 0; c < headers.length; c++) {
+        const addr = XLSX.utils.encode_cell({ r: i + 1, c });
+        if (!ws[addr]) continue;
+        ws[addr].s = { ...(ws[addr].s || {}), font: { color: { rgb: 'FFC00000' } } };
+      }
+    });
+
     // Ancho de columnas: N° Socio, Socio, y los 12 meses
     ws['!cols'] = [
       { wch: 10 },
-      { wch: 30 },
+      { wch: 36 },
       ...MESES_FULL.map(() => ({ wch: 10 }))
     ];
 

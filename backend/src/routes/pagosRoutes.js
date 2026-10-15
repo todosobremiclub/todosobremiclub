@@ -165,6 +165,7 @@ router.get(
           s.dni,
           s.nombre,
           s.apellido,
+          s.activo,
           COALESCE(
             ARRAY_AGG(pm.mes ORDER BY pm.mes) FILTER (WHERE pm.mes IS NOT NULL),
             '{}'
@@ -193,8 +194,18 @@ router.get(
           ON pm.socio_id = s.id
          AND pm.club_id = s.club_id
          AND pm.anio = $2
-        WHERE s.club_id = $1 AND s.activo = true
-        GROUP BY s.id, s.numero_socio, s.dni, s.nombre, s.apellido
+        -- ✅ NUEVO: además de los activos, se devuelven los socios INACTIVOS que
+        -- tengan al menos un pago en el año (para que figuren en el Excel). La
+        -- pantalla los oculta (filtra por activo en pagos.js); solo el Excel los usa.
+        WHERE s.club_id = $1
+          AND (
+            s.activo = true
+            OR EXISTS (
+              SELECT 1 FROM pagos_mensuales px
+              WHERE px.socio_id = s.id AND px.club_id = s.club_id AND px.anio = $2
+            )
+          )
+        GROUP BY s.id, s.numero_socio, s.dni, s.nombre, s.apellido, s.activo
         ORDER BY s.numero_socio ASC
         `,
         [clubId, anio]
@@ -1326,20 +1337,54 @@ router.delete(
     const { clubId, pagoId } = req.params;
 
     try {
-      const r = await db.query(
-        `
-        DELETE FROM pagos_mensuales
-        WHERE id = $1 AND club_id = $2
-        `,
+      await db.query('BEGIN');
+
+      // ✅ FIX: si este pago incluía cuotas de planes personalizados
+      // (detalle_pago[].plan_cuota_id, ver registrar-pago en sociosRoutes.js),
+      // hay que devolverlas a "pendiente" en planes_actividad_cuotas. Antes
+      // solo se borraba el pago y la cuota quedaba marcada como pagada, por lo
+      // que no volvía a aparecer en "Cuotas de planes personalizados pendientes".
+      const rPrev = await db.query(
+        `SELECT detalle_pago FROM pagos_mensuales WHERE id = $1 AND club_id = $2`,
         [pagoId, clubId]
       );
 
-      if (!r.rowCount) {
+      if (!rPrev.rowCount) {
+        await db.query('ROLLBACK');
         return res.status(404).json({ ok: false, error: 'Pago no encontrado' });
       }
 
+      let detalle = rPrev.rows[0].detalle_pago;
+      if (typeof detalle === 'string') {
+        try { detalle = JSON.parse(detalle); } catch { detalle = []; }
+      }
+      const cuotaIds = (Array.isArray(detalle) ? detalle : [])
+        .map((d) => d && d.plan_cuota_id)
+        .filter(Boolean);
+
+      if (cuotaIds.length) {
+        await db.query(
+          `
+          UPDATE planes_actividad_cuotas c
+          SET pagado = false, fecha_pago = NULL, cuenta = NULL
+          FROM planes_actividad_socio p
+          WHERE c.id = ANY($1::uuid[])
+            AND p.id = c.plan_id
+            AND p.club_id = $2
+          `,
+          [cuotaIds, clubId]
+        );
+      }
+
+      await db.query(
+        `DELETE FROM pagos_mensuales WHERE id = $1 AND club_id = $2`,
+        [pagoId, clubId]
+      );
+
+      await db.query('COMMIT');
       return res.json({ ok: true });
     } catch (e) {
+      try { await db.query('ROLLBACK'); } catch (_) {}
       console.error('❌ delete pago mensual:', e);
       return res.status(500).json({ ok: false, error: e.message });
     }
