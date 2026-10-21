@@ -6,6 +6,7 @@ const {
   validateDestino,
   crearYEnviarNotificacion,
 } = require('../services/notificacionesService'); // ✅ lógica de envío ahora centralizada acá
+const { getCupoRestante } = require('../services/whatsappService'); // ✅ NUEVO: cupo mensual de WhatsApp
 
 const router = express.Router();
 
@@ -147,6 +148,23 @@ router.post('/:clubId/notificaciones', requireAuth, requireClubAccess, async (re
     return res.status(201).json({ ok: true, notificacion, whatsappResumen });
   } catch (e) {
     console.error('❌ POST notificaciones', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// ✅ NUEVO: GET /club/:clubId/whatsapp/cupo
+// Devuelve el cupo mensual de WhatsApp del club (contratado vs usado en el
+// mes en curso). Lo usan los paneles de Notificaciones y de Bienvenida para
+// mostrar un aviso sutil antes de enviar. Solo lectura.
+// Respuesta: { ok, habilitado, limite, usados, restante }
+// ============================================================
+router.get('/:clubId/whatsapp/cupo', requireAuth, requireClubAccess, async (req, res) => {
+  try {
+    const cupo = await getCupoRestante(req.params.clubId);
+    return res.json({ ok: true, ...cupo });
+  } catch (e) {
+    console.error('❌ GET whatsapp/cupo', e);
     return res.status(500).json({ ok: false, error: e.message });
   }
 });

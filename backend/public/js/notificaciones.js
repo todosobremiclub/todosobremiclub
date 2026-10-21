@@ -33,6 +33,30 @@
     return { res, data };
   }
 
+
+  // ✅ NUEVO: aviso sutil con el cupo mensual de WhatsApp del club
+  // (contratado / usados este mes / disponibles). Tono neutro; pasa a
+  // ámbar al 80% y a rojo cuando se agotó.
+  async function loadWaCupo(elId) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    try {
+      const clubId = getActiveClubId();
+      const { res, data } = await fetchAuth(`/club/${clubId}/whatsapp/cupo`);
+      const ok = res.ok;
+      if (!ok || !data.ok || !data.habilitado) { el.textContent = ''; return; }
+
+      const { limite, usados, restante } = data;
+      const pct = limite > 0 ? usados / limite : 0;
+      el.style.color = restante <= 0 ? '#b91c1c' : (pct >= 0.8 ? '#b45309' : '#6b7280');
+      el.textContent =
+        `Plan: ${limite} mensajes/mes · Usados este mes: ${usados} · Disponibles: ${restante}` +
+        (restante <= 0 ? ' · Cupo agotado' : '');
+    } catch (e) {
+      el.textContent = '';
+    }
+  }
+
   function escapeHtml(str) {
     return String(str ?? '')
       .replaceAll('&', '&')
@@ -562,6 +586,7 @@ function getDestinoPayload() {
         msg += `\n⚠️ ${wa.errores.length} no se pudieron enviar: ${motivos.join(', ')}`;
       }
       alert(msg);
+      loadWaCupo('notiWaCupo'); // ✅ NUEVO: refresca el cupo usado
     } else {
       alert('✅ Notificación enviada');
     }
@@ -660,6 +685,9 @@ function getDestinoPayload() {
       wrap.style.display = habilitado ? 'block' : 'none';
       if (!habilitado && $id('notiCanal')) $id('notiCanal').value = 'app';
     }
+
+    // ✅ NUEVO: cupo de WhatsApp (solo si el club tiene el add-on)
+    if (window.currentClub?.whatsapp_habilitado === true) loadWaCupo('notiWaCupo');
 
     // ✅ NUEVO: chips de canal + vista previa en su estado inicial
     syncCanalChipsUI();
