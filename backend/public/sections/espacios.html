@@ -1,0 +1,249 @@
+<section id="espacios-section" class="section-espacios">
+
+  <div class="esp-header">
+    <div class="esp-header-icon">🏟️</div>
+    <div>
+      <h2 class="esp-header-title">Espacios y Clases</h2>
+      <p class="esp-header-sub">Cargá canchas, salones y espacios con sus horarios disponibles para que los socios puedan reservar turnos desde la app.</p>
+    </div>
+  </div>
+
+  <div class="esp-tabs" id="espTabs">
+    <button type="button" class="esp-tab esp-tab--active" data-esptab="recursos">Recursos</button>
+  </div>
+
+  <!-- ================= TAB RECURSOS ================= -->
+  <div id="espTabRecursos">
+    <div class="esp-toolbar">
+      <div class="muted" id="espRecursosResumen"></div>
+      <button type="button" id="btnEspNuevoRecurso" class="btn-ok esp-btn-ok">➕ Nuevo recurso</button>
+    </div>
+    <div id="espRecursosLista" class="esp-grid"><div class="muted">Cargando…</div></div>
+  </div>
+
+  <!-- ================= MODAL RECURSO ================= -->
+  <div id="espRecursoOverlay" class="esp-overlay" style="display:none;">
+    <div class="esp-modal">
+      <div class="esp-modal-head">
+        <h3 id="espRecursoTitulo">Nuevo recurso</h3>
+        <button type="button" id="btnEspRecursoCerrar" class="esp-x" aria-label="Cerrar">✖</button>
+      </div>
+
+      <div class="esp-modal-body">
+        <div class="esp-card">
+          <div class="esp-card-title">✏️ Datos del recurso</div>
+
+          <label>Nombre</label>
+          <input type="text" id="espNombre" maxlength="80" placeholder="Ej: Cancha de fútbol 5 – N°1" />
+
+          <div class="esp-row2">
+            <div>
+              <label>Tipo</label>
+              <select id="espTipo">
+                <option value="cancha">Cancha</option>
+                <option value="salon">Salón</option>
+                <option value="espacio">Espacio</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+            <div>
+              <label>Capacidad (personas, opcional)</label>
+              <input type="number" id="espCapacidad" min="1" step="1" placeholder="Ej: 10" />
+            </div>
+          </div>
+
+          <label>Descripción (opcional)</label>
+          <textarea id="espDescripcion" rows="2" maxlength="500" placeholder="Ej: Césped sintético, con iluminación."></textarea>
+
+          <label>Foto (opcional)</label>
+          <div class="esp-foto-row">
+            <img id="espImagenThumb" class="esp-foto-thumb" style="display:none;" alt="Foto actual" />
+            <input type="file" id="espImagen" accept="image/*" />
+            <button type="button" id="btnEspImagenQuitar" class="btn btn-secondary" style="display:none;">✖ Quitar</button>
+          </div>
+          <div class="muted">Hasta 3MB. JPG, PNG o WEBP.</div>
+
+          <div class="esp-row2" style="margin-top:6px;">
+            <div>
+              <label>Duración de cada turno (minutos)</label>
+              <input type="number" id="espDuracion" min="15" max="720" step="5" value="60" />
+            </div>
+            <div>
+              <label>Se puede reservar hasta (horas antes del inicio)</label>
+              <input type="number" id="espAntMin" min="0" step="1" value="0" />
+            </div>
+          </div>
+          <div class="esp-row2">
+            <div>
+              <label>Se puede reservar con hasta (días de anticipación)</label>
+              <input type="number" id="espAntMax" min="1" max="365" step="1" value="30" />
+            </div>
+            <div>
+              <label>El socio puede cancelar hasta (horas antes)</label>
+              <input type="number" id="espCancelar" min="0" step="1" value="12" />
+            </div>
+          </div>
+          <div class="muted">0 horas = se puede reservar hasta el momento en que empieza el turno.</div>
+
+          <label class="esp-check"><input type="checkbox" id="espReservableApp" checked /> Los socios pueden reservarlo desde la app</label>
+          <label class="esp-check" id="espActivoWrap" style="display:none;"><input type="checkbox" id="espActivo" checked /> Recurso activo</label>
+
+          <div id="espRecursoMsg" class="esp-msg" style="display:none;"></div>
+          <div class="esp-actions">
+            <button type="button" id="btnEspRecursoGuardar" class="btn-ok esp-btn-ok">💾 Guardar recurso</button>
+            <button type="button" id="btnEspRecursoEliminar" class="btn btn-secondary esp-danger" style="display:none;">🗑️ Eliminar</button>
+          </div>
+        </div>
+
+        <!-- ===== Disponibilidad (solo con el recurso ya guardado) ===== -->
+        <div class="esp-card" id="espDispCard">
+          <div class="esp-card-title">🗓️ Disponibilidad</div>
+
+          <div id="espDispNuevo" class="muted">Guardá el recurso para poder cargar sus horarios.</div>
+
+          <div id="espDispEditor" style="display:none;">
+            <div class="muted" style="margin-bottom:8px;">Los turnos solo existen dentro de los horarios que cargues acá. Podés cargar horarios que se repiten (ej: todos los lunes) o días puntuales, y bloquear fechas (feriados, mantenimiento).</div>
+
+            <div id="espReglasLista" class="esp-reglas"></div>
+
+            <div class="esp-actions" style="margin-top:8px;">
+              <button type="button" id="btnEspReglaAgregar" class="btn btn-secondary">➕ Agregar horario o bloqueo</button>
+              <button type="button" id="btnEspVerTurnos" class="btn btn-secondary">👁️ Ver turnos de ejemplo</button>
+            </div>
+
+            <!-- Formulario de regla -->
+            <div id="espReglaForm" class="esp-reglaform" style="display:none;">
+              <div class="esp-segment" id="espReglaModo">
+                <button type="button" data-modo="disponible" class="esp-seg esp-seg--on">✅ Horario disponible</button>
+                <button type="button" data-modo="bloqueado" class="esp-seg">🚫 Bloqueo</button>
+              </div>
+
+              <div class="esp-segment" id="espReglaTipo" style="margin-top:8px;">
+                <button type="button" data-tipo="semanal" class="esp-seg esp-seg--on">🔁 Se repite cada semana</button>
+                <button type="button" data-tipo="fecha" class="esp-seg">📅 Un día específico</button>
+              </div>
+
+              <div id="espReglaSemanal" style="margin-top:8px;">
+                <label>Días</label>
+                <div class="esp-dias" id="espReglaDias">
+                  <button type="button" data-dia="1">L</button>
+                  <button type="button" data-dia="2">M</button>
+                  <button type="button" data-dia="3">X</button>
+                  <button type="button" data-dia="4">J</button>
+                  <button type="button" data-dia="5">V</button>
+                  <button type="button" data-dia="6">S</button>
+                  <button type="button" data-dia="0">D</button>
+                </div>
+                <div class="esp-row2">
+                  <div><label>Vigente desde (opcional)</label><input type="date" id="espReglaVigDesde" /></div>
+                  <div><label>Vigente hasta (opcional)</label><input type="date" id="espReglaVigHasta" /></div>
+                </div>
+              </div>
+
+              <div id="espReglaFechaWrap" style="display:none; margin-top:8px;">
+                <label>Fecha</label>
+                <input type="date" id="espReglaFecha" />
+              </div>
+
+              <div id="espReglaBloqueoTodo" style="display:none;">
+                <label class="esp-check"><input type="checkbox" id="espReglaTodoDia" checked /> Todo el día</label>
+              </div>
+
+              <div class="esp-row2" id="espReglaHoras" style="margin-top:6px;">
+                <div><label>Desde</label><input type="time" id="espReglaDesde" value="18:00" /></div>
+                <div><label>Hasta</label><input type="time" id="espReglaHasta" value="23:00" /></div>
+              </div>
+
+              <div id="espReglaMotivoWrap" style="display:none;">
+                <label>Motivo (opcional)</label>
+                <input type="text" id="espReglaMotivo" maxlength="120" placeholder="Ej: Feriado, Mantenimiento" />
+              </div>
+
+              <div id="espReglaMsg" class="esp-msg" style="display:none;"></div>
+              <div class="esp-actions">
+                <button type="button" id="btnEspReglaGuardar" class="btn-ok esp-btn-ok">Guardar</button>
+                <button type="button" id="btnEspReglaCancelar" class="btn btn-secondary">Cancelar</button>
+              </div>
+            </div>
+
+            <!-- Turnos de ejemplo -->
+            <div id="espTurnosBox" class="esp-turnos" style="display:none;">
+              <div class="esp-turnos-head">
+                <strong>Así los ve el socio en la app (próximos 7 días)</strong>
+                <button type="button" id="btnEspTurnosCerrar" class="esp-x">✖</button>
+              </div>
+              <div id="espTurnosCont"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<style>
+  .section-espacios { max-width: 1100px; }
+  .esp-header { display:flex; gap:14px; align-items:center; margin-bottom:14px; }
+  .esp-header-icon { font-size:34px; }
+  .esp-header-title { margin:0; }
+  .esp-header-sub { margin:2px 0 0; color:#667; font-size:14px; }
+  .esp-tabs { display:flex; gap:6px; border-bottom:1px solid #e3e6ea; margin-bottom:14px; }
+  .esp-tab { background:none; border:none; padding:9px 14px; cursor:pointer; font-weight:600; color:#667; border-bottom:3px solid transparent; }
+  .esp-tab--active { color: var(--color-primary, #1f6feb); border-bottom-color: var(--color-primary, #1f6feb); }
+  .esp-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:10px; flex-wrap:wrap; }
+  .esp-btn-ok { background:#16a34a; border:1px solid #16a34a; color:#fff; font-weight:600; border-radius:8px; padding:8px 14px; cursor:pointer; }
+  .esp-btn-ok:hover { background:#15803d; }
+  .esp-btn-ok:disabled { opacity:.6; cursor:default; }
+  .esp-danger { color:#b91c1c; border-color:#fca5a5; }
+  .esp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+  .esp-rcard { background:#fff; border:1px solid #e3e6ea; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
+  .esp-rcard--off { opacity:.6; }
+  .esp-rimg { height:130px; background:#eef1f5; display:flex; align-items:center; justify-content:center; font-size:44px; }
+  .esp-rimg img { width:100%; height:100%; object-fit:cover; }
+  .esp-rbody { padding:12px 14px; flex:1; }
+  .esp-rname { font-weight:700; font-size:16px; margin:0 0 4px; }
+  .esp-rmeta { font-size:13px; color:#556; line-height:1.5; }
+  .esp-badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .esp-badge { font-size:12px; padding:2px 8px; border-radius:999px; background:#eef1f5; color:#334; }
+  .esp-badge--warn { background:#fef3c7; color:#92400e; }
+  .esp-badge--off { background:#fee2e2; color:#991b1b; }
+  .esp-rfoot { padding:10px 14px; border-top:1px solid #eef0f3; display:flex; gap:8px; }
+  .esp-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:flex; align-items:flex-start; justify-content:center; overflow:auto; padding:24px 12px; }
+  .esp-modal { background:#f6f7f9; border-radius:14px; width:100%; max-width:760px; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+  .esp-modal-head { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; background:#fff; border-radius:14px 14px 0 0; border-bottom:1px solid #e3e6ea; }
+  .esp-modal-head h3 { margin:0; }
+  .esp-x { background:none; border:none; cursor:pointer; font-size:16px; color:#667; }
+  .esp-modal-body { padding:14px; display:flex; flex-direction:column; gap:14px; }
+  .esp-card { background:#fff; border:1px solid #e3e6ea; border-radius:12px; padding:14px 16px; }
+  .esp-card-title { font-weight:700; margin-bottom:8px; }
+  .esp-card label { display:block; font-size:.85rem; color:#444; margin:10px 0 4px; }
+  .esp-card input[type="text"], .esp-card input[type="number"], .esp-card input[type="date"], .esp-card input[type="time"], .esp-card select, .esp-card textarea {
+    width:100%; box-sizing:border-box; padding:9px 10px; border-radius:8px; border:1px solid #ccc; font-size:14px; font-family:inherit; }
+  .esp-card label.esp-check { display:flex; align-items:center; gap:8px; margin-top:12px; cursor:pointer; }
+  .esp-row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px){ .esp-row2 { grid-template-columns:1fr; } }
+  .esp-foto-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .esp-foto-thumb { width:90px; height:60px; object-fit:cover; border-radius:8px; border:1px solid #ddd; }
+  .esp-actions { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .esp-msg { margin-top:10px; padding:8px 10px; border-radius:8px; font-size:13px; background:#fee2e2; color:#991b1b; }
+  .esp-msg--ok { background:#dcfce7; color:#166534; }
+  .esp-reglas { display:flex; flex-direction:column; gap:6px; }
+  .esp-reglas-grupo { font-size:12px; font-weight:700; color:#667; margin-top:6px; text-transform:uppercase; letter-spacing:.03em; }
+  .esp-regla { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 10px; border-radius:8px; background:#f0fdf4; border:1px solid #bbf7d0; font-size:14px; }
+  .esp-regla--bloq { background:#fef2f2; border-color:#fecaca; }
+  .esp-regla button { background:none; border:none; cursor:pointer; font-size:14px; }
+  .esp-reglaform { margin-top:12px; padding:12px; border:1px dashed #bbb; border-radius:10px; background:#fafbfc; }
+  .esp-segment { display:flex; gap:6px; flex-wrap:wrap; }
+  .esp-seg { flex:1; padding:8px 10px; border:1px solid #ccc; background:#fff; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+  .esp-seg--on { background: var(--color-primary, #1f6feb); border-color: var(--color-primary, #1f6feb); color:#fff; }
+  .esp-dias { display:flex; gap:6px; }
+  .esp-dias button { width:38px; height:38px; border-radius:50%; border:1px solid #ccc; background:#fff; cursor:pointer; font-weight:700; }
+  .esp-dias button.on { background: var(--color-primary, #1f6feb); border-color: var(--color-primary, #1f6feb); color:#fff; }
+  .esp-turnos { margin-top:12px; border:1px solid #e3e6ea; border-radius:10px; padding:10px 12px; background:#fff; }
+  .esp-turnos-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .esp-tdia { margin-bottom:8px; }
+  .esp-tdia-fecha { font-weight:700; font-size:13px; margin-bottom:4px; }
+  .esp-tchips { display:flex; flex-wrap:wrap; gap:6px; }
+  .esp-tchip { padding:4px 9px; border-radius:8px; background:#dcfce7; color:#166534; font-size:13px; font-weight:600; }
+  .esp-tnone { font-size:13px; color:#889; }
+</style>
+</section>

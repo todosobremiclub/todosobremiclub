@@ -262,6 +262,15 @@ if (btnTienda) {
   btnTienda.style.display = (club.tienda_habilitada === true && puedeVerPorRol) ? '' : 'none';
 }
 
+// ✅ NUEVO: el botón "Espacios y Clases" solo se muestra si el club tiene el
+// módulo habilitado (flag espacios_habilitado que activa el superadmin).
+const btnEspacios = document.querySelector('[data-section="espacios"]');
+if (btnEspacios) {
+  const perms = window.__clubPerms;
+  const puedeVerPorRol = !perms || perms.canAccess('espacios');
+  btnEspacios.style.display = (club.espacios_habilitado === true && puedeVerPorRol) ? '' : 'none';
+}
+
 
     // ===============================
     // Título / info
@@ -325,7 +334,8 @@ document.body.style.backgroundBlendMode = 'overlay';
 const ALL_SECTIONS = [
   'socios','pendientes','pagos','gastos',
   'noticias','notificaciones','cumples',
-  'configuracion','reportes','acceso','tienda' // ✅ NUEVO: Tienda Online
+  'configuracion','reportes','acceso','tienda', // ✅ NUEVO: Tienda Online
+  'espacios' // ✅ NUEVO: Espacios y Clases
 ];
 
 function normalizeRole(role){
@@ -358,6 +368,9 @@ function buildPermissions(role){
       // (donde reportes.js ya lo limita a ver únicamente el reporte de
       // Asistencia) y a "asistencia" (el modal de Tomar asistencia).
       if (r === 'asistencias') return ['reportes','asistencia'].includes(section);
+      // ✅ NUEVO: "Espacios y Clases" solo para admin/staff y solo lectura
+      // (finanzas y el resto de los roles no entran).
+      if (section === 'espacios') return r === 'admin' || r === 'solo_lectura';
       return ALL_SECTIONS.includes(section);
     },
     // Escritura / ejecutar acciones (mutaciones)
@@ -512,6 +525,9 @@ if (sectionName === 'notificaciones' && window.initNotificacionesSection) {
 }
 if (sectionName === 'tienda' && window.initTiendaSection) { // ✅ NUEVO
   await window.initTiendaSection();
+}
+if (sectionName === 'espacios' && window.initEspaciosSection) { // ✅ NUEVO
+  await window.initEspaciosSection();
 }
     } catch (e) {
       container.innerHTML = `<pre>Error: ${e.message}</pre>`;
