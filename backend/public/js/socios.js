@@ -2878,8 +2878,9 @@ let carnetSocioId = null;
 
 // =============================
 // Descargar carnet (imagen PNG, solo frente, tamaño tarjeta 85,6 x 54 mm)
-// Diseño "moderno": colores del club, escudo, foto, nombre, N° de socio y DNI
+// Diseño: campo del color de acento del club, bandas del color oscuro, escudo integrado
 // =============================
+// ===== Dibujo del carnet (canvas) =====
 function carnetColor(str, fb) {
   const c = document.createElement('canvas').getContext('2d');
   c.fillStyle = '#000000';
@@ -2911,68 +2912,121 @@ function carnetCover(ctx, img, x, y, w, h, r, fill) {
     ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); }
   ctx.restore();
 }
-// Escudo dentro de una "ficha" blanca redondeada (tapa fondos grises/cuadrados de los logos)
-function carnetLogoTile(ctx, img, x, y, w, h, r, pad) {
-  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
-  carnetRR(ctx, x, y, w, h, r); ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
-  if (img) { const k = Math.min((w - pad * 2) / img.width, (h - pad * 2) / img.height);
-    const dw = img.width * k, dh = img.height * k;
-    ctx.save(); carnetRR(ctx, x, y, w, h, r); ctx.clip();
-    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); ctx.restore(); }
-}
-function carnetPattern(ctx, W, H, x0, y0, x1, y1, base, size) {
-  // triángulos translúcidos tipo "low poly"
-  let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
-  for (let y = y0; y < y1; y += size) for (let x = x0; x < x1; x += size) {
-    const a = rnd(), b = rnd();
-    ctx.fillStyle = a > .5 ? `rgba(255,255,255,${0.015 + a * .05})` : `rgba(0,0,0,${0.03 + a * .09})`;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + size, y); ctx.lineTo(x, y + size); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = b > .5 ? `rgba(255,255,255,${0.015 + b * .05})` : `rgba(0,0,0,${0.03 + b * .09})`;
-    ctx.beginPath(); ctx.moveTo(x + size, y); ctx.lineTo(x + size, y + size); ctx.lineTo(x, y + size); ctx.closePath(); ctx.fill();
-  }
-}
 const carnetTitleCase = (t) => String(t || '').toLowerCase().replace(/(^|\s|-)([a-záéíóúñü])/g, (m, a, b) => a + b.toUpperCase());
 
+
+// Quita el fondo liso claro (gris/blanco) del escudo para integrarlo al diseño
+function carnetCleanLogo(img) {
+  if (!img) return img;
+  try {
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0);
+    const id = x.getImageData(0, 0, w, h), d = id.data;
+    const light = (i) => { if (d[i + 3] < 20) return true; const r = d[i], g = d[i + 1], b = d[i + 2];
+      return (Math.max(r, g, b) - Math.min(r, g, b)) < 28 && (r + g + b) / 3 > 150; };
+    const corners = [0, (w - 1) * 4, (h - 1) * w * 4, ((h - 1) * w + w - 1) * 4];
+    if (!corners.every(light)) return img; // logo con fondo propio/transparente: no tocar
+    const seen = new Uint8Array(w * h), st = [];
+    const push = (px, py) => { if (px < 0 || py < 0 || px >= w || py >= h) return; const k = py * w + px;
+      if (seen[k] || !light(k * 4)) return; seen[k] = 1; st.push(k); };
+    for (let i = 0; i < w; i++) { push(i, 0); push(i, h - 1); }
+    for (let j = 0; j < h; j++) { push(0, j); push(w - 1, j); }
+    while (st.length) { const k = st.pop(), px = k % w, py = (k - px) / w; push(px + 1, py); push(px - 1, py); push(px, py + 1); push(px, py - 1); }
+    // un paso extra para comer el halo gris pegado al borde
+    const halo = [];
+    for (let k = 0; k < w * h; k++) { if (seen[k]) continue; const px = k % w, py = (k - px) / w;
+      const near = (px > 0 && seen[k - 1]) || (px < w - 1 && seen[k + 1]) || (py > 0 && seen[k - w]) || (py < h - 1 && seen[k + w]);
+      if (!near) continue; const i = k * 4, r = d[i], g = d[i + 1], b = d[i + 2];
+      if ((Math.max(r, g, b) - Math.min(r, g, b)) < 28 && (r + g + b) / 3 > 105) halo.push(k); }
+    halo.forEach((k) => { seen[k] = 1; });
+    for (let k = 0; k < w * h; k++) if (seen[k]) d[k * 4 + 3] = 0;
+    x.putImageData(id, 0, 0);
+    return c;
+  } catch (e) { return img; }
+}
+
 function carnetDraw(ctx, W, H, d) {
-  const prim = carnetColor(d.cPrim, '#2563eb'), sec = carnetColor(d.cSec, '#1e40af'), acc = carnetColor(d.cAcc, '#facc15');
-  // El color "de resalte" es el más claro/contrastante frente al fondo oscuro
-  const dark = carnetMix(prim, CARNET_BLACK, .6);
-  const hl = carnetLuma(acc) >= carnetLuma(sec) ? acc : sec;
+  const prim = carnetColor(d.cPrim, '#1e3a8a'), sec = carnetColor(d.cSec, '#f5cc15'), acc = carnetColor(d.cAcc, '#facc15');
+  // campo principal = el color más claro de los tres; azul/oscuro = el más oscuro
+  const cols = [prim, sec, acc].sort((a, b) => carnetLuma(a) - carnetLuma(b));
+  // campo = color de acento si es claro (p. ej. amarillo); si no, el más claro
+  const dark = cols[0], field = carnetLuma(acc) > .5 ? acc : cols[2];
+  const navy = carnetMix(dark, CARNET_BLACK, .35);
+  const txtOn = carnetLuma(field) > .5 ? navy : CARNET_WHITE;
   const club = (d.club || 'CLUB').toUpperCase();
   const nombre = carnetTitleCase(d.nombre) || '-';
-  const nro = d.nro, dni = d.dni;
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
 
-  {
-    const g = ctx.createLinearGradient(0, 0, W, H);
-    g.addColorStop(0, carnetStr(carnetMix(prim, CARNET_BLACK, .45))); g.addColorStop(1, carnetStr(carnetMix(prim, CARNET_BLACK, .78)));
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    carnetPattern(ctx, W, H, 0, 0, W, H, prim, 90);
-    // Más color secundario: resplandor arriba a la derecha, franjas diagonales y barra inferior
-    const rg = ctx.createRadialGradient(W, 0, 40, W, 0, 760);
-    rg.addColorStop(0, carnetStr(sec, .75)); rg.addColorStop(.5, carnetStr(sec, .22)); rg.addColorStop(1, carnetStr(sec, 0));
-    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = carnetStr(sec, .9);
-    ctx.beginPath(); ctx.moveTo(W - 240, H); ctx.lineTo(W - 160, H); ctx.lineTo(W, H - 160); ctx.lineTo(W, H - 240); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = carnetStr(sec, .5);
-    ctx.beginPath(); ctx.moveTo(W - 110, H); ctx.lineTo(W - 70, H); ctx.lineTo(W, H - 70); ctx.lineTo(W, H - 110); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = carnetStr(sec); ctx.fillRect(0, H - 14, W, 14);
-    carnetLogoTile(ctx, d.logo, 56, 56, 200, 200, 26, 18);
-    carnetCover(ctx, d.foto, 730, 56, 226, 292, 18); ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; carnetRR(ctx, 730, 56, 226, 292, 18); ctx.stroke();
-    carnetSpacing(ctx, 5); ctx.fillStyle = carnetStr(hl); ctx.font = `600 26px ${CARNET_FONT}`; ctx.fillText('CARNET DE SOCIO', 290, 108); carnetSpacing(ctx, 0);
-    ctx.fillStyle = '#fff';
-    // club en 2 líneas si es largo
-    const words = club.split(' '); 
-    ctx.font = `700 40px ${CARNET_FONT}`;
-    let l1 = club, l2 = '';
-    if (ctx.measureText(club).width > 400 && words.length > 1) { const half = Math.ceil(words.length / 2); l1 = words.slice(0, half).join(' '); l2 = words.slice(half).join(' '); }
-    carnetFit(ctx, l1, 410, 44, '700'); ctx.fillText(l1, 290, 168);
-    if (l2) { carnetFit(ctx, l2, 410, 44, '700'); ctx.fillText(l2, 290, 220); }
-    ctx.fillStyle = '#fff'; carnetFit(ctx, nombre, 900, 54, '700'); ctx.fillText(nombre, 56, 432);
-    ctx.fillStyle = carnetStr(hl); ctx.fillRect(56, 458, 900, 4);
-    ctx.fillStyle = carnetStr(carnetMix(CARNET_WHITE, prim, .35)); ctx.font = `500 22px ${CARNET_FONT}`; ctx.fillText('N° DE SOCIO', 56, 512); ctx.fillText('D.N.I.', 560, 512);
-    ctx.fillStyle = '#fff'; ctx.font = `700 46px ${CARNET_FONT}`; ctx.fillText(nro, 56, 566); ctx.fillText(dni, 560, 566);
+  // ---- Campo principal (color claro del club) con leve degradé
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, carnetStr(carnetMix(field, CARNET_WHITE, .12)));
+  g.addColorStop(1, carnetStr(carnetMix(field, CARNET_BLACK, .12)));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // ---- Pinceladas (rayas irregulares tipo pintura)
+  let seed = 11; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 46; i++) {
+    const y = 150 + rnd() * 400, x = -40 + rnd() * W, len = 120 + rnd() * 420, th = 2 + rnd() * 9, sk = 30 + rnd() * 30;
+    ctx.fillStyle = rnd() > .5 ? 'rgba(255,255,255,.22)' : carnetStr(carnetMix(field, CARNET_BLACK, .5), .13);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y - sk * .35); ctx.lineTo(x + len - 14, y - sk * .35 + th); ctx.lineTo(x - 10, y + th); ctx.closePath(); ctx.fill();
   }
+
+  // ---- Banda superior (color oscuro del club), borde inclinado
+  const top = (x) => 215 - (x / W) * 70;       // 215 a la izquierda -> 145 a la derecha
+  const gt = ctx.createLinearGradient(0, 0, W, 0);
+  gt.addColorStop(0, carnetStr(carnetMix(dark, CARNET_BLACK, .25))); gt.addColorStop(1, carnetStr(carnetMix(dark, CARNET_WHITE, .12)));
+  ctx.fillStyle = gt; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, top(W)); ctx.lineTo(0, top(0)); ctx.closePath(); ctx.fill();
+  // puntos de semitono: sobre el amarillo (oscuros) y dentro de la banda (claros)
+  for (let x = 14; x < W; x += 20) {
+    const edge = top(x);
+    for (let k = 0; k < 8; k++) {
+      const y = edge + 10 + k * 18, r = 6.2 - k * .75 - (1 - x / W) * 1.2; if (r < .8) break;
+      ctx.fillStyle = carnetStr(dark, .9); ctx.beginPath(); ctx.arc(x + (k % 2) * 10, y, r, 0, 7); ctx.fill();
+    }
+    for (let k = 0; k < 4; k++) {
+      const y = edge - 12 - k * 18, r = 5.2 - k * 1.1; if (r < .8) break;
+      ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.beginPath(); ctx.arc(x + (k % 2) * 10, y, r, 0, 7); ctx.fill();
+    }
+  }
+  // ---- Banda inferior
+  const bot = (x) => 560 - (x / W) * 30;
+  const gb = ctx.createLinearGradient(0, 0, W, 0);
+  gb.addColorStop(0, carnetStr(carnetMix(dark, CARNET_BLACK, .2))); gb.addColorStop(1, carnetStr(carnetMix(dark, CARNET_WHITE, .2)));
+  ctx.fillStyle = gb; ctx.beginPath(); ctx.moveTo(0, bot(0)); ctx.lineTo(W, bot(W)); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = carnetStr(field); ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, bot(0) + 8); ctx.lineTo(W, bot(W) + 8); ctx.stroke();
+  carnetSpacing(ctx, 9); ctx.fillStyle = '#fff'; ctx.font = `600 22px ${CARNET_FONT}`; ctx.textAlign = 'center';
+  ctx.fillText('CARNET DE SOCIO', W / 2, 612); ctx.textAlign = 'left'; carnetSpacing(ctx, 0);
+
+  // ---- Nombre del club (banda superior)
+  ctx.fillStyle = '#fff';
+  const words = club.split(' '); ctx.font = `800 54px ${CARNET_FONT}`;
+  let l1 = club, l2 = '';
+  if (ctx.measureText(club).width > 640 && words.length > 1) { const half = Math.ceil(words.length / 2); l1 = words.slice(0, half).join(' '); l2 = words.slice(half).join(' '); }
+  if (l2) { carnetFit(ctx, l1, 640, 50, '800'); ctx.fillText(l1, 56, 70); carnetFit(ctx, l2, 640, 50, '800'); ctx.fillText(l2, 56, 128); }
+  else { carnetFit(ctx, l1, 640, 62, '800'); ctx.fillText(l1, 56, 112); }
+
+  // ---- Escudo integrado (sin ficha), con sombra suave
+  if (d.logo) {
+    const bw = 250, bh = 270, bx = 725, by = 14;
+    const lw = d.logo.naturalWidth || d.logo.width, lh = d.logo.naturalHeight || d.logo.height;
+    const k = Math.min(bw / lw, bh / lh), dw = lw * k, dh = lh * k;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 22; ctx.shadowOffsetY = 6;
+    ctx.drawImage(d.logo, bx + (bw - dw) / 2, by + (bh - dh) / 2, dw, dh); ctx.restore();
+  }
+
+  // ---- Foto
+  const fx = 56, fy = 232, fw = 236, fh = 290;
+  carnetCover(ctx, d.foto, fx, fy, fw, fh, 14);
+  ctx.lineWidth = 7; ctx.strokeStyle = carnetStr(navy); carnetRR(ctx, fx, fy, fw, fh, 14); ctx.stroke();
+
+  // ---- Datos
+  const tx = 330;
+  ctx.fillStyle = carnetStr(txtOn); carnetFit(ctx, nombre, 640, 50, '700'); ctx.fillText(nombre, tx, 316);
+  ctx.fillStyle = carnetStr(navy); ctx.fillRect(tx, 336, 632, 4);
+  ctx.fillStyle = carnetStr(txtOn, .75); ctx.font = `400 20px ${CARNET_FONT}`; ctx.fillText('Nombre y Apellido', tx, 368);
+  ctx.fillStyle = carnetStr(txtOn, .8); ctx.font = `500 22px ${CARNET_FONT}`; ctx.fillText('N° DE SOCIO', tx, 430); ctx.fillText('D.N.I.', tx + 330, 430);
+  ctx.fillStyle = carnetStr(txtOn); ctx.font = `800 52px ${CARNET_FONT}`; ctx.fillText(d.nro, tx, 490); ctx.fillText(d.dni, tx + 330, 490);
 }
 
 function carnetLoadImg(url) {
@@ -3027,7 +3081,7 @@ async function descargarCarnetImagen(socio) {
     nombre: `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim(),
     nro,
     dni: fmtDni(socio.dni),
-    logo,
+    logo: carnetCleanLogo(logo),
     foto
   });
 
