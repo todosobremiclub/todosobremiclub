@@ -2876,6 +2876,188 @@ if ($('socioActividadAdicional')) $('socioActividadAdicional').value = '';
 // =============================
 let carnetSocioId = null;
 
+// =============================
+// Descargar carnet (imagen PNG, solo frente)
+// Foto + nombre + N° socio + DNI + escudo + nombre del club + colores del club
+// =============================
+function _carnetLoadImg(url) {
+  return new Promise((resolve) => {
+    if (!url) return resolve(null);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+function _carnetLuma(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return 0.3;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+function _carnetRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function _carnetFitText(ctx, text, maxW, startPx, weight) {
+  let px = startPx;
+  while (px > 14) {
+    ctx.font = `${weight} ${px}px Arial, Helvetica, sans-serif`;
+    if (ctx.measureText(text).width <= maxW) break;
+    px -= 2;
+  }
+  return px;
+}
+
+async function descargarCarnetImagen(socio) {
+  const css = getComputedStyle(document.documentElement);
+  const cPrim = (css.getPropertyValue('--color-primary') || '#2563eb').trim();
+  const cSec  = (css.getPropertyValue('--color-secondary') || '#1e40af').trim();
+  const cAcc  = (css.getPropertyValue('--color-accent') || '#facc15').trim();
+  const clubNombre = (document.getElementById('clubTitle')?.textContent || '').trim() || 'CLUB';
+  const logoUrl = document.getElementById('clubLogo')?.getAttribute('src') || '';
+
+  const [foto, logo] = await Promise.all([
+    _carnetLoadImg(socio.foto_url || '/img/user-placeholder.png'),
+    _carnetLoadImg(logoUrl)
+  ]);
+
+  const W = 1012, H = 638; // tarjeta 85,6 x 54 mm a 300 dpi (horizontal)
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+
+  // ---- Fondo con los colores del club
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, cPrim);
+  g.addColorStop(1, cSec);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Franja diagonal con el color de acento
+  ctx.fillStyle = cAcc;
+  ctx.globalAlpha = 0.92;
+  ctx.beginPath();
+  ctx.moveTo(0, 330); ctx.lineTo(W, 150); ctx.lineTo(W, 330); ctx.lineTo(0, 520);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Puntos tipo "halftone" arriba a la derecha
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  for (let y = 20; y < 200; y += 22) {
+    for (let x = W - 360; x < W - 10; x += 22) {
+      const r = Math.max(0, 6 - (x - (W - 360)) / 70 - (y / 60));
+      if (r <= 0.6) continue;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // ---- Título: nombre del club
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(0, 0, W, 96);
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const tPx = _carnetFitText(ctx, clubNombre.toUpperCase(), W - 80, 52, '800');
+  ctx.font = `800 ${tPx}px Arial, Helvetica, sans-serif`;
+  ctx.fillText(clubNombre.toUpperCase(), W / 2, 50);
+
+  // ---- Foto del socio
+  const fx = 50, fy = 130, fw = 290, fh = 350;
+  ctx.save();
+  _carnetRoundRect(ctx, fx, fy, fw, fh, 22);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.clip();
+  if (foto) {
+    const k = Math.max(fw / foto.width, fh / foto.height);
+    const dw = foto.width * k, dh = foto.height * k;
+    ctx.drawImage(foto, fx + (fw - dw) / 2, fy + (fh - dh) / 2, dw, dh);
+  } else {
+    ctx.fillStyle = '#d1d5db';
+    ctx.fillRect(fx, fy, fw, fh);
+  }
+  ctx.restore();
+  _carnetRoundRect(ctx, fx, fy, fw, fh, 22);
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = cAcc;
+  ctx.stroke();
+
+  // ---- Escudo del club
+  const lx = 600, ly = 120, lw = 330, lh = 260;
+  if (logo) {
+    const k = Math.min(lw / logo.width, lh / logo.height);
+    const dw = logo.width * k, dh = logo.height * k;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 18;
+    ctx.drawImage(logo, lx + (lw - dw) / 2, ly + (lh - dh) / 2, dw, dh);
+    ctx.restore();
+  }
+
+  // ---- N° de socio (bajo el escudo)
+  const nro = socio.numero_socio != null && socio.numero_socio !== ''
+    ? String(socio.numero_socio).padStart(5, '0') : '-----';
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  _carnetRoundRect(ctx, 560, 400, 410, 70, 14);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.font = '700 38px Arial, Helvetica, sans-serif';
+  ctx.fillText(`SOCIO N° ${nro}`, 765, 436);
+
+  // ---- Banda inferior: nombre y DNI
+  ctx.fillStyle = 'rgba(0,0,0,0.62)';
+  ctx.fillRect(0, 500, W, H - 500);
+
+  const nombre = `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim() || '-';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#fff';
+  const nPx = _carnetFitText(ctx, nombre, 560, 54, '700');
+  ctx.font = `700 ${nPx}px Arial, Helvetica, sans-serif`;
+  ctx.fillText(nombre, 50, 548);
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = '400 22px Arial, Helvetica, sans-serif';
+  ctx.fillText('Nombre y Apellido', 50, 596);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 50px Arial, Helvetica, sans-serif';
+  ctx.fillText(fmtDni(socio.dni), W - 50, 548);
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = '400 22px Arial, Helvetica, sans-serif';
+  ctx.fillText('D.N.I.', W - 50, 596);
+
+  // ---- Descargar
+  const blob = await new Promise((res) => {
+    try { cv.toBlob(res, 'image/png'); } catch (e) { res(null); }
+  });
+  if (!blob) {
+    throw new Error('canvas bloqueado (CORS de imágenes)');
+  }
+  const safe = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `carnet_${safe(socio.apellido)}_${safe(socio.nombre)}.png`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+
 function ensureCarnetModal() {
   // Usamos el modal que ya existe en socios.html
   const modal = document.getElementById('modalCarnet');
@@ -2912,6 +3094,28 @@ function ensureCarnetModal() {
       if (socio) {
         closeCarnet();
         openModalEdit(socio);
+      }
+    });
+  }
+
+  // Botón “Descargar carnet”
+  const btnDescargar = document.getElementById('btnCarnetDescargar');
+  if (btnDescargar) {
+    btnDescargar.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      const socio = sociosCache.find((x) => String(x.id) === String(carnetSocioId));
+      if (!socio) return;
+      const txt = btnDescargar.textContent;
+      btnDescargar.disabled = true;
+      btnDescargar.textContent = 'Generando…';
+      try {
+        await descargarCarnetImagen(socio);
+      } catch (e) {
+        console.error('descargarCarnetImagen', e);
+        alert('No se pudo generar el carnet.');
+      } finally {
+        btnDescargar.disabled = false;
+        btnDescargar.textContent = txt;
       }
     });
   }
