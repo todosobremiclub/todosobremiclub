@@ -64,7 +64,8 @@ async function construirSesionApp(socio) {
       transferencia_cvu,
       transferencia_alias,
       transferencia_titular,
-      tienda_habilitada
+      tienda_habilitada,
+      espacios_habilitado
 
     FROM clubs
     WHERE id = $1
@@ -176,7 +177,8 @@ async function construirSesionApp(socio) {
       transferencia_cvu: club.transferencia_cvu,
       transferencia_alias: club.transferencia_alias,
       transferencia_titular: club.transferencia_titular,
-      tienda_habilitada: club.tienda_habilitada
+      tienda_habilitada: club.tienda_habilitada,
+      espacios_habilitado: club.espacios_habilitado === true
     }
   };
 }

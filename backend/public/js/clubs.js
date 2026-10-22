@@ -215,6 +215,13 @@
     }
   }
 
+  // ✅ NUEVO: Espacios y Clases (mismo patrón que Tienda: un solo checkbox)
+  function setEspaciosFormFromClub(c) {
+    if ($('club_espacios_habilitado')) {
+      $('club_espacios_habilitado').checked = c?.espacios_habilitado === true;
+    }
+  }
+
   async function saveTransferConfigForClub(clubId) {
     if (!clubId) return;
 
@@ -303,6 +310,7 @@
     if ($('club_whatsapp_habilitado')) $('club_whatsapp_habilitado').checked = false; // ✅ NUEVO
     if ($('club_whatsapp_limite_mensual')) $('club_whatsapp_limite_mensual').value = '300'; // ✅ NUEVO
     if ($('club_tienda_habilitada')) $('club_tienda_habilitada').checked = false; // ✅ NUEVO
+    if ($('club_espacios_habilitado')) $('club_espacios_habilitado').checked = false; // ✅ NUEVO
 
 if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
 
@@ -530,6 +538,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     fd.append('whatsapp_habilitado', $('club_whatsapp_habilitado')?.checked ? 'true' : 'false'); // ✅ NUEVO
     fd.append('whatsapp_limite_mensual', $('club_whatsapp_limite_mensual')?.value?.trim() || '300'); // ✅ NUEVO
     fd.append('tienda_habilitada', $('club_tienda_habilitada')?.checked ? 'true' : 'false'); // ✅ NUEVO
+    fd.append('espacios_habilitado', $('club_espacios_habilitado')?.checked ? 'true' : 'false'); // ✅ NUEVO
     fd.append('color_primary', color_primary || '#2563eb');
     fd.append('color_secondary', color_secondary || '#1e40af');
     fd.append('color_accent', color_accent || '#facc15');
@@ -584,6 +593,7 @@ if ($('club_payment_due_day')) $('club_payment_due_day').value = '31';
     setTransferEnabledFromClub(c);
     setWhatsappFormFromClub(c); // ✅ NUEVO
     setTiendaFormFromClub(c); // ✅ NUEVO
+    setEspaciosFormFromClub(c); // ✅ NUEVO
 
     if ($('club_socios_cantidad')) $('club_socios_cantidad').value = c.socios_cantidad ?? '';
     if ($('club_valor_mensual')) $('club_valor_mensual').value = c.valor_mensual ?? '';

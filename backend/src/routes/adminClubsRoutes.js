@@ -107,6 +107,7 @@ router.get('/', requireAuth, requireRole('superadmin'), async (_req, res) => {
   whatsapp_limite_mensual,  -- ✅ NUEVO
 
   tienda_habilitada,        -- ✅ NUEVO
+  espacios_habilitado,      -- ✅ NUEVO: Espacios y Clases
 
   -- ✅ FIX: antes contaba TODOS los socios del club (activos + inactivos/dados
   -- de baja), por eso en Super Admin se veía un número mayor al de "Socios
@@ -304,7 +305,8 @@ router.put(
  payment_mode,              // ✅ NUEVO
  whatsapp_habilitado,      // ✅ NUEVO
  whatsapp_limite_mensual,  // ✅ NUEVO
- tienda_habilitada          // ✅ NUEVO
+ tienda_habilitada,         // ✅ NUEVO
+ espacios_habilitado        // ✅ NUEVO: Espacios y Clases
 } = req.body ?? {};
 
       if (!name?.trim()) {
@@ -389,7 +391,8 @@ SET
   payment_due_day = COALESCE($18::int, payment_due_day),
   whatsapp_habilitado = COALESCE($19::boolean, whatsapp_habilitado),
   whatsapp_limite_mensual = COALESCE($20::int, whatsapp_limite_mensual),
-  tienda_habilitada = COALESCE($23::boolean, tienda_habilitada)
+  tienda_habilitada = COALESCE($23::boolean, tienda_habilitada),
+  espacios_habilitado = COALESCE($24::boolean, espacios_habilitado)
 WHERE id = $21::uuid
 RETURNING *
   `,
@@ -416,7 +419,8 @@ RETURNING *
   whatsapp_limite_mensual ? Number(whatsapp_limite_mensual) : null,
   id,
   paymentModeNorm,
-  toBool(tienda_habilitada, null)
+  toBool(tienda_habilitada, null),
+  toBool(espacios_habilitado, null)
 ]
 );
 
