@@ -2877,10 +2877,105 @@ if ($('socioActividadAdicional')) $('socioActividadAdicional').value = '';
 let carnetSocioId = null;
 
 // =============================
-// Descargar carnet (imagen PNG, solo frente)
-// Foto + nombre + N° socio + DNI + escudo + nombre del club + colores del club
+// Descargar carnet (imagen PNG, solo frente, tamaño tarjeta 85,6 x 54 mm)
+// Diseño "moderno": colores del club, escudo, foto, nombre, N° de socio y DNI
 // =============================
-function _carnetLoadImg(url) {
+function carnetColor(str, fb) {
+  const c = document.createElement('canvas').getContext('2d');
+  c.fillStyle = '#000000';
+  c.fillStyle = str || fb;
+  const v = c.fillStyle;
+  if (v[0] === '#') { const n = parseInt(v.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  const m = v.match(/\d+/g); return [+m[0], +m[1], +m[2]];
+}
+const carnetMix = (a, b, t) => a.map((x, i) => x + (b[i] - x) * t);
+const carnetStr = (a, al) => al == null ? `rgb(${a.map(Math.round).join(',')})` : `rgba(${a.map(Math.round).join(',')},${al})`;
+const carnetLuma = (a) => (0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2]) / 255;
+const CARNET_BLACK = [0, 0, 0], CARNET_WHITE = [255, 255, 255];
+const CARNET_FONT = "'Poppins','Segoe UI',Arial,sans-serif";
+
+function carnetRR(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function carnetFit(ctx, text, maxW, startPx, weight) {
+  let px = startPx;
+  while (px > 14) { ctx.font = `${weight} ${px}px ${CARNET_FONT}`; if (ctx.measureText(text).width <= maxW) break; px -= 2; }
+  ctx.font = `${weight} ${px}px ${CARNET_FONT}`; return px;
+}
+function carnetSpacing(ctx, px) { try { ctx.letterSpacing = px + 'px'; } catch (e) {} }
+function carnetCover(ctx, img, x, y, w, h, r, fill) {
+  ctx.save(); carnetRR(ctx, x, y, w, h, r); ctx.fillStyle = fill || '#fff'; ctx.fill(); ctx.clip();
+  if (img) { const k = Math.max(w / img.width, h / img.height); const dw = img.width * k, dh = img.height * k;
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); }
+  ctx.restore();
+}
+// Escudo dentro de una "ficha" blanca redondeada (tapa fondos grises/cuadrados de los logos)
+function carnetLogoTile(ctx, img, x, y, w, h, r, pad) {
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
+  carnetRR(ctx, x, y, w, h, r); ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
+  if (img) { const k = Math.min((w - pad * 2) / img.width, (h - pad * 2) / img.height);
+    const dw = img.width * k, dh = img.height * k;
+    ctx.save(); carnetRR(ctx, x, y, w, h, r); ctx.clip();
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); ctx.restore(); }
+}
+function carnetPattern(ctx, W, H, x0, y0, x1, y1, base, size) {
+  // triángulos translúcidos tipo "low poly"
+  let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let y = y0; y < y1; y += size) for (let x = x0; x < x1; x += size) {
+    const a = rnd(), b = rnd();
+    ctx.fillStyle = a > .5 ? `rgba(255,255,255,${0.015 + a * .05})` : `rgba(0,0,0,${0.03 + a * .09})`;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + size, y); ctx.lineTo(x, y + size); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = b > .5 ? `rgba(255,255,255,${0.015 + b * .05})` : `rgba(0,0,0,${0.03 + b * .09})`;
+    ctx.beginPath(); ctx.moveTo(x + size, y); ctx.lineTo(x + size, y + size); ctx.lineTo(x, y + size); ctx.closePath(); ctx.fill();
+  }
+}
+const carnetTitleCase = (t) => String(t || '').toLowerCase().replace(/(^|\s|-)([a-záéíóúñü])/g, (m, a, b) => a + b.toUpperCase());
+
+function carnetDraw(ctx, W, H, d) {
+  const prim = carnetColor(d.cPrim, '#2563eb'), sec = carnetColor(d.cSec, '#1e40af'), acc = carnetColor(d.cAcc, '#facc15');
+  // El color "de resalte" es el más claro/contrastante frente al fondo oscuro
+  const dark = carnetMix(prim, CARNET_BLACK, .6);
+  const hl = carnetLuma(acc) >= carnetLuma(sec) ? acc : sec;
+  const club = (d.club || 'CLUB').toUpperCase();
+  const nombre = carnetTitleCase(d.nombre) || '-';
+  const nro = d.nro, dni = d.dni;
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+
+  {
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, carnetStr(carnetMix(prim, CARNET_BLACK, .45))); g.addColorStop(1, carnetStr(carnetMix(prim, CARNET_BLACK, .78)));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    carnetPattern(ctx, W, H, 0, 0, W, H, prim, 90);
+    // Más color secundario: resplandor arriba a la derecha, franjas diagonales y barra inferior
+    const rg = ctx.createRadialGradient(W, 0, 40, W, 0, 760);
+    rg.addColorStop(0, carnetStr(sec, .75)); rg.addColorStop(.5, carnetStr(sec, .22)); rg.addColorStop(1, carnetStr(sec, 0));
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = carnetStr(sec, .9);
+    ctx.beginPath(); ctx.moveTo(W - 240, H); ctx.lineTo(W - 160, H); ctx.lineTo(W, H - 160); ctx.lineTo(W, H - 240); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = carnetStr(sec, .5);
+    ctx.beginPath(); ctx.moveTo(W - 110, H); ctx.lineTo(W - 70, H); ctx.lineTo(W, H - 70); ctx.lineTo(W, H - 110); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = carnetStr(sec); ctx.fillRect(0, H - 14, W, 14);
+    carnetLogoTile(ctx, d.logo, 56, 56, 200, 200, 26, 18);
+    carnetCover(ctx, d.foto, 730, 56, 226, 292, 18); ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; carnetRR(ctx, 730, 56, 226, 292, 18); ctx.stroke();
+    carnetSpacing(ctx, 5); ctx.fillStyle = carnetStr(hl); ctx.font = `600 26px ${CARNET_FONT}`; ctx.fillText('CARNET DE SOCIO', 290, 108); carnetSpacing(ctx, 0);
+    ctx.fillStyle = '#fff';
+    // club en 2 líneas si es largo
+    const words = club.split(' '); 
+    ctx.font = `700 40px ${CARNET_FONT}`;
+    let l1 = club, l2 = '';
+    if (ctx.measureText(club).width > 400 && words.length > 1) { const half = Math.ceil(words.length / 2); l1 = words.slice(0, half).join(' '); l2 = words.slice(half).join(' '); }
+    carnetFit(ctx, l1, 410, 44, '700'); ctx.fillText(l1, 290, 168);
+    if (l2) { carnetFit(ctx, l2, 410, 44, '700'); ctx.fillText(l2, 290, 220); }
+    ctx.fillStyle = '#fff'; carnetFit(ctx, nombre, 900, 54, '700'); ctx.fillText(nombre, 56, 432);
+    ctx.fillStyle = carnetStr(hl); ctx.fillRect(56, 458, 900, 4);
+    ctx.fillStyle = carnetStr(carnetMix(CARNET_WHITE, prim, .35)); ctx.font = `500 22px ${CARNET_FONT}`; ctx.fillText('N° DE SOCIO', 56, 512); ctx.fillText('D.N.I.', 560, 512);
+    ctx.fillStyle = '#fff'; ctx.font = `700 46px ${CARNET_FONT}`; ctx.fillText(nro, 56, 566); ctx.fillText(dni, 560, 566);
+  }
+}
+
+function carnetLoadImg(url) {
   return new Promise((resolve) => {
     if (!url) return resolve(null);
     const img = new Image();
@@ -2891,161 +2986,56 @@ function _carnetLoadImg(url) {
   });
 }
 
-function _carnetLuma(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
-  if (!m) return 0.3;
-  const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-}
-
-function _carnetRoundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-function _carnetFitText(ctx, text, maxW, startPx, weight) {
-  let px = startPx;
-  while (px > 14) {
-    ctx.font = `${weight} ${px}px Arial, Helvetica, sans-serif`;
-    if (ctx.measureText(text).width <= maxW) break;
-    px -= 2;
-  }
-  return px;
+async function carnetEnsureFont() {
+  try {
+    if (!document.getElementById('carnetFontLink')) {
+      const l = document.createElement('link');
+      l.id = 'carnetFontLink';
+      l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap';
+      document.head.appendChild(l);
+    }
+    await Promise.race([
+      Promise.all(['400', '500', '600', '700'].map((w) => document.fonts.load(`${w} 30px Poppins`))),
+      new Promise((res) => setTimeout(res, 2500))
+    ]);
+  } catch (e) { /* si falla, usa Segoe UI / Arial */ }
 }
 
 async function descargarCarnetImagen(socio) {
   const css = getComputedStyle(document.documentElement);
-  const cPrim = (css.getPropertyValue('--color-primary') || '#2563eb').trim();
-  const cSec  = (css.getPropertyValue('--color-secondary') || '#1e40af').trim();
-  const cAcc  = (css.getPropertyValue('--color-accent') || '#facc15').trim();
   const clubNombre = (document.getElementById('clubTitle')?.textContent || '').trim() || 'CLUB';
   const logoUrl = document.getElementById('clubLogo')?.getAttribute('src') || '';
 
+  await carnetEnsureFont();
   const [foto, logo] = await Promise.all([
-    _carnetLoadImg(socio.foto_url || '/img/user-placeholder.png'),
-    _carnetLoadImg(logoUrl)
+    carnetLoadImg(socio.foto_url || '/img/user-placeholder.png'),
+    carnetLoadImg(logoUrl)
   ]);
 
-  const W = 1012, H = 638; // tarjeta 85,6 x 54 mm a 300 dpi (horizontal)
+  const W = 1012, H = 638; // 85,6 x 54 mm a 300 dpi (horizontal)
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
-  const ctx = cv.getContext('2d');
-
-  // ---- Fondo con los colores del club
-  const g = ctx.createLinearGradient(0, 0, W, H);
-  g.addColorStop(0, cPrim);
-  g.addColorStop(1, cSec);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
-
-  // Franja diagonal con el color de acento
-  ctx.fillStyle = cAcc;
-  ctx.globalAlpha = 0.92;
-  ctx.beginPath();
-  ctx.moveTo(0, 330); ctx.lineTo(W, 150); ctx.lineTo(W, 330); ctx.lineTo(0, 520);
-  ctx.closePath();
-  ctx.fill();
-  ctx.globalAlpha = 1;
-
-  // Puntos tipo "halftone" arriba a la derecha
-  ctx.fillStyle = 'rgba(255,255,255,0.18)';
-  for (let y = 20; y < 200; y += 22) {
-    for (let x = W - 360; x < W - 10; x += 22) {
-      const r = Math.max(0, 6 - (x - (W - 360)) / 70 - (y / 60));
-      if (r <= 0.6) continue;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-    }
-  }
-
-  // ---- Título: nombre del club
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  ctx.fillRect(0, 0, W, 96);
-  ctx.fillStyle = '#fff';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const tPx = _carnetFitText(ctx, clubNombre.toUpperCase(), W - 80, 52, '800');
-  ctx.font = `800 ${tPx}px Arial, Helvetica, sans-serif`;
-  ctx.fillText(clubNombre.toUpperCase(), W / 2, 50);
-
-  // ---- Foto del socio
-  const fx = 50, fy = 130, fw = 290, fh = 350;
-  ctx.save();
-  _carnetRoundRect(ctx, fx, fy, fw, fh, 22);
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
-  ctx.clip();
-  if (foto) {
-    const k = Math.max(fw / foto.width, fh / foto.height);
-    const dw = foto.width * k, dh = foto.height * k;
-    ctx.drawImage(foto, fx + (fw - dw) / 2, fy + (fh - dh) / 2, dw, dh);
-  } else {
-    ctx.fillStyle = '#d1d5db';
-    ctx.fillRect(fx, fy, fw, fh);
-  }
-  ctx.restore();
-  _carnetRoundRect(ctx, fx, fy, fw, fh, 22);
-  ctx.lineWidth = 8;
-  ctx.strokeStyle = cAcc;
-  ctx.stroke();
-
-  // ---- Escudo del club
-  const lx = 600, ly = 120, lw = 330, lh = 260;
-  if (logo) {
-    const k = Math.min(lw / logo.width, lh / logo.height);
-    const dw = logo.width * k, dh = logo.height * k;
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 18;
-    ctx.drawImage(logo, lx + (lw - dw) / 2, ly + (lh - dh) / 2, dw, dh);
-    ctx.restore();
-  }
-
-  // ---- N° de socio (bajo el escudo)
   const nro = socio.numero_socio != null && socio.numero_socio !== ''
     ? String(socio.numero_socio).padStart(5, '0') : '-----';
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  _carnetRoundRect(ctx, 560, 400, 410, 70, 14);
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.textAlign = 'center';
-  ctx.font = '700 38px Arial, Helvetica, sans-serif';
-  ctx.fillText(`SOCIO N° ${nro}`, 765, 436);
 
-  // ---- Banda inferior: nombre y DNI
-  ctx.fillStyle = 'rgba(0,0,0,0.62)';
-  ctx.fillRect(0, 500, W, H - 500);
+  carnetDraw(cv.getContext('2d'), W, H, {
+    cPrim: css.getPropertyValue('--color-primary').trim(),
+    cSec: css.getPropertyValue('--color-secondary').trim(),
+    cAcc: css.getPropertyValue('--color-accent').trim(),
+    club: clubNombre,
+    nombre: `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim(),
+    nro,
+    dni: fmtDni(socio.dni),
+    logo,
+    foto
+  });
 
-  const nombre = `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim() || '-';
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#fff';
-  const nPx = _carnetFitText(ctx, nombre, 560, 54, '700');
-  ctx.font = `700 ${nPx}px Arial, Helvetica, sans-serif`;
-  ctx.fillText(nombre, 50, 548);
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.font = '400 22px Arial, Helvetica, sans-serif';
-  ctx.fillText('Nombre y Apellido', 50, 596);
-
-  ctx.textAlign = 'right';
-  ctx.fillStyle = '#fff';
-  ctx.font = '700 50px Arial, Helvetica, sans-serif';
-  ctx.fillText(fmtDni(socio.dni), W - 50, 548);
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.font = '400 22px Arial, Helvetica, sans-serif';
-  ctx.fillText('D.N.I.', W - 50, 596);
-
-  // ---- Descargar
   const blob = await new Promise((res) => {
     try { cv.toBlob(res, 'image/png'); } catch (e) { res(null); }
   });
-  if (!blob) {
-    throw new Error('canvas bloqueado (CORS de imágenes)');
-  }
+  if (!blob) throw new Error('canvas bloqueado (CORS de imágenes)');
+
   const safe = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '');
   const a = document.createElement('a');
@@ -3056,7 +3046,6 @@ async function descargarCarnetImagen(socio) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
-
 
 function ensureCarnetModal() {
   // Usamos el modal que ya existe en socios.html
