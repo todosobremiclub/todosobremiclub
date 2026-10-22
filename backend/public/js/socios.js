@@ -3025,8 +3025,34 @@ function carnetDraw(ctx, W, H, d) {
   ctx.fillStyle = carnetStr(txtOn); carnetFit(ctx, nombre, 640, 50, '700'); ctx.fillText(nombre, tx, 316);
   ctx.fillStyle = carnetStr(navy); ctx.fillRect(tx, 336, 632, 4);
   ctx.fillStyle = carnetStr(txtOn, .75); ctx.font = `400 20px ${CARNET_FONT}`; ctx.fillText('Nombre y Apellido', tx, 368);
-  ctx.fillStyle = carnetStr(txtOn, .8); ctx.font = `500 22px ${CARNET_FONT}`; ctx.fillText('N° DE SOCIO', tx, 430); ctx.fillText('D.N.I.', tx + 330, 430);
-  ctx.fillStyle = carnetStr(txtOn); ctx.font = `800 52px ${CARNET_FONT}`; ctx.fillText(d.nro, tx, 490); ctx.fillText(d.dni, tx + 330, 490);
+  // Tres columnas: N° de socio | Actividad | Ingreso (el tamaño se ajusta al largo del texto)
+  const cols3 = [['N° DE SOCIO', String(d.nro ?? '-')], ['ACTIVIDAD', String(d.act || '-')], ['INGRESO', String(d.ingreso || '-')]];
+  const availW = 632, minGap = 26;
+  const labW = cols3.map(([l]) => { ctx.font = `500 21px ${CARNET_FONT}`; return ctx.measureText(l).width; });
+  let vpx = 44, widths = [];
+  const measure = () => {
+    ctx.font = `800 ${vpx}px ${CARNET_FONT}`;
+    widths = cols3.map(([, v], i) => Math.max(ctx.measureText(v).width, labW[i]));
+    return widths.reduce((x, y) => x + y, 0) + minGap * 2;
+  };
+  while (measure() > availW && vpx > 30) vpx -= 2;
+  if (measure() > availW) {
+    // Actividad demasiado larga: se recorta con "…" para no pisar a las otras columnas
+    ctx.font = `800 ${vpx}px ${CARNET_FONT}`;
+    const others = widths[0] + widths[2] + minGap * 2;
+    const maxAct = availW - others;
+    let t = String(cols3[1][1]);
+    while (t.length > 3 && ctx.measureText(t + '…').width > maxAct) t = t.slice(0, -1);
+    cols3[1][1] = t.trim() + '…';
+    measure();
+  }
+  const gap = Math.min(46, (availW - widths.reduce((x, y) => x + y, 0)) / 2);
+  let cx = tx;
+  cols3.forEach(([lab, val], i) => {
+    ctx.fillStyle = carnetStr(txtOn, .8); ctx.font = `500 21px ${CARNET_FONT}`; ctx.fillText(lab, cx, 430);
+    ctx.fillStyle = carnetStr(txtOn); ctx.font = `800 ${vpx}px ${CARNET_FONT}`; ctx.fillText(val, cx, 430 + 8 + vpx);
+    cx += widths[i] + gap;
+  });
 }
 
 function carnetLoadImg(url) {
@@ -3080,7 +3106,8 @@ async function descargarCarnetImagen(socio) {
     club: clubNombre,
     nombre: `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim(),
     nro,
-    dni: fmtDni(socio.dni),
+    act: socio.actividad || '',
+    ingreso: fmtDMY(socio.fecha_ingreso),
     logo: carnetCleanLogo(logo),
     foto
   });
