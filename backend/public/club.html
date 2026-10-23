@@ -188,9 +188,25 @@ section.section{
       flex:1;
       display:flex;
       justify-content:center;
-      gap:8px;
-      overflow-x:auto;
+      flex-wrap:wrap;          /* si no entran todos (club con todo habilitado), baja a una 2da fila */
+      gap:6px;
       padding: 4px 0;
+    }
+
+    /* Los botones del menú NO se encogen ni parten el texto en dos líneas
+       (antes, con todos los módulos habilitados, el ícono quedaba arriba
+       y el texto abajo). Ícono más chico y padding más compacto. */
+    .topnav__center .navbtn--top {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      padding: 7px 11px;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+    .nav-ico {
+      font-size: 12px;
+      margin-right: 3px;
+      vertical-align: baseline;
     }
 
     /* =========================
@@ -1113,20 +1129,20 @@ textarea:focus{
       <!-- MENÚ -->
       <nav class="topnav">
         <div class="topnav__center">
-          <button class="navbtn navbtn--top" data-section="socios">👤 Socios</button>
+          <button class="navbtn navbtn--top" data-section="socios"><span class="nav-ico">👤</span> Socios</button>
           <button class="navbtn navbtn--top" data-section="pendientes">
-  🕒 Pendientes
+  <span class="nav-ico">🕒</span> Pendientes
   <span id="badgePendientes" style="display:none; background:#ef4444; color:#fff; font-size:11px; font-weight:700; border-radius:99px; padding:1px 7px; margin-left:4px; vertical-align:middle;"></span>
 </button>
-          <button class="navbtn navbtn--top" data-section="pagos">💰 Ingresos</button>
-          <button class="navbtn navbtn--top" data-section="gastos">🧾 Gastos</button>
-          <button class="navbtn navbtn--top" data-section="noticias">📣 Noticias</button>
-          <button class="navbtn navbtn--top" data-section="notificaciones">🔔 Notificaciones</button>
-          <button class="navbtn navbtn--top" data-section="cumples">📅 Agenda</button>
-          <button class="navbtn navbtn--top" data-section="configuracion">⚙️ Configuración</button>
-          <button class="navbtn navbtn--top" data-section="reportes">📊 Reportes</button>
-          <button class="navbtn navbtn--top" data-section="tienda">🛒 Tienda</button>
-          <button class="navbtn navbtn--top" data-section="espacios" style="display:none;">🏟️ Espacios y Clases</button>
+          <button class="navbtn navbtn--top" data-section="pagos"><span class="nav-ico">💰</span> Ingresos</button>
+          <button class="navbtn navbtn--top" data-section="gastos"><span class="nav-ico">🧾</span> Gastos</button>
+          <button class="navbtn navbtn--top" data-section="noticias"><span class="nav-ico">📣</span> Noticias</button>
+          <button class="navbtn navbtn--top" data-section="notificaciones"><span class="nav-ico">🔔</span> Notificaciones</button>
+          <button class="navbtn navbtn--top" data-section="cumples"><span class="nav-ico">📅</span> Agenda</button>
+          <button class="navbtn navbtn--top" data-section="configuracion"><span class="nav-ico">⚙️</span> Configuración</button>
+          <button class="navbtn navbtn--top" data-section="reportes"><span class="nav-ico">📊</span> Reportes</button>
+          <button class="navbtn navbtn--top" data-section="tienda"><span class="nav-ico">🛒</span> Tienda</button>
+          <button class="navbtn navbtn--top" data-section="espacios" style="display:none;"><span class="nav-ico">🏟️</span> Espacios y Clases</button>
         </div>
 
         
