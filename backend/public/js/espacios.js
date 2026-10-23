@@ -3,8 +3,8 @@
 // Panel admin: módulo "Espacios y Clases" (Release A).
 // Por ahora: pestaña "Recursos" (alta/edición/baja de canchas, salones y
 // espacios + editor de disponibilidad + vista previa de turnos).
-// Las pestañas Calendario / Reservas / Abonos / Clases se suman en pasos
-// siguientes (ver claude/espacios-y-clases-plan.md).
+// Pestañas: Calendario / Reservas / Abonos / Clases / Recursos
+// (ver claude/espacios-y-clases-plan.md).
 (() => {
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -615,7 +615,7 @@
   let pickRes = null, pickAbo = null;
 
   // ---------- Tabs ----------
-  const TABS = ['calendario', 'reservas', 'abonos', 'recursos'];
+  const TABS = ['calendario', 'reservas', 'abonos', 'clases', 'recursos'];
   function mostrarTab(nombre) {
     TABS.forEach((t) => {
       const pane = $('#espTab' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -625,6 +625,7 @@
     if (nombre === 'calendario') initCalendario();
     if (nombre === 'reservas') cargarReservas();
     if (nombre === 'abonos') cargarAbonos();
+    if (nombre === 'clases') cargarClases();
     if (nombre === 'recursos') cargarRecursos();
   }
 
@@ -633,6 +634,7 @@
     if (cal) cal.refetchEvents();
     if ($('#espTabReservas') && $('#espTabReservas').style.display !== 'none') cargarReservas();
     if ($('#espTabAbonos') && $('#espTabAbonos').style.display !== 'none') cargarAbonos();
+    if ($('#espTabClases') && $('#espTabClases').style.display !== 'none') cargarClases();
     if (typeof window.actualizarBadgePendientes === 'function') window.actualizarBadgePendientes();
   }
 
@@ -989,8 +991,8 @@
 
   function textoConflicto(c) {
     if (c.tipo === 'reserva') return `Reserva ${fmtFechaLarga(c.fecha)} ${esc(c.desde)}–${esc(c.hasta)} (${esc(c.estado)})${c.titular ? ' · ' + esc(c.titular) : ''}`;
-    if (c.tipo === 'abono') return `Otro abono el mismo día: ${esc(c.detalle || '')} ${esc(c.desde)}–${esc(c.hasta)}`;
-    if (c.tipo === 'clase') return `Clase "${esc(c.nombre || '')}" el ${fmtFechaLarga(c.fecha)}`;
+    if (c.tipo === 'abono') return `Abono ${c.fecha ? fmtFechaLarga(c.fecha) + ' ' : ''}${esc(c.desde)}–${esc(c.hasta)}${c.titular ? ' · ' + esc(c.titular) : (c.detalle ? ' · ' + esc(c.detalle) : '')}`;
+    if (c.tipo === 'clase') return `Clase "${esc(c.nombre || '')}" ${fmtFechaLarga(c.fecha)}${c.desde ? ' ' + esc(c.desde) + '–' + esc(c.hasta) : ''}`;
     return esc(c.tipo);
   }
 
@@ -1100,6 +1102,274 @@
   }
 
   // =============================
+  // CLASES (Release B)
+  // =============================
+  const baseClases = () => `/club/${getActiveClubId()}/clases`;
+  const ORDEN_DIAS = [1, 2, 3, 4, 5, 6, 0]; // Lun..Dom en los selects
+  let clasesCache = [];
+  let claseEditId = null;
+  let claseHorarios = [];
+
+  function fmtHora(h) { return String(h || '').slice(0, 5); }
+
+  function listaConflictosHtml(data) {
+    const lista = data.conflictos.slice(0, 12).map((c) => `<li>${textoConflicto(c)}</li>`).join('');
+    const mas = data.conflictos.length > 12 ? `<li>… y ${data.conflictos.length - 12} más</li>` : '';
+    return `${esc(data.error)}<ul class="esp-confl">${lista}${mas}</ul>`;
+  }
+
+  async function cargarClases() {
+    const tbody = $('#espClaseBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">Cargando…</td></tr>';
+    try {
+      const { res, data } = await fetchAuth(baseClases());
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudieron cargar las clases');
+      clasesCache = data.clases || [];
+      const verInact = $('#espClaseVerInactivas').checked;
+      const lista = clasesCache.filter((c) => verInact || c.activo);
+      if (!lista.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="muted">${clasesCache.length ? 'No hay clases activas.' : 'Todavía no cargaste clases. Tocá "Nueva clase".'}</td></tr>`;
+        return;
+      }
+      const w = canWrite();
+      tbody.innerHTML = lista.map((c) => {
+        const color = c.color ? `<span class="esp-cdot" style="background:${esc(c.color)}"></span>` : '';
+        const insc = c.cupo ? `${c.inscriptos} / ${c.cupo}${c.inscriptos >= c.cupo ? ' <span class="esp-estado esp-estado--rechazada">Completa</span>' : ''}` : `${c.inscriptos}`;
+        const prox = c.proxima ? `${fmtFechaLarga(c.proxima.fecha)} ${esc(c.proxima.hora_desde)}` : '<span class="muted">—</span>';
+        return `<tr data-id="${esc(c.id)}">
+          <td>${color}<b>${esc(c.nombre)}</b>${c.activo ? '' : ' <span class="esp-estado esp-estado--cancelada">Desactivada</span>'}${c.profesor ? `<div class="muted">${esc(c.profesor)}</div>` : ''}</td>
+          <td>${esc(c.horarios_texto)}</td>
+          <td>${c.recurso_nombre ? esc(c.recurso_nombre) : '<span class="muted">—</span>'}</td>
+          <td>${insc}</td><td>${prox}</td>
+          <td style="white-space:nowrap;">
+            ${w ? '<button data-esp-clase="editar">✏️ Editar</button> ' : ''}
+            <button data-esp-clase="inscriptos">👥 Inscriptos</button>
+            ${(w && c.activo) ? ' <button data-esp-clase="fechas">🚫 Fechas</button>' : ''}
+          </td></tr>`;
+      }).join('');
+      tbody.querySelectorAll('[data-esp-clase]').forEach((b) => b.addEventListener('click', () => {
+        const c = clasesCache.find((x) => x.id === b.closest('tr').dataset.id);
+        if (!c) return;
+        const a = b.dataset.espClase;
+        if (a === 'editar') abrirClase(c); else if (a === 'inscriptos') abrirInscriptos(c); else abrirFechas(c);
+      }));
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="esp-msg">${esc(e.message)}</div></td></tr>`;
+    }
+  }
+
+  // ---------- Editor de horarios ----------
+  function horarioVacio() {
+    return { tipo: 'semanal', dia_semana: 1, fecha: '', hora_desde: '18:00', hora_hasta: '19:00', vigente_desde: '', vigente_hasta: '' };
+  }
+  function renderHorarios() {
+    const cont = $('#espClaseHorarios');
+    cont.innerHTML = claseHorarios.map((h, i) => `
+      <div class="esp-hrow" data-i="${i}">
+        <div><label>Se repite</label>
+          <select data-f="tipo"><option value="semanal"${h.tipo === 'semanal' ? ' selected' : ''}>Todas las semanas</option><option value="fecha"${h.tipo === 'fecha' ? ' selected' : ''}>Un día puntual</option></select></div>
+        <div class="esp-hwhen">${h.tipo === 'semanal'
+          ? `<label>Día</label><select data-f="dia_semana">${ORDEN_DIAS.map((d) => `<option value="${d}"${Number(h.dia_semana) === d ? ' selected' : ''}>${DIAS_LARGO[d]}</option>`).join('')}</select>`
+          : `<label>Fecha</label><input type="date" data-f="fecha" min="${ahoraAR().fecha}" value="${esc(h.fecha)}" />`}</div>
+        <div><label>Desde</label><input type="time" data-f="hora_desde" value="${esc(h.hora_desde)}" /></div>
+        <div><label>Hasta</label><input type="time" data-f="hora_hasta" value="${esc(h.hora_hasta)}" /></div>
+        <button type="button" class="esp-hdel" title="Quitar horario" data-del="${i}"${claseHorarios.length <= 1 ? ' disabled style="opacity:.3;cursor:default;"' : ''}>🗑️</button>
+        ${h.tipo === 'semanal' ? `<div class="esp-hextra">
+          <div><label>Empieza el (opcional)</label><input type="date" data-f="vigente_desde" value="${esc(h.vigente_desde)}" /></div>
+          <div><label>Termina el (opcional)</label><input type="date" data-f="vigente_hasta" value="${esc(h.vigente_hasta)}" /></div></div>` : ''}
+      </div>`).join('');
+    cont.querySelectorAll('.esp-hrow').forEach((row) => {
+      const i = Number(row.dataset.i);
+      row.querySelectorAll('[data-f]').forEach((el) => el.addEventListener('change', () => {
+        const f = el.dataset.f;
+        claseHorarios[i][f] = el.value;
+        if (f === 'tipo') renderHorarios();
+      }));
+    });
+    cont.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => {
+      if (claseHorarios.length <= 1) return;
+      claseHorarios.splice(Number(b.dataset.del), 1);
+      renderHorarios();
+    }));
+  }
+
+  function poblarRecursoClase(actual) {
+    const lista = recursosActivos();
+    const extra = (actual && !lista.some((r) => r.id === actual))
+      ? recursos.filter((r) => r.id === actual) : [];
+    $('#espClaseRecurso').innerHTML = '<option value="">Sin recurso (no ocupa ningún espacio)</option>' +
+      [...lista, ...extra].map((r) => `<option value="${esc(r.id)}">${esc(r.nombre)}${r.activo ? '' : ' (inactivo)'}</option>`).join('');
+    $('#espClaseRecurso').value = actual || '';
+  }
+
+  function abrirClase(c) {
+    claseEditId = c ? c.id : null;
+    showMsg('#espClaseMsg', '');
+    $('#espClaseTitulo').textContent = c ? `Editar clase · ${c.nombre}` : 'Nueva clase';
+    $('#espClaseNombre').value = c ? c.nombre : '';
+    $('#espClaseProfesor').value = c?.profesor || '';
+    $('#espClaseDescripcion').value = c?.descripcion || '';
+    $('#espClaseCupo').value = c?.cupo ?? '';
+    $('#espClaseColor').value = c?.color || '#7c3aed';
+    $('#espClaseSinColor').checked = c ? !c.color : false;
+    $('#espClaseActivoWrap').style.display = c ? '' : 'none';
+    $('#espClaseActivo').checked = c ? c.activo : true;
+    $('#btnEspClaseEliminar').style.display = c ? '' : 'none';
+    poblarRecursoClase(c?.recurso_id || '');
+    claseHorarios = c && c.horarios.length
+      ? c.horarios.map((h) => ({
+        tipo: h.tipo, dia_semana: h.dia_semana ?? 1, fecha: h.fecha || '', hora_desde: fmtHora(h.hora_desde), hora_hasta: fmtHora(h.hora_hasta),
+        vigente_desde: h.vigente_desde || '', vigente_hasta: h.vigente_hasta || ''
+      }))
+      : [horarioVacio()];
+    renderHorarios();
+    abrirOverlay('espClaseOverlay');
+  }
+
+  async function guardarClase() {
+    showMsg('#espClaseMsg', '');
+    const nombre = $('#espClaseNombre').value.trim();
+    if (!nombre) return showMsg('#espClaseMsg', 'Ingresá el nombre de la clase.');
+    const cupoTxt = $('#espClaseCupo').value.trim();
+    for (const [i, h] of claseHorarios.entries()) {
+      const pre = claseHorarios.length > 1 ? `Horario ${i + 1}: ` : '';
+      if (!h.hora_desde || !h.hora_hasta) return showMsg('#espClaseMsg', `${pre}completá desde y hasta.`);
+      if (h.hora_desde >= h.hora_hasta) return showMsg('#espClaseMsg', `${pre}la hora de inicio debe ser anterior a la de fin.`);
+      if (h.tipo === 'fecha' && !h.fecha) return showMsg('#espClaseMsg', `${pre}elegí la fecha.`);
+    }
+    const body = {
+      nombre,
+      profesor: $('#espClaseProfesor').value.trim() || null,
+      descripcion: $('#espClaseDescripcion').value.trim() || null,
+      recurso_id: $('#espClaseRecurso').value || null,
+      cupo: cupoTxt === '' ? null : Number(cupoTxt),
+      color: $('#espClaseSinColor').checked ? null : $('#espClaseColor').value,
+      horarios: claseHorarios.map((h) => h.tipo === 'semanal'
+        ? { tipo: 'semanal', dia_semana: Number(h.dia_semana), hora_desde: h.hora_desde, hora_hasta: h.hora_hasta, vigente_desde: h.vigente_desde || null, vigente_hasta: h.vigente_hasta || null }
+        : { tipo: 'fecha', fecha: h.fecha, hora_desde: h.hora_desde, hora_hasta: h.hora_hasta })
+    };
+    if (claseEditId) body.activo = $('#espClaseActivo').checked;
+    const btn = $('#btnEspClaseGuardar');
+    btn.disabled = true;
+    try {
+      const url = claseEditId ? `${baseClases()}/${claseEditId}` : baseClases();
+      const { res, data } = await fetchAuth(url, { method: claseEditId ? 'PUT' : 'POST', json: true, body: JSON.stringify(body) });
+      if (res.status === 409 && Array.isArray(data.conflictos)) return showMsgHtml('#espClaseMsg', listaConflictosHtml(data));
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo guardar la clase');
+      cerrarOverlay('espClaseOverlay');
+      await cargarClases();
+      refrescarVistas();
+    } catch (e) { showMsg('#espClaseMsg', e.message); }
+    finally { btn.disabled = false; }
+  }
+
+  async function eliminarClase() {
+    if (!claseEditId) return;
+    if (!confirm('¿Eliminar la clase? Si tiene inscriptos en su historial, se desactiva en lugar de borrarse.')) return;
+    const { res, data } = await fetchAuth(`${baseClases()}/${claseEditId}`, { method: 'DELETE' });
+    if (!res.ok || !data.ok) return showMsg('#espClaseMsg', data.error || 'No se pudo eliminar');
+    if (data.desactivada && data.motivo) alert(data.motivo);
+    cerrarOverlay('espClaseOverlay');
+    await cargarClases();
+    refrescarVistas();
+  }
+
+  // ---------- Inscriptos ----------
+  let insClase = null;
+  async function recargarInscriptos() {
+    const lista = $('#espClaseInsLista');
+    const { res, data } = await fetchAuth(`${baseClases()}/${insClase.id}/socios`);
+    if (!res.ok || !data.ok) { lista.innerHTML = `<div class="esp-msg">${esc(data.error || 'No se pudieron cargar')}</div>`; return; }
+    const items = data.inscriptos || [];
+    const w = canWrite();
+    $('#espClaseInsCupo').textContent = insClase.cupo
+      ? `${items.length} de ${insClase.cupo} lugares ocupados (quedan ${Math.max(insClase.cupo - items.length, 0)}).`
+      : `${items.length} inscriptos · sin límite de cupo.`;
+    lista.innerHTML = items.length
+      ? items.map((s) => `<div class="esp-ins" data-sid="${esc(s.socio_id)}"><span>#${esc(s.numero_socio ?? '—')} ${esc(s.apellido ?? '')} ${esc(s.nombre ?? '')}${s.socio_activo ? '' : ' <span class="muted">(socio inactivo)</span>'}</span>${w ? '<button type="button">Dar de baja</button>' : ''}</div>`).join('')
+      : '<div class="muted">Todavía no hay socios inscriptos.</div>';
+    lista.querySelectorAll('.esp-ins button').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('¿Dar de baja al socio de esta clase? Se le avisa por notificación.')) return;
+      const { res: r2, data: d2 } = await fetchAuth(`${baseClases()}/${insClase.id}/socios/${b.closest('.esp-ins').dataset.sid}`, { method: 'DELETE' });
+      if (!r2.ok || !d2.ok) return showMsg('#espClaseInsMsg', d2.error || 'No se pudo dar de baja');
+      showMsg('#espClaseInsMsg', '');
+      await recargarInscriptos(); cargarClases();
+    }));
+  }
+  function abrirInscriptos(c) {
+    insClase = c;
+    showMsg('#espClaseInsMsg', '');
+    $('#espClaseInsTitulo').textContent = `Inscriptos · ${c.nombre}`;
+    $('#espClaseInsBusqueda').value = '';
+    $('#espClaseInsResultados').style.display = 'none';
+    $('#espClaseInsAgregar').style.display = canWrite() ? '' : 'none';
+    $('#espClaseInsLista').innerHTML = '<div class="muted">Cargando…</div>';
+    abrirOverlay('espClaseInsOverlay');
+    recargarInscriptos();
+  }
+  async function buscarSocioClase(q) {
+    const cont = $('#espClaseInsResultados');
+    if (!q || q.trim().length < 2) { cont.style.display = 'none'; cont.innerHTML = ''; return; }
+    const { res, data } = await fetchAuth(`/club/${getActiveClubId()}/socios?search=${encodeURIComponent(q.trim())}&limit=8`);
+    const items = (res.ok && data.ok) ? (data.socios || []) : [];
+    cont.style.display = '';
+    if (!items.length) { cont.innerHTML = '<div class="item muted">Sin resultados</div>'; return; }
+    cont.innerHTML = items.map((s) => `<div class="item" data-id="${esc(s.id)}">#${esc(s.numero_socio ?? '—')} ${esc(s.apellido ?? '')} ${esc(s.nombre ?? '')}</div>`).join('');
+    cont.querySelectorAll('.item[data-id]').forEach((el) => el.addEventListener('click', async () => {
+      cont.style.display = 'none'; $('#espClaseInsBusqueda').value = '';
+      showMsg('#espClaseInsMsg', '');
+      const { res: r2, data: d2 } = await fetchAuth(`${baseClases()}/${insClase.id}/socios`, { method: 'POST', json: true, body: JSON.stringify({ socioIds: [el.dataset.id] }) });
+      if (!r2.ok || !d2.ok) return showMsg('#espClaseInsMsg', d2.error || 'No se pudo inscribir');
+      if (d2.inscriptos_nuevos === 0) showMsg('#espClaseInsMsg', 'Ese socio ya estaba inscripto.', true);
+      await recargarInscriptos(); cargarClases();
+    }));
+  }
+
+  // ---------- Fechas (cancelar / volver a dictar) ----------
+  let fecClase = null;
+  async function recargarFechas() {
+    const cont = $('#espClaseFecLista');
+    const hoy = ahoraAR().fecha;
+    const [e1, e2] = await Promise.all([
+      fetchAuth(`${baseClases()}/calendario?desde=${hoy}&hasta=${addDaysISO(hoy, 60)}&clase_id=${fecClase.id}`),
+      fetchAuth(`${baseClases()}/${fecClase.id}`)
+    ]);
+    if (!e1.res.ok || !e1.data.ok) { cont.innerHTML = `<div class="esp-msg">${esc(e1.data.error || 'No se pudieron cargar las fechas')}</div>`; return; }
+    const excs = (e2.res.ok && e2.data.ok) ? (e2.data.clase.excepciones || []) : [];
+    const evs = e1.data.eventos || [];
+    cont.innerHTML = evs.length ? evs.map((e) => `
+      <div class="esp-focc${e.cancelada ? ' esp-focc--cancel' : ''}" data-fecha="${esc(e.fecha)}">
+        <span>${fmtFechaLarga(e.fecha)} · ${esc(e.hora_desde)}–${esc(e.hora_hasta)}${e.cancelada ? ` · <b>Cancelada</b>${e.motivo_cancelacion ? ' (' + esc(e.motivo_cancelacion) + ')' : ''}` : ''}</span>
+        <button type="button" data-acc="${e.cancelada ? 'volver' : 'cancelar'}">${e.cancelada ? 'Volver a dictar' : 'Cancelar esta fecha'}</button>
+      </div>`).join('') : '<div class="muted">La clase no tiene fechas en los próximos 60 días.</div>';
+    cont.querySelectorAll('[data-acc]').forEach((b) => b.addEventListener('click', async () => {
+      const fecha = b.closest('.esp-focc').dataset.fecha;
+      showMsg('#espClaseFecMsg', '');
+      if (b.dataset.acc === 'cancelar') {
+        if (!confirm(`¿Cancelar la clase del ${fmtDMY(fecha)}? Se avisa a los inscriptos.`)) return;
+        const { res, data } = await fetchAuth(`${baseClases()}/${fecClase.id}/excepciones`, { method: 'POST', json: true, body: JSON.stringify({ fecha, motivo: $('#espClaseFecMotivo').value.trim() || undefined }) });
+        if (!res.ok || !data.ok) return showMsg('#espClaseFecMsg', data.error || 'No se pudo cancelar');
+      } else {
+        const exc = excs.find((x) => x.fecha === fecha);
+        if (!exc) return showMsg('#espClaseFecMsg', 'No se encontró la cancelación. Recargá la pantalla.');
+        const { res, data } = await fetchAuth(`${baseClases()}/${fecClase.id}/excepciones/${exc.id}`, { method: 'DELETE' });
+        if (res.status === 409 && Array.isArray(data.conflictos)) return showMsgHtml('#espClaseFecMsg', listaConflictosHtml(data));
+        if (!res.ok || !data.ok) return showMsg('#espClaseFecMsg', data.error || 'No se pudo volver a dictar');
+      }
+      await recargarFechas(); cargarClases(); refrescarVistas();
+    }));
+  }
+  function abrirFechas(c) {
+    fecClase = c;
+    showMsg('#espClaseFecMsg', '');
+    $('#espClaseFecTitulo').textContent = `Fechas · ${c.nombre}`;
+    $('#espClaseFecMotivo').value = '';
+    $('#espClaseFecLista').innerHTML = '<div class="muted">Cargando…</div>';
+    abrirOverlay('espClaseFecOverlay');
+    recargarFechas();
+  }
+
+  // =============================
   // Init
   // =============================
   window.initEspaciosSection = async function initEspaciosSection() {
@@ -1159,6 +1429,23 @@
     $('#btnEspAboNGuardar').addEventListener('click', guardarAboNuevo);
     $('#btnEspAboLibGuardar').addEventListener('click', guardarLiberar);
     $('#btnEspAboBajaOk').addEventListener('click', confirmarBaja);
+
+    // ---- Release B: clases ----
+    $('#btnEspClaseNueva').style.display = w ? '' : 'none';
+    $('#btnEspClaseNueva').addEventListener('click', () => {
+      if (!recursosActivos().length && !confirm('Todavía no cargaste recursos. Podés crear la clase igual, sin recurso. ¿Continuar?')) return;
+      abrirClase(null);
+    });
+    $('#espClaseVerInactivas').addEventListener('change', cargarClases);
+    $('#btnEspClaseAddHorario').addEventListener('click', () => {
+      if (claseHorarios.length >= 14) return showMsg('#espClaseMsg', 'Máximo 14 horarios por clase.');
+      claseHorarios.push(horarioVacio()); renderHorarios();
+    });
+    $('#btnEspClaseGuardar').addEventListener('click', guardarClase);
+    $('#btnEspClaseEliminar').addEventListener('click', eliminarClase);
+    $('#espClaseSinColor').addEventListener('change', () => { $('#espClaseColor').disabled = $('#espClaseSinColor').checked; });
+    let tIns = null;
+    $('#espClaseInsBusqueda').addEventListener('input', (ev) => { clearTimeout(tIns); tIns = setTimeout(() => buscarSocioClase(ev.target.value), 250); });
 
     cal = null;
     ajustarFiltrosReservas();
