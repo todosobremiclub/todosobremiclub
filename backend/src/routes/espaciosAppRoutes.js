@@ -4,13 +4,14 @@
 // El club y el socio salen del JWT (igual que /app/tienda/...).
 // Paso 6: recursos, turnos libres, reservas (crear / mías / cancelar).
 // Paso 8: abonos del socio (solo lectura).
-// Más adelante: /app/clases (Release B).
+// Release B: /app/clases y /app/clases/mias.
 const express = require('express');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const disp = require('../services/disponibilidadService');
 const reservasSvc = require('../services/espaciosReservasService');
 const abonosSvc = require('../services/espaciosAbonosService');
+const clasesSvc = require('../services/clasesService');
 
 const router = express.Router();
 
@@ -192,6 +193,30 @@ router.get('/espacios/abonos/mios', requireAuth, async (req, res) => {
     return res.json({ ok: true, abonos });
   } catch (e) {
     return responderError(res, e, 'GET /app/espacios/abonos/mios');
+  }
+});
+
+// GET /app/clases   (clases activas del club con cupo e indicador "inscripto")
+router.get('/clases', requireAuth, async (req, res) => {
+  try {
+    const s = await sesionEspacios(req, res);
+    if (!s) return;
+    const clases = await clasesSvc.clasesParaApp(db, { clubId: s.clubId, socioId: s.socioId });
+    return res.json({ ok: true, clases });
+  } catch (e) {
+    return responderError(res, e, 'GET /app/clases');
+  }
+});
+
+// GET /app/clases/mias   (clases donde el socio está inscripto, con próximas fechas y canceladas)
+router.get('/clases/mias', requireAuth, async (req, res) => {
+  try {
+    const s = await sesionEspacios(req, res);
+    if (!s) return;
+    const clases = await clasesSvc.misClasesParaApp(db, { clubId: s.clubId, socioId: s.socioId });
+    return res.json({ ok: true, clases });
+  } catch (e) {
+    return responderError(res, e, 'GET /app/clases/mias');
   }
 });
 

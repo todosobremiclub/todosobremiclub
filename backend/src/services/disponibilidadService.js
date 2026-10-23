@@ -436,7 +436,7 @@ module.exports = {
   // utilidades
   toMin, fmt, addDays, dow, daysBetween, isISODate, ahoraArgentina,
   // lógica pura
-  generarGrilla, calcularTurnos, soloLibres, validarTurnoLibre,
+  aplicaRegla, generarGrilla, calcularTurnos, soloLibres, validarTurnoLibre,
   conflictosAbono, abonoCoincideConGrilla, expandirClases,
   // base de datos
   cargarContexto, cargarOcurrenciasClases, turnosDisponibles
