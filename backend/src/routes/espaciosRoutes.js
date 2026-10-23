@@ -5,7 +5,7 @@
 //
 // PASO 4: recursos + disponibilidad + vista de turnos.
 // PASO 6: reservas (listar, alta manual del club, aceptar / rechazar / cancelar).
-//   Más adelante se suman aquí: abonos (paso 8).
+// PASO 8: abonos (reserva fija semanal sin fecha de fin) + fechas liberadas.
 // Los endpoints de la APP del socio viven en appRoutes.js.
 //
 // Permisos: lectura = admin / staff / solo_lectura; escritura = admin / staff.
@@ -20,6 +20,7 @@ const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 const { initFirebase } = require('../config/firebaseAdmin');
 const disp = require('../services/disponibilidadService');
 const reservasSvc = require('../services/espaciosReservasService');
+const abonosSvc = require('../services/espaciosAbonosService');
 
 const router = express.Router();
 
@@ -206,7 +207,9 @@ router.get('/:clubId/espacios/recursos', ...leer, async (req, res) => {
         (SELECT COUNT(*) FROM recursos_disponibilidad d
           WHERE d.recurso_id = r.id AND d.activo = TRUE AND d.modo = 'disponible')::int AS reglas_disponibilidad,
         (SELECT COUNT(*) FROM recursos_abonos a
-          WHERE a.recurso_id = r.id AND a.estado = 'activo')::int AS abonos_activos,
+          WHERE a.recurso_id = r.id AND a.estado = 'activo'
+            AND (a.vigente_hasta IS NULL
+                 OR a.vigente_hasta >= (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date))::int AS abonos_activos,
         (SELECT COUNT(*) FROM recursos_reservas x
           WHERE x.recurso_id = r.id AND x.estado = 'pendiente')::int AS reservas_pendientes
       FROM recursos r
@@ -794,5 +797,103 @@ for (const accion of ['aceptar', 'rechazar', 'cancelar']) {
     }
   });
 }
+
+// ============================================================
+// ABONOS (paso 8)
+// ============================================================
+
+// GET /club/:clubId/espacios/abonos?recurso_id&socio_id&estado=vigente|finalizado
+router.get('/:clubId/espacios/abonos', ...leer, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    for (const k of ['recurso_id', 'socio_id']) {
+      if (req.query[k] && !isUuid(req.query[k])) return res.status(400).json({ ok: false, error: `${k} inválido` });
+    }
+    const estado = req.query.estado ? String(req.query.estado).toLowerCase() : null;
+    if (estado && !['vigente', 'finalizado'].includes(estado)) {
+      return res.status(400).json({ ok: false, error: 'Estado inválido (vigente, finalizado)' });
+    }
+    const abonos = await abonosSvc.listarAbonos(db, {
+      clubId, recursoId: req.query.recurso_id || null, socioId: req.query.socio_id || null, estado
+    });
+    return res.json({ ok: true, abonos });
+  } catch (e) {
+    return responderError(res, e, 'GET espacios/abonos');
+  }
+});
+
+// POST /club/:clubId/espacios/abonos
+// body: { recurso_id, dia_semana (0=Dom..6=Sáb), hora_desde, hora_hasta, socio_id | nombre_externo (+contacto_externo),
+//         vigente_desde?, vigente_hasta?, notas? }
+router.post('/:clubId/espacios/abonos', ...escribir, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const b = req.body || {};
+    if (!isUuid(b.recurso_id)) return res.status(400).json({ ok: false, error: 'Recurso inválido' });
+    if (b.socio_id && !isUuid(b.socio_id)) return res.status(400).json({ ok: false, error: 'Socio inválido' });
+    const abono = await abonosSvc.crearAbono(db, {
+      clubId, recursoId: b.recurso_id, diaSemana: b.dia_semana,
+      horaDesde: b.hora_desde, horaHasta: b.hora_hasta,
+      socioId: b.socio_id || null, nombreExterno: b.nombre_externo, contactoExterno: b.contacto_externo,
+      vigenteDesde: b.vigente_desde, vigenteHasta: b.vigente_hasta, notas: b.notas,
+      adminUserId: adminUserId(req)
+    });
+    return res.status(201).json({ ok: true, abono });
+  } catch (e) {
+    return responderError(res, e, 'POST espacios/abonos');
+  }
+});
+
+// PUT /club/:clubId/espacios/abonos/:id   (notas, contacto/nombre de externo, vigente_hasta)
+// Cambiar día u hora = dar de baja y crear otro (deja historial).
+router.put('/:clubId/espacios/abonos/:id', ...escribir, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    if (!isUuid(id)) return res.status(400).json({ ok: false, error: 'Abono inválido' });
+    const abono = await abonosSvc.editarAbono(db, { clubId, id, cambios: req.body || {} });
+    return res.json({ ok: true, abono });
+  } catch (e) {
+    return responderError(res, e, 'PUT espacios/abonos/:id');
+  }
+});
+
+// POST /club/:clubId/espacios/abonos/:id/baja   body: { fecha_hasta? }  (último día que aplica, inclusive; default hoy)
+router.post('/:clubId/espacios/abonos/:id/baja', ...escribir, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    if (!isUuid(id)) return res.status(400).json({ ok: false, error: 'Abono inválido' });
+    const abono = await abonosSvc.darDeBaja(db, { clubId, id, fechaHasta: req.body?.fecha_hasta });
+    return res.json({ ok: true, abono });
+  } catch (e) {
+    return responderError(res, e, 'POST espacios/abonos/:id/baja');
+  }
+});
+
+// POST /club/:clubId/espacios/abonos/:id/excepciones   body: { fecha_desde, fecha_hasta?, motivo? }
+router.post('/:clubId/espacios/abonos/:id/excepciones', ...escribir, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    if (!isUuid(id)) return res.status(400).json({ ok: false, error: 'Abono inválido' });
+    const b = req.body || {};
+    const excepcion = await abonosSvc.agregarExcepcion(db, {
+      clubId, id, fechaDesde: b.fecha_desde, fechaHasta: b.fecha_hasta, motivo: b.motivo
+    });
+    return res.status(201).json({ ok: true, excepcion });
+  } catch (e) {
+    return responderError(res, e, 'POST espacios/abonos/:id/excepciones');
+  }
+});
+
+// DELETE /club/:clubId/espacios/abonos/:id/excepciones/:excId
+router.delete('/:clubId/espacios/abonos/:id/excepciones/:excId', ...escribir, async (req, res) => {
+  const { clubId, id, excId } = req.params;
+  try {
+    if (!isUuid(id) || !isUuid(excId)) return res.status(400).json({ ok: false, error: 'Identificador inválido' });
+    await abonosSvc.quitarExcepcion(db, { clubId, id, excId });
+    return res.json({ ok: true });
+  } catch (e) {
+    return responderError(res, e, 'DELETE espacios/abonos/:id/excepciones/:excId');
+  }
+});
 
 module.exports = router;

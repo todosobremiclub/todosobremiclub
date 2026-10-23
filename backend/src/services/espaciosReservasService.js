@@ -401,6 +401,7 @@ async function vencerPendientes(db) {
 
 module.exports = {
   MAX_PENDIENTES_SOCIO, ErrNegocio, setNotificador,
+  avisarSocio: avisar,
   crearReserva, gestionarReserva, cancelarPorSocio, infoCancelacion, vencerPendientes,
   obtenerReserva, minutosHastaInicio, yaEmpezo, esFechaReal, SQL_RESERVA
 };

@@ -3,12 +3,14 @@
 // Módulo "Espacios y Clases" — API de la APP del socio (montado bajo /app).
 // El club y el socio salen del JWT (igual que /app/tienda/...).
 // Paso 6: recursos, turnos libres, reservas (crear / mías / cancelar).
-// Más adelante: /app/espacios/abonos/mios (paso 8) y /app/clases (Release B).
+// Paso 8: abonos del socio (solo lectura).
+// Más adelante: /app/clases (Release B).
 const express = require('express');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const disp = require('../services/disponibilidadService');
 const reservasSvc = require('../services/espaciosReservasService');
+const abonosSvc = require('../services/espaciosAbonosService');
 
 const router = express.Router();
 
@@ -178,6 +180,18 @@ router.post('/espacios/reservas/:id/cancelar', requireAuth, async (req, res) => 
     return res.json({ ok: true, reserva: formatoApp(r) });
   } catch (e) {
     return responderError(res, e, 'POST /app/espacios/reservas/:id/cancelar');
+  }
+});
+
+// GET /app/espacios/abonos/mios   (abonos vigentes del socio; solo lectura)
+router.get('/espacios/abonos/mios', requireAuth, async (req, res) => {
+  try {
+    const s = await sesionEspacios(req, res);
+    if (!s) return;
+    const abonos = await abonosSvc.abonosDelSocio(db, { clubId: s.clubId, socioId: s.socioId });
+    return res.json({ ok: true, abonos });
+  } catch (e) {
+    return responderError(res, e, 'GET /app/espacios/abonos/mios');
   }
 });
 
