@@ -113,6 +113,7 @@
   }
 
   function renderRecursos() {
+    poblarSelectsRecurso();
     const cont = $('#espRecursosLista');
     const activos = recursos.filter((r) => r.activo).length;
     $('#espRecursosResumen').textContent = recursos.length
@@ -489,6 +490,615 @@
     }
   }
 
+  // =====================================================================
+  // PASO 9: Calendario / Reservas / Abonos
+  // =====================================================================
+  const TZ = 'America/Argentina/Buenos_Aires';
+  function ahoraAR() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    }).formatToParts(new Date());
+    const g = (t) => parts.find((p) => p.type === t).value;
+    const h = Number(g('hour')) % 24;
+    return { fecha: `${g('year')}-${g('month')}-${g('day')}`, min: h * 60 + Number(g('minute')) };
+  }
+  function addDaysISO(iso, n) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+  }
+  const toMin = (hhmm) => { const [h, m] = String(hhmm).split(':').map(Number); return h * 60 + m; };
+  function turnoYaPaso(fecha, horaHasta) {
+    const a = ahoraAR();
+    if (fecha < a.fecha) return true;
+    if (fecha > a.fecha) return false;
+    return toMin(horaHasta) <= a.min;
+  }
+  function fmtFechaLarga(iso) {
+    return `${DIAS_CORTO[diaSemanaDeIso(iso)]} ${fmtDMY(iso)}`;
+  }
+  function showMsgHtml(sel, html) {
+    const el = $(sel);
+    if (!el) return;
+    el.innerHTML = html;
+    el.className = 'esp-msg';
+    el.style.display = '';
+  }
+  function abrirOverlay(id) { $('#' + id).style.display = 'flex'; }
+  function cerrarOverlay(id) { $('#' + id).style.display = 'none'; }
+  function recursosActivos() { return recursos.filter((r) => r.activo); }
+  function opcionesRecurso(conTodos) {
+    return (conTodos ? '<option value="">Todos</option>' : '') +
+      recursosActivos().map((r) => `<option value="${esc(r.id)}">${esc(r.nombre)}</option>`).join('');
+  }
+  function poblarSelectsRecurso() {
+    const cfg = [['#espCalRecurso', false], ['#espResFiltroRecurso', true], ['#espAboFiltroRecurso', true],
+      ['#espResNRecurso', false], ['#espAboNRecurso', false]];
+    cfg.forEach(([sel, todos]) => {
+      const el = $(sel);
+      if (!el) return;
+      const prev = el.value;
+      el.innerHTML = opcionesRecurso(todos);
+      if (prev && Array.from(el.options).some((o) => o.value === prev)) el.value = prev;
+    });
+  }
+
+  // ---------- Selector de titular (socio o no socio) ----------
+  function titularHtml(p) {
+    return `
+      <label class="esp-check" style="margin-top:12px;"><input type="checkbox" id="${p}NoSocio" /> No es socio</label>
+      <div id="${p}SocioWrap">
+        <label>Socio</label>
+        <div class="esp-buscador">
+          <input type="text" id="${p}Busqueda" placeholder="Buscá por nombre, apellido, DNI o N° de socio" autocomplete="off" />
+          <div id="${p}Resultados" class="esp-resultados" style="display:none;"></div>
+        </div>
+        <div id="${p}Sel" class="esp-sel" style="display:none;"></div>
+      </div>
+      <div id="${p}ExtWrap" style="display:none;">
+        <div class="esp-row2">
+          <div><label>Nombre y apellido</label><input type="text" id="${p}Nombre" maxlength="120" /></div>
+          <div><label>Contacto (opcional)</label><input type="text" id="${p}Contacto" maxlength="120" placeholder="Teléfono" /></div>
+        </div>
+      </div>`;
+  }
+  function titularInit(p, contenedorSel) {
+    $(contenedorSel).innerHTML = titularHtml(p);
+    let socio = null, timer = null;
+    const ui = {
+      noSocio: $(`#${p}NoSocio`), socioWrap: $(`#${p}SocioWrap`), extWrap: $(`#${p}ExtWrap`),
+      busqueda: $(`#${p}Busqueda`), resultados: $(`#${p}Resultados`), sel: $(`#${p}Sel`),
+      nombre: $(`#${p}Nombre`), contacto: $(`#${p}Contacto`)
+    };
+    function elegir(s) {
+      socio = s;
+      ui.resultados.style.display = 'none'; ui.resultados.innerHTML = '';
+      ui.busqueda.value = '';
+      ui.sel.textContent = `#${s.numero_socio ?? '—'} ${s.apellido ?? ''} ${s.nombre ?? ''}`.trim();
+      ui.sel.style.display = '';
+    }
+    async function buscar(q) {
+      if (!q || q.trim().length < 2) { ui.resultados.style.display = 'none'; ui.resultados.innerHTML = ''; return; }
+      const { res, data } = await fetchAuth(`/club/${getActiveClubId()}/socios?search=${encodeURIComponent(q.trim())}&limit=8`);
+      const items = (res.ok && data.ok) ? (data.socios || []) : [];
+      ui.resultados.style.display = '';
+      if (!items.length) { ui.resultados.innerHTML = '<div class="item muted">Sin resultados</div>'; return; }
+      ui.resultados.innerHTML = items.map((s) =>
+        `<div class="item" data-id="${esc(s.id)}">#${esc(s.numero_socio ?? '—')} ${esc(s.apellido ?? '')} ${esc(s.nombre ?? '')}</div>`).join('');
+      ui.resultados.querySelectorAll('.item[data-id]').forEach((el) => {
+        el.addEventListener('click', () => { const s = items.find((x) => String(x.id) === el.dataset.id); if (s) elegir(s); });
+      });
+    }
+    ui.busqueda.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => buscar(ui.busqueda.value), 250); });
+    ui.noSocio.addEventListener('change', () => {
+      ui.socioWrap.style.display = ui.noSocio.checked ? 'none' : '';
+      ui.extWrap.style.display = ui.noSocio.checked ? '' : 'none';
+    });
+    return {
+      reset() {
+        socio = null; ui.noSocio.checked = false; ui.busqueda.value = '';
+        ui.resultados.style.display = 'none'; ui.sel.style.display = 'none'; ui.sel.textContent = '';
+        ui.nombre.value = ''; ui.contacto.value = '';
+        ui.socioWrap.style.display = ''; ui.extWrap.style.display = 'none';
+      },
+      get() {
+        if (ui.noSocio.checked) {
+          const n = ui.nombre.value.trim();
+          if (!n) return { error: 'Ingresá el nombre de la persona.' };
+          return { nombre_externo: n, contacto_externo: ui.contacto.value.trim() || null };
+        }
+        if (!socio) return { error: 'Buscá y seleccioná el socio, o marcá "No es socio".' };
+        return { socio_id: socio.id };
+      }
+    };
+  }
+  let pickRes = null, pickAbo = null;
+
+  // ---------- Tabs ----------
+  const TABS = ['calendario', 'reservas', 'abonos', 'recursos'];
+  function mostrarTab(nombre) {
+    TABS.forEach((t) => {
+      const pane = $('#espTab' + t.charAt(0).toUpperCase() + t.slice(1));
+      if (pane) pane.style.display = t === nombre ? '' : 'none';
+    });
+    $$('[data-esptab]').forEach((b) => b.classList.toggle('esp-tab--active', b.dataset.esptab === nombre));
+    if (nombre === 'calendario') initCalendario();
+    if (nombre === 'reservas') cargarReservas();
+    if (nombre === 'abonos') cargarAbonos();
+    if (nombre === 'recursos') cargarRecursos();
+  }
+
+  // ---------- Refresco global ----------
+  function refrescarVistas() {
+    if (cal) cal.refetchEvents();
+    if ($('#espTabReservas') && $('#espTabReservas').style.display !== 'none') cargarReservas();
+    if ($('#espTabAbonos') && $('#espTabAbonos').style.display !== 'none') cargarAbonos();
+    if (typeof window.actualizarBadgePendientes === 'function') window.actualizarBadgePendientes();
+  }
+
+  // ---------- Acción sobre una reserva ----------
+  async function accionReserva(id, accion, mensaje) {
+    const { res, data } = await fetchAuth(`${base()}/reservas/${id}/${accion}`, {
+      method: 'POST', json: true, body: JSON.stringify({ mensaje: mensaje || null })
+    });
+    if (!res.ok || !data.ok) return { ok: false, error: data.error || 'No se pudo completar la acción' };
+    return { ok: true };
+  }
+
+  // =====================================================================
+  // CALENDARIO
+  // =====================================================================
+  let cal = null;
+  let calRecursoId = null;
+
+  async function configurarSlotsCalendario() {
+    const r = recursos.find((x) => x.id === calRecursoId);
+    if (!r || !cal) return;
+    const dur = Math.min(Math.max(Number(r.duracion_turno_min) || 60, 15), 60);
+    const hh = String(Math.floor(dur / 60)).padStart(2, '0'), mm = String(dur % 60).padStart(2, '0');
+    cal.setOption('slotDuration', `${hh}:${mm}:00`);
+    let minH = 7, maxH = 23;
+    try {
+      const { res, data } = await fetchAuth(`${base()}/recursos/${calRecursoId}/disponibilidad`);
+      if (res.ok && data.ok) {
+        const ds = (data.reglas || []).filter((g) => g.modo === 'disponible' && g.hora_desde);
+        if (ds.length) {
+          minH = Math.floor(Math.min(...ds.map((g) => toMin(g.hora_desde))) / 60);
+          maxH = Math.ceil(Math.max(...ds.map((g) => toMin(g.hora_hasta))) / 60);
+        }
+      }
+    } catch (_) { /* usa el rango por defecto */ }
+    cal.setOption('slotMinTime', `${String(Math.max(minH, 0)).padStart(2, '0')}:00:00`);
+    cal.setOption('slotMaxTime', maxH >= 24 ? '24:00:00' : `${String(maxH).padStart(2, '0')}:00:00`);
+  }
+
+  const COLORES = {
+    libre: ['#dcfce7', '#86efac', '#166534'],
+    pendiente: ['#fed7aa', '#fb923c', '#7c2d12'],
+    reserva: ['#bbf7d0', '#22c55e', '#14532d'],
+    abono: ['#bfdbfe', '#60a5fa', '#1e3a8a'],
+    clase: ['#e9d5ff', '#c084fc', '#581c87'],
+    bloqueo: ['#e5e7eb', '#9ca3af', '#374151']
+  };
+
+  function turnoAEvento(fecha, t) {
+    const o = (t.ocupado_por || [])[0];
+    let kind = 'libre', title = 'Libre';
+    if (t.estado !== 'libre' && o) {
+      if (o.tipo === 'reserva') {
+        kind = o.estado === 'pendiente' ? 'pendiente' : 'reserva';
+        title = `${o.titular || 'Reserva'} · ${o.estado === 'pendiente' ? 'Pendiente' : 'Reservado'}`;
+      } else if (o.tipo === 'abono') { kind = 'abono'; title = `${o.titular || 'Abono'} · Abono`; }
+      else if (o.tipo === 'clase') { kind = 'clase'; title = o.nombre || 'Clase'; }
+      else { kind = 'bloqueo'; title = o.motivo ? `Bloqueado: ${o.motivo}` : 'Bloqueado'; }
+    }
+    const [bg, bd, tx] = COLORES[kind];
+    const finDia = toMin(t.hora_hasta) <= toMin(t.hora_desde);
+    return {
+      title, start: `${fecha}T${t.hora_desde}:00`,
+      end: finDia ? `${addDaysISO(fecha, 1)}T00:00:00` : `${fecha}T${t.hora_hasta}:00`,
+      backgroundColor: bg, borderColor: bd, textColor: tx,
+      classNames: kind === 'libre' && turnoYaPaso(fecha, t.hora_hasta) ? ['esp-ev-pasado'] : [],
+      extendedProps: { kind, fecha, turno: t, ocupante: o || null }
+    };
+  }
+
+  async function calEventos(info, ok, fail) {
+    try {
+      if (!calRecursoId) return ok([]);
+      const desde = info.startStr.slice(0, 10);
+      const hasta = addDaysISO(info.endStr.slice(0, 10), -1);
+      const { res, data } = await fetchAuth(`${base()}/recursos/${calRecursoId}/turnos?desde=${desde}&hasta=${hasta}`);
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudieron cargar los turnos');
+      const ev = [];
+      (data.dias || []).forEach((d) => d.turnos.forEach((t) => ev.push(turnoAEvento(d.fecha, t))));
+      $('#espCalMsg').textContent = ev.length ? '' : 'Esta semana no hay turnos para este recurso (revisá sus horarios en la pestaña Recursos).';
+      ok(ev);
+    } catch (e) {
+      $('#espCalMsg').textContent = e.message;
+      fail(e);
+    }
+  }
+
+  async function calClick(info) {
+    const p = info.event.extendedProps;
+    if (p.kind === 'libre') {
+      if (!canWrite()) return;
+      if (turnoYaPaso(p.fecha, p.turno.hora_hasta)) return;
+      abrirResNueva({ recursoId: calRecursoId, fecha: p.fecha, horaDesde: p.turno.hora_desde });
+    } else if (p.kind === 'pendiente' || p.kind === 'reserva') {
+      abrirResDetalle(p.ocupante.reserva_id, p.fecha);
+    } else if (p.kind === 'abono') {
+      const { res, data } = await fetchAuth(`${base()}/abonos?recurso_id=${calRecursoId}`);
+      const ab = (res.ok && data.ok) ? (data.abonos || []).find((a) => a.id === p.ocupante.abono_id) : null;
+      if (ab) abrirLiberar(ab, p.fecha);
+    }
+  }
+
+  async function initCalendario() {
+    const msg = $('#espCalMsg');
+    if (!recursosActivos().length) {
+      msg.textContent = 'Primero cargá un recurso en la pestaña Recursos.';
+      return;
+    }
+    if (!window.FullCalendar) {
+      msg.textContent = 'No se pudo cargar el calendario (FullCalendar). Recargá la página.';
+      return;
+    }
+    if (!calRecursoId || !recursosActivos().some((r) => r.id === calRecursoId)) calRecursoId = $('#espCalRecurso').value;
+    $('#espCalRecurso').value = calRecursoId;
+    if (!cal) {
+      cal = new window.FullCalendar.Calendar($('#espCalendar'), {
+        initialView: 'timeGridWeek', locale: 'es', firstDay: 1, allDaySlot: false,
+        height: 'auto', nowIndicator: true, eventOverlap: false,
+        headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
+        buttonText: { today: 'Hoy' },
+        slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+        events: calEventos, eventClick: calClick
+      });
+      cal.render();
+      await configurarSlotsCalendario();
+    } else {
+      cal.updateSize();
+      cal.refetchEvents();
+    }
+  }
+
+  // =====================================================================
+  // RESERVAS
+  // =====================================================================
+  function estadoBadge(e) { return `<span class="esp-estado esp-estado--${esc(e)}">${esc(e.charAt(0).toUpperCase() + e.slice(1))}</span>`; }
+
+  function ajustarFiltrosReservas() {
+    const est = $('#espResFiltroEstado').value;
+    const activas = est === 'pendiente,aceptada' || est === 'pendiente' || est === 'aceptada';
+    $('#espResFiltroDesde').value = activas ? ahoraAR().fecha : '';
+  }
+
+  async function cargarReservas() {
+    const tbody = $('#espResBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="muted">Cargando…</td></tr>';
+    try {
+      const q = new URLSearchParams();
+      const est = $('#espResFiltroEstado').value; if (est) q.set('estado', est);
+      const rec = $('#espResFiltroRecurso').value; if (rec) q.set('recurso_id', rec);
+      const d = $('#espResFiltroDesde').value; if (d) q.set('desde', d);
+      const h = $('#espResFiltroHasta').value; if (h) q.set('hasta', h);
+      const activas = est === 'pendiente,aceptada' || est === 'pendiente' || est === 'aceptada';
+      q.set('orden', activas ? 'asc' : 'desc');
+      const { res, data } = await fetchAuth(`${base()}/reservas?${q}`);
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudieron cargar las reservas');
+      const items = data.reservas || [];
+      if (!items.length) { tbody.innerHTML = '<tr><td colspan="8" class="muted">No hay reservas con esos filtros.</td></tr>'; return; }
+      const w = canWrite();
+      tbody.innerHTML = items.map((r) => {
+        const titular = r.socio_id ? `#${esc(r.numero_socio ?? '—')} ${esc(r.titular || '')}` : `${esc(r.titular || '')} <span class="muted">(no socio)</span>`;
+        const detalle = [r.comentario_socio ? `💬 ${esc(r.comentario_socio)}` : '', r.mensaje_admin ? `📣 ${esc(r.mensaje_admin)}` : ''].filter(Boolean).join('<br>') || '<span class="muted">—</span>';
+        let acc = '<span class="muted">—</span>';
+        if (w && r.estado === 'pendiente') {
+          acc = `<button class="btn-ok" data-esp-res="aceptar">Aceptar</button>
+                 <button data-esp-res="rechazar" style="background:#ef4444;border-color:#ef4444;color:#fff;padding:6px 12px;border-radius:8px;">Rechazar</button>`;
+        } else if (w && r.estado === 'aceptada' && !turnoYaPaso(r.fecha, r.hora_hasta)) {
+          acc = `<button data-esp-res="cancelar" style="color:#b91c1c;">Cancelar reserva</button>`;
+        }
+        return `<tr data-id="${esc(r.id)}">
+          <td><b>${esc(r.recurso_nombre)}</b></td><td>${fmtFechaLarga(r.fecha)}</td>
+          <td>${esc(r.hora_desde)} a ${esc(r.hora_hasta)}</td><td>${titular}</td>
+          <td>${estadoBadge(r.estado)}</td><td>${r.origen === 'panel' ? 'Panel' : 'App'}</td>
+          <td>${detalle}</td><td style="white-space:nowrap;">${acc}</td></tr>`;
+      }).join('');
+      tbody.querySelectorAll('[data-esp-res]').forEach((b) => b.addEventListener('click', async () => {
+        const id = b.closest('tr').dataset.id; const accion = b.dataset.espRes;
+        let mensaje = null;
+        if (accion === 'rechazar') {
+          mensaje = prompt('Motivo del rechazo (opcional, se le muestra al socio):');
+          if (mensaje === null) return;
+        } else if (accion === 'cancelar') {
+          mensaje = prompt('¿Cancelar esta reserva? Motivo (opcional, se le muestra al socio):');
+          if (mensaje === null) return;
+        }
+        b.disabled = true;
+        const r = await accionReserva(id, accion, mensaje);
+        b.disabled = false;
+        if (!r.ok) alert(r.error);
+        refrescarVistas();
+      }));
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="esp-msg">${esc(e.message)}</div></td></tr>`;
+    }
+  }
+
+  // ---------- Detalle de una reserva (desde el calendario) ----------
+  async function abrirResDetalle(id, fecha) {
+    showMsg('#espResDetMsg', '');
+    $('#espResDetInfo').innerHTML = '<div class="muted">Cargando…</div>';
+    $('#espResDetAcciones').innerHTML = '';
+    $('#espResDetMotivoWrap').style.display = 'none';
+    $('#espResDetMensaje').value = '';
+    abrirOverlay('espResDetOverlay');
+    const { res, data } = await fetchAuth(`${base()}/reservas?recurso_id=${calRecursoId}&desde=${fecha}&hasta=${fecha}`);
+    const r = (res.ok && data.ok) ? (data.reservas || []).find((x) => x.id === id) : null;
+    if (!r) { $('#espResDetInfo').innerHTML = '<div class="esp-msg">No se encontró la reserva.</div>'; return; }
+    $('#espResDetTitulo').textContent = `${r.recurso_nombre} · ${fmtFechaLarga(r.fecha)}`;
+    $('#espResDetInfo').innerHTML = `
+      <p style="margin:0 0 6px;"><b>${esc(r.hora_desde)} a ${esc(r.hora_hasta)}</b> ${estadoBadge(r.estado)}</p>
+      <p style="margin:0 0 6px;">${r.socio_id ? `#${esc(r.numero_socio ?? '—')} ` : ''}${esc(r.titular || '')}${r.socio_id ? '' : ' <span class="muted">(no socio)</span>'}${r.contacto_externo ? ` · ${esc(r.contacto_externo)}` : ''}</p>
+      ${r.comentario_socio ? `<p style="margin:0 0 6px;">💬 ${esc(r.comentario_socio)}</p>` : ''}
+      <p class="muted" style="margin:0;">Cargada desde ${r.origen === 'panel' ? 'el panel' : 'la app'}.</p>`;
+    const acc = $('#espResDetAcciones');
+    if (canWrite() && r.estado === 'pendiente') {
+      $('#espResDetMotivoWrap').style.display = '';
+      acc.innerHTML = `<button type="button" class="btn-ok esp-btn-ok" data-a="aceptar">Aceptar</button>
+        <button type="button" class="btn btn-secondary esp-danger" data-a="rechazar">Rechazar</button>`;
+    } else if (canWrite() && r.estado === 'aceptada' && !turnoYaPaso(r.fecha, r.hora_hasta)) {
+      $('#espResDetMotivoWrap').style.display = '';
+      acc.innerHTML = `<button type="button" class="btn btn-secondary esp-danger" data-a="cancelar">Cancelar reserva</button>`;
+    }
+    acc.querySelectorAll('button[data-a]').forEach((b) => b.addEventListener('click', async () => {
+      b.disabled = true;
+      const out = await accionReserva(r.id, b.dataset.a, $('#espResDetMensaje').value.trim());
+      b.disabled = false;
+      if (!out.ok) return showMsg('#espResDetMsg', out.error);
+      cerrarOverlay('espResDetOverlay');
+      refrescarVistas();
+    }));
+  }
+
+  // ---------- Reserva manual ----------
+  async function cargarTurnosResNueva(preHora) {
+    const rid = $('#espResNRecurso').value, fecha = $('#espResNFecha').value;
+    const sel = $('#espResNTurno'), info = $('#espResNTurnoInfo');
+    sel.innerHTML = ''; info.textContent = '';
+    if (!rid || !fecha) return;
+    const { res, data } = await fetchAuth(`${base()}/recursos/${rid}/turnos?desde=${fecha}&hasta=${fecha}`);
+    if (!res.ok || !data.ok) { info.textContent = data.error || 'No se pudieron cargar los turnos'; return; }
+    const dia = (data.dias || []).find((d) => d.fecha === fecha);
+    const libres = dia ? dia.turnos.filter((t) => t.estado === 'libre' && !turnoYaPaso(fecha, t.hora_hasta)) : [];
+    if (!libres.length) { info.textContent = 'No hay turnos libres para ese día.'; return; }
+    sel.innerHTML = libres.map((t) => `<option value="${esc(t.hora_desde)}">${esc(t.hora_desde)} a ${esc(t.hora_hasta)}</option>`).join('');
+    if (preHora && libres.some((t) => t.hora_desde === preHora)) sel.value = preHora;
+  }
+
+  function abrirResNueva(pre = {}) {
+    if (!recursosActivos().length) { alert('Primero cargá un recurso.'); return; }
+    pickRes.reset(); showMsg('#espResNMsg', '');
+    $('#espResNComentario').value = '';
+    $('#espResNRecurso').value = pre.recursoId || $('#espCalRecurso').value || recursosActivos()[0].id;
+    $('#espResNFecha').value = pre.fecha || ahoraAR().fecha;
+    $('#espResNFecha').min = ahoraAR().fecha;
+    abrirOverlay('espResNuevaOverlay');
+    cargarTurnosResNueva(pre.horaDesde);
+  }
+
+  async function guardarResNueva() {
+    showMsg('#espResNMsg', '');
+    const t = pickRes.get();
+    if (t.error) return showMsg('#espResNMsg', t.error);
+    const hora = $('#espResNTurno').value;
+    if (!hora) return showMsg('#espResNMsg', 'Elegí un turno libre.');
+    const btn = $('#btnEspResNGuardar');
+    btn.disabled = true;
+    try {
+      const body = {
+        recurso_id: $('#espResNRecurso').value, fecha: $('#espResNFecha').value, hora_desde: hora,
+        comentario: $('#espResNComentario').value.trim() || undefined, ...t
+      };
+      const { res, data } = await fetchAuth(`${base()}/reservas`, { method: 'POST', json: true, body: JSON.stringify(body) });
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo guardar');
+      cerrarOverlay('espResNuevaOverlay');
+      refrescarVistas();
+    } catch (e) { showMsg('#espResNMsg', e.message); }
+    finally { btn.disabled = false; }
+  }
+
+  // =====================================================================
+  // ABONOS
+  // =====================================================================
+  let abonosCache = [];
+
+  async function cargarAbonos() {
+    const tbody = $('#espAboBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="muted">Cargando…</td></tr>';
+    try {
+      const q = new URLSearchParams();
+      const rec = $('#espAboFiltroRecurso').value; if (rec) q.set('recurso_id', rec);
+      const est = $('#espAboFiltroEstado').value; if (est) q.set('estado', est);
+      const { res, data } = await fetchAuth(`${base()}/abonos?${q}`);
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudieron cargar los abonos');
+      abonosCache = data.abonos || [];
+      if (!abonosCache.length) { tbody.innerHTML = '<tr><td colspan="8" class="muted">No hay abonos con esos filtros.</td></tr>'; return; }
+      const w = canWrite();
+      tbody.innerHTML = abonosCache.map((a) => {
+        const lib = (a.excepciones || []).length
+          ? a.excepciones.map((e) => `${fmtDMcorto(e.fecha_desde)}${e.fecha_hasta !== e.fecha_desde ? '–' + fmtDMcorto(e.fecha_hasta) : ''}${e.motivo ? ' (' + esc(e.motivo) + ')' : ''}`).join('<br>')
+          : '<span class="muted">—</span>';
+        const fin = a.estado_calculado === 'finalizado';
+        const titular = a.socio_id ? `#${esc(a.numero_socio ?? '—')} ${esc(a.titular || '')}` : `${esc(a.titular || '')} <span class="muted">(no socio)</span>`;
+        const acc = (w && !fin)
+          ? `<button data-esp-abo="liberar">🌴 Liberar fechas</button> <button data-esp-abo="baja" style="color:#b91c1c;">Dar de baja</button>`
+          : (fin ? estadoBadge('finalizado') : '<span class="muted">—</span>');
+        return `<tr data-id="${esc(a.id)}">
+          <td><b>${esc(a.recurso_nombre)}</b></td>
+          <td>${DIAS_LARGO[a.dia_semana]} ${esc(a.hora_desde)}–${esc(a.hora_hasta)}${a.notas ? `<div class="muted">${esc(a.notas)}</div>` : ''}</td>
+          <td>${titular}</td><td>${fmtDMY(a.vigente_desde)}</td>
+          <td>${a.vigente_hasta ? fmtDMY(a.vigente_hasta) : '<span class="muted">Sin fin</span>'}</td>
+          <td>${a.proxima_fecha ? fmtFechaLarga(a.proxima_fecha) : '<span class="muted">—</span>'}</td>
+          <td>${lib}</td><td style="white-space:nowrap;">${acc}</td></tr>`;
+      }).join('');
+      tbody.querySelectorAll('[data-esp-abo]').forEach((b) => b.addEventListener('click', () => {
+        const a = abonosCache.find((x) => x.id === b.closest('tr').dataset.id);
+        if (!a) return;
+        if (b.dataset.espAbo === 'liberar') abrirLiberar(a, null); else abrirBaja(a);
+      }));
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="esp-msg">${esc(e.message)}</div></td></tr>`;
+    }
+  }
+
+  // ---------- Nuevo abono ----------
+  async function cargarTurnosAboNuevo() {
+    const rid = $('#espAboNRecurso').value, fecha = $('#espAboNFecha').value;
+    const sel = $('#espAboNTurno'), info = $('#espAboNTurnoInfo');
+    sel.innerHTML = ''; info.textContent = '';
+    $('#espAboNDia').value = fecha ? DIAS_LARGO[diaSemanaDeIso(fecha)] : '';
+    if (!rid || !fecha) return;
+    const { res, data } = await fetchAuth(`${base()}/recursos/${rid}/turnos?desde=${fecha}&hasta=${fecha}`);
+    if (!res.ok || !data.ok) { info.textContent = data.error || 'No se pudieron cargar los turnos'; return; }
+    const dia = (data.dias || []).find((d) => d.fecha === fecha);
+    if (!dia || !dia.turnos.length) { info.textContent = 'Ese día el recurso no tiene turnos. Elegí otra fecha de inicio o revisá sus horarios.'; return; }
+    sel.innerHTML = dia.turnos.map((t) => {
+      const o = (t.ocupado_por || [])[0];
+      const marca = t.estado === 'libre' ? '' : ` — ocupado ese día (${o?.titular || o?.tipo || ''})`;
+      return `<option value="${esc(t.hora_desde)}|${esc(t.hora_hasta)}">${esc(t.hora_desde)} a ${esc(t.hora_hasta)}${esc(marca)}</option>`;
+    }).join('');
+    info.textContent = 'El abono se repite todas las semanas en este mismo día y horario.';
+  }
+
+  function abrirAboNuevo() {
+    if (!recursosActivos().length) { alert('Primero cargá un recurso.'); return; }
+    pickAbo.reset(); showMsg('#espAboNMsg', '');
+    $('#espAboNNotas').value = '';
+    $('#espAboNConFin').checked = false; $('#espAboNFinWrap').style.display = 'none'; $('#espAboNFin').value = '';
+    $('#espAboNRecurso').value = $('#espAboFiltroRecurso').value || recursosActivos()[0].id;
+    $('#espAboNFecha').value = ahoraAR().fecha;
+    $('#espAboNFecha').min = ahoraAR().fecha;
+    abrirOverlay('espAboNuevoOverlay');
+    cargarTurnosAboNuevo();
+  }
+
+  function textoConflicto(c) {
+    if (c.tipo === 'reserva') return `Reserva ${fmtFechaLarga(c.fecha)} ${esc(c.desde)}–${esc(c.hasta)} (${esc(c.estado)})${c.titular ? ' · ' + esc(c.titular) : ''}`;
+    if (c.tipo === 'abono') return `Otro abono el mismo día: ${esc(c.detalle || '')} ${esc(c.desde)}–${esc(c.hasta)}`;
+    if (c.tipo === 'clase') return `Clase "${esc(c.nombre || '')}" el ${fmtFechaLarga(c.fecha)}`;
+    return esc(c.tipo);
+  }
+
+  async function guardarAboNuevo() {
+    showMsg('#espAboNMsg', '');
+    const t = pickAbo.get();
+    if (t.error) return showMsg('#espAboNMsg', t.error);
+    const turno = $('#espAboNTurno').value;
+    if (!turno) return showMsg('#espAboNMsg', 'Elegí un turno.');
+    const [hd, hh] = turno.split('|');
+    const fecha = $('#espAboNFecha').value;
+    const body = {
+      recurso_id: $('#espAboNRecurso').value, dia_semana: diaSemanaDeIso(fecha),
+      hora_desde: hd, hora_hasta: hh, vigente_desde: fecha,
+      notas: $('#espAboNNotas').value.trim() || undefined, ...t
+    };
+    if ($('#espAboNConFin').checked) {
+      const fin = $('#espAboNFin').value;
+      if (!fin) return showMsg('#espAboNMsg', 'Indicá el último día del abono.');
+      body.vigente_hasta = fin;
+    }
+    const btn = $('#btnEspAboNGuardar');
+    btn.disabled = true;
+    try {
+      const { res, data } = await fetchAuth(`${base()}/abonos`, { method: 'POST', json: true, body: JSON.stringify(body) });
+      if (res.status === 409 && Array.isArray(data.conflictos)) {
+        const lista = data.conflictos.slice(0, 12).map((c) => `<li>${textoConflicto(c)}</li>`).join('');
+        const mas = data.conflictos.length > 12 ? `<li>… y ${data.conflictos.length - 12} más</li>` : '';
+        return showMsgHtml('#espAboNMsg', `${esc(data.error)}<ul class="esp-confl">${lista}${mas}</ul>`);
+      }
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo crear el abono');
+      cerrarOverlay('espAboNuevoOverlay');
+      refrescarVistas();
+    } catch (e) { showMsg('#espAboNMsg', e.message); }
+    finally { btn.disabled = false; }
+  }
+
+  // ---------- Liberar fechas ----------
+  let libAbonoId = null;
+
+  function renderLiberadas(a) {
+    const cont = $('#espAboLibLista');
+    const w = canWrite();
+    cont.innerHTML = (a.excepciones || []).length
+      ? '<div class="muted" style="margin-bottom:4px;">Fechas liberadas:</div>' + a.excepciones.map((e) => `
+          <div class="esp-lib"><span>${fmtFechaLarga(e.fecha_desde)}${e.fecha_hasta !== e.fecha_desde ? ' → ' + fmtFechaLarga(e.fecha_hasta) : ''}${e.motivo ? ' · ' + esc(e.motivo) : ''}</span>
+          ${w ? `<button type="button" title="Volver a ocupar" data-exc="${esc(e.id)}">✖</button>` : ''}</div>`).join('')
+      : '<div class="muted">Todavía no hay fechas liberadas.</div>';
+    cont.querySelectorAll('[data-exc]').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('¿Volver a ocupar esas fechas con el abono?')) return;
+      const { res, data } = await fetchAuth(`${base()}/abonos/${libAbonoId}/excepciones/${b.dataset.exc}`, { method: 'DELETE' });
+      if (res.status === 409 && Array.isArray(data.conflictos)) {
+        return showMsgHtml('#espAboLibMsg', `${esc(data.error)}<ul class="esp-confl">${data.conflictos.slice(0, 10).map((c) => `<li>${textoConflicto(c)}</li>`).join('')}</ul>`);
+      }
+      if (!res.ok || !data.ok) return showMsg('#espAboLibMsg', data.error || 'No se pudo quitar');
+      await recargarLiberar(); refrescarVistas();
+    }));
+  }
+
+  async function recargarLiberar() {
+    const { res, data } = await fetchAuth(`${base()}/abonos`);
+    const a = (res.ok && data.ok) ? (data.abonos || []).find((x) => x.id === libAbonoId) : null;
+    if (a) renderLiberadas(a);
+  }
+
+  function abrirLiberar(a, fechaPre) {
+    libAbonoId = a.id;
+    showMsg('#espAboLibMsg', '');
+    $('#espAboLibTitulo').textContent = `Liberar fechas · ${a.recurso_nombre} ${DIAS_LARGO[a.dia_semana]} ${a.hora_desde}`;
+    $('#espAboLibDesde').value = fechaPre || (a.proxima_fecha || ahoraAR().fecha);
+    $('#espAboLibHasta').value = '';
+    $('#espAboLibMotivo').value = '';
+    const w = canWrite();
+    $('#btnEspAboLibGuardar').style.display = w ? '' : 'none';
+    renderLiberadas(a);
+    abrirOverlay('espAboLibOverlay');
+  }
+
+  async function guardarLiberar() {
+    showMsg('#espAboLibMsg', '');
+    const d = $('#espAboLibDesde').value;
+    if (!d) return showMsg('#espAboLibMsg', 'Elegí la fecha.');
+    const body = { fecha_desde: d, fecha_hasta: $('#espAboLibHasta').value || d, motivo: $('#espAboLibMotivo').value.trim() || undefined };
+    const { res, data } = await fetchAuth(`${base()}/abonos/${libAbonoId}/excepciones`, { method: 'POST', json: true, body: JSON.stringify(body) });
+    if (!res.ok || !data.ok) return showMsg('#espAboLibMsg', data.error || 'No se pudo liberar');
+    $('#espAboLibHasta').value = ''; $('#espAboLibMotivo').value = '';
+    await recargarLiberar(); refrescarVistas();
+  }
+
+  // ---------- Baja ----------
+  let bajaAbonoId = null;
+  function abrirBaja(a) {
+    bajaAbonoId = a.id; showMsg('#espAboBajaMsg', '');
+    $('#espAboBajaInfo').innerHTML = `<b>${esc(a.recurso_nombre)}</b> · ${DIAS_LARGO[a.dia_semana]} ${esc(a.hora_desde)}–${esc(a.hora_hasta)}<br>${esc(a.titular || '')}`;
+    $('#espAboBajaFecha').value = ahoraAR().fecha;
+    abrirOverlay('espAboBajaOverlay');
+  }
+  async function confirmarBaja() {
+    showMsg('#espAboBajaMsg', '');
+    const f = $('#espAboBajaFecha').value;
+    if (!f) return showMsg('#espAboBajaMsg', 'Elegí el último día del abono.');
+    if (!confirm(`¿Dar de baja el abono? Seguirá ocupando el turno hasta el ${fmtDMY(f)} inclusive.`)) return;
+    const { res, data } = await fetchAuth(`${base()}/abonos/${bajaAbonoId}/baja`, { method: 'POST', json: true, body: JSON.stringify({ fecha_hasta: f }) });
+    if (!res.ok || !data.ok) return showMsg('#espAboBajaMsg', data.error || 'No se pudo dar de baja');
+    cerrarOverlay('espAboBajaOverlay');
+    refrescarVistas();
+  }
+
   // =============================
   // Init
   // =============================
@@ -521,6 +1131,38 @@
     $('#espReglaTodoDia').addEventListener('change', aplicarModoTipoUI);
     $$('#espReglaDias button').forEach((b) => b.addEventListener('click', () => b.classList.toggle('on')));
 
+    // ---- Paso 9: tabs, calendario, reservas, abonos ----
+    pickRes = titularInit('espResN', '#espResNTitular');
+    pickAbo = titularInit('espAboN', '#espAboNTitular');
+    $$('[data-esptab]').forEach((b) => b.addEventListener('click', () => mostrarTab(b.dataset.esptab)));
+    $$('[data-esp-cerrar]').forEach((b) => b.addEventListener('click', () => cerrarOverlay(b.dataset.espCerrar)));
+
+    $('#espCalRecurso').addEventListener('change', async () => {
+      calRecursoId = $('#espCalRecurso').value;
+      if (cal) { await configurarSlotsCalendario(); cal.refetchEvents(); }
+    });
+
+    $('#btnEspResNueva').style.display = w ? '' : 'none';
+    $('#btnEspResNueva').addEventListener('click', () => abrirResNueva({}));
+    ['espResFiltroRecurso', 'espResFiltroDesde', 'espResFiltroHasta'].forEach((id) => $('#' + id).addEventListener('change', cargarReservas));
+    $('#espResFiltroEstado').addEventListener('change', () => { ajustarFiltrosReservas(); cargarReservas(); });
+    $('#espResNRecurso').addEventListener('change', () => cargarTurnosResNueva());
+    $('#espResNFecha').addEventListener('change', () => cargarTurnosResNueva());
+    $('#btnEspResNGuardar').addEventListener('click', guardarResNueva);
+
+    $('#btnEspAboNuevo').style.display = w ? '' : 'none';
+    $('#btnEspAboNuevo').addEventListener('click', abrirAboNuevo);
+    ['espAboFiltroRecurso', 'espAboFiltroEstado'].forEach((id) => $('#' + id).addEventListener('change', cargarAbonos));
+    $('#espAboNRecurso').addEventListener('change', cargarTurnosAboNuevo);
+    $('#espAboNFecha').addEventListener('change', cargarTurnosAboNuevo);
+    $('#espAboNConFin').addEventListener('change', () => { $('#espAboNFinWrap').style.display = $('#espAboNConFin').checked ? '' : 'none'; });
+    $('#btnEspAboNGuardar').addEventListener('click', guardarAboNuevo);
+    $('#btnEspAboLibGuardar').addEventListener('click', guardarLiberar);
+    $('#btnEspAboBajaOk').addEventListener('click', confirmarBaja);
+
+    cal = null;
+    ajustarFiltrosReservas();
     await cargarRecursos();
+    mostrarTab(recursosActivos().length ? 'calendario' : 'recursos');
   };
 })();

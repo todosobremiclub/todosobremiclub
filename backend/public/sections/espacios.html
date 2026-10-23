@@ -9,11 +9,96 @@
   </div>
 
   <div class="esp-tabs" id="espTabs">
-    <button type="button" class="esp-tab esp-tab--active" data-esptab="recursos">Recursos</button>
+    <button type="button" class="esp-tab esp-tab--active" data-esptab="calendario">📅 Calendario</button>
+    <button type="button" class="esp-tab" data-esptab="reservas">📝 Reservas</button>
+    <button type="button" class="esp-tab" data-esptab="abonos">🔁 Abonos</button>
+    <button type="button" class="esp-tab" data-esptab="recursos">🏟️ Recursos</button>
+  </div>
+
+  <!-- ================= TAB CALENDARIO ================= -->
+  <div id="espTabCalendario">
+    <div class="esp-toolbar">
+      <div class="esp-filtros">
+        <label for="espCalRecurso">Recurso</label>
+        <select id="espCalRecurso"></select>
+      </div>
+      <div class="esp-leyenda">
+        <span><i style="background:#dcfce7;border-color:#86efac"></i>Libre</span>
+        <span><i style="background:#fed7aa;border-color:#fb923c"></i>Pendiente</span>
+        <span><i style="background:#bbf7d0;border-color:#22c55e"></i>Reservado</span>
+        <span><i style="background:#bfdbfe;border-color:#60a5fa"></i>Abono</span>
+        <span><i style="background:#e9d5ff;border-color:#c084fc"></i>Clase</span>
+        <span><i style="background:#e5e7eb;border-color:#9ca3af"></i>Bloqueado</span>
+      </div>
+    </div>
+    <div id="espCalMsg" class="muted" style="margin-bottom:8px;"></div>
+    <div id="espCalendar" class="esp-calendar"></div>
+    <div class="muted" style="margin-top:6px;">Tocá un turno libre para cargar una reserva a mano. Tocá una reserva o un abono para gestionarlo.</div>
+  </div>
+
+  <!-- ================= TAB RESERVAS ================= -->
+  <div id="espTabReservas" style="display:none;">
+    <div class="esp-toolbar">
+      <div class="esp-filtros">
+        <div><label>Estado</label>
+          <select id="espResFiltroEstado">
+            <option value="pendiente,aceptada">Pendientes y aceptadas</option>
+            <option value="pendiente">Pendientes</option>
+            <option value="aceptada">Aceptadas</option>
+            <option value="rechazada">Rechazadas</option>
+            <option value="cancelada">Canceladas</option>
+            <option value="vencida">Vencidas</option>
+            <option value="">Todas</option>
+          </select></div>
+        <div><label>Recurso</label><select id="espResFiltroRecurso"></select></div>
+        <div><label>Desde</label><input type="date" id="espResFiltroDesde" /></div>
+        <div><label>Hasta</label><input type="date" id="espResFiltroHasta" /></div>
+      </div>
+      <button type="button" id="btnEspResNueva" class="btn-ok esp-btn-ok">➕ Nueva reserva</button>
+    </div>
+    <div class="table-wrapper">
+      <table class="socios-table">
+        <thead>
+          <tr>
+            <th>Recurso</th><th>Fecha</th><th>Horario</th><th>Titular</th>
+            <th>Estado</th><th>Origen</th><th>Detalle</th><th style="width:170px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="espResBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ================= TAB ABONOS ================= -->
+  <div id="espTabAbonos" style="display:none;">
+    <div class="esp-toolbar">
+      <div class="esp-filtros">
+        <div><label>Recurso</label><select id="espAboFiltroRecurso"></select></div>
+        <div><label>Estado</label>
+          <select id="espAboFiltroEstado">
+            <option value="vigente">Vigentes</option>
+            <option value="finalizado">Finalizados</option>
+            <option value="">Todos</option>
+          </select></div>
+      </div>
+      <button type="button" id="btnEspAboNuevo" class="btn-ok esp-btn-ok">➕ Nuevo abono</button>
+    </div>
+    <div class="muted" style="margin-bottom:8px;">Un abono es un turno fijo todas las semanas, sin fecha de finalización. Ocupa el turno automáticamente; si el titular no va una semana, liberá esa fecha.</div>
+    <div class="table-wrapper">
+      <table class="socios-table">
+        <thead>
+          <tr>
+            <th>Recurso</th><th>Día y horario</th><th>Titular</th><th>Desde</th><th>Hasta</th>
+            <th>Próxima fecha</th><th>Fechas liberadas</th><th style="width:210px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="espAboBody"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- ================= TAB RECURSOS ================= -->
-  <div id="espTabRecursos">
+  <div id="espTabRecursos" style="display:none;">
     <div class="esp-toolbar">
       <div class="muted" id="espRecursosResumen"></div>
       <button type="button" id="btnEspNuevoRecurso" class="btn-ok esp-btn-ok">➕ Nuevo recurso</button>
@@ -180,6 +265,114 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: RESERVA MANUAL ================= -->
+  <div id="espResNuevaOverlay" class="esp-overlay" style="display:none;">
+    <div class="esp-modal esp-modal--sm">
+      <div class="esp-modal-head"><h3>Nueva reserva</h3><button type="button" class="esp-x" data-esp-cerrar="espResNuevaOverlay">✖</button></div>
+      <div class="esp-modal-body"><div class="esp-card">
+        <div class="esp-row2">
+          <div><label>Recurso</label><select id="espResNRecurso"></select></div>
+          <div><label>Fecha</label><input type="date" id="espResNFecha" /></div>
+        </div>
+        <label>Turno</label>
+        <select id="espResNTurno"></select>
+        <div id="espResNTurnoInfo" class="muted" style="margin-top:4px;"></div>
+        <div id="espResNTitular"></div>
+        <label>Comentario (opcional)</label>
+        <input type="text" id="espResNComentario" maxlength="300" />
+        <div id="espResNMsg" class="esp-msg" style="display:none;"></div>
+        <div class="esp-actions">
+          <button type="button" id="btnEspResNGuardar" class="btn-ok esp-btn-ok">💾 Guardar reserva</button>
+          <button type="button" class="btn btn-secondary" data-esp-cerrar="espResNuevaOverlay">Cancelar</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: DETALLE DE RESERVA ================= -->
+  <div id="espResDetOverlay" class="esp-overlay" style="display:none;">
+    <div class="esp-modal esp-modal--sm">
+      <div class="esp-modal-head"><h3 id="espResDetTitulo">Reserva</h3><button type="button" class="esp-x" data-esp-cerrar="espResDetOverlay">✖</button></div>
+      <div class="esp-modal-body"><div class="esp-card">
+        <div id="espResDetInfo"></div>
+        <div id="espResDetMotivoWrap" style="display:none;">
+          <label>Mensaje para el socio (opcional)</label>
+          <input type="text" id="espResDetMensaje" maxlength="300" />
+        </div>
+        <div id="espResDetMsg" class="esp-msg" style="display:none;"></div>
+        <div class="esp-actions" id="espResDetAcciones"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: NUEVO ABONO ================= -->
+  <div id="espAboNuevoOverlay" class="esp-overlay" style="display:none;">
+    <div class="esp-modal esp-modal--sm">
+      <div class="esp-modal-head"><h3>Nuevo abono</h3><button type="button" class="esp-x" data-esp-cerrar="espAboNuevoOverlay">✖</button></div>
+      <div class="esp-modal-body"><div class="esp-card">
+        <label>Recurso</label>
+        <select id="espAboNRecurso"></select>
+        <div class="esp-row2">
+          <div><label>Empieza el (primer día)</label><input type="date" id="espAboNFecha" /></div>
+          <div><label>Día de la semana</label><input type="text" id="espAboNDia" readonly /></div>
+        </div>
+        <label>Turno fijo</label>
+        <select id="espAboNTurno"></select>
+        <div id="espAboNTurnoInfo" class="muted" style="margin-top:4px;"></div>
+        <label class="esp-check"><input type="checkbox" id="espAboNConFin" /> Tiene fecha de finalización (si no, queda abierto)</label>
+        <div id="espAboNFinWrap" style="display:none;"><label>Último día</label><input type="date" id="espAboNFin" /></div>
+        <div id="espAboNTitular"></div>
+        <label>Notas (opcional)</label>
+        <input type="text" id="espAboNNotas" maxlength="300" placeholder="Ej: paga por mes, equipo de los jueves" />
+        <div id="espAboNMsg" class="esp-msg" style="display:none;"></div>
+        <div class="esp-actions">
+          <button type="button" id="btnEspAboNGuardar" class="btn-ok esp-btn-ok">💾 Crear abono</button>
+          <button type="button" class="btn btn-secondary" data-esp-cerrar="espAboNuevoOverlay">Cancelar</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: FECHAS LIBERADAS DE UN ABONO ================= -->
+  <div id="espAboLibOverlay" class="esp-overlay" style="display:none;">
+    <div class="esp-modal esp-modal--sm">
+      <div class="esp-modal-head"><h3 id="espAboLibTitulo">Liberar fechas</h3><button type="button" class="esp-x" data-esp-cerrar="espAboLibOverlay">✖</button></div>
+      <div class="esp-modal-body"><div class="esp-card">
+        <div class="muted">En las fechas liberadas el turno queda libre para otros socios.</div>
+        <div id="espAboLibLista" style="margin-top:8px;"></div>
+        <div class="esp-row2">
+          <div><label>Desde</label><input type="date" id="espAboLibDesde" /></div>
+          <div><label>Hasta (si es un solo día, dejalo vacío)</label><input type="date" id="espAboLibHasta" /></div>
+        </div>
+        <label>Motivo (opcional)</label>
+        <input type="text" id="espAboLibMotivo" maxlength="120" placeholder="Ej: Vacaciones" />
+        <div id="espAboLibMsg" class="esp-msg" style="display:none;"></div>
+        <div class="esp-actions">
+          <button type="button" id="btnEspAboLibGuardar" class="btn-ok esp-btn-ok">Liberar</button>
+          <button type="button" class="btn btn-secondary" data-esp-cerrar="espAboLibOverlay">Cerrar</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: BAJA DE ABONO ================= -->
+  <div id="espAboBajaOverlay" class="esp-overlay" style="display:none;">
+    <div class="esp-modal esp-modal--sm">
+      <div class="esp-modal-head"><h3>Dar de baja el abono</h3><button type="button" class="esp-x" data-esp-cerrar="espAboBajaOverlay">✖</button></div>
+      <div class="esp-modal-body"><div class="esp-card">
+        <div id="espAboBajaInfo"></div>
+        <label>Último día en que el abono todavía aplica</label>
+        <input type="date" id="espAboBajaFecha" />
+        <div class="muted" style="margin-top:4px;">Por defecto es hoy: desde mañana el turno queda libre. Si el titular avisó una fecha futura, ponela acá.</div>
+        <div id="espAboBajaMsg" class="esp-msg" style="display:none;"></div>
+        <div class="esp-actions">
+          <button type="button" id="btnEspAboBajaOk" class="btn btn-secondary esp-danger">Dar de baja</button>
+          <button type="button" class="btn btn-secondary" data-esp-cerrar="espAboBajaOverlay">Cancelar</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
 <style>
   .section-espacios { max-width: 1100px; }
   .esp-header { display:flex; gap:14px; align-items:center; margin-bottom:14px; }
@@ -245,5 +438,29 @@
   .esp-tchips { display:flex; flex-wrap:wrap; gap:6px; }
   .esp-tchip { padding:4px 9px; border-radius:8px; background:#dcfce7; color:#166534; font-size:13px; font-weight:600; }
   .esp-tnone { font-size:13px; color:#889; }
+  .esp-modal--sm { max-width:540px; }
+  .esp-filtros { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  .esp-filtros label { display:block; font-size:.8rem; color:#556; margin-bottom:3px; }
+  .esp-filtros select, .esp-filtros input { padding:7px 9px; border-radius:8px; border:1px solid #ccc; font-size:13px; }
+  .esp-leyenda { display:flex; gap:10px; flex-wrap:wrap; font-size:12px; color:#445; }
+  .esp-leyenda i { display:inline-block; width:12px; height:12px; border-radius:3px; border:1px solid; margin-right:4px; vertical-align:-1px; }
+  .esp-calendar { background:#fff; border:1px solid #e3e6ea; border-radius:12px; padding:10px; }
+  .esp-calendar .fc-event { cursor:pointer; font-size:12px; }
+  .esp-calendar .esp-ev-pasado { opacity:.45; cursor:default; }
+  .esp-calendar .fc-timegrid-slot { height:2.8em; }
+  .esp-calendar .fc-event-main { padding:1px 3px; line-height:1.25; }
+  .esp-estado { font-size:12px; font-weight:700; padding:2px 8px; border-radius:999px; background:#eef1f5; color:#334; white-space:nowrap; }
+  .esp-estado--pendiente { background:#ffedd5; color:#9a3412; }
+  .esp-estado--aceptada { background:#dcfce7; color:#166534; }
+  .esp-estado--rechazada { background:#fee2e2; color:#991b1b; }
+  .esp-estado--cancelada, .esp-estado--vencida, .esp-estado--finalizado { background:#e5e7eb; color:#4b5563; }
+  .esp-lib { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 8px; border-radius:8px; background:#eff6ff; border:1px solid #bfdbfe; font-size:13px; margin-bottom:4px; }
+  .esp-lib button { background:none; border:none; cursor:pointer; }
+  .esp-buscador { position:relative; }
+  .esp-resultados { border:1px solid #ddd; border-radius:8px; background:#fff; max-height:170px; overflow:auto; margin-top:4px; }
+  .esp-resultados .item { padding:7px 10px; cursor:pointer; font-size:13px; }
+  .esp-resultados .item:hover { background:#f3f4f6; }
+  .esp-sel { margin-top:6px; padding:6px 10px; border-radius:8px; background:#dcfce7; color:#166534; font-size:13px; font-weight:600; }
+  .esp-confl { margin:6px 0 0 18px; padding:0; font-size:12.5px; }
 </style>
 </section>
