@@ -114,6 +114,7 @@ app.use('/club', require('./routes/notificacionesRoutes'));
 app.use('/public', require('./routes/publicApplyRoutes'));
 app.use('/club', require('./routes/pendientesRoutes'));
 app.use('/club', require('./routes/asistenciaRoutes'));
+app.use('/app', require('./routes/espaciosAppRoutes')); // ✅ NUEVO: Espacios y Clases (API de la app del socio)
 app.use('/app', require('./routes/appRoutes'));
 
 // ✅ NUEVO: Mercado Pago (OAuth por club, webhook, y generación del link de pago)
@@ -144,6 +145,15 @@ const CHEQUEO_NOTIF_PROGRAMADAS_MS = 5 * 60 * 1000; // cada 5 minutos
 setInterval(() => {
   procesarNotificacionesProgramadas();
 }, CHEQUEO_NOTIF_PROGRAMADAS_MS);
+
+// ✅ NUEVO: worker de vencimiento de reservas de Espacios. Cada 5 minutos pasa
+// a 'vencida' toda solicitud pendiente cuyo turno ya empezó (ver
+// src/services/espaciosVencimientoWorker.js).
+const { procesarVencimientosEspacios } = require('./services/espaciosVencimientoWorker');
+const CHEQUEO_VENCIMIENTO_ESPACIOS_MS = 5 * 60 * 1000; // cada 5 minutos
+setInterval(() => {
+  procesarVencimientosEspacios();
+}, CHEQUEO_VENCIMIENTO_ESPACIOS_MS);
 
 // ✅ NUEVO: worker de retención del log de auditoría (admin_activity_log).
 // Corre una vez al iniciar el server y después cada 24hs, borrando lo que

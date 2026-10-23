@@ -3,8 +3,9 @@
 // Módulo "Espacios y Clases" — panel del club (montado bajo /club).
 // Plan completo: claude/espacios-y-clases-plan.md en el proyecto.
 //
-// PASO 4 (este archivo, por ahora): recursos + disponibilidad + vista de turnos.
-//   Más adelante se suman aquí: reservas (admin), abonos y alta manual (pasos 6–8).
+// PASO 4: recursos + disponibilidad + vista de turnos.
+// PASO 6: reservas (listar, alta manual del club, aceptar / rechazar / cancelar).
+//   Más adelante se suman aquí: abonos (paso 8).
 // Los endpoints de la APP del socio viven en appRoutes.js.
 //
 // Permisos: lectura = admin / staff / solo_lectura; escritura = admin / staff.
@@ -18,6 +19,7 @@ const requireAuth = require('../middleware/requireAuth');
 const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 const { initFirebase } = require('../config/firebaseAdmin');
 const disp = require('../services/disponibilidadService');
+const reservasSvc = require('../services/espaciosReservasService');
 
 const router = express.Router();
 
@@ -43,8 +45,11 @@ const MAX_REGLAS_POR_LLAMADA = 60;
 const isUuid = (s) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || ''));
 const isHHMM = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || ''));
-const isFechaReal = (s) =>
-  disp.isISODate(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
+const isFechaReal = (s) => {
+  if (!disp.isISODate(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+};
 
 const ROLES_LECTURA = new Set(['admin', 'staff', 'solo_lectura']);
 const ROLES_ESCRITURA = new Set(['admin', 'staff']);
@@ -669,5 +674,125 @@ router.get('/:clubId/espacios/recursos/:id/turnos', ...leer, async (req, res) =>
     return res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+// ============================================================
+// RESERVAS (paso 6)
+// ============================================================
+const ESTADOS_RESERVA = ['pendiente', 'aceptada', 'rechazada', 'cancelada', 'vencida'];
+
+function responderError(res, e, etiqueta) {
+  if (e instanceof reservasSvc.ErrNegocio) {
+    return res.status(e.status).json({ ok: false, error: e.message, code: e.code, ...e.extra });
+  }
+  console.error(`❌ ${etiqueta}`, e);
+  return res.status(500).json({ ok: false, error: e.message });
+}
+const adminUserId = (req) => req.user?.userId || req.user?.id || null;
+
+// GET /club/:clubId/espacios/reservas?estado=pendiente,aceptada&desde&hasta&recurso_id&socio_id&orden=asc|desc&limit
+router.get('/:clubId/espacios/reservas', ...leer, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const where = ['r.club_id = $1'];
+    const params = [clubId];
+
+    if (req.query.estado) {
+      const estados = String(req.query.estado).split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+      if (!estados.length || estados.some((x) => !ESTADOS_RESERVA.includes(x))) {
+        return res.status(400).json({ ok: false, error: `Estado inválido (${ESTADOS_RESERVA.join(', ')})` });
+      }
+      params.push(estados);
+      where.push(`r.estado = ANY($${params.length}::text[])`);
+    }
+    for (const [k, op] of [['desde', '>='], ['hasta', '<=']]) {
+      if (req.query[k]) {
+        if (!isFechaReal(String(req.query[k]))) {
+          return res.status(400).json({ ok: false, error: `${k} inválida (YYYY-MM-DD)` });
+        }
+        params.push(String(req.query[k]));
+        where.push(`r.fecha ${op} $${params.length}::date`);
+      }
+    }
+    for (const k of ['recurso_id', 'socio_id']) {
+      if (req.query[k]) {
+        if (!isUuid(req.query[k])) return res.status(400).json({ ok: false, error: `${k} inválido` });
+        params.push(String(req.query[k]));
+        where.push(`r.${k} = $${params.length}`);
+      }
+    }
+    const orden = String(req.query.orden || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 300, 1), 1000);
+
+    const q = await db.query(
+      `
+      SELECT r.id, r.recurso_id, rec.nombre AS recurso_nombre,
+             r.socio_id, s.nombre AS socio_nombre, s.apellido AS socio_apellido, s.numero_socio,
+             r.nombre_externo, r.contacto_externo,
+             to_char(r.fecha, 'YYYY-MM-DD') AS fecha,
+             to_char(r.hora_desde, 'HH24:MI') AS hora_desde,
+             to_char(r.hora_hasta, 'HH24:MI') AS hora_hasta,
+             r.estado, r.origen, r.comentario_socio, r.mensaje_admin, r.created_at, r.gestionada_at
+        FROM recursos_reservas r
+        JOIN recursos rec ON rec.id = r.recurso_id
+        LEFT JOIN socios s ON s.id = r.socio_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY r.fecha ${orden}, r.hora_desde ${orden}, r.created_at ${orden}
+       LIMIT ${limit}
+      `,
+      params
+    );
+    const reservas = q.rows.map((x) => ({
+      ...x,
+      titular: x.socio_id
+        ? `${x.socio_apellido ?? ''}, ${x.socio_nombre ?? ''}`.replace(/^, |, $/g, '').trim()
+        : x.nombre_externo
+    }));
+    return res.json({ ok: true, reservas });
+  } catch (e) {
+    return responderError(res, e, 'GET espacios/reservas');
+  }
+});
+
+// POST /club/:clubId/espacios/reservas   (alta manual del club; nace aceptada)
+// body: { recurso_id, fecha, hora_desde, socio_id? | nombre_externo (+contacto_externo?), comentario? }
+router.post('/:clubId/espacios/reservas', ...escribir, async (req, res) => {
+  const { clubId } = req.params;
+  try {
+    const b = req.body || {};
+    if (!isUuid(b.recurso_id)) return res.status(400).json({ ok: false, error: 'Recurso inválido' });
+    if (b.socio_id && !isUuid(b.socio_id)) return res.status(400).json({ ok: false, error: 'Socio inválido' });
+    const creada = await reservasSvc.crearReserva(db, {
+      clubId,
+      recursoId: b.recurso_id,
+      fecha: String(b.fecha || ''),
+      horaDesde: String(b.hora_desde || ''),
+      origen: 'panel',
+      socioId: b.socio_id || null,
+      nombreExterno: b.nombre_externo,
+      contactoExterno: b.contacto_externo,
+      comentario: b.comentario,
+      adminUserId: adminUserId(req)
+    });
+    return res.status(201).json({ ok: true, reserva: creada });
+  } catch (e) {
+    return responderError(res, e, 'POST espacios/reservas');
+  }
+});
+
+// POST /club/:clubId/espacios/reservas/:id/(aceptar|rechazar|cancelar)   body: { mensaje? }
+for (const accion of ['aceptar', 'rechazar', 'cancelar']) {
+  router.post(`/:clubId/espacios/reservas/:id/${accion}`, ...escribir, async (req, res) => {
+    const { clubId, id } = req.params;
+    try {
+      if (!isUuid(id)) return res.status(400).json({ ok: false, error: 'Reserva inválida' });
+      const r = await reservasSvc.gestionarReserva(db, {
+        clubId, id, accion, mensaje: req.body?.mensaje, adminUserId: adminUserId(req)
+      });
+      return res.json({ ok: true, reserva: r });
+    } catch (e) {
+      return responderError(res, e, `POST espacios/reservas/${accion}`);
+    }
+  });
+}
 
 module.exports = router;
