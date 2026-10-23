@@ -86,6 +86,33 @@
 
   </div>
 
+  <!-- ================= RESERVAS DE ESPACIOS (NUEVO) ================= -->
+  <!-- Se oculta por completo (ver pendientes.js) si el club no tiene el módulo
+       Espacios y Clases habilitado (club.espacios_habilitado !== true) o si el
+       rol no tiene acceso a esa sección. -->
+  <div id="espaciosReservasWrapper" style="display:none;">
+
+    <h2 style="margin:32px 0 16px;">🏟️ Reservas de espacios pendientes</h2>
+
+    <div class="table-wrapper">
+      <table class="socios-table">
+        <thead>
+          <tr>
+            <th>Recurso</th>
+            <th style="width:130px;">Fecha</th>
+            <th style="width:120px;">Horario</th>
+            <th>Socio</th>
+            <th>Comentario</th>
+            <th style="width:110px;">Solicitada</th>
+            <th style="width:170px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="reservasEspaciosPendientesBody"></tbody>
+      </table>
+    </div>
+
+  </div>
+
 </section>
 
 <!-- ================= MODAL COMPARACIÓN: ACTUALIZAR INFORMACIÓN ================= -->

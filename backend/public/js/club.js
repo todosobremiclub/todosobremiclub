@@ -478,7 +478,7 @@ if (perms && !perms.canAccess(sectionName)) {
 }
       window.currentSection = sectionName;
 
-      const res = await fetch(`/sections/${sectionName}.html?v=20260921-3`);
+      const res = await fetch(`/sections/${sectionName}.html?v=20261023-1`);
       if (!res.ok) throw new Error('No se pudo cargar la sección');
 
       const html = await res.text();
@@ -652,18 +652,32 @@ window.actualizarBadgePendientes = async function () {
       pedidos.push(fetch(`/club/${clubId}/tienda/reservas?estado=pendiente`, { headers }));
     }
 
-    const [rSocios, rTransfers, rReservasTienda] = await Promise.all(pedidos);
+    // ✅ NUEVO: lo mismo con las reservas de Espacios y Clases pendientes
+    // (solo si el módulo está habilitado y el rol tiene acceso a esa sección).
+    const espaciosHabilitado = window.currentClub?.espacios_habilitado === true
+      && (!window.__clubPerms || window.__clubPerms.canAccess('espacios'));
+    if (espaciosHabilitado) {
+      pedidos.push(fetch(`/club/${clubId}/espacios/reservas?estado=pendiente`, { headers }));
+    }
 
-    const [dSocios, dTransfers, dReservasTienda] = await Promise.all([
+    const respuestas = await Promise.all(pedidos);
+    const [rSocios, rTransfers] = respuestas;
+    let idx = 2;
+    const rReservasTienda = tiendaHabilitada ? respuestas[idx++] : null;
+    const rReservasEspacios = espaciosHabilitado ? respuestas[idx++] : null;
+
+    const [dSocios, dTransfers, dReservasTienda, dReservasEspacios] = await Promise.all([
       rSocios.json().catch(() => ({ items: [] })),
       rTransfers.json().catch(() => ({ items: [] })),
-      tiendaHabilitada ? rReservasTienda.json().catch(() => ({ reservas: [] })) : Promise.resolve({ reservas: [] })
+      rReservasTienda ? rReservasTienda.json().catch(() => ({ reservas: [] })) : Promise.resolve({ reservas: [] }),
+      rReservasEspacios ? rReservasEspacios.json().catch(() => ({ reservas: [] })) : Promise.resolve({ reservas: [] })
     ]);
 
     const total =
       (dSocios.items?.length ?? 0) +
       (dTransfers.items?.length ?? 0) +
-      (dReservasTienda.reservas?.length ?? 0);
+      (dReservasTienda.reservas?.length ?? 0) +
+      (dReservasEspacios.reservas?.length ?? 0);
 
     const badge = document.getElementById('badgePendientes');
     if (!badge) return;

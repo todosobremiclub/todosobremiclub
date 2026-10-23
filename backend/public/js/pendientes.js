@@ -597,6 +597,79 @@ tr.innerHTML = `
     });
   }
 
+  // =========================
+  // RESERVAS DE ESPACIOS (Espacios y Clases)
+  // =========================
+  const DIAS_CORTO_ESP = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+
+  function fechaEspaciosLabel(iso) {
+    if (!iso) return '';
+    const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number);
+    const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    return `${DIAS_CORTO_ESP[dow]} ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+  }
+
+  function reservaEspacioSocioLabel(r) {
+    if (!r.socio_id) {
+      return r.nombre_externo ? `${escapeHtmlPend(r.nombre_externo)} (no socio)` : 'No socio';
+    }
+    return `#${r.numero_socio ?? '—'} ${escapeHtmlPend(r.socio_apellido ?? '')} ${escapeHtmlPend(r.socio_nombre ?? '')}`.trim();
+  }
+
+  function renderReservasEspaciosPendientes(items) {
+    const tbody = $('reservasEspaciosPendientesBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="7" class="muted">No hay reservas de espacios pendientes.</td></tr>`;
+      return;
+    }
+
+    const puedeEscribir = !window.__clubPerms || window.__clubPerms.canWrite('espacios');
+
+    items.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.dataset.id = r.id;
+      tr.innerHTML = `
+        <td><b>${escapeHtmlPend(r.recurso_nombre)}</b></td>
+        <td>${fechaEspaciosLabel(r.fecha)}</td>
+        <td>${escapeHtmlPend(r.hora_desde)} a ${escapeHtmlPend(r.hora_hasta)}</td>
+        <td>${reservaEspacioSocioLabel(r)}</td>
+        <td>${r.comentario_socio ? escapeHtmlPend(r.comentario_socio) : '<span class="muted">—</span>'}</td>
+        <td>${formatDateISOToDMY_pend(r.created_at)}</td>
+        <td style="white-space:nowrap;">
+          ${puedeEscribir ? `
+          <button class="btn-ok" data-act="e_aceptar">Aceptar</button>
+          <button data-act="e_rechazar" style="background:#ef4444;border-color:#ef4444;color:#fff;padding:6px 12px;border-radius:8px;">Rechazar</button>
+          ` : '<span class="muted">Solo lectura</span>'}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadReservasEspacios() {
+    const wrapper = $('espaciosReservasWrapper');
+    if (!wrapper) return;
+
+    // Solo si el club tiene el módulo habilitado y el rol tiene acceso.
+    const habilitado = window.currentClub?.espacios_habilitado === true;
+    const permitido = !window.__clubPerms || window.__clubPerms.canAccess('espacios');
+    wrapper.style.display = (habilitado && permitido) ? '' : 'none';
+    if (!habilitado || !permitido) return;
+
+    const clubId = getActiveClubId();
+    const { res, data } = await fetchAuth(`/club/${clubId}/espacios/reservas?estado=pendiente`);
+    if (!res.ok || !data.ok) {
+      console.warn('No se pudieron cargar las reservas de espacios pendientes:', data.error);
+      renderReservasEspaciosPendientes([]);
+    } else {
+      renderReservasEspaciosPendientes(data.reservas || []);
+    }
+  }
+
   async function loadReservasTienda() {
     const wrapper = $('tiendaReservasWrapper');
     if (!wrapper) return;
@@ -824,6 +897,46 @@ await loadSociosPendientes();
         return;
       }
 
+      // ======= RESERVAS DE ESPACIOS =======
+      if (btn.dataset.act === 'e_aceptar') {
+        btn.disabled = true;
+        const { res, data } = await fetchAuth(
+          `/club/${clubId}/espacios/reservas/${rowId}/aceptar`,
+          { method: 'POST', json: true, body: JSON.stringify({}) }
+        );
+        btn.disabled = false;
+
+        if (!res.ok || !data.ok) {
+          alert(data.error || 'Error aceptando la reserva');
+        } else {
+          alert('✅ Reserva aceptada. Se le avisó al socio.');
+        }
+        await loadReservasEspacios();
+        window.actualizarBadgePendientes?.();
+        return;
+      }
+
+      if (btn.dataset.act === 'e_rechazar') {
+        const mensaje = prompt('Motivo del rechazo (opcional, se le muestra al socio):');
+        if (mensaje === null) return; // canceló el prompt
+
+        btn.disabled = true;
+        const { res, data } = await fetchAuth(
+          `/club/${clubId}/espacios/reservas/${rowId}/rechazar`,
+          { method: 'POST', json: true, body: JSON.stringify({ mensaje: mensaje || null }) }
+        );
+        btn.disabled = false;
+
+        if (!res.ok || !data.ok) {
+          alert(data.error || 'Error rechazando la reserva');
+        } else {
+          alert('✅ Reserva rechazada. Se le avisó al socio.');
+        }
+        await loadReservasEspacios();
+        window.actualizarBadgePendientes?.();
+        return;
+      }
+
       if (btn.dataset.act === 'r_rechazar') {
         const mensaje = prompt('Motivo del rechazo (opcional, se le muestra al socio):') || null;
 
@@ -880,6 +993,7 @@ await loadSociosPendientes();
     await loadSociosPendientes();
     await loadTransferPendientes();
     await loadReservasTienda();
+    await loadReservasEspacios();
   }
 
   window.initPendientesSection = initPendientesSection;
