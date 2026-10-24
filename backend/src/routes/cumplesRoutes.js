@@ -33,10 +33,11 @@ function isValidRecurrenciaTipo(v) {
   return ['diario', 'semanal', 'mensual', 'anual'].includes(v);
 }
 
-// ✅ NUEVO: tipo de agenda_actividades. 'evento' se pinta de azul en el
-// calendario en vez del verde de 'actividad' (ver cumples.html/cumples.js).
+// ✅ Tipo de agenda_actividades. 'evento' se pinta de azul y 'clase' (clase /
+// entrenamiento con socios asignados) de violeta, en vez del verde de
+// 'actividad' (ver cumples.html/cumples.js).
 function normalizeTipoActividad(v) {
-  return v === 'evento' ? 'evento' : 'actividad';
+  return v === 'evento' || v === 'clase' ? v : 'actividad';
 }
 
 function argentinaNow() {
@@ -83,113 +84,11 @@ function yearsInRange(start, endExclusive) {
   return Array.from(years);
 }
 
-function mondayOf(d) {
-  const day = d.getDay(); // 0=Dom..6=Sab
-  const diff = day === 0 ? -6 : 1 - day; // días para llegar al lunes de esa semana
-  const r = new Date(d);
-  r.setDate(r.getDate() + diff);
-  r.setHours(0, 0, 0, 0);
-  return r;
-}
-
-function addDaysLocal(d, days) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + days);
-  return r;
-}
-
-function addMonthsSafe(d, months) {
-  const r = new Date(d);
-  const targetDay = r.getDate();
-  r.setDate(1);
-  r.setMonth(r.getMonth() + months);
-  const lastDay = new Date(r.getFullYear(), r.getMonth() + 1, 0).getDate();
-  r.setDate(Math.min(targetDay, lastDay));
-  return r;
-}
-
-function addYearsSafe(d, years) {
-  return addMonthsSafe(d, years * 12);
-}
-
-function fechaISO(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-const MAX_OCURRENCIAS = 400;
-
-/**
- * Genera las fechas (Date, 00:00 local) en que ocurre una actividad
- * dentro del rango [rangeStart, rangeEndExclusive) (strings YYYY-MM-DD).
- * Si la actividad no es recurrente, devuelve [] o [fecha] según corresponda.
- */
-function generarOcurrencias(act, rangeStart, rangeEndExclusive) {
-  const rangeStartD = new Date(`${rangeStart}T00:00:00`);
-  const rangeEndD = new Date(`${rangeEndExclusive}T00:00:00`);
-  const anchor = new Date(`${act.fecha_iso}T00:00:00`);
-  const tipo = act.recurrencia_tipo;
-
-  if (!tipo) {
-    if (anchor >= rangeStartD && anchor < rangeEndD) return [anchor];
-    return [];
-  }
-
-  const intervalo = Math.max(1, Number(act.recurrencia_intervalo) || 1);
-  const hasta = act.recurrencia_hasta ? new Date(`${act.recurrencia_hasta}T00:00:00`) : null;
-  const limiteFin = hasta && hasta < rangeEndD ? hasta : addDaysLocal(rangeEndD, -1);
-
-  if (anchor > limiteFin) return [];
-
-  const out = [];
-
-  if (tipo === 'diario') {
-    let cursor = new Date(anchor);
-    if (cursor < rangeStartD) {
-      const diffDias = Math.round((rangeStartD - cursor) / 86400000);
-      const pasos = Math.ceil(diffDias / intervalo);
-      cursor = addDaysLocal(cursor, pasos * intervalo);
-    }
-    while (cursor <= limiteFin && cursor < rangeEndD && out.length < MAX_OCURRENCIAS) {
-      if (cursor >= rangeStartD) out.push(new Date(cursor));
-      cursor = addDaysLocal(cursor, intervalo);
-    }
-  } else if (tipo === 'semanal') {
-    const diasSemana =
-      Array.isArray(act.recurrencia_dias_semana) && act.recurrencia_dias_semana.length
-        ? act.recurrencia_dias_semana.map(Number)
-        : [anchor.getDay()];
-
-    let semanaCursor = mondayOf(anchor);
-    while (semanaCursor <= limiteFin && out.length < MAX_OCURRENCIAS) {
-      for (const dow of diasSemana) {
-        const offset = dow === 0 ? 6 : dow - 1; // lunes=0 .. domingo=6
-        const dia = addDaysLocal(semanaCursor, offset);
-        if (dia >= anchor && dia <= limiteFin && dia >= rangeStartD && dia < rangeEndD) {
-          out.push(dia);
-        }
-      }
-      semanaCursor = addDaysLocal(semanaCursor, intervalo * 7);
-    }
-    out.sort((a, b) => a - b);
-  } else if (tipo === 'mensual') {
-    let cursor = new Date(anchor);
-    while (cursor <= limiteFin && out.length < MAX_OCURRENCIAS) {
-      if (cursor >= rangeStartD && cursor < rangeEndD) out.push(new Date(cursor));
-      cursor = addMonthsSafe(cursor, intervalo);
-    }
-  } else if (tipo === 'anual') {
-    let cursor = new Date(anchor);
-    while (cursor <= limiteFin && out.length < MAX_OCURRENCIAS) {
-      if (cursor >= rangeStartD && cursor < rangeEndD) out.push(new Date(cursor));
-      cursor = addYearsSafe(cursor, intervalo);
-    }
-  }
-
-  return out;
-}
+// Recurrencia (diario / semanal / mensual / anual): helpers compartidos con las Clases.
+const {
+  addDaysLocal, fechaISO, generarOcurrencias,
+} = require('../services/agendaRecurrencia');
+const clasesSvc = require('../services/agendaClasesService');
 
 /**
  * GET /club/:clubId/cumples?mes=YYYY-MM
@@ -371,8 +270,24 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
       [clubId, start, endExclusive]
     );
 
+    // ✅ Clases / entrenamientos: el socio solo ve las suyas; el admin ve todas
+    // y, de cada una, cuántos socios tiene asignados.
+    let filasActividades = ra.rows || [];
+    let asignadosPorClase = new Map();
+    if (filasActividades.some((a) => a.tipo === 'clase')) {
+      if (esAdmin) {
+        asignadosPorClase = await clasesSvc.contarAsignados(
+          db,
+          filasActividades.filter((a) => a.tipo === 'clase').map((a) => a.id)
+        );
+      } else {
+        const mias = await clasesSvc.clasesAsignadasA(db, req.user?.socioId);
+        filasActividades = filasActividades.filter((a) => a.tipo !== 'clase' || mias.has(a.id));
+      }
+    }
+
     const eventosActividades = [];
-    (ra.rows || []).forEach((a) => {
+    filasActividades.forEach((a) => {
       const hd = a.hd || '00:00';
       const hh = a.hh || '00:30';
       const esRecurrente = !!a.recurrencia_tipo;
@@ -382,12 +297,12 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
         const fecha = fechaISO(fechaDate);
         eventosActividades.push({
           id: `act-${a.id}-${fecha}`,
-          title: `${a.tipo === 'evento' ? '📌 ' : ''}${a.titulo || 'Actividad'}${esRecurrente ? ' 🔁' : ''}`,
+          title: `${a.tipo === 'evento' ? '📌 ' : a.tipo === 'clase' ? '🎓 ' : ''}${a.titulo || 'Actividad'}${esRecurrente ? ' 🔁' : ''}`,
           start: `${fecha}T${hd}`,
           end: `${fecha}T${hh}`,
           allDay: false,
-          // ✅ 'evento-evento' se pinta azul, 'evento-actividad' se pinta verde.
-          classNames: [a.tipo === 'evento' ? 'evento-evento' : 'evento-actividad'],
+          // ✅ 'evento-evento' azul, 'evento-clase' violeta, 'evento-actividad' verde.
+          classNames: [a.tipo === 'evento' ? 'evento-evento' : a.tipo === 'clase' ? 'evento-clase' : 'evento-actividad'],
           extendedProps: {
             kind: 'actividad',
             tipo: a.tipo,
@@ -403,6 +318,7 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
             recurrencia_intervalo: a.recurrencia_intervalo,
             recurrencia_dias_semana: a.recurrencia_dias_semana,
             recurrencia_hasta: a.recurrencia_hasta,
+            ...(a.tipo === 'clase' && esAdmin ? { inscriptos: asignadosPorClase.get(a.id) || 0 } : {}),
           },
         });
       });
@@ -639,6 +555,51 @@ router.delete('/:clubId/agenda/actividades/:id', requireAuth, async (req, res) =
   } catch (e) {
     console.error('❌ delete actividad:', e);
     return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ===============================
+// Clases / entrenamientos: socios asignados
+// ===============================
+function esDelClub(req, clubId) {
+  const roles = req.user?.roles || [];
+  return roles.some((r) => r.role === 'superadmin' || String(r.club_id) === String(clubId));
+}
+
+function responderClase(res, e, etiqueta) {
+  if (e instanceof clasesSvc.ErrNegocio) {
+    return res.status(e.status).json({ ok: false, error: e.message, code: e.code });
+  }
+  console.error(`❌ ${etiqueta}:`, e);
+  return res.status(500).json({ ok: false, error: e.message });
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// GET /club/:clubId/agenda/actividades/:id/socios
+router.get('/:clubId/agenda/actividades/:id/socios', requireAuth, async (req, res) => {
+  try {
+    const { clubId, id } = req.params;
+    if (!esDelClub(req, clubId)) return res.status(403).json({ ok: false, error: 'No autorizado' });
+    if (!UUID_RE.test(id)) return res.status(400).json({ ok: false, error: 'Actividad inválida' });
+    const socios = await clasesSvc.listarSocios(db, { clubId, actividadId: id });
+    return res.json({ ok: true, socios });
+  } catch (e) {
+    return responderClase(res, e, 'GET actividad socios');
+  }
+});
+
+// PUT /club/:clubId/agenda/actividades/:id/socios   body: { socioIds: [uuid, ...] }
+// Reemplaza la lista de socios asignados (solo actividades de tipo 'clase').
+router.put('/:clubId/agenda/actividades/:id/socios', requireAuth, async (req, res) => {
+  try {
+    const { clubId, id } = req.params;
+    if (!canWriteAgenda(req, clubId)) return res.status(403).json({ ok: false, error: 'No autorizado' });
+    if (!UUID_RE.test(id)) return res.status(400).json({ ok: false, error: 'Actividad inválida' });
+    const r = await clasesSvc.reemplazarSocios(db, { clubId, actividadId: id, socioIds: req.body?.socioIds });
+    return res.json({ ok: true, ...r });
+  } catch (e) {
+    return responderClase(res, e, 'PUT actividad socios');
   }
 });
 

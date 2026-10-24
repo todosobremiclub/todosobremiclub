@@ -3,7 +3,7 @@
   <div class="esp-header">
     <div class="esp-header-icon">🏟️</div>
     <div>
-      <h2 class="esp-header-title">Espacios y Clases</h2>
+      <h2 class="esp-header-title">Espacios</h2>
       <p class="esp-header-sub">Cargá canchas, salones y espacios con sus horarios disponibles para que los socios puedan reservar turnos desde la app.</p>
     </div>
   </div>
@@ -12,7 +12,6 @@
     <button type="button" class="esp-tab esp-tab--active" data-esptab="calendario">📅 Calendario</button>
     <button type="button" class="esp-tab" data-esptab="reservas">📝 Reservas</button>
     <button type="button" class="esp-tab" data-esptab="abonos">🔁 Abonos</button>
-    <button type="button" class="esp-tab" data-esptab="clases">📚 Clases</button>
     <button type="button" class="esp-tab" data-esptab="recursos">🏟️ Recursos</button>
   </div>
 
@@ -28,7 +27,6 @@
         <span><i style="background:#fed7aa;border-color:#fb923c"></i>Pendiente</span>
         <span><i style="background:#bbf7d0;border-color:#22c55e"></i>Reservado</span>
         <span><i style="background:#bfdbfe;border-color:#60a5fa"></i>Abono</span>
-        <span><i style="background:#e9d5ff;border-color:#c084fc"></i>Clase</span>
         <span><i style="background:#e5e7eb;border-color:#9ca3af"></i>Bloqueado</span>
       </div>
     </div>
@@ -94,28 +92,6 @@
           </tr>
         </thead>
         <tbody id="espAboBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ================= TAB CLASES ================= -->
-  <div id="espTabClases" style="display:none;">
-    <div class="esp-toolbar">
-      <div class="esp-filtros">
-        <label class="esp-check-inline"><input type="checkbox" id="espClaseVerInactivas" /> Mostrar clases desactivadas</label>
-      </div>
-      <button type="button" id="btnEspClaseNueva" class="btn-ok esp-btn-ok">➕ Nueva clase</button>
-    </div>
-    <div class="muted" style="margin-bottom:8px;">Una clase se dicta en días y horarios fijos (o un día puntual). Si le asignás un recurso, ese horario queda ocupado y nadie puede reservarlo. Los socios que inscribas la ven en la app.</div>
-    <div class="table-wrapper">
-      <table class="socios-table">
-        <thead>
-          <tr>
-            <th>Clase</th><th>Horarios</th><th>Recurso</th><th>Inscriptos</th>
-            <th>Próxima clase</th><th style="width:270px;">Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="espClaseBody"></tbody>
       </table>
     </div>
   </div>
@@ -396,84 +372,6 @@
     </div>
   </div>
 
-  <!-- ================= MODAL: CLASE (crear / editar) ================= -->
-  <div id="espClaseOverlay" class="esp-overlay" style="display:none;">
-    <div class="esp-modal">
-      <div class="esp-modal-head"><h3 id="espClaseTitulo">Nueva clase</h3><button type="button" class="esp-x" data-esp-cerrar="espClaseOverlay">✖</button></div>
-      <div class="esp-modal-body">
-        <div class="esp-card">
-          <div class="esp-card-title">Datos</div>
-          <div class="esp-row2">
-            <div><label>Nombre</label><input type="text" id="espClaseNombre" maxlength="120" placeholder="Ej: Yoga, Pilates, Escuelita de fútbol" /></div>
-            <div><label>Profesor / a cargo (opcional)</label><input type="text" id="espClaseProfesor" maxlength="120" /></div>
-          </div>
-          <label>Descripción (opcional)</label>
-          <input type="text" id="espClaseDescripcion" maxlength="500" />
-          <div class="esp-row2">
-            <div><label>Dónde se dicta</label><select id="espClaseRecurso"></select></div>
-            <div><label>Cupo (vacío = sin límite)</label><input type="number" id="espClaseCupo" min="1" step="1" /></div>
-          </div>
-          <div class="esp-row2">
-            <div><label>Color en el calendario</label>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <input type="color" id="espClaseColor" value="#7c3aed" style="width:52px;height:36px;padding:2px;" />
-                <label class="esp-check" style="margin:0;"><input type="checkbox" id="espClaseSinColor" /> Sin color</label>
-              </div></div>
-            <div id="espClaseActivoWrap" style="display:none;"><label>Estado</label>
-              <label class="esp-check" style="margin-top:6px;"><input type="checkbox" id="espClaseActivo" checked /> Clase activa (visible en la app)</label></div>
-          </div>
-        </div>
-        <div class="esp-card">
-          <div class="esp-card-title">Horarios</div>
-          <div id="espClaseHorarios"></div>
-          <button type="button" id="btnEspClaseAddHorario" class="btn btn-secondary" style="margin-top:8px;">➕ Agregar horario</button>
-          <div class="muted" style="margin-top:8px;">"Todas las semanas" se repite sin fecha de fin (podés acotarlo con las fechas). "Un día puntual" es para talleres o clases únicas.</div>
-        </div>
-        <div id="espClaseMsg" class="esp-msg" style="display:none;"></div>
-        <div class="esp-actions" style="margin-top:0;">
-          <button type="button" id="btnEspClaseGuardar" class="btn-ok esp-btn-ok">💾 Guardar</button>
-          <button type="button" id="btnEspClaseEliminar" class="btn btn-secondary esp-danger" style="display:none;">🗑️ Eliminar</button>
-          <button type="button" class="btn btn-secondary" data-esp-cerrar="espClaseOverlay">Cancelar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= MODAL: INSCRIPTOS DE UNA CLASE ================= -->
-  <div id="espClaseInsOverlay" class="esp-overlay" style="display:none;">
-    <div class="esp-modal esp-modal--sm">
-      <div class="esp-modal-head"><h3 id="espClaseInsTitulo">Inscriptos</h3><button type="button" class="esp-x" data-esp-cerrar="espClaseInsOverlay">✖</button></div>
-      <div class="esp-modal-body"><div class="esp-card">
-        <div id="espClaseInsCupo" class="muted" style="margin-bottom:6px;"></div>
-        <div id="espClaseInsAgregar">
-          <label>Sumar socios</label>
-          <div class="esp-buscador">
-            <input type="text" id="espClaseInsBusqueda" placeholder="Buscá por nombre, apellido, DNI o N° de socio y tocá para inscribir" autocomplete="off" />
-            <div id="espClaseInsResultados" class="esp-resultados" style="display:none;"></div>
-          </div>
-        </div>
-        <div id="espClaseInsMsg" class="esp-msg" style="display:none;"></div>
-        <div id="espClaseInsLista" style="margin-top:10px;"></div>
-        <div class="esp-actions"><button type="button" class="btn btn-secondary" data-esp-cerrar="espClaseInsOverlay">Cerrar</button></div>
-      </div></div>
-    </div>
-  </div>
-
-  <!-- ================= MODAL: FECHAS DE UNA CLASE (cancelar / volver a dictar) ================= -->
-  <div id="espClaseFecOverlay" class="esp-overlay" style="display:none;">
-    <div class="esp-modal esp-modal--sm">
-      <div class="esp-modal-head"><h3 id="espClaseFecTitulo">Fechas de la clase</h3><button type="button" class="esp-x" data-esp-cerrar="espClaseFecOverlay">✖</button></div>
-      <div class="esp-modal-body"><div class="esp-card">
-        <div class="muted">Próximos 60 días. Si cancelás una fecha, se avisa por notificación a los inscriptos y el recurso queda libre ese día.</div>
-        <label>Motivo de la cancelación (opcional)</label>
-        <input type="text" id="espClaseFecMotivo" maxlength="120" placeholder="Ej: Feriado, profesor enfermo" />
-        <div id="espClaseFecMsg" class="esp-msg" style="display:none;"></div>
-        <div id="espClaseFecLista" style="margin-top:10px;"></div>
-        <div class="esp-actions"><button type="button" class="btn btn-secondary" data-esp-cerrar="espClaseFecOverlay">Cerrar</button></div>
-      </div></div>
-    </div>
-  </div>
-
 <style>
   .section-espacios { max-width: 1100px; }
   .esp-header { display:flex; gap:14px; align-items:center; margin-bottom:14px; }
@@ -563,17 +461,5 @@
   .esp-resultados .item:hover { background:#f3f4f6; }
   .esp-sel { margin-top:6px; padding:6px 10px; border-radius:8px; background:#dcfce7; color:#166534; font-size:13px; font-weight:600; }
   .esp-confl { margin:6px 0 0 18px; padding:0; font-size:12.5px; }
-  .esp-check-inline { display:flex; align-items:center; gap:6px; font-size:13px; color:#445; cursor:pointer; }
-  .esp-hrow { display:grid; grid-template-columns:150px 1fr 112px 112px 34px; gap:8px; align-items:end; padding:8px; border:1px solid #e3e6ea; border-radius:10px; background:#fafbfc; margin-bottom:8px; }
-  .esp-hrow label { margin:0 0 3px; }
-  .esp-hrow .esp-hextra { grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .esp-hrow button.esp-hdel { background:none; border:none; cursor:pointer; font-size:16px; height:38px; }
-  @media (max-width:640px){ .esp-hrow { grid-template-columns:1fr 1fr; } .esp-hrow .esp-hwhen { grid-column:1 / -1; } }
-  .esp-cdot { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:-1px; border:1px solid rgba(0,0,0,.2); }
-  .esp-focc { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 9px; border-radius:8px; background:#f3f4f6; font-size:13px; margin-bottom:4px; }
-  .esp-focc--cancel { background:#fee2e2; color:#7f1d1d; }
-  .esp-focc button { cursor:pointer; font-size:12px; }
-  .esp-ins { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 9px; border-bottom:1px solid #eef0f3; font-size:14px; }
-  .esp-ins button { background:none; border:none; cursor:pointer; color:#b91c1c; font-size:13px; }
 </style>
 </section>

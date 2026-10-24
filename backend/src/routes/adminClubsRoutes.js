@@ -567,7 +567,7 @@ try {
     // ANTES que todo lo demás.
     await db.query('DELETE FROM whatsapp_mensajes WHERE club_id=$1', [id]);
 
-    // 0a) ✅ NUEVO: Espacios y Clases (clases, inscriptos, recursos, reservas, abonos).
+    // 0a) ✅ NUEVO: Clases de la Agenda (socios asignados) y Espacios y Clases (recursos, reservas, abonos).
     // Todas cuelgan de clubs/socios sin ON DELETE CASCADE hacia el club, así que van
     // ANTES de socios y clubs. Si el club nunca usó el módulo (migración sin correr),
     // la tabla no existe: se saltea con to_regclass para no abortar la transacción.
@@ -575,10 +575,8 @@ try {
       const t = await db.query('SELECT to_regclass($1) IS NOT NULL AS ok', [`public.${tabla}`]);
       if (t.rows[0].ok) await db.query(sql, [id]);
     };
-    await delIfExists('clases_socios', 'DELETE FROM clases_socios WHERE club_id=$1');
-    await delIfExists('clases_excepciones', 'DELETE FROM clases_excepciones WHERE clase_id IN (SELECT id FROM clases WHERE club_id=$1)');
-    await delIfExists('clases_horarios', 'DELETE FROM clases_horarios WHERE clase_id IN (SELECT id FROM clases WHERE club_id=$1)');
-    await delIfExists('clases', 'DELETE FROM clases WHERE club_id=$1');
+    await delIfExists('agenda_actividades_socios', 'DELETE FROM agenda_actividades_socios WHERE club_id=$1');
+    await delIfExists('agenda_actividades', 'DELETE FROM agenda_actividades WHERE club_id=$1');
     await delIfExists('recursos_abonos_excepciones', 'DELETE FROM recursos_abonos_excepciones WHERE abono_id IN (SELECT id FROM recursos_abonos WHERE club_id=$1)');
     await delIfExists('recursos_abonos', 'DELETE FROM recursos_abonos WHERE club_id=$1');
     await delIfExists('recursos_reservas', 'DELETE FROM recursos_reservas WHERE club_id=$1');

@@ -13,6 +13,12 @@
   let recurrenteActivo = false;
   let diasSemanaSel = new Set();
 
+  // ✅ Clases / entrenamientos: socios asignados en el modal.
+  // claseSociosListos = false mientras se cargan (o si falló la carga): en ese
+  // caso NO se envía la lista al guardar, para no pisar lo que ya había.
+  let claseSocios = []; // [{ id, label }]
+  let claseSociosListos = true;
+
   const DIAS_LARGOS = [
     'domingo',
     'lunes',
@@ -121,7 +127,8 @@
     if (kind === 'actividad') {
       // ✅ 'evento' es una actividad más (misma tabla), solo que con
       // tipo='evento' en vez de 'actividad' — se distingue por color.
-      return e.extendedProps?.tipo === 'evento' ? 'evento' : 'actividad';
+      const t = e.extendedProps?.tipo;
+      return t === 'evento' || t === 'clase' ? t : 'actividad';
     }
     return null;
   }
@@ -132,6 +139,7 @@
     const activas = [];
     if ($('chkFiltroActividades')?.checked) activas.push('actividad');
     if ($('chkFiltroEventos')?.checked) activas.push('evento');
+    if ($('chkFiltroClases')?.checked) activas.push('clase');
     if ($('chkFiltroCumples')?.checked) activas.push('cumple');
 
     const eventos = activas.length
@@ -396,12 +404,133 @@
     el.textContent = txt;
   }
 
+  // =============================
+  // Clases / entrenamientos: socios asignados
+  // =============================
+  const esClase = () => $('actividadTipo')?.value === 'clase';
+
+  function etiquetaTipo() {
+    const t = $('actividadTipo')?.value;
+    if (t === 'clase') return 'clase / entrenamiento';
+    if (t === 'evento') return 'evento';
+    return 'actividad';
+  }
+
+  function actualizarTitulosModal() {
+    const id = $('actividadId')?.value;
+    $('actividadModalTitle').textContent = `${id ? 'Editar' : 'Nueva'} ${etiquetaTipo()}`;
+    $('claseSociosBlock')?.classList.toggle('hidden', !esClase());
+  }
+
+  function renderClaseSocios() {
+    const lista = $('claseSociosLista');
+    const cnt = $('claseSociosCount');
+    if (!lista) return;
+    if (cnt) cnt.textContent = claseSocios.length ? `(${claseSocios.length})` : '';
+    if (!claseSociosListos) {
+      lista.innerHTML = '<span class="ag-sociohint">Cargando socios…</span>';
+      return;
+    }
+    lista.innerHTML = claseSocios.length
+      ? claseSocios
+          .map(
+            (s) => `<span class="ag-chip">${escapeHtml(s.label)}<button type="button" data-quitar="${escapeHtml(
+              s.id
+            )}" title="Quitar">✕</button></span>`
+          )
+          .join('')
+      : '<span class="ag-sociohint">Todavía no hay socios asignados.</span>';
+  }
+
+  function etiquetaSocio(s) {
+    const num = s.numero_socio != null ? `#${s.numero_socio} ` : '';
+    return `${num}${s.apellido || ''} ${s.nombre || ''}`.trim();
+  }
+
+  async function cargarClaseSocios(actividadId) {
+    claseSociosListos = false;
+    claseSocios = [];
+    renderClaseSocios();
+    const clubId = getActiveClubId();
+    const res = await fetchAuthJson(`/club/${clubId}/agenda/actividades/${actividadId}/socios`);
+    if (res.ok) {
+      claseSocios = (res.socios || []).map((s) => ({
+        id: s.socio_id,
+        label: etiquetaSocio(s) + (s.activo === false ? ' (inactivo)' : ''),
+      }));
+      claseSociosListos = true;
+    } else {
+      $('claseSociosLista').innerHTML = `<span class="ag-sociohint" style="color:#b91c1c;">No se pudieron cargar los socios asignados (${escapeHtml(
+        res.error || 'error'
+      )}). Cerrá y volvé a abrir la clase.</span>`;
+      return;
+    }
+    renderClaseSocios();
+  }
+
+  let timerBusquedaSocio = null;
+  async function buscarSocioClase(q) {
+    const cont = $('claseSocioResultados');
+    if (!cont) return;
+    const texto = String(q || '').trim();
+    if (texto.length < 2) {
+      cont.classList.add('hidden');
+      cont.innerHTML = '';
+      return;
+    }
+    const clubId = getActiveClubId();
+    const res = await fetchAuthJson(
+      `/club/${clubId}/socios?search=${encodeURIComponent(texto)}&limit=8`
+    );
+    const items = res.ok ? res.socios || [] : [];
+    cont.classList.remove('hidden');
+    if (!items.length) {
+      cont.innerHTML = '<div class="item muted">Sin resultados</div>';
+      return;
+    }
+    cont.innerHTML = items
+      .map(
+        (s) =>
+          `<div class="item" data-id="${escapeHtml(s.id)}" data-label="${escapeHtml(
+            etiquetaSocio(s)
+          )}">${escapeHtml(etiquetaSocio(s))}</div>`
+      )
+      .join('');
+  }
+
+  function agregarClaseSocio(id, label) {
+    if (!claseSociosListos) return;
+    if (!claseSocios.some((s) => s.id === id)) claseSocios.push({ id, label });
+    renderClaseSocios();
+    $('claseSocioBusqueda').value = '';
+    $('claseSocioResultados').classList.add('hidden');
+    $('claseSocioResultados').innerHTML = '';
+  }
+
+  // Guarda la lista de socios de la clase (reemplaza). Devuelve true si salió bien.
+  async function guardarClaseSocios(actividadId) {
+    const clubId = getActiveClubId();
+    const res = await fetchAuthJson(`/club/${clubId}/agenda/actividades/${actividadId}/socios`, {
+      method: 'PUT',
+      json: true,
+      body: JSON.stringify({ socioIds: claseSocios.map((s) => s.id) }),
+    });
+    if (!res.ok) {
+      alert(
+        `La clase se guardó, pero no se pudieron asignar los socios: ${res.error || 'error'}.\n` +
+          'Corregí y volvé a tocar Guardar.'
+      );
+      return false;
+    }
+    return true;
+  }
+
   function openActividadModal(data = {}) {
     $('modalActividad').classList.remove('hidden');
 
     $('actividadId').value = data.id || '';
     // ✅ Por default (actividad nueva) queda seleccionado "Actividad".
-    $('actividadTipo').value = data.tipo === 'evento' ? 'evento' : 'actividad';
+    $('actividadTipo').value = data.tipo === 'evento' || data.tipo === 'clase' ? data.tipo : 'actividad';
     $('actividadFecha').value = data.fecha || '';
     $('actividadHoraDesde').value = data.hora_desde || '18:00';
     $('actividadHoraHasta').value = data.hora_hasta || '19:00';
@@ -431,7 +560,16 @@
     toggleRecTipoFields();
 
     $('btnActividadDelete').style.display = data.id ? '' : 'none';
-    $('actividadModalTitle').textContent = data.id ? 'Editar actividad' : 'Nueva actividad';
+
+    // ✅ Clases: socios asignados (se cargan al editar una clase existente)
+    claseSocios = [];
+    claseSociosListos = true;
+    $('claseSocioBusqueda').value = '';
+    $('claseSocioResultados').classList.add('hidden');
+    $('claseSocioResultados').innerHTML = '';
+    actualizarTitulosModal();
+    renderClaseSocios();
+    if (data.id && data.tipo === 'clase') cargarClaseSocios(data.id);
   }
 
   function closeActividadModal() {
@@ -443,7 +581,7 @@
     const clubId = getActiveClubId();
 
     const body = {
-      tipo: $('actividadTipo').value === 'evento' ? 'evento' : 'actividad',
+      tipo: ['evento', 'clase'].includes($('actividadTipo').value) ? $('actividadTipo').value : 'actividad',
       fecha: $('actividadFecha').value,
       hora_desde: $('actividadHoraDesde').value,
       hora_hasta: $('actividadHoraHasta').value,
@@ -486,6 +624,20 @@
       if (!res.ok) {
         alert(res.error || 'Error guardando actividad');
         return;
+      }
+
+      // ✅ Clase: después de guardar la actividad se asignan los socios.
+      if (body.tipo === 'clase' && claseSociosListos) {
+        const actividadId = id || res.actividad?.id;
+        const okSocios = await guardarClaseSocios(actividadId);
+        if (!okSocios) {
+          // La clase ya existe: se deja el modal abierto en modo edición para reintentar.
+          $('actividadId').value = actividadId;
+          $('btnActividadDelete').style.display = '';
+          actualizarTitulosModal();
+          await reloadVisibleRange();
+          return;
+        }
       }
 
       closeActividadModal();
@@ -537,7 +689,25 @@
     // ✅ Filtro de la leyenda (Actividades / Eventos / Cumpleaños)
     $('chkFiltroActividades')?.addEventListener('change', aplicarFiltroEventos);
     $('chkFiltroEventos')?.addEventListener('change', aplicarFiltroEventos);
+    $('chkFiltroClases')?.addEventListener('change', aplicarFiltroEventos);
     $('chkFiltroCumples')?.addEventListener('change', aplicarFiltroEventos);
+
+    // ✅ Clases / entrenamientos
+    $('actividadTipo')?.addEventListener('change', actualizarTitulosModal);
+    $('claseSocioBusqueda')?.addEventListener('input', (ev) => {
+      clearTimeout(timerBusquedaSocio);
+      timerBusquedaSocio = setTimeout(() => buscarSocioClase(ev.target.value), 250);
+    });
+    $('claseSocioResultados')?.addEventListener('click', (ev) => {
+      const it = ev.target.closest('.item[data-id]');
+      if (it) agregarClaseSocio(it.dataset.id, it.dataset.label);
+    });
+    $('claseSociosLista')?.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-quitar]');
+      if (!b) return;
+      claseSocios = claseSocios.filter((s) => s.id !== b.dataset.quitar);
+      renderClaseSocios();
+    });
 
     // ✅ Recurrencia
     $('chkPeriodico')?.addEventListener('change', (ev) => setRecurrenteUI(ev.target.checked));

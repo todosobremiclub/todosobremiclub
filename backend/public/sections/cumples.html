@@ -39,6 +39,10 @@
       <i class="ag-dot ag-dot-evento"></i> Eventos
     </label>
     <label class="ag-legend-item ag-legend-toggle">
+      <input type="checkbox" id="chkFiltroClases" />
+      <i class="ag-dot ag-dot-clase"></i> Clases
+    </label>
+    <label class="ag-legend-item ag-legend-toggle">
       <input type="checkbox" id="chkFiltroCumples" />
       <i class="ag-dot ag-dot-cumple"></i> Cumpleaños
     </label>
@@ -76,6 +80,7 @@
           <select id="actividadTipo">
             <option value="actividad" selected>Actividad</option>
             <option value="evento">Evento</option>
+            <option value="clase">Clase / entrenamiento</option>
           </select>
         </div>
 
@@ -165,6 +170,23 @@
             id="actividadDescripcion"
             rows="2"
             placeholder="Detalle de la actividad (opcional)"></textarea>
+        </div>
+
+        <!-- SOCIOS ASIGNADOS (solo tipo Clase / entrenamiento) -->
+        <div id="claseSociosBlock" class="ag-field hidden">
+          <label><span class="ag-ico">👥</span> Socios asignados <span id="claseSociosCount" class="ag-count"></span></label>
+          <div class="ag-buscador">
+            <input
+              id="claseSocioBusqueda"
+              type="text"
+              placeholder="Buscá por nombre, apellido, DNI o N° de socio"
+              autocomplete="off" />
+            <div id="claseSocioResultados" class="ag-resultados hidden"></div>
+          </div>
+          <div id="claseSociosLista" class="ag-chips"></div>
+          <div class="ag-sociohint">
+            Los socios asignados ven la clase en la app, en "Mis clases / entrenamientos", y reciben un aviso.
+          </div>
         </div>
 
         <div class="ag-modal-actions">
@@ -401,6 +423,7 @@
 .ag-modern .ag-dot-act{ background:#16a34a; }
 .ag-modern .ag-dot-evento{ background:#2563eb; }
 .ag-modern .ag-dot-cumple{ background:#f59e0b; }
+.ag-modern .ag-dot-clase{ background:#7c3aed; }
 
 .ag-modern .ag-legend-hint{
   margin-left:auto;
@@ -664,6 +687,44 @@
   color:#14306e !important;
 }
 .ag-modern .fc .evento-evento:hover{ background:#c7dcfd !important; }
+
+/* CLASES / ENTRENAMIENTOS — violeta, texto oscuro */
+.ag-modern .fc .evento-clase{
+  background:#ede9fe !important;
+  border-left:4px solid #7c3aed !important;
+}
+.ag-modern .fc .evento-clase,
+.ag-modern .fc .evento-clase .fc-event-main,
+.ag-modern .fc .evento-clase .fc-event-main-frame,
+.ag-modern .fc .evento-clase .fc-event-time,
+.ag-modern .fc .evento-clase .fc-event-title,
+.ag-modern .fc .evento-clase .fc-event-title-container{
+  color:#3b0764 !important;
+}
+.ag-modern .fc .evento-clase:hover{ background:#ddd6fe !important; }
+
+/* Socios asignados a una clase (modal de actividad) */
+.ag-modern .ag-count{ font-weight:400; color:#64748b; font-size:12px; margin-left:4px; }
+.ag-modern .ag-buscador{ position:relative; }
+.ag-modern .ag-resultados{
+  border:1px solid #e2e8f0; border-radius:10px; background:#fff;
+  max-height:170px; overflow:auto; margin-top:4px;
+  box-shadow:0 6px 16px rgba(15,23,42,.08);
+}
+.ag-modern .ag-resultados .item{ padding:8px 10px; cursor:pointer; font-size:13px; }
+.ag-modern .ag-resultados .item:hover{ background:#f1f5f9; }
+.ag-modern .ag-resultados .item.muted{ color:#94a3b8; cursor:default; }
+.ag-modern .ag-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; max-height:150px; overflow:auto; }
+.ag-modern .ag-chip{
+  display:inline-flex; align-items:center; gap:6px;
+  background:#ede9fe; color:#3b0764; border-radius:999px;
+  padding:4px 6px 4px 10px; font-size:12.5px; font-weight:600;
+}
+.ag-modern .ag-chip button{
+  border:none; background:rgba(59,7,100,.12); color:#3b0764; border-radius:50%;
+  width:18px; height:18px; line-height:16px; cursor:pointer; font-size:11px; padding:0;
+}
+.ag-modern .ag-sociohint{ font-size:11.5px; color:#94a3b8; margin-top:6px; }
 
 /* CUMPLEAÑOS — ámbar, texto oscuro */
 .ag-modern .fc .evento-cumple{

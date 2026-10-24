@@ -101,7 +101,6 @@ app.use('/club', require('./routes/reportesRoutes'));
 app.use('/club', require('./routes/noticiasRoutes'));
 app.use('/club', require('./routes/tiendaRoutes')); // ✅ NUEVO: Tienda Online (productos + reservas, panel admin)
 app.use('/club', require('./routes/espaciosRoutes')); // ✅ NUEVO: Espacios y Clases (recursos, disponibilidad, turnos; panel admin)
-app.use('/club', require('./routes/clasesRoutes')); // ✅ NUEVO: Espacios y Clases — Clases (panel admin)
 
 app.use('/app', appTransferRoutes);
 app.use('/admin', adminTransferRoutes);
@@ -116,6 +115,7 @@ app.use('/public', require('./routes/publicApplyRoutes'));
 app.use('/club', require('./routes/pendientesRoutes'));
 app.use('/club', require('./routes/asistenciaRoutes'));
 app.use('/app', require('./routes/espaciosAppRoutes')); // ✅ NUEVO: Espacios y Clases (API de la app del socio)
+app.use('/app', require('./routes/clasesAppRoutes')); // ✅ NUEVO: Clases / entrenamientos de la Agenda (app del socio)
 app.use('/app', require('./routes/appRoutes'));
 
 // ✅ NUEVO: Mercado Pago (OAuth por club, webhook, y generación del link de pago)
