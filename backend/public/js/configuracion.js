@@ -202,6 +202,8 @@ function renderCategorias(items) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><input type="text" id="cat_${c.id}" value="${escapeHtml(c.nombre)}" /></td>
+      <td><input type="number" min="0" max="120" step="1" id="catDesde_${c.id}" value="${c.edad_desde ?? ''}" placeholder="—" style="width:90px;" /></td>
+      <td><input type="number" min="0" max="120" step="1" id="catHasta_${c.id}" value="${c.edad_hasta ?? ''}" placeholder="sin tope" style="width:90px;" /></td>
       <td style="text-align:center"><button class="btn-save" data-act="save-cat" data-id="${c.id}">💾</button></td>
       <td style="text-align:center"><button class="btn-del" data-act="del-cat" data-id="${c.id}">🗑️</button></td>
     `;
@@ -209,27 +211,42 @@ function renderCategorias(items) {
   });
 }
 
-async function createCategoria(nombre) {
+async function createCategoria(nombre, edadDesde = '', edadHasta = '') {
   const res = await fetchAuth(categoriasUrl(), {
     method: 'POST',
     json: true,
-    body: JSON.stringify({ nombre })
+    body: JSON.stringify({
+      nombre,
+      edad_desde: edadDesde === '' ? null : Number(edadDesde),
+      edad_hasta: edadHasta === '' ? null : Number(edadHasta)
+    })
   });
   const data = await safeJson(res);
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error creando categoría');
+
+  if (data.sociosActualizados > 0) {
+    alert(`Categoría creada. ${data.sociosActualizados} socio(s) pasaron a esta categoría según su edad.`);
+  }
 }
 
-async function updateCategoria(id, nombre) {
+async function updateCategoria(id, nombre, edadDesde = '', edadHasta = '') {
   const res = await fetchAuth(`${categoriasUrl()}/${id}`, {
     method: 'PUT',
     json: true,
-    body: JSON.stringify({ nombre })
+    body: JSON.stringify({
+      nombre,
+      edad_desde: edadDesde === '' ? null : Number(edadDesde),
+      edad_hasta: edadHasta === '' ? null : Number(edadHasta)
+    })
   });
   const data = await safeJson(res);
   if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error guardando categoría');
 
   if (typeof data.sociosActualizados === 'number') {
     console.log(`Categoría actualizada. Socios actualizados: ${data.sociosActualizados}`);
+  }
+  if (data.sociosReasignadosPorEdad > 0) {
+    alert(`Se reasignaron ${data.sociosReasignadosPorEdad} socio(s) a su categoría según la edad.`);
   }
 }
 
@@ -1073,9 +1090,11 @@ function bindEvents() {
     if (act === 'save-cat') {
       const nombre = ($(`cat_${id}`)?.value ?? '').trim();
       if (!nombre) return alert('Nombre vacío');
+      const edadDesde = ($(`catDesde_${id}`)?.value ?? '').trim();
+      const edadHasta = ($(`catHasta_${id}`)?.value ?? '').trim();
       btn.disabled = true;
       try {
-        await updateCategoria(id, nombre);
+        await updateCategoria(id, nombre, edadDesde, edadHasta);
         await loadCategorias();
       } catch (err) {
         alert(err.message ?? 'Error');
@@ -1101,6 +1120,8 @@ function bindEvents() {
   $('btnCategoriaAdd')?.addEventListener('click', async () => {
     const input = document.getElementById('newCategoriaNombre');
     const nombre = (input?.value ?? '').trim();
+    const inDesde = document.getElementById('newCategoriaEdadDesde');
+    const inHasta = document.getElementById('newCategoriaEdadHasta');
 
     if (!nombre) {
       alert('Ingresá un nombre de categoría');
@@ -1108,8 +1129,10 @@ function bindEvents() {
     }
 
     try {
-      await createCategoria(nombre);
+      await createCategoria(nombre, (inDesde?.value ?? '').trim(), (inHasta?.value ?? '').trim());
       input.value = '';
+      if (inDesde) inDesde.value = '';
+      if (inHasta) inHasta.value = '';
       await loadCategorias();
     } catch (err) {
       alert(err.message ?? 'Error');

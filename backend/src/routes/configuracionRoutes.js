@@ -77,6 +77,12 @@ router.post('/:clubId/config/cuotas/:mes', requireAuth, requireClubAccess, async
   }
 });
 
+const {
+  validarRango,
+  assertSinSuperposicion,
+  recalcularCategoriasPorEdad
+} = require('../services/categoriasEdadService'); // ✅ NUEVO: categorías por rango de edad
+
 /* ============================================================
    CATEGORÍAS (por club)
    GET/POST/PUT/DELETE /club/:clubId/config/categorias
@@ -85,7 +91,7 @@ router.get('/:clubId/config/categorias', requireAuth, requireClubAccess, async (
   const { clubId } = req.params;
   try {
     const r = await db.query(
-      `SELECT id, nombre
+      `SELECT id, nombre, edad_desde, edad_hasta
        FROM categorias_deportivas
        WHERE club_id = $1 AND activo = true
        ORDER BY nombre ASC`,
@@ -101,19 +107,30 @@ router.get('/:clubId/config/categorias', requireAuth, requireClubAccess, async (
 
 router.post('/:clubId/config/categorias', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId } = req.params;
-  const { nombre } = req.body || {};
+  const { nombre, edad_desde, edad_hasta } = req.body || {};
   try {
     if (!nombre?.trim()) return res.status(400).json({ ok: false, error: 'Falta nombre' });
 
+    // ✅ NUEVO: rango de edad opcional (ambos vacíos = categoría sin edad)
+    const { desde, hasta } = validarRango(edad_desde, edad_hasta);
+    await assertSinSuperposicion(db, { clubId, desde, hasta });
+
     const r = await db.query(
-      `INSERT INTO categorias_deportivas (id, club_id, nombre, activo, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, true, NOW())
-       RETURNING id, nombre`,
-      [clubId, nombre.trim()]
+      `INSERT INTO categorias_deportivas (id, club_id, nombre, activo, edad_desde, edad_hasta, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, true, $3, $4, NOW())
+       RETURNING id, nombre, edad_desde, edad_hasta`,
+      [clubId, nombre.trim(), desde, hasta]
     );
 
-    res.json({ ok: true, categoria: r.rows[0] });
+    // ✅ NUEVO: si la categoría tiene rango de edad, acomoda a los socios que corresponda
+    let sociosActualizados = 0;
+    if (desde !== null || hasta !== null) {
+      sociosActualizados = await recalcularCategoriasPorEdad(db, clubId);
+    }
+
+    res.json({ ok: true, categoria: r.rows[0], sociosActualizados });
   } catch (e) {
+    if (e.status) return res.status(e.status).json({ ok: false, error: e.message });
     if (isMissingRelation(e)) return res.status(500).json({ ok: false, error: 'Falta tabla categorias_deportivas en la DB' });
     console.error('❌ create categoria', e);
     if (e.code === '23505') return res.status(409).json({ ok: false, error: 'La categoría ya existe' });
@@ -123,11 +140,15 @@ router.post('/:clubId/config/categorias', requireAuth, requireClubAccess, async 
 
 router.put('/:clubId/config/categorias/:id', requireAuth, requireClubAccess, async (req, res) => {
   const { clubId, id } = req.params;
-  const { nombre } = req.body ?? {};
+  const { nombre, edad_desde, edad_hasta } = req.body ?? {};
 
   try {
     const nuevoNombre = (nombre ?? '').trim();
     if (!nuevoNombre) return res.status(400).json({ ok: false, error: 'Falta nombre' });
+
+    // ✅ NUEVO: rango de edad opcional (ambos vacíos = categoría sin edad)
+    const { desde, hasta } = validarRango(edad_desde, edad_hasta);
+    await assertSinSuperposicion(db, { clubId, excluirId: id, desde, hasta });
 
     // 1) Traer nombre anterior (para poder actualizar socios que lo usaban)
     const rPrev = await db.query(
@@ -144,11 +165,11 @@ router.put('/:clubId/config/categorias/:id', requireAuth, requireClubAccess, asy
     const r = await db.query(
       `
       UPDATE categorias_deportivas
-      SET nombre=$1, updated_at=NOW()
+      SET nombre=$1, edad_desde=$4, edad_hasta=$5, updated_at=NOW()
       WHERE id=$2 AND club_id=$3
-      RETURNING id, nombre
+      RETURNING id, nombre, edad_desde, edad_hasta
       `,
-      [nuevoNombre, id, clubId]
+      [nuevoNombre, id, clubId, desde, hasta]
     );
 
     // 3) Propagar a socios (solo los del club y que tenían el nombre anterior)
@@ -165,13 +186,24 @@ router.put('/:clubId/config/categorias/:id', requireAuth, requireClubAccess, asy
 
     await db.query('COMMIT');
 
+    // ✅ NUEVO: con el rango (nuevo o modificado) acomodamos a los socios que
+    // no tienen la categoría "a mano". Si falla, la categoría ya se guardó bien.
+    let sociosPorEdad = 0;
+    try {
+      sociosPorEdad = await recalcularCategoriasPorEdad(db, clubId);
+    } catch (eRec) {
+      console.error('⚠️ No se pudo recalcular categorías por edad:', eRec.message);
+    }
+
     return res.json({
       ok: true,
       categoria: r.rows[0],
-      sociosActualizados: rSoc.rowCount
+      sociosActualizados: rSoc.rowCount,
+      sociosReasignadosPorEdad: sociosPorEdad
     });
   } catch (e) {
     try { await db.query('ROLLBACK'); } catch {}
+    if (e.status) return res.status(e.status).json({ ok: false, error: e.message });
     console.error('❌ update categoria', e);
     if (isMissingRelation(e)) {
       return res.status(500).json({ ok: false, error: 'Falta tabla categorias_deportivas en la DB' });

@@ -331,7 +331,10 @@ function ensureExcepcionOption(value, labelHint) {
       return;
     }
 
+    categoriasEdadCache = data.categorias ?? []; // ✅ NUEVO: incluye edad_desde / edad_hasta
     fillCategoriaSelect(data.categorias ?? []);
+    bindCategoriaAutomatica();
+    actualizarHintCategoria();
   }
 
   function fillCategoriaSelect(items) {
@@ -369,6 +372,81 @@ function ensureExcepcionOption(value, labelHint) {
     // refreshFiltroCategoriaDesdeCache(), mostrando solo las categorías que
     // tienen socios en la Actividad actualmente filtrada (ver más abajo,
     // sección "Filtros dependientes").
+  }
+
+  // =============================
+  // ✅ NUEVO: Categoría automática por rango de edad
+  // (categorias_deportivas.edad_desde / edad_hasta, ver migración 2026-10-27)
+  // =============================
+  let categoriasEdadCache = [];
+
+  function edadDesdeFechaISO(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    if (!m) return null;
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - Number(m[1]);
+    const mes = hoy.getMonth() + 1 - Number(m[2]);
+    if (mes < 0 || (mes === 0 && hoy.getDate() < Number(m[3]))) edad--;
+    return edad >= 0 ? edad : null;
+  }
+
+  // Nombre de la categoría por edad que le corresponde, o null si ninguna aplica
+  function categoriaAutoPorFecha(iso) {
+    const edad = edadDesdeFechaISO(iso);
+    if (edad === null) return null;
+    const cands = categoriasEdadCache.filter((c) =>
+      (c.edad_desde != null || c.edad_hasta != null) &&
+      edad >= (c.edad_desde ?? 0) && edad <= (c.edad_hasta ?? 200)
+    );
+    if (!cands.length) return null;
+    cands.sort((a, b) => (b.edad_desde ?? 0) - (a.edad_desde ?? 0));
+    return cands[0].nombre;
+  }
+
+  function actualizarHintCategoria() {
+    const sel = $('socioCategoria');
+    if (!sel) return;
+    let hint = $('socioCategoriaHint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = 'socioCategoriaHint';
+      hint.style.cssText = 'font-size:12px; margin-top:4px; color:#666;';
+      sel.insertAdjacentElement('afterend', hint);
+    }
+    const auto = categoriaAutoPorFecha($('socioNacimiento')?.value);
+    if (!auto) { hint.textContent = ''; return; }
+    if (sel.value === auto) {
+      hint.textContent = '🔄 Categoría automática según la edad (cambia sola al cumplir años).';
+    } else {
+      hint.textContent = `✋ Categoría elegida a mano. Por edad le corresponde "${auto}"; para volver a la automática, seleccionala.`;
+    }
+  }
+
+  // Al cambiar la fecha de nacimiento: si la categoría no fue elegida a mano,
+  // se asigna sola la que corresponde por edad.
+  function aplicarCategoriaAutomatica() {
+    const sel = $('socioCategoria');
+    if (!sel) return;
+    const auto = categoriaAutoPorFecha($('socioNacimiento')?.value);
+    if (auto && sel.dataset.manual !== '1') {
+      ensureCategoriaOption(auto);
+      sel.value = auto;
+    }
+    actualizarHintCategoria();
+  }
+
+  function bindCategoriaAutomatica() {
+    const sel = $('socioCategoria');
+    const nac = $('socioNacimiento');
+    if (!sel || !nac || sel.dataset.autoBound === '1') return;
+    sel.dataset.autoBound = '1';
+    nac.addEventListener('change', aplicarCategoriaAutomatica);
+    nac.addEventListener('input', aplicarCategoriaAutomatica);
+    sel.addEventListener('change', () => {
+      const auto = categoriaAutoPorFecha(nac.value);
+      sel.dataset.manual = auto && sel.value && sel.value !== auto ? '1' : '0';
+      actualizarHintCategoria();
+    });
   }
 
   // Si al editar viene una categoría que no existe más en config
@@ -2557,6 +2635,10 @@ resetGrupoFamiliarState();
 
   $('socioActividad').value = '';
   $('socioCategoria').value = '';
+  // ✅ NUEVO: socio nuevo -> categoría automática (no manual) hasta que elijan otra
+  $('socioCategoria').dataset.manual = '0';
+  bindCategoriaAutomatica();
+  actualizarHintCategoria();
 
   $('socioTelefono').value = '';
   $('socioDireccion').value = '';
@@ -2703,9 +2785,13 @@ function toggleTutorField(forceValue) {
   if (catSel) catSel.dataset.pendingValue = (socio.categoria ?? '').toString();
   $('socioCategoria').value = socio.categoria ?? '';
   ensureCategoriaOption(socio.categoria);
+  // ✅ NUEVO: respeta si la categoría de este socio fue elegida a mano
+  if (catSel) catSel.dataset.manual = socio.categoria_manual ? '1' : '0';
+  bindCategoriaAutomatica();
 
   $('socioTelefono').value = socio.telefono ?? '';
   $('socioNacimiento').value = (socio.fecha_nacimiento || '').slice(0, 10);
+  actualizarHintCategoria(); // ✅ NUEVO
   $('socioIngreso').value = (socio.fecha_ingreso || '').slice(0, 10);
   $('socioActivo').checked = !!socio.activo;
   $('socioBecado').checked = !!socio.becado;

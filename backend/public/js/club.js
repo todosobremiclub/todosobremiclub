@@ -480,7 +480,7 @@ if (perms && !perms.canAccess(sectionName)) {
 }
       window.currentSection = sectionName;
 
-      const res = await fetch(`/sections/${sectionName}.html?v=20261027-1`);
+      const res = await fetch(`/sections/${sectionName}.html?v=20261027-2`);
       if (!res.ok) throw new Error('No se pudo cargar la sección');
 
       const html = await res.text();

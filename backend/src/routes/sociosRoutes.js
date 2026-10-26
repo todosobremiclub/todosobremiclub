@@ -7,6 +7,7 @@ const multer = require('multer');
 const ExcelJS = require('exceljs');
 const nodemailer = require('nodemailer'); // ✅ NUEVO: para el email de bienvenida
 const { enviarPlantillaWhatsapp } = require('../services/whatsappService'); // ✅ NUEVO: bienvenida por WhatsApp
+const { resolverCategoriaSocio } = require('../services/categoriasEdadService'); // ✅ NUEVO: categoría automática por edad (ver migración 2026-10-27)
 const { registrarCambioBecado } = require('../services/becadoHistorialService'); // ✅ NUEVO: historial de becado (ver migración 2026-09-30)
 
 // ✅ NUEVO: tamaño de lote e intervalo entre lotes para la bienvenida por email
@@ -1471,6 +1472,7 @@ router.get('/:clubId/socios', requireAuth, requireClubAccess, async (req, res) =
         s.es_menor,
         s.tutor_nombre,
         s.categoria,
+        s.categoria_manual,
         s.actividad,
         s.telefono,
         s.direccion,
@@ -2323,19 +2325,28 @@ let insertedCount = 0;
 
 for (const s of toInsert) {
   try {
+    // ✅ NUEVO: si la categoría del Excel no es la de su edad, queda "manual"
+    const catImport = await resolverCategoriaSocio(db, {
+      clubId,
+      fechaNacimiento: s.fecha_nacimiento,
+      categoria: s.categoria
+    });
+
     const rIns = await db.query(
       `INSERT INTO socios (
         club_id, numero_socio, dni, nombre, apellido,
         telefono, direccion, ciudad, provincia, email,
         fecha_nacimiento, obra_social, obra_social_numero, fecha_ingreso,
         activo, becado, categoria, actividad,
-        tiene_actividades_adicionales, actividades_adicionales
+        tiene_actividades_adicionales, actividades_adicionales,
+        categoria_manual
       ) VALUES (
         $1,$2,$3,$4,$5,
         $6,$7,$8,$9,$10,
         $11,$12,$13,$14,
         $15,$16,$17,$18,
-        $19,$20
+        $19,$20,
+        $21
       ) RETURNING id`,
       [
         clubId,
@@ -2357,7 +2368,8 @@ for (const s of toInsert) {
         s.categoria,
         s.actividad,
         s.tiene_actividades_adicionales,
-        s.actividades_adicionales
+        s.actividades_adicionales,
+        catImport.manual
       ]
     );
 
@@ -2439,7 +2451,15 @@ const {
     // mismo criterio que ya usa la app de administradores (_hoyIso()).
     const fechaIngresoFinal = fecha_ingreso || new Date().toISOString().slice(0, 10);
 
-    if (!dniLimpio || !nombre || !apellido || !fecha_nacimiento || !categoria || !actividad) {
+    // ✅ NUEVO: la categoría puede venir vacía si el club tiene categorías por
+    // rango de edad: en ese caso se asigna la que le corresponde por edad.
+    const catResuelta = await resolverCategoriaSocio(db, {
+      clubId,
+      fechaNacimiento: fecha_nacimiento,
+      categoria
+    });
+
+    if (!dniLimpio || !nombre || !apellido || !fecha_nacimiento || !catResuelta.categoria || !actividad) {
       return res.status(400).json({
         ok: false,
         error: 'Completá DNI, Nombre, Apellido, Categoría, Actividad y Fecha de nacimiento.'
@@ -2508,10 +2528,11 @@ const r = await db.query(
     tutor_nombre,
     tiene_actividades_adicionales,
     actividades_adicionales,
-    numero_camiseta
+    numero_camiseta,
+    categoria_manual
   )
   VALUES (
-    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25
   )
   RETURNING *
   `,
@@ -2532,14 +2553,15 @@ const r = await db.query(
     fechaIngresoFinal,
     !!activo,
     !!becado,
-    String(categoria),
+    String(catResuelta.categoria),
     String(actividad),
     (excepcion_cuota_id ?? null),
     !!es_menor,
     (tutor_nombre ?? null),
     !!tiene_actividades_adicionales,
     (actividades_adicionales ?? null),
-    (numero_camiseta ?? null)
+    (numero_camiseta ?? null),
+    catResuelta.manual // $25 — ✅ NUEVO: true si eligió a mano una categoría distinta a la de su edad
   ]
 );
 
@@ -2625,6 +2647,14 @@ const rPrev = await db.query(
 );
 const becadoAnterior = rPrev.rows[0]?.becado ?? null;
 
+// ✅ NUEVO: categoría por edad. Si el admin eligió una distinta a la que le
+// corresponde por edad, queda "manual" y el proceso diario no la mueve más.
+const catResuelta = await resolverCategoriaSocio(db, {
+  clubId,
+  fechaNacimiento: fecha_nacimiento,
+  categoria
+});
+
 const r = await db.query(
   `
   UPDATE socios SET
@@ -2644,6 +2674,7 @@ const r = await db.query(
     activo = $14,
     becado = $15,
     categoria = $16,
+    categoria_manual = $29,
     actividad = $17,
     excepcion_cuota_id = $18,
     es_menor = $19,
@@ -2683,7 +2714,7 @@ const r = await db.query(
     fecha_ingreso ?? null,
     !!activo,
     !!becado,
-    categoria,
+    (catResuelta.categoria || categoria),
     actividad,
     (excepcion_cuota_id ?? null),
     !!es_menor,
@@ -2696,6 +2727,7 @@ const r = await db.query(
     dniLimpio,       // ✅ mismo valor que $2, en parámetro aparte para el CASE
     numero_socio,    // ✅ mismo valor que $1, en parámetro aparte para el CASE
     (numero_camiseta ?? null), // $28 — ✅ NUEVO
+    catResuelta.manual,        // $29 — ✅ NUEVO: categoría elegida a mano distinta a la de su edad
   ]
 );
 

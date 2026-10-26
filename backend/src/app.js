@@ -156,6 +156,15 @@ setInterval(() => {
   procesarVencimientosEspacios();
 }, CHEQUEO_VENCIMIENTO_ESPACIOS_MS);
 
+// ✅ NUEVO: worker de categorías por edad. Corre al iniciar y después cada hora:
+// pasa a cada socio a la categoría que le corresponde por su edad (solo si el
+// club configuró rangos de edad y el socio no la tiene "a mano").
+// Ver src/services/categoriasEdadWorker.js.
+const { procesarCategoriasPorEdad } = require('./services/categoriasEdadWorker');
+const CHEQUEO_CATEGORIAS_EDAD_MS = 60 * 60 * 1000; // cada 1 hora
+procesarCategoriasPorEdad();
+setInterval(procesarCategoriasPorEdad, CHEQUEO_CATEGORIAS_EDAD_MS);
+
 // ✅ NUEVO: worker de retención del log de auditoría (admin_activity_log).
 // Corre una vez al iniciar el server y después cada 24hs, borrando lo que
 // tenga más de 3 meses de antigüedad (ver src/services/auditLogPurgeWorker.js).
