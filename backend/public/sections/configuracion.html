@@ -134,9 +134,19 @@
       <h3 class="config-title">🏷️ Categorías deportivas</h3>
     </div>
 
-    <div class="config-content">
-      <div class="muted small" style="margin-bottom:8px; color:#666; font-size:13px;">
-        Opcional: si indicás un rango de edad, esa categoría se asigna automáticamente
+    <div class="config-content" id="categoriasContent">
+      <style>
+        /* ✅ NUEVO: los campos de rango de edad solo se ven con el check tildado */
+        #categoriasContent.sin-rango-edad .cat-rango { display: none !important; }
+      </style>
+
+      <label style="display:flex; align-items:center; gap:8px; font-weight:600; margin-bottom:6px;">
+        <input type="checkbox" id="checkCategoriasPorEdad">
+        Mis categorías se asignan por rango de edad
+      </label>
+
+      <div class="cat-rango muted small" style="margin-bottom:8px; color:#666; font-size:13px;">
+        Si indicás un rango de edad, esa categoría se asigna automáticamente
         a los socios según su edad (y cambia sola el día que cumplen años).
         Dejá "Desde" y "Hasta" vacíos para una categoría que se asigna a mano.
         Ejemplo: Menor 0 a 11 · Cadete 12 a 17 · Mayor 18 a (vacío).
@@ -144,8 +154,8 @@
 
       <div class="config-input-row">
         <input id="newCategoriaNombre" placeholder="Nombre">
-        <input id="newCategoriaEdadDesde" type="number" min="0" max="120" step="1" placeholder="Edad desde" style="flex:none; width:120px; min-width:0;">
-        <input id="newCategoriaEdadHasta" type="number" min="0" max="120" step="1" placeholder="Edad hasta" style="flex:none; width:120px; min-width:0;">
+        <input id="newCategoriaEdadDesde" class="cat-rango" type="number" min="0" max="120" step="1" placeholder="Edad desde" style="flex:none; width:120px; min-width:0;">
+        <input id="newCategoriaEdadHasta" class="cat-rango" type="number" min="0" max="120" step="1" placeholder="Edad hasta" style="flex:none; width:120px; min-width:0;">
         <button id="btnCategoriaAdd" class="btn-add">➕ Agregar</button>
       </div>
 
@@ -153,8 +163,8 @@
         <thead>
           <tr>
             <th>Nombre</th>
-            <th style="width:120px;">Edad desde</th>
-            <th style="width:120px;">Edad hasta</th>
+            <th class="cat-rango" style="width:120px;">Edad desde</th>
+            <th class="cat-rango" style="width:120px;">Edad hasta</th>
             <th style="width:90px;">Guardar</th>
             <th style="width:90px;">Eliminar</th>
           </tr>

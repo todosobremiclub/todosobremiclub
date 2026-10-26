@@ -198,17 +198,31 @@ function renderCategorias(items) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
+  // ✅ NUEVO: si alguna categoría ya tiene rango, el check queda tildado
+  // y se muestran los campos; si no, se respeta lo que tenga el check.
+  const chk = $('checkCategoriasPorEdad');
+  if (chk && items.some(c => c.edad_desde != null || c.edad_hasta != null)) chk.checked = true;
+  aplicarVisibilidadRangoEdad();
+
   items.forEach(c => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><input type="text" id="cat_${c.id}" value="${escapeHtml(c.nombre)}" /></td>
-      <td><input type="number" min="0" max="120" step="1" id="catDesde_${c.id}" value="${c.edad_desde ?? ''}" placeholder="—" style="width:90px;" /></td>
-      <td><input type="number" min="0" max="120" step="1" id="catHasta_${c.id}" value="${c.edad_hasta ?? ''}" placeholder="sin tope" style="width:90px;" /></td>
+      <td class="cat-rango"><input type="number" min="0" max="120" step="1" id="catDesde_${c.id}" value="${c.edad_desde ?? ''}" placeholder="—" style="width:90px;" /></td>
+      <td class="cat-rango"><input type="number" min="0" max="120" step="1" id="catHasta_${c.id}" value="${c.edad_hasta ?? ''}" placeholder="sin tope" style="width:90px;" /></td>
       <td style="text-align:center"><button class="btn-save" data-act="save-cat" data-id="${c.id}">💾</button></td>
       <td style="text-align:center"><button class="btn-del" data-act="del-cat" data-id="${c.id}">🗑️</button></td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+// ✅ NUEVO: muestra/oculta los campos de rango de edad según el check
+function aplicarVisibilidadRangoEdad() {
+  const cont = $('categoriasContent');
+  const chk = $('checkCategoriasPorEdad');
+  if (!cont || !chk) return;
+  cont.classList.toggle('sin-rango-edad', !chk.checked);
 }
 
 async function createCategoria(nombre, edadDesde = '', edadHasta = '') {
@@ -1078,6 +1092,20 @@ function bindEvents() {
     } finally {
       btn.disabled = false;
     }
+  });
+
+  // ✅ NUEVO: check "Mis categorías se asignan por rango de edad"
+  $('checkCategoriasPorEdad')?.addEventListener('change', (e) => {
+    if (!e.target.checked) {
+      const hayRangos = [...document.querySelectorAll('#categoriasTableBody [id^="catDesde_"], #categoriasTableBody [id^="catHasta_"]')]
+        .some(i => String(i.value).trim() !== '');
+      if (hayRangos) {
+        alert('Hay categorías con rango de edad configurado. Para desactivar la asignación por edad, primero vaciá "Edad desde" y "Edad hasta" de cada categoría y guardá.');
+        e.target.checked = true;
+        return;
+      }
+    }
+    aplicarVisibilidadRangoEdad();
   });
 
   // categorías
