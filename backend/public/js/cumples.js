@@ -130,6 +130,7 @@
       const t = e.extendedProps?.tipo;
       return t === 'evento' || t === 'clase' ? t : 'actividad';
     }
+    if (kind === 'recurso') return 'recurso';
     return null;
   }
 
@@ -140,6 +141,7 @@
     if ($('chkFiltroActividades')?.checked) activas.push('actividad');
     if ($('chkFiltroEventos')?.checked) activas.push('evento');
     if ($('chkFiltroClases')?.checked) activas.push('clase');
+    if ($('chkFiltroRecursos')?.checked) activas.push('recurso');
     if ($('chkFiltroCumples')?.checked) activas.push('cumple');
 
     const eventos = activas.length
@@ -310,6 +312,15 @@
 
       // Doble click para editar (solo actividades)
       eventDidMount: (info) => {
+        // ✅ Recursos (reservas / abonos): solo lectura, con el detalle al pasar el mouse.
+        if (info.event.extendedProps?.kind === 'recurso') {
+          const p = info.event.extendedProps;
+          info.el.title =
+            `${p.recurso} · ${p.hora_desde} a ${p.hora_hasta}` +
+            `${p.tipo === 'abono' ? ' (abono semanal)' : ''}\nTitular: ${p.titular}` +
+            ((p.participantes || []).length ? `\nTambién: ${p.participantes.join(', ')}` : '');
+          return;
+        }
         if (info.event.extendedProps?.kind !== 'actividad') return;
 
         info.el.style.cursor = canWrite ? 'pointer' : 'default';
@@ -687,9 +698,14 @@
     $('formActividad')?.addEventListener('submit', saveActividad);
 
     // ✅ Filtro de la leyenda (Actividades / Eventos / Cumpleaños)
+    // ✅ El filtro "Recursos" solo existe si el club tiene el módulo habilitado.
+    if (window.__espaciosHabilitado === true && $('lblFiltroRecursos')) {
+      $('lblFiltroRecursos').style.display = '';
+    }
     $('chkFiltroActividades')?.addEventListener('change', aplicarFiltroEventos);
     $('chkFiltroEventos')?.addEventListener('change', aplicarFiltroEventos);
     $('chkFiltroClases')?.addEventListener('change', aplicarFiltroEventos);
+    $('chkFiltroRecursos')?.addEventListener('change', aplicarFiltroEventos);
     $('chkFiltroCumples')?.addEventListener('change', aplicarFiltroEventos);
 
     // ✅ Clases / entrenamientos

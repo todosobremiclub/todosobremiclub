@@ -3,7 +3,8 @@
 // Módulo "Espacios y Clases" — API de la APP del socio (montado bajo /app).
 // El club y el socio salen del JWT (igual que /app/tienda/...).
 // Paso 6: recursos, turnos libres, reservas (crear / mías / cancelar).
-// Paso 8: abonos del socio (solo lectura).
+// Paso 8: abonos del socio (solo lectura). Reservas y abonos incluyen los que
+// el socio ve como participante (rol: 'participante').
 // (Las Clases / entrenamientos viven en la Agenda: ver clasesAppRoutes.js.)
 const express = require('express');
 const db = require('../db');
@@ -27,7 +28,7 @@ async function sesionEspacios(req, res) {
   }
   const rc = await db.query(`SELECT espacios_habilitado FROM clubs WHERE id = $1 LIMIT 1`, [clubId]);
   if (!rc.rowCount || rc.rows[0].espacios_habilitado !== true) {
-    res.status(403).json({ ok: false, error: 'Este club no tiene Espacios y Clases habilitado' });
+    res.status(403).json({ ok: false, error: 'Este club no tiene Recursos habilitado' });
     return null;
   }
   return { clubId, socioId };
@@ -151,17 +152,31 @@ router.get('/espacios/reservas/mias', requireAuth, async (req, res) => {
     if (!s) return;
     const q = await db.query(
       `
-      SELECT ${reservasSvc.SQL_RESERVA}, rec.imagen_url AS recurso_imagen_url
+      SELECT ${reservasSvc.SQL_RESERVA}, rec.imagen_url AS recurso_imagen_url,
+             (r.socio_id = $2) AS es_titular,
+             ts.nombre AS titular_nombre, ts.apellido AS titular_apellido
         FROM recursos_reservas r
         JOIN recursos rec ON rec.id = r.recurso_id
-       WHERE r.club_id = $1 AND r.socio_id = $2
+        LEFT JOIN socios ts ON ts.id = r.socio_id
+       WHERE r.club_id = $1
+         AND (r.socio_id = $2 OR EXISTS (
+               SELECT 1 FROM recursos_reservas_socios x WHERE x.reserva_id = r.id AND x.socio_id = $2))
          AND r.fecha >= ((NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date - 90)
        ORDER BY r.fecha DESC, r.hora_desde DESC
        LIMIT 200
       `,
       [s.clubId, s.socioId]
     );
-    const reservas = q.rows.map((r) => ({ ...formatoApp(r), recurso_imagen_url: r.recurso_imagen_url }));
+    const conPart = await reservasSvc.adjuntarParticipantes(db, s.clubId, q.rows);
+    const reservas = conPart.map((r) => ({
+      ...formatoApp(r),
+      recurso_imagen_url: r.recurso_imagen_url,
+      rol: r.es_titular ? 'titular' : 'participante',
+      titular: `${r.titular_apellido ?? ''}, ${r.titular_nombre ?? ''}`.replace(/^, |, $/g, '').trim() || null,
+      participantes: (r.participantes || []).map((x) => x.nombre_completo),
+      // Solo el titular puede cancelar
+      ...(r.es_titular ? {} : { puede_cancelar: false })
+    }));
     return res.json({ ok: true, reservas });
   } catch (e) {
     return responderError(res, e, 'GET /app/espacios/reservas/mias');

@@ -262,8 +262,10 @@ if (btnTienda) {
   btnTienda.style.display = (club.tienda_habilitada === true && puedeVerPorRol) ? '' : 'none';
 }
 
-// ✅ NUEVO: el botón "Espacios y Clases" solo se muestra si el club tiene el
+// ✅ NUEVO: el botón "Recursos" solo se muestra si el club tiene el
 // módulo habilitado (flag espacios_habilitado que activa el superadmin).
+// También lo usa la Agenda para mostrar el filtro "Recursos".
+window.__espaciosHabilitado = club.espacios_habilitado === true;
 const btnEspacios = document.querySelector('[data-section="espacios"]');
 if (btnEspacios) {
   const perms = window.__clubPerms;
@@ -478,7 +480,7 @@ if (perms && !perms.canAccess(sectionName)) {
 }
       window.currentSection = sectionName;
 
-      const res = await fetch(`/sections/${sectionName}.html?v=20261024-1`);
+      const res = await fetch(`/sections/${sectionName}.html?v=20261026-1`);
       if (!res.ok) throw new Error('No se pudo cargar la sección');
 
       const html = await res.text();

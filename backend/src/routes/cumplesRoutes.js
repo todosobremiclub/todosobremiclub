@@ -89,6 +89,7 @@ const {
   addDaysLocal, fechaISO, generarOcurrencias,
 } = require('../services/agendaRecurrencia');
 const clasesSvc = require('../services/agendaClasesService');
+const recursosAgenda = require('../services/agendaRecursosService');
 
 /**
  * GET /club/:clubId/cumples?mes=YYYY-MM
@@ -324,10 +325,15 @@ router.get('/:clubId/cumples', requireAuth, async (req, res) => {
       });
     });
 
+    // ✅ Recursos (reservas aceptadas y abonos): solo para el panel y si el club tiene el módulo.
+    const eventosRecursos = esAdmin
+      ? await recursosAgenda.eventosRecursos(db, { clubId, desde: start, hastaExcl: endExclusive })
+      : [];
+
     return res.json({
       ok: true,
       hoy: cumpleHoy,
-      eventos: [...eventosCumples, ...eventosActividades],
+      eventos: [...eventosCumples, ...eventosActividades, ...eventosRecursos],
     });
   } catch (e) {
     console.error('❌ cumples error:', e);

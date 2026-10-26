@@ -21,6 +21,7 @@ const { initFirebase } = require('../config/firebaseAdmin');
 const disp = require('../services/disponibilidadService');
 const reservasSvc = require('../services/espaciosReservasService');
 const abonosSvc = require('../services/espaciosAbonosService');
+const partSvc = require('../services/espaciosParticipantesService');
 
 const router = express.Router();
 
@@ -80,7 +81,7 @@ function acceso(escritura) {
       if (!rc.rowCount || rc.rows[0].espacios_habilitado !== true) {
         return res
           .status(403)
-          .json({ ok: false, error: 'El módulo Espacios y Clases no está habilitado para este club' });
+          .json({ ok: false, error: 'El módulo Recursos no está habilitado para este club' });
       }
       next();
     } catch (e) {
@@ -665,6 +666,24 @@ router.get('/:clubId/espacios/recursos/:id/turnos', ...leer, async (req, res) =>
       }
     }
 
+    // Panel: participantes (socios adicionales) de las reservas/abonos que ocupan cada turno
+    if (!vistaSocio) {
+      const rIds = new Set();
+      const aIds = new Set();
+      for (const d of dias) for (const t of d.turnos) for (const o of t.ocupado_por || []) {
+        if (o.reserva_id) rIds.add(o.reserva_id);
+        if (o.abono_id) aIds.add(o.abono_id);
+      }
+      const [pr, pa] = await Promise.all([
+        partSvc.participantesDe(db, { clubId, tipo: 'reserva', ids: [...rIds] }),
+        partSvc.participantesDe(db, { clubId, tipo: 'abono', ids: [...aIds] })
+      ]);
+      for (const d of dias) for (const t of d.turnos) for (const o of t.ocupado_por || []) {
+        const lista = (o.reserva_id && pr.get(o.reserva_id)) || (o.abono_id && pa.get(o.abono_id)) || [];
+        if (lista.length) o.participantes = lista.map((x) => x.nombre_completo);
+      }
+    }
+
     const r = out.recurso;
     return res.json({
       ok: true,
@@ -720,7 +739,12 @@ router.get('/:clubId/espacios/reservas', ...leer, async (req, res) => {
       if (req.query[k]) {
         if (!isUuid(req.query[k])) return res.status(400).json({ ok: false, error: `${k} inválido` });
         params.push(String(req.query[k]));
-        where.push(`r.${k} = $${params.length}`);
+        if (k === 'socio_id') {
+          where.push(`(r.socio_id = $${params.length} OR EXISTS (
+            SELECT 1 FROM recursos_reservas_socios x WHERE x.reserva_id = r.id AND x.socio_id = $${params.length}))`);
+        } else {
+          where.push(`r.${k} = $${params.length}`);
+        }
       }
     }
     const orden = String(req.query.orden || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
@@ -744,12 +768,13 @@ router.get('/:clubId/espacios/reservas', ...leer, async (req, res) => {
       `,
       params
     );
-    const reservas = q.rows.map((x) => ({
+    const base = q.rows.map((x) => ({
       ...x,
       titular: x.socio_id
         ? `${x.socio_apellido ?? ''}, ${x.socio_nombre ?? ''}`.replace(/^, |, $/g, '').trim()
         : x.nombre_externo
     }));
+    const reservas = await reservasSvc.adjuntarParticipantes(db, clubId, base);
     return res.json({ ok: true, reservas });
   } catch (e) {
     return responderError(res, e, 'GET espacios/reservas');
@@ -774,11 +799,25 @@ router.post('/:clubId/espacios/reservas', ...escribir, async (req, res) => {
       nombreExterno: b.nombre_externo,
       contactoExterno: b.contacto_externo,
       comentario: b.comentario,
+      participantesIds: b.participantes_ids,
       adminUserId: adminUserId(req)
     });
     return res.status(201).json({ ok: true, reserva: creada });
   } catch (e) {
     return responderError(res, e, 'POST espacios/reservas');
+  }
+});
+
+// PUT /club/:clubId/espacios/reservas/:id/participantes   body: { socio_ids: [uuid, ...] }
+// Reemplaza la lista de socios adicionales al titular (los nuevos reciben un aviso).
+router.put('/:clubId/espacios/reservas/:id/participantes', ...escribir, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    if (!isUuid(id)) return res.status(400).json({ ok: false, error: 'Reserva inválida' });
+    const reserva = await reservasSvc.actualizarParticipantes(db, { clubId, id, socioIds: req.body?.socio_ids });
+    return res.json({ ok: true, reserva });
+  } catch (e) {
+    return responderError(res, e, 'PUT espacios/reservas/:id/participantes');
   }
 });
 
@@ -836,6 +875,7 @@ router.post('/:clubId/espacios/abonos', ...escribir, async (req, res) => {
       horaDesde: b.hora_desde, horaHasta: b.hora_hasta,
       socioId: b.socio_id || null, nombreExterno: b.nombre_externo, contactoExterno: b.contacto_externo,
       vigenteDesde: b.vigente_desde, vigenteHasta: b.vigente_hasta, notas: b.notas,
+      participantesIds: b.participantes_ids,
       adminUserId: adminUserId(req)
     });
     return res.status(201).json({ ok: true, abono });
@@ -854,6 +894,18 @@ router.put('/:clubId/espacios/abonos/:id', ...escribir, async (req, res) => {
     return res.json({ ok: true, abono });
   } catch (e) {
     return responderError(res, e, 'PUT espacios/abonos/:id');
+  }
+});
+
+// PUT /club/:clubId/espacios/abonos/:id/participantes   body: { socio_ids: [uuid, ...] }
+router.put('/:clubId/espacios/abonos/:id/participantes', ...escribir, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    if (!isUuid(id)) return res.status(400).json({ ok: false, error: 'Abono inválido' });
+    const abono = await abonosSvc.actualizarParticipantes(db, { clubId, id, socioIds: req.body?.socio_ids });
+    return res.json({ ok: true, abono });
+  } catch (e) {
+    return responderError(res, e, 'PUT espacios/abonos/:id/participantes');
   }
 });
 

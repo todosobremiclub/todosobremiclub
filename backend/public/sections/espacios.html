@@ -3,7 +3,7 @@
   <div class="esp-header">
     <div class="esp-header-icon">🏟️</div>
     <div>
-      <h2 class="esp-header-title">Espacios</h2>
+      <h2 class="esp-header-title">Recursos</h2>
       <p class="esp-header-sub">Cargá canchas, salones y espacios con sus horarios disponibles para que los socios puedan reservar turnos desde la app.</p>
     </div>
   </div>
@@ -23,11 +23,11 @@
         <select id="espCalRecurso"></select>
       </div>
       <div class="esp-leyenda">
-        <span><i style="background:#dcfce7;border-color:#86efac"></i>Libre</span>
-        <span><i style="background:#fed7aa;border-color:#fb923c"></i>Pendiente</span>
-        <span><i style="background:#bbf7d0;border-color:#22c55e"></i>Reservado</span>
-        <span><i style="background:#bfdbfe;border-color:#60a5fa"></i>Abono</span>
-        <span><i style="background:#e5e7eb;border-color:#9ca3af"></i>Bloqueado</span>
+        <span><i style="background:#ecfdf5;border-color:#a7f3d0"></i>Libre</span>
+        <span><i style="background:#f97316;border-color:#c2410c"></i>Pendiente</span>
+        <span><i style="background:#16a34a;border-color:#14532d"></i>Reservado</span>
+        <span><i style="background:#2563eb;border-color:#1e3a8a"></i>Abono</span>
+        <span><i style="background:#d1d5db;border-color:#6b7280"></i>Bloqueado</span>
       </div>
     </div>
     <div id="espCalMsg" class="muted" style="margin-bottom:8px;"></div>
@@ -99,7 +99,10 @@
   <!-- ================= TAB RECURSOS ================= -->
   <div id="espTabRecursos" style="display:none;">
     <div class="esp-toolbar">
-      <div class="muted" id="espRecursosResumen"></div>
+      <div class="esp-filtros">
+        <div class="muted" id="espRecursosResumen"></div>
+        <label class="esp-check" style="margin:0 0 0 12px;"><input type="checkbox" id="espVerInactivos" /> Ver recursos inactivos</label>
+      </div>
       <button type="button" id="btnEspNuevoRecurso" class="btn-ok esp-btn-ok">➕ Nuevo recurso</button>
     </div>
     <div id="espRecursosLista" class="esp-grid"><div class="muted">Cargando…</div></div>
@@ -277,6 +280,7 @@
         <select id="espResNTurno"></select>
         <div id="espResNTurnoInfo" class="muted" style="margin-top:4px;"></div>
         <div id="espResNTitular"></div>
+        <div id="espResNPart"></div>
         <label>Comentario (opcional)</label>
         <input type="text" id="espResNComentario" maxlength="300" />
         <div id="espResNMsg" class="esp-msg" style="display:none;"></div>
@@ -321,6 +325,7 @@
         <label class="esp-check"><input type="checkbox" id="espAboNConFin" /> Tiene fecha de finalización (si no, queda abierto)</label>
         <div id="espAboNFinWrap" style="display:none;"><label>Último día</label><input type="date" id="espAboNFin" /></div>
         <div id="espAboNTitular"></div>
+        <div id="espAboNPart"></div>
         <label>Notas (opcional)</label>
         <input type="text" id="espAboNNotas" maxlength="300" placeholder="Ej: paga por mes, equipo de los jueves" />
         <div id="espAboNMsg" class="esp-msg" style="display:none;"></div>
@@ -367,6 +372,22 @@
         <div class="esp-actions">
           <button type="button" id="btnEspAboBajaOk" class="btn btn-secondary esp-danger">Dar de baja</button>
           <button type="button" class="btn btn-secondary" data-esp-cerrar="espAboBajaOverlay">Cancelar</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: PARTICIPANTES (reserva o abono) ================= -->
+  <div id="espPartOverlay" class="esp-overlay" style="display:none;">
+    <div class="esp-modal esp-modal--sm">
+      <div class="esp-modal-head"><h3 id="espPartTitulo">Participantes</h3><button type="button" class="esp-x" data-esp-cerrar="espPartOverlay">✖</button></div>
+      <div class="esp-modal-body"><div class="esp-card">
+        <div id="espPartInfo" class="muted" style="margin-bottom:8px;"></div>
+        <div id="espPartPicker"></div>
+        <div id="espPartMsg" class="esp-msg" style="display:none;"></div>
+        <div class="esp-actions">
+          <button type="button" id="btnEspPartGuardar" class="btn-ok esp-btn-ok">💾 Guardar</button>
+          <button type="button" class="btn btn-secondary" data-esp-cerrar="espPartOverlay">Cancelar</button>
         </div>
       </div></div>
     </div>
@@ -446,6 +467,13 @@
   .esp-calendar { background:#fff; border:1px solid #e3e6ea; border-radius:12px; padding:10px; }
   .esp-calendar .fc-event { cursor:pointer; font-size:12px; }
   .esp-calendar .esp-ev-pasado { opacity:.45; cursor:default; }
+  /* Reservas / abonos: bien visibles (fondo fuerte, texto blanco y en negrita) */
+  .esp-calendar .esp-ev-ocupado { box-shadow:0 1px 4px rgba(0,0,0,.3); font-weight:700; }
+  .esp-calendar .esp-ev-ocupado .fc-event-title { white-space:normal; }
+  .esp-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .esp-chip { display:inline-flex; align-items:center; gap:6px; background:#e0f2fe; color:#075985; border-radius:999px; padding:4px 6px 4px 10px; font-size:12.5px; font-weight:600; }
+  .esp-chip button { border:none; background:rgba(7,89,133,.15); color:#075985; border-radius:50%; width:18px; height:18px; line-height:16px; cursor:pointer; font-size:11px; padding:0; }
+  .esp-part-names { font-size:12px; color:#475569; margin-top:2px; }
   .esp-calendar .fc-timegrid-slot { height:2.8em; }
   .esp-calendar .fc-event-main { padding:1px 3px; line-height:1.25; }
   .esp-estado { font-size:12px; font-weight:700; padding:2px 8px; border-radius:999px; background:#eef1f5; color:#334; white-space:nowrap; }

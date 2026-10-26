@@ -1,6 +1,6 @@
 // public/js/espacios.js
 //
-// Panel admin: módulo "Espacios" (recursos, reservas y abonos).
+// Panel admin: módulo "Recursos" (canchas, salones y espacios: reservas y abonos).
 // (Las clases / entrenamientos se gestionan desde la Agenda.)
 // Por ahora: pestaña "Recursos" (alta/edición/baja de canchas, salones y
 // espacios + editor de disponibilidad + vista previa de turnos).
@@ -60,7 +60,8 @@
   }
 
   const TIPOS = { cancha: 'Cancha', salon: 'Salón', espacio: 'Espacio', otro: 'Otro' };
-  const TIPO_ICON = { cancha: '⚽', salon: '🏛️', espacio: '🏟️', otro: '📍' };
+  // Imagen por defecto de un recurso sin foto: genérica (sirve para cancha de fútbol, pádel, salón, etc.)
+  const TIPO_ICON = { cancha: '🏟️', salon: '🏟️', espacio: '🏟️', otro: '🏟️' };
   const DIAS_LARGO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   const DIAS_CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const MAX_IMG = 3 * 1024 * 1024;
@@ -117,18 +118,26 @@
     poblarSelectsRecurso();
     const cont = $('#espRecursosLista');
     const activos = recursos.filter((r) => r.activo).length;
+    const inactivos = recursos.length - activos;
+    const verInactivos = !!($('#espVerInactivos') && $('#espVerInactivos').checked);
     $('#espRecursosResumen').textContent = recursos.length
       ? `${activos} recurso${activos === 1 ? '' : 's'} activo${activos === 1 ? '' : 's'}` +
-        (recursos.length > activos ? ` · ${recursos.length - activos} inactivo${recursos.length - activos === 1 ? '' : 's'}` : '')
+        (inactivos ? ` · ${inactivos} inactivo${inactivos === 1 ? '' : 's'}${verInactivos ? '' : ' (ocultos)'}` : '')
       : '';
 
     if (!recursos.length) {
       cont.innerHTML = `<div class="muted">Todavía no cargaste ningún recurso. Tocá "➕ Nuevo recurso" para empezar (por ejemplo, una cancha o un salón).</div>`;
       return;
     }
+    // Los recursos inactivos no se muestran salvo que se tilde "Ver recursos inactivos"
+    const visibles = recursos.filter((r) => r.activo || verInactivos);
+    if (!visibles.length) {
+      cont.innerHTML = `<div class="muted">No hay recursos activos. Tildá "Ver recursos inactivos" para verlos o creá uno nuevo.</div>`;
+      return;
+    }
 
     const w = canWrite();
-    cont.innerHTML = recursos.map((r) => {
+    cont.innerHTML = visibles.map((r) => {
       const img = r.imagen_url
         ? `<img src="${esc(r.imagen_url)}" alt="" />`
         : (TIPO_ICON[r.tipo] || '📍');
@@ -613,7 +622,86 @@
       }
     };
   }
-  let pickRes = null, pickAbo = null;
+  let pickRes = null, pickAbo = null, pickResPart = null, pickAboPart = null, pickPartEdit = null;
+
+  // ---------- Selector de participantes (varios socios) ----------
+  // Los participantes son socios ADICIONALES al titular ("para que vayan todos"):
+  // ven la reserva / abono en la app y reciben los avisos.
+  function participantesInit(p, contenedorSel, { titulo = '👥 Otros socios que participan (opcional)' } = {}) {
+    $(contenedorSel).innerHTML = `
+      <label style="margin-top:12px;">${esc(titulo)}</label>
+      <div class="esp-buscador">
+        <input type="text" id="${p}Busqueda" placeholder="Sumá socios: nombre, apellido, DNI o N° de socio" autocomplete="off" />
+        <div id="${p}Resultados" class="esp-resultados" style="display:none;"></div>
+      </div>
+      <div id="${p}Chips" class="esp-chips"></div>`;
+    let lista = []; // [{ id, label }]
+    let timer = null;
+    const ui = { busqueda: $(`#${p}Busqueda`), resultados: $(`#${p}Resultados`), chips: $(`#${p}Chips`) };
+    const etiqueta = (s) => `#${s.numero_socio ?? '—'} ${s.apellido ?? ''} ${s.nombre ?? ''}`.trim();
+    function render() {
+      ui.chips.innerHTML = lista.length
+        ? lista.map((s) => `<span class="esp-chip">${esc(s.label)}<button type="button" data-quitar="${esc(s.id)}" title="Quitar">✕</button></span>`).join('')
+        : '<span class="muted" style="font-size:12px;">Solo el titular.</span>';
+      ui.chips.querySelectorAll('[data-quitar]').forEach((b) => b.addEventListener('click', () => {
+        lista = lista.filter((x) => x.id !== b.dataset.quitar); render();
+      }));
+    }
+    async function buscar(q) {
+      if (!q || q.trim().length < 2) { ui.resultados.style.display = 'none'; ui.resultados.innerHTML = ''; return; }
+      const { res, data } = await fetchAuth(`/club/${getActiveClubId()}/socios?search=${encodeURIComponent(q.trim())}&limit=8`);
+      const items = (res.ok && data.ok) ? (data.socios || []) : [];
+      ui.resultados.style.display = '';
+      if (!items.length) { ui.resultados.innerHTML = '<div class="item muted">Sin resultados</div>'; return; }
+      ui.resultados.innerHTML = items.map((s) => `<div class="item" data-id="${esc(s.id)}">${esc(etiqueta(s))}</div>`).join('');
+      ui.resultados.querySelectorAll('.item[data-id]').forEach((el) => el.addEventListener('click', () => {
+        const s = items.find((x) => String(x.id) === el.dataset.id);
+        if (s && !lista.some((x) => x.id === s.id)) lista.push({ id: s.id, label: etiqueta(s) });
+        ui.busqueda.value = ''; ui.resultados.style.display = 'none'; ui.resultados.innerHTML = '';
+        render();
+      }));
+    }
+    ui.busqueda.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => buscar(ui.busqueda.value), 250); });
+    render();
+    return {
+      reset() { lista = []; ui.busqueda.value = ''; ui.resultados.style.display = 'none'; ui.resultados.innerHTML = ''; render(); },
+      set(items) { lista = (items || []).map((s) => ({ id: s.socio_id, label: s.numero_socio != null ? `#${s.numero_socio} ${s.nombre_completo}` : s.nombre_completo })); render(); },
+      get() { return lista.map((s) => s.id); }
+    };
+  }
+
+  // Texto "👥 Fulano, Mengano" para tablas y detalles
+  function participantesTexto(lista) {
+    const nombres = (lista || []).map((x) => x.nombre_completo || x).filter(Boolean);
+    return nombres.length ? `<div class="esp-part-names">👥 ${esc(nombres.join(', '))}</div>` : '';
+  }
+
+  // ---------- Modal: editar participantes de una reserva / abono ----------
+  let partCtx = null; // { tipo: 'reserva' | 'abono', id }
+  function abrirParticipantes(tipo, item) {
+    partCtx = { tipo, id: item.id };
+    showMsg('#espPartMsg', '');
+    $('#espPartTitulo').textContent = tipo === 'reserva' ? 'Participantes de la reserva' : 'Participantes del abono';
+    $('#espPartInfo').textContent = `Titular: ${item.titular || '—'}. Los socios que sumes ven este ${tipo === 'reserva' ? 'turno' : 'abono'} en la app y reciben los avisos.`;
+    pickPartEdit.set(item.participantes || []);
+    abrirOverlay('espPartOverlay');
+  }
+  async function guardarParticipantes() {
+    if (!partCtx) return;
+    showMsg('#espPartMsg', '');
+    const btn = $('#btnEspPartGuardar');
+    btn.disabled = true;
+    try {
+      const ruta = partCtx.tipo === 'reserva' ? 'reservas' : 'abonos';
+      const { res, data } = await fetchAuth(`${base()}/${ruta}/${partCtx.id}/participantes`, {
+        method: 'PUT', json: true, body: JSON.stringify({ socio_ids: pickPartEdit.get() })
+      });
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudieron guardar los participantes');
+      cerrarOverlay('espPartOverlay');
+      refrescarVistas();
+    } catch (e) { showMsg('#espPartMsg', e.message); }
+    finally { btn.disabled = false; }
+  }
 
   // ---------- Tabs ----------
   const TABS = ['calendario', 'reservas', 'abonos', 'recursos'];
@@ -658,38 +746,53 @@
     const dur = Math.min(Math.max(Number(r.duracion_turno_min) || 60, 15), 60);
     const hh = String(Math.floor(dur / 60)).padStart(2, '0'), mm = String(dur % 60).padStart(2, '0');
     cal.setOption('slotDuration', `${hh}:${mm}:00`);
-    let minH = 7, maxH = 23;
-    try {
-      const { res, data } = await fetchAuth(`${base()}/recursos/${calRecursoId}/disponibilidad`);
-      if (res.ok && data.ok) {
-        const ds = (data.reglas || []).filter((g) => g.modo === 'disponible' && g.hora_desde);
-        if (ds.length) {
-          minH = Math.floor(Math.min(...ds.map((g) => toMin(g.hora_desde))) / 60);
-          maxH = Math.ceil(Math.max(...ds.map((g) => toMin(g.hora_hasta))) / 60);
-        }
-      }
-    } catch (_) { /* usa el rango por defecto */ }
-    cal.setOption('slotMinTime', `${String(Math.max(minH, 0)).padStart(2, '0')}:00:00`);
+    cal.__rangoKey = null; // fuerza recalcular el rango horario con los turnos de la semana
+  }
+
+  // El rango horario del calendario sale de los turnos que trae la semana
+  // (los de verdad, libres y ocupados), así siempre refleja los horarios
+  // cargados aunque se hayan editado recién. Sin turnos: 08:00 a 22:00.
+  function ajustarRangoCalendario(eventos) {
+    if (!cal) return;
+    let minM = 8 * 60, maxM = 22 * 60;
+    if (eventos.length) {
+      minM = Infinity; maxM = -Infinity;
+      eventos.forEach((e) => {
+        const t = e.extendedProps.turno;
+        const ini = toMin(t.hora_desde);
+        let fin = toMin(t.hora_hasta);
+        if (fin <= ini) fin = 24 * 60;
+        minM = Math.min(minM, ini); maxM = Math.max(maxM, fin);
+      });
+    }
+    const minH = Math.max(Math.floor(minM / 60), 0);
+    const maxH = Math.min(Math.ceil(maxM / 60), 24);
+    const key = `${minH}-${maxH}`;
+    if (cal.__rangoKey === key) return;
+    cal.__rangoKey = key;
+    cal.setOption('slotMinTime', `${String(minH).padStart(2, '0')}:00:00`);
     cal.setOption('slotMaxTime', maxH >= 24 ? '24:00:00' : `${String(maxH).padStart(2, '0')}:00:00`);
   }
 
   const COLORES = {
-    libre: ['#dcfce7', '#86efac', '#166534'],
-    pendiente: ['#fed7aa', '#fb923c', '#7c2d12'],
-    reserva: ['#bbf7d0', '#22c55e', '#14532d'],
-    abono: ['#bfdbfe', '#60a5fa', '#1e3a8a'],
+    // [fondo, borde, texto]. Lo ocupado va con fondo fuerte y texto blanco para que se vea de lejos.
+    libre: ['#ecfdf5', '#a7f3d0', '#047857'],
+    pendiente: ['#f97316', '#c2410c', '#ffffff'],
+    reserva: ['#16a34a', '#14532d', '#ffffff'],
+    abono: ['#2563eb', '#1e3a8a', '#ffffff'],
     clase: ['#e9d5ff', '#c084fc', '#581c87'],
-    bloqueo: ['#e5e7eb', '#9ca3af', '#374151']
+    bloqueo: ['#d1d5db', '#6b7280', '#374151']
   };
 
   function turnoAEvento(fecha, t) {
     const o = (t.ocupado_por || [])[0];
     let kind = 'libre', title = 'Libre';
+    const masSocios = o && o.participantes && o.participantes.length ? ` +${o.participantes.length}` : '';
     if (t.estado !== 'libre' && o) {
       if (o.tipo === 'reserva') {
         kind = o.estado === 'pendiente' ? 'pendiente' : 'reserva';
-        title = `${o.titular || 'Reserva'} · ${o.estado === 'pendiente' ? 'Pendiente' : 'Reservado'}`;
-      } else if (o.tipo === 'abono') { kind = 'abono'; title = `${o.titular || 'Abono'} · Abono`; }
+        title = `${o.titular || 'Reserva'}${masSocios}${o.estado === 'pendiente' ? ' · Pendiente' : ''}`;
+      } else if (o.tipo === 'abono') { kind = 'abono'; title = `${o.titular || 'Abono'}${masSocios} · Abono`; }
       else if (o.tipo === 'clase') { kind = 'clase'; title = o.nombre || 'Clase'; }
       else { kind = 'bloqueo'; title = o.motivo ? `Bloqueado: ${o.motivo}` : 'Bloqueado'; }
     }
@@ -699,7 +802,8 @@
       title, start: `${fecha}T${t.hora_desde}:00`,
       end: finDia ? `${addDaysISO(fecha, 1)}T00:00:00` : `${fecha}T${t.hora_hasta}:00`,
       backgroundColor: bg, borderColor: bd, textColor: tx,
-      classNames: kind === 'libre' && turnoYaPaso(fecha, t.hora_hasta) ? ['esp-ev-pasado'] : [],
+      classNames: kind === 'libre' && turnoYaPaso(fecha, t.hora_hasta) ? ['esp-ev-pasado']
+        : (kind === 'reserva' || kind === 'pendiente' || kind === 'abono') ? ['esp-ev-ocupado'] : [],
       extendedProps: { kind, fecha, turno: t, ocupante: o || null }
     };
   }
@@ -714,6 +818,7 @@
       const ev = [];
       (data.dias || []).forEach((d) => d.turnos.forEach((t) => ev.push(turnoAEvento(d.fecha, t))));
       $('#espCalMsg').textContent = ev.length ? '' : 'Esta semana no hay turnos para este recurso (revisá sus horarios en la pestaña Recursos).';
+      ajustarRangoCalendario(ev);
       ok(ev);
     } catch (e) {
       $('#espCalMsg').textContent = e.message;
@@ -761,6 +866,7 @@
       cal.render();
       await configurarSlotsCalendario();
     } else {
+      await configurarSlotsCalendario(); // por si cambiaron la duración o los horarios del recurso
       cal.updateSize();
       cal.refetchEvents();
     }
@@ -777,6 +883,7 @@
     $('#espResFiltroDesde').value = activas ? ahoraAR().fecha : '';
   }
 
+  let reservasCache = [];
   async function cargarReservas() {
     const tbody = $('#espResBody');
     tbody.innerHTML = '<tr><td colspan="8" class="muted">Cargando…</td></tr>';
@@ -793,8 +900,9 @@
       const items = data.reservas || [];
       if (!items.length) { tbody.innerHTML = '<tr><td colspan="8" class="muted">No hay reservas con esos filtros.</td></tr>'; return; }
       const w = canWrite();
+      reservasCache = items;
       tbody.innerHTML = items.map((r) => {
-        const titular = r.socio_id ? `#${esc(r.numero_socio ?? '—')} ${esc(r.titular || '')}` : `${esc(r.titular || '')} <span class="muted">(no socio)</span>`;
+        const titular = (r.socio_id ? `#${esc(r.numero_socio ?? '—')} ${esc(r.titular || '')}` : `${esc(r.titular || '')} <span class="muted">(no socio)</span>`) + participantesTexto(r.participantes);
         const detalle = [r.comentario_socio ? `💬 ${esc(r.comentario_socio)}` : '', r.mensaje_admin ? `📣 ${esc(r.mensaje_admin)}` : ''].filter(Boolean).join('<br>') || '<span class="muted">—</span>';
         let acc = '<span class="muted">—</span>';
         if (w && r.estado === 'pendiente') {
@@ -802,6 +910,9 @@
                  <button data-esp-res="rechazar" style="background:#ef4444;border-color:#ef4444;color:#fff;padding:6px 12px;border-radius:8px;">Rechazar</button>`;
         } else if (w && r.estado === 'aceptada' && !turnoYaPaso(r.fecha, r.hora_hasta)) {
           acc = `<button data-esp-res="cancelar" style="color:#b91c1c;">Cancelar reserva</button>`;
+        }
+        if (w && ['pendiente', 'aceptada'].includes(r.estado) && !turnoYaPaso(r.fecha, r.hora_hasta)) {
+          acc = `<button data-esp-res="part" title="Sumar o quitar socios">👥 Socios</button> ` + (acc === '<span class="muted">—</span>' ? '' : acc);
         }
         return `<tr data-id="${esc(r.id)}">
           <td><b>${esc(r.recurso_nombre)}</b></td><td>${fmtFechaLarga(r.fecha)}</td>
@@ -811,6 +922,7 @@
       }).join('');
       tbody.querySelectorAll('[data-esp-res]').forEach((b) => b.addEventListener('click', async () => {
         const id = b.closest('tr').dataset.id; const accion = b.dataset.espRes;
+        if (accion === 'part') { const it = reservasCache.find((x) => x.id === id); if (it) abrirParticipantes('reserva', it); return; }
         let mensaje = null;
         if (accion === 'rechazar') {
           mensaje = prompt('Motivo del rechazo (opcional, se le muestra al socio):');
@@ -845,6 +957,7 @@
     $('#espResDetInfo').innerHTML = `
       <p style="margin:0 0 6px;"><b>${esc(r.hora_desde)} a ${esc(r.hora_hasta)}</b> ${estadoBadge(r.estado)}</p>
       <p style="margin:0 0 6px;">${r.socio_id ? `#${esc(r.numero_socio ?? '—')} ` : ''}${esc(r.titular || '')}${r.socio_id ? '' : ' <span class="muted">(no socio)</span>'}${r.contacto_externo ? ` · ${esc(r.contacto_externo)}` : ''}</p>
+      ${participantesTexto(r.participantes)}
       ${r.comentario_socio ? `<p style="margin:0 0 6px;">💬 ${esc(r.comentario_socio)}</p>` : ''}
       <p class="muted" style="margin:0;">Cargada desde ${r.origen === 'panel' ? 'el panel' : 'la app'}.</p>`;
     const acc = $('#espResDetAcciones');
@@ -855,6 +968,12 @@
     } else if (canWrite() && r.estado === 'aceptada' && !turnoYaPaso(r.fecha, r.hora_hasta)) {
       $('#espResDetMotivoWrap').style.display = '';
       acc.innerHTML = `<button type="button" class="btn btn-secondary esp-danger" data-a="cancelar">Cancelar reserva</button>`;
+    }
+    if (canWrite() && ['pendiente', 'aceptada'].includes(r.estado) && !turnoYaPaso(r.fecha, r.hora_hasta)) {
+      const bp = document.createElement('button');
+      bp.type = 'button'; bp.className = 'btn btn-secondary'; bp.textContent = '👥 Socios';
+      bp.addEventListener('click', () => { cerrarOverlay('espResDetOverlay'); abrirParticipantes('reserva', r); });
+      acc.appendChild(bp);
     }
     acc.querySelectorAll('button[data-a]').forEach((b) => b.addEventListener('click', async () => {
       b.disabled = true;
@@ -883,7 +1002,7 @@
 
   function abrirResNueva(pre = {}) {
     if (!recursosActivos().length) { alert('Primero cargá un recurso.'); return; }
-    pickRes.reset(); showMsg('#espResNMsg', '');
+    pickRes.reset(); pickResPart.reset(); showMsg('#espResNMsg', '');
     $('#espResNComentario').value = '';
     $('#espResNRecurso').value = pre.recursoId || $('#espCalRecurso').value || recursosActivos()[0].id;
     $('#espResNFecha').value = pre.fecha || ahoraAR().fecha;
@@ -903,7 +1022,8 @@
     try {
       const body = {
         recurso_id: $('#espResNRecurso').value, fecha: $('#espResNFecha').value, hora_desde: hora,
-        comentario: $('#espResNComentario').value.trim() || undefined, ...t
+        comentario: $('#espResNComentario').value.trim() || undefined,
+        participantes_ids: pickResPart.get(), ...t
       };
       const { res, data } = await fetchAuth(`${base()}/reservas`, { method: 'POST', json: true, body: JSON.stringify(body) });
       if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo guardar');
@@ -935,9 +1055,9 @@
           ? a.excepciones.map((e) => `${fmtDMcorto(e.fecha_desde)}${e.fecha_hasta !== e.fecha_desde ? '–' + fmtDMcorto(e.fecha_hasta) : ''}${e.motivo ? ' (' + esc(e.motivo) + ')' : ''}`).join('<br>')
           : '<span class="muted">—</span>';
         const fin = a.estado_calculado === 'finalizado';
-        const titular = a.socio_id ? `#${esc(a.numero_socio ?? '—')} ${esc(a.titular || '')}` : `${esc(a.titular || '')} <span class="muted">(no socio)</span>`;
+        const titular = (a.socio_id ? `#${esc(a.numero_socio ?? '—')} ${esc(a.titular || '')}` : `${esc(a.titular || '')} <span class="muted">(no socio)</span>`) + participantesTexto(a.participantes);
         const acc = (w && !fin)
-          ? `<button data-esp-abo="liberar">🌴 Liberar fechas</button> <button data-esp-abo="baja" style="color:#b91c1c;">Dar de baja</button>`
+          ? `<button data-esp-abo="part">👥 Socios</button> <button data-esp-abo="liberar">🌴 Liberar fechas</button> <button data-esp-abo="baja" style="color:#b91c1c;">Dar de baja</button>`
           : (fin ? estadoBadge('finalizado') : '<span class="muted">—</span>');
         return `<tr data-id="${esc(a.id)}">
           <td><b>${esc(a.recurso_nombre)}</b></td>
@@ -950,7 +1070,9 @@
       tbody.querySelectorAll('[data-esp-abo]').forEach((b) => b.addEventListener('click', () => {
         const a = abonosCache.find((x) => x.id === b.closest('tr').dataset.id);
         if (!a) return;
-        if (b.dataset.espAbo === 'liberar') abrirLiberar(a, null); else abrirBaja(a);
+        if (b.dataset.espAbo === 'liberar') abrirLiberar(a, null);
+        else if (b.dataset.espAbo === 'part') abrirParticipantes('abono', a);
+        else abrirBaja(a);
       }));
     } catch (e) {
       tbody.innerHTML = `<tr><td colspan="8"><div class="esp-msg">${esc(e.message)}</div></td></tr>`;
@@ -978,7 +1100,7 @@
 
   function abrirAboNuevo() {
     if (!recursosActivos().length) { alert('Primero cargá un recurso.'); return; }
-    pickAbo.reset(); showMsg('#espAboNMsg', '');
+    pickAbo.reset(); pickAboPart.reset(); showMsg('#espAboNMsg', '');
     $('#espAboNNotas').value = '';
     $('#espAboNConFin').checked = false; $('#espAboNFinWrap').style.display = 'none'; $('#espAboNFin').value = '';
     $('#espAboNRecurso').value = $('#espAboFiltroRecurso').value || recursosActivos()[0].id;
@@ -1006,7 +1128,8 @@
     const body = {
       recurso_id: $('#espAboNRecurso').value, dia_semana: diaSemanaDeIso(fecha),
       hora_desde: hd, hora_hasta: hh, vigente_desde: fecha,
-      notas: $('#espAboNNotas').value.trim() || undefined, ...t
+      notas: $('#espAboNNotas').value.trim() || undefined,
+      participantes_ids: pickAboPart.get(), ...t
     };
     if ($('#espAboNConFin').checked) {
       const fin = $('#espAboNFin').value;
@@ -1135,6 +1258,11 @@
     // ---- Paso 9: tabs, calendario, reservas, abonos ----
     pickRes = titularInit('espResN', '#espResNTitular');
     pickAbo = titularInit('espAboN', '#espAboNTitular');
+    pickResPart = participantesInit('espResNPart', '#espResNPart');
+    pickAboPart = participantesInit('espAboNPart', '#espAboNPart');
+    pickPartEdit = participantesInit('espPartEdit', '#espPartPicker', { titulo: '👥 Socios que participan' });
+    $('#btnEspPartGuardar').addEventListener('click', guardarParticipantes);
+    $('#espVerInactivos').addEventListener('change', renderRecursos);
     $$('[data-esptab]').forEach((b) => b.addEventListener('click', () => mostrarTab(b.dataset.esptab)));
     $$('[data-esp-cerrar]').forEach((b) => b.addEventListener('click', () => cerrarOverlay(b.dataset.espCerrar)));
 

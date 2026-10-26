@@ -42,6 +42,10 @@
       <input type="checkbox" id="chkFiltroClases" />
       <i class="ag-dot ag-dot-clase"></i> Clases
     </label>
+    <label class="ag-legend-item ag-legend-toggle" id="lblFiltroRecursos" style="display:none;">
+      <input type="checkbox" id="chkFiltroRecursos" />
+      <i class="ag-dot ag-dot-recurso"></i> Recursos
+    </label>
     <label class="ag-legend-item ag-legend-toggle">
       <input type="checkbox" id="chkFiltroCumples" />
       <i class="ag-dot ag-dot-cumple"></i> Cumpleaños
@@ -424,6 +428,7 @@
 .ag-modern .ag-dot-evento{ background:#2563eb; }
 .ag-modern .ag-dot-cumple{ background:#f59e0b; }
 .ag-modern .ag-dot-clase{ background:#7c3aed; }
+.ag-modern .ag-dot-recurso{ background:#0d9488; }
 
 .ag-modern .ag-legend-hint{
   margin-left:auto;
@@ -702,6 +707,21 @@
   color:#3b0764 !important;
 }
 .ag-modern .fc .evento-clase:hover{ background:#ddd6fe !important; }
+
+/* RECURSOS (reservas y abonos) — verde azulado, texto oscuro */
+.ag-modern .fc .evento-recurso{
+  background:#ccfbf1 !important;
+  border-left:4px solid #0d9488 !important;
+}
+.ag-modern .fc .evento-recurso,
+.ag-modern .fc .evento-recurso .fc-event-main,
+.ag-modern .fc .evento-recurso .fc-event-main-frame,
+.ag-modern .fc .evento-recurso .fc-event-time,
+.ag-modern .fc .evento-recurso .fc-event-title,
+.ag-modern .fc .evento-recurso .fc-event-title-container{
+  color:#134e4a !important;
+}
+.ag-modern .fc .evento-recurso:hover{ background:#99f6e4 !important; }
 
 /* Socios asignados a una clase (modal de actividad) */
 .ag-modern .ag-count{ font-weight:400; color:#64748b; font-size:12px; margin-left:4px; }

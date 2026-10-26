@@ -16,6 +16,7 @@
 //    hasta que empiece el turno (todavía no hay nada acordado con el club).
 //  - Horas siempre en horario de Argentina (DATE + TIME sin zona).
 const disp = require('./disponibilidadService');
+const part = require('./espaciosParticipantesService');
 
 const MAX_PENDIENTES_SOCIO = 3;
 const TZ_SQL = `'America/Argentina/Buenos_Aires'`;
@@ -27,6 +28,16 @@ class ErrNegocio extends Error {
     this.status = status;
     this.code = code || null;
     this.extra = extra;
+  }
+}
+
+// Los errores del servicio de participantes se devuelven como errores de negocio
+async function conParticipantes(fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof part.ErrParticipantes) throw new ErrNegocio(e.status, e.message, e.code);
+    throw e;
   }
 }
 
@@ -149,6 +160,9 @@ async function crearReserva(db, p) {
     throw new ErrNegocio(400, 'Indicá el socio o el nombre de la persona', 'datos');
   }
   const comentario = String(p.comentario || '').trim().slice(0, 300) || null;
+  // Participantes (socios adicionales al titular): se validan antes de abrir la transacción
+  const participantesIds = await conParticipantes(async () => part.limpiarIds(p.participantesIds, socioId));
+  let participantesNuevos = [];
 
   const creada = await enTransaccion(db, async (c) => {
     // 1) Lock por socio (serializa el tope de 3 pendientes aunque pida en recursos distintos)
@@ -221,6 +235,12 @@ async function crearReserva(db, p) {
         origen === 'panel' ? new Date() : null
       ]
     );
+    if (participantesIds.length) {
+      const rp = await conParticipantes(() => part.reemplazar(c, {
+        clubId: p.clubId, tipo: 'reserva', refId: ins.rows[0].id, socioIds: participantesIds, titularId: socioId
+      }));
+      participantesNuevos = rp.agregados;
+    }
     return obtenerReserva(c, { clubId: p.clubId, id: ins.rows[0].id });
   });
 
@@ -232,7 +252,22 @@ async function crearReserva(db, p) {
       data: { type: 'espacios_reserva_aceptada', reservaId: String(creada.id) }
     });
   }
-  return creada;
+  for (const sid of participantesNuevos) {
+    avisar({
+      clubId: p.clubId, socioId: sid,
+      titulo: '🏟️ Te sumaron a una reserva',
+      cuerpo: `Tenés turno en ${descTurno(creada)}.`,
+      data: { type: 'espacios_reserva_participante', reservaId: String(creada.id) }
+    });
+  }
+  const [conPart] = await adjuntarParticipantes(db, p.clubId, [creada]);
+  return conPart;
+}
+
+// Agrega `participantes` a cada reserva (lista de socios adicionales al titular)
+async function adjuntarParticipantes(q, clubId, filas) {
+  const mapa = await part.participantesDe(q, { clubId, tipo: 'reserva', ids: filas.map((f) => f.id) });
+  return filas.map((f) => ({ ...f, participantes: mapa.get(f.id) || [] }));
 }
 
 // ============================================================================
@@ -311,6 +346,19 @@ async function gestionarReserva(db, { clubId, id, accion, mensaje = null, adminU
     return obtenerReserva(c, { clubId, id: fila.id });
   });
 
+  if (accion === 'aceptar' || accion === 'cancelar') {
+    const ids = await part.idsDe(db, { tipo: 'reserva', refId: r.id });
+    for (const sid of ids) {
+      avisar({
+        clubId, socioId: sid,
+        titulo: accion === 'aceptar' ? '🏟️ Reserva aceptada' : '🏟️ Reserva cancelada',
+        cuerpo: accion === 'aceptar'
+          ? `Quedó aceptada la reserva de ${descTurno(r)}.`
+          : `El club canceló la reserva de ${descTurno(r)}.${msg ? ` Motivo: ${msg}` : ''}`,
+        data: { type: accion === 'aceptar' ? 'espacios_reserva_aceptada' : 'espacios_reserva_cancelada', reservaId: String(r.id) }
+      });
+    }
+  }
   if (r.socio_id) {
     const sufijo = msg ? ` Mensaje del club: ${msg}` : '';
     const textos = {
@@ -330,7 +378,7 @@ async function gestionarReserva(db, { clubId, id, accion, mensaje = null, adminU
 // CANCELA EL SOCIO (app)
 // ============================================================================
 async function cancelarPorSocio(db, { clubId, socioId, id }) {
-  return enTransaccion(db, async (c) => {
+  const cancelada = await enTransaccion(db, async (c) => {
     const r = await c.query(
       `SELECT ${SQL_RESERVA}
          FROM recursos_reservas r
@@ -358,6 +406,53 @@ async function cancelarPorSocio(db, { clubId, socioId, id }) {
     await c.query(`UPDATE recursos_reservas SET estado = 'cancelada' WHERE id = $1`, [fila.id]);
     return obtenerReserva(c, { clubId, id: fila.id });
   });
+  const ids = await part.idsDe(db, { tipo: 'reserva', refId: cancelada.id });
+  for (const sid of ids) {
+    avisar({
+      clubId, socioId: sid,
+      titulo: '🏟️ Reserva cancelada',
+      cuerpo: `El titular canceló la reserva de ${descTurno(cancelada)}.`,
+      data: { type: 'espacios_reserva_cancelada', reservaId: String(cancelada.id) }
+    });
+  }
+  return cancelada;
+}
+
+// ============================================================================
+// PARTICIPANTES (panel): reemplaza la lista de socios adicionales de una reserva
+// ============================================================================
+async function actualizarParticipantes(db, { clubId, id, socioIds }) {
+  let cambios = { agregados: [], quitados: [] };
+  const fila = await enTransaccion(db, async (c) => {
+    const r = await obtenerReserva(c, { clubId, id, forUpdate: true });
+    if (!r) throw new ErrNegocio(404, 'Reserva no encontrada', 'reserva');
+    if (!['pendiente', 'aceptada'].includes(r.estado)) {
+      throw new ErrNegocio(400, 'Solo se pueden cambiar los participantes de una reserva pendiente o aceptada', 'estado_invalido');
+    }
+    if (yaEmpezo(r.fecha, r.hora_hasta)) throw new ErrNegocio(400, 'Ese turno ya pasó', 'pasado');
+    cambios = await conParticipantes(() => part.reemplazar(c, {
+      clubId, tipo: 'reserva', refId: r.id, socioIds, titularId: r.socio_id
+    }));
+    return r;
+  });
+  for (const sid of cambios.agregados) {
+    avisar({
+      clubId, socioId: sid,
+      titulo: '🏟️ Te sumaron a una reserva',
+      cuerpo: `Tenés turno en ${descTurno(fila)}.`,
+      data: { type: 'espacios_reserva_participante', reservaId: String(fila.id) }
+    });
+  }
+  for (const sid of cambios.quitados) {
+    avisar({
+      clubId, socioId: sid,
+      titulo: '🏟️ Te quitaron de una reserva',
+      cuerpo: `Ya no figurás en la reserva de ${descTurno(fila)}.`,
+      data: { type: 'espacios_reserva_participante_baja', reservaId: String(fila.id) }
+    });
+  }
+  const [out] = await adjuntarParticipantes(db, clubId, [fila]);
+  return out;
 }
 
 // Datos extra para la app: ¿puede cancelar y hasta cuándo?
@@ -403,5 +498,6 @@ module.exports = {
   MAX_PENDIENTES_SOCIO, ErrNegocio, setNotificador,
   avisarSocio: avisar, enTransaccion,
   crearReserva, gestionarReserva, cancelarPorSocio, infoCancelacion, vencerPendientes,
+  actualizarParticipantes, adjuntarParticipantes,
   obtenerReserva, minutosHastaInicio, yaEmpezo, esFechaReal, SQL_RESERVA
 };

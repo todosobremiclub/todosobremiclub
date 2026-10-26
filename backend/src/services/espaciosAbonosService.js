@@ -14,11 +14,24 @@
 //    pendientes/aceptadas futuras ni clases. Si pisa -> 409 con la lista.
 const disp = require('./disponibilidadService');
 const reservasSvc = require('./espaciosReservasService');
+const part = require('./espaciosParticipantesService');
 const { ErrNegocio, esFechaReal } = reservasSvc;
 
 const DIAS_LARGO = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const HORIZONTE_CLASES_DIAS = 180;
+
+// Los errores del servicio de participantes se devuelven como errores de negocio
+async function conParticipantes(fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof part.ErrParticipantes) throw new ErrNegocio(e.status, e.message, e.code);
+    throw e;
+  }
+}
+const descAbono = (a) =>
+  `${a.recurso_nombre}, todos los ${DIAS_LARGO[a.dia_semana]} de ${a.hora_desde} a ${a.hora_hasta}`;
 const MAX_RANGO_EXCEPCION_DIAS = 366;
 
 const SQL_ABONO = `
@@ -79,11 +92,13 @@ async function enriquecer(q, clubId, filas) {
     );
     rs.rows.forEach((s) => socios.set(s.id, s));
   }
+  const participantes = await part.participantesDe(q, { clubId, tipo: 'abono', ids: filas.map((a) => a.id) });
   return filas.map((a) => {
     const excs = exc.get(a.id) || [];
     const s = a.socio_id ? socios.get(a.socio_id) : null;
     return {
       ...a,
+      participantes: participantes.get(a.id) || [],
       titular: s ? `${s.apellido ?? ''}, ${s.nombre ?? ''}`.replace(/^, |, $/g, '').trim() : a.nombre_externo,
       numero_socio: s ? s.numero_socio : null,
       estado_calculado: estadoCalculado(a, hoy),
@@ -122,7 +137,11 @@ async function listarAbonos(db, { clubId, recursoId, socioId, estado }) {
   const where = ['a.club_id = $1'];
   const params = [clubId];
   if (recursoId) { params.push(recursoId); where.push(`a.recurso_id = $${params.length}`); }
-  if (socioId) { params.push(socioId); where.push(`a.socio_id = $${params.length}`); }
+  if (socioId) {
+    params.push(socioId);
+    where.push(`(a.socio_id = $${params.length} OR EXISTS (
+      SELECT 1 FROM recursos_abonos_socios x WHERE x.abono_id = a.id AND x.socio_id = $${params.length}))`);
+  }
   const hoy = disp.ahoraArgentina().fecha;
   if (estado === 'vigente') { params.push(hoy); where.push(`(a.vigente_hasta IS NULL OR a.vigente_hasta >= $${params.length}::date)`); }
   if (estado === 'finalizado') { params.push(hoy); where.push(`(a.vigente_hasta IS NOT NULL AND a.vigente_hasta < $${params.length}::date)`); }
@@ -160,6 +179,8 @@ async function crearAbono(db, p) {
   const contacto = String(p.contactoExterno || '').trim().slice(0, 120) || null;
   const notas = String(p.notas || '').trim().slice(0, 300) || null;
   if (!socioId && !nombreExterno) throw new ErrNegocio(400, 'Indicá el socio o el nombre del titular del abono', 'datos');
+  const participantesIds = await conParticipantes(async () => part.limpiarIds(p.participantesIds, socioId));
+  let participantesNuevos = [];
 
   const creado = await enTransaccion(db, async (c) => {
     const rr = await c.query(`SELECT id, activo FROM recursos WHERE id = $1 AND club_id = $2 FOR UPDATE`, [p.recursoId, p.clubId]);
@@ -242,9 +263,23 @@ async function crearAbono(db, p) {
       [p.clubId, p.recursoId, socioId, socioId ? null : nombreExterno, socioId ? null : contacto,
        dia, horaDesde, horaHasta, vigenteDesde, vigenteHasta, notas, p.adminUserId || null]
     );
+    if (participantesIds.length) {
+      const rp = await conParticipantes(() => part.reemplazar(c, {
+        clubId: p.clubId, tipo: 'abono', refId: ins.rows[0].id, socioIds: participantesIds, titularId: socioId
+      }));
+      participantesNuevos = rp.agregados;
+    }
     return obtenerAbono(c, { clubId: p.clubId, id: ins.rows[0].id });
   });
 
+  for (const sid of participantesNuevos) {
+    reservasSvc.avisarSocio({
+      clubId: p.clubId, socioId: sid,
+      titulo: '🏟️ Te sumaron a un abono',
+      cuerpo: `${descAbono(creado)}.`,
+      data: { type: 'espacios_abono_participante', abonoId: String(creado.id) }
+    });
+  }
   if (creado.socio_id) {
     reservasSvc.avisarSocio({
       clubId: p.clubId, socioId: creado.socio_id,
@@ -384,17 +419,59 @@ async function quitarExcepcion(db, { clubId, id, excId }) {
   });
 }
 
+// ---------------------------------------------------------------- participantes
+async function actualizarParticipantes(db, { clubId, id, socioIds }) {
+  let cambios = { agregados: [], quitados: [] };
+  const fila = await enTransaccion(db, async (c) => {
+    const a = await obtenerAbono(c, { clubId, id, forUpdate: true });
+    if (!a) throw new ErrNegocio(404, 'Abono no encontrado', 'abono');
+    const hoy = disp.ahoraArgentina().fecha;
+    if (a.estado !== 'activo' || (a.vigente_hasta && a.vigente_hasta < hoy)) {
+      throw new ErrNegocio(400, 'Solo se pueden cambiar los participantes de un abono vigente', 'estado_invalido');
+    }
+    cambios = await conParticipantes(() => part.reemplazar(c, {
+      clubId, tipo: 'abono', refId: a.id, socioIds, titularId: a.socio_id
+    }));
+    return a;
+  });
+  for (const sid of cambios.agregados) {
+    reservasSvc.avisarSocio({
+      clubId, socioId: sid,
+      titulo: '🏟️ Te sumaron a un abono',
+      cuerpo: `${descAbono(fila)}.`,
+      data: { type: 'espacios_abono_participante', abonoId: String(fila.id) }
+    });
+  }
+  for (const sid of cambios.quitados) {
+    reservasSvc.avisarSocio({
+      clubId, socioId: sid,
+      titulo: '🏟️ Te quitaron de un abono',
+      cuerpo: `Ya no figurás en el abono de ${descAbono(fila)}.`,
+      data: { type: 'espacios_abono_participante_baja', abonoId: String(fila.id) }
+    });
+  }
+  const [out] = await enriquecer(db, clubId, [fila]);
+  return out;
+}
+
 // ---------------------------------------------------------------- app (socio)
+// Abonos donde el socio es titular o participante (rol: 'titular' | 'participante').
 async function abonosDelSocio(db, { clubId, socioId }) {
   const hoy = disp.ahoraArgentina().fecha;
   const r = await db.query(
     `SELECT ${SQL_ABONO} FROM recursos_abonos a JOIN recursos rec ON rec.id = a.recurso_id
-      WHERE a.club_id = $1 AND a.socio_id = $2 AND (a.vigente_hasta IS NULL OR a.vigente_hasta >= $3::date)
+      WHERE a.club_id = $1
+        AND (a.socio_id = $2 OR EXISTS (
+              SELECT 1 FROM recursos_abonos_socios x WHERE x.abono_id = a.id AND x.socio_id = $2))
+        AND (a.vigente_hasta IS NULL OR a.vigente_hasta >= $3::date)
       ORDER BY a.dia_semana, a.hora_desde`,
     [clubId, socioId, hoy]
   );
   const filas = await enriquecer(db, clubId, r.rows);
   return filas.map((a) => ({
+    rol: a.socio_id === socioId ? 'titular' : 'participante',
+    titular: a.titular || null,
+    participantes: (a.participantes || []).map((x) => x.nombre_completo),
     id: a.id, recurso_id: a.recurso_id, recurso_nombre: a.recurso_nombre,
     dia_semana: a.dia_semana, hora_desde: a.hora_desde, hora_hasta: a.hora_hasta,
     vigente_desde: a.vigente_desde, vigente_hasta: a.vigente_hasta,
@@ -405,5 +482,5 @@ async function abonosDelSocio(db, { clubId, socioId }) {
 
 module.exports = {
   proximaFecha, listarAbonos, crearAbono, editarAbono, darDeBaja,
-  agregarExcepcion, quitarExcepcion, abonosDelSocio, obtenerAbono, enriquecer
+  agregarExcepcion, quitarExcepcion, abonosDelSocio, obtenerAbono, enriquecer, actualizarParticipantes
 };
