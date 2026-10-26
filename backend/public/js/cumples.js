@@ -119,8 +119,7 @@
   // =============================
   // Filtro Actividades / Eventos / Cumpleaños (checkboxes de la leyenda)
   // =============================
-  // Sin nada tildado: se ve todo. Con uno o más tildados: se ven solo esas
-  // categorías (ej: Actividades + Eventos tildados = todo menos cumpleaños).
+  // Todas las categorías vienen tildadas; al destildar una, se ocultan sus eventos.
   function categoriaDeEvento(e) {
     const kind = e.extendedProps?.kind;
     if (kind === 'cumple') return 'cumple';
@@ -137,15 +136,17 @@
   function aplicarFiltroEventos() {
     if (!calendar) return;
 
-    const activas = [];
-    if ($('chkFiltroActividades')?.checked) activas.push('actividad');
-    if ($('chkFiltroEventos')?.checked) activas.push('evento');
-    if ($('chkFiltroClases')?.checked) activas.push('clase');
-    if ($('chkFiltroRecursos')?.checked) activas.push('recurso');
-    if ($('chkFiltroCumples')?.checked) activas.push('cumple');
+    // ✅ Todo viene tildado: se ven todas las categorías y se van destildando
+    // las que no se quieren ver.
+    const ocultas = [];
+    if ($('chkFiltroActividades') && !$('chkFiltroActividades').checked) ocultas.push('actividad');
+    if ($('chkFiltroEventos') && !$('chkFiltroEventos').checked) ocultas.push('evento');
+    if ($('chkFiltroClases') && !$('chkFiltroClases').checked) ocultas.push('clase');
+    if ($('chkFiltroRecursos') && !$('chkFiltroRecursos').checked) ocultas.push('recurso');
+    if ($('chkFiltroCumples') && !$('chkFiltroCumples').checked) ocultas.push('cumple');
 
-    const eventos = activas.length
-      ? ultimosEventos.filter((e) => activas.includes(categoriaDeEvento(e)))
+    const eventos = ocultas.length
+      ? ultimosEventos.filter((e) => !ocultas.includes(categoriaDeEvento(e)))
       : ultimosEventos;
 
     calendar.setOption('events', eventos);
