@@ -5,6 +5,8 @@ const requireAuth = require('../middleware/requireAuth');
 const {
   validateDestino,
   crearYEnviarNotificacion,
+  enviarWhatsappNotificacion,
+  detalleWhatsappNotificacion,
 } = require('../services/notificacionesService'); // ✅ lógica de envío ahora centralizada acá
 const { getCupoRestante } = require('../services/whatsappService'); // ✅ NUEVO: cupo mensual de WhatsApp
 
@@ -165,6 +167,96 @@ router.get('/:clubId/whatsapp/cupo', requireAuth, requireClubAccess, async (req,
     return res.json({ ok: true, ...cupo });
   } catch (e) {
     console.error('❌ GET whatsapp/cupo', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// ✅ NUEVO: GET /club/:clubId/notificaciones/:id/whatsapp-detalle
+// Cuántos socios eran destinatarios, cuántos no tienen teléfono, cómo quedó
+// cada envío (enviado / entregado / leído / fallido) y cuántos están
+// pendientes (nunca se les envió o falló). Lo usa el Historial del panel.
+// ============================================================
+router.get('/:clubId/notificaciones/:id/whatsapp-detalle', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    const detalle = await detalleWhatsappNotificacion({ clubId, notificacionId: id });
+    if (!detalle) return res.status(404).json({ ok: false, error: 'Notificación no encontrada' });
+
+    const cupo = await getCupoRestante(clubId);
+    return res.json({ ok: true, ...detalle, cupo });
+  } catch (e) {
+    console.error('❌ GET whatsapp-detalle', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ============================================================
+// ✅ NUEVO: POST /club/:clubId/notificaciones/:id/reenviar-whatsapp
+// Reenvía por WhatsApp SOLO a los socios que no la recibieron (sin envío
+// exitoso para esa notificación). No repite a quienes ya la recibieron.
+// Corre en segundo plano (responde enseguida) para no depender de que el
+// pedido HTTP siga abierto; el avance se ve en el detalle del Historial.
+// ============================================================
+const reenviosEnCurso = new Set();
+
+router.post('/:clubId/notificaciones/:id/reenviar-whatsapp', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, id } = req.params;
+  try {
+    const rN = await db.query(
+      `SELECT id, titulo, cuerpo, data, canal FROM notificaciones
+       WHERE id = $1 AND club_id = $2 AND activo = true`,
+      [id, clubId]
+    );
+    if (!rN.rowCount) return res.status(404).json({ ok: false, error: 'Notificación no encontrada' });
+    const noti = rN.rows[0];
+
+    if (noti.canal !== 'whatsapp' && noti.canal !== 'ambos') {
+      return res.status(400).json({ ok: false, error: 'Esta notificación no se envió por WhatsApp' });
+    }
+    if (reenviosEnCurso.has(String(id))) {
+      return res.status(409).json({ ok: false, error: 'Ya hay un reenvío en curso para esta notificación' });
+    }
+
+    const detalle = await detalleWhatsappNotificacion({ clubId, notificacionId: id });
+    const cupo = await getCupoRestante(clubId);
+    if (!cupo.habilitado) {
+      return res.status(400).json({ ok: false, error: 'El club no tiene WhatsApp habilitado' });
+    }
+    if (detalle.pendientes === 0) {
+      return res.json({ ok: true, iniciado: false, pendientes: 0, mensaje: 'No hay socios pendientes.' });
+    }
+    if (cupo.restante <= 0) {
+      return res.status(400).json({ ok: false, error: 'El club no tiene cupo de WhatsApp disponible este mes' });
+    }
+
+    const rClub = await db.query(`SELECT name FROM clubs WHERE id = $1 LIMIT 1`, [clubId]);
+    const clubName = rClub.rowCount ? rClub.rows[0].name : 'Club';
+
+    reenviosEnCurso.add(String(id));
+    setImmediate(async () => {
+      try {
+        const r = await enviarWhatsappNotificacion({
+          clubId, clubName, noti, data: noti.data, soloPendientes: true
+        });
+        console.log(`📲 Reenvío WhatsApp noti ${id}: ${r.enviados} enviados, ${r.errores.length} con error, sinCupo=${r.sinCupo}`);
+      } catch (e) {
+        console.error(`❌ Reenvío WhatsApp noti ${id}`, e);
+      } finally {
+        reenviosEnCurso.delete(String(id));
+      }
+    });
+
+    return res.status(202).json({
+      ok: true,
+      iniciado: true,
+      pendientes: detalle.pendientes,
+      cupoRestante: cupo.restante,
+      alcanzaElCupo: cupo.restante >= detalle.pendientes
+    });
+  } catch (e) {
+    reenviosEnCurso.delete(String(id));
+    console.error('❌ POST reenviar-whatsapp', e);
     return res.status(500).json({ ok: false, error: e.message });
   }
 });

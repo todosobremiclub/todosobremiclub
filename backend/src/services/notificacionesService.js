@@ -141,12 +141,17 @@ async function sendPushToClubTopic({ clubId, clubName, titulo, cuerpo, notificac
 // /:clubId/socios) para que "falta_pago" signifique lo mismo
 // en el push y en WhatsApp.
 // ===============================
-function buildSociosWhereFromDestino(clubId, destino) {
+function buildSociosWhereFromDestino(clubId, destino, opts = {}) {
   const tipo = destino?.destino_tipo || 'todos';
   const v1 = destino?.destino_valor1 || null;
   const v2 = destino?.destino_valor2 || null;
 
-  const where = ["s.club_id = $1", "s.activo = true", "s.telefono IS NOT NULL", "s.telefono <> ''"];
+  // ✅ NUEVO: opts.incluirSinTelefono (solo para estadísticas) devuelve también a los
+  // socios activos sin teléfono, para poder contar cuántos no tienen cómo recibir WhatsApp.
+  const where = ["s.club_id = $1", "s.activo = true"];
+  if (!opts.incluirSinTelefono) {
+    where.push("s.telefono IS NOT NULL", "s.telefono <> ''");
+  }
   const params = [clubId];
   let p = 2;
 
@@ -202,9 +207,115 @@ function buildSociosWhereFromDestino(clubId, destino) {
     LEFT JOIN actividades act_dep
       ON act_dep.club_id = s.club_id AND act_dep.nombre = s.actividad AND act_dep.activo = true
     WHERE ${where.join(' AND ')}
+    ORDER BY s.id
   `;
 
   return { sql, params };
+}
+
+// ===============================
+// ✅ NUEVO: envío de la notificación por WhatsApp a los socios del destino.
+//  - soloPendientes = true -> saltea a los que ya tienen un envío exitoso
+//    (enviado / entregado / leído) para esta notificación. Se usa para reenviar
+//    a quienes no la recibieron (ver POST .../reenviar-whatsapp).
+//  - Cada socio se procesa por separado: si uno falla (error de Meta, teléfono
+//    inválido, error inesperado), se anota y se sigue con el siguiente. Solo se
+//    corta el envío si se agota el cupo mensual del club.
+// ===============================
+async function obtenerDestinatariosPendientes({ clubId, notificacionId, data, soloPendientes }) {
+  const { sql, params } = buildSociosWhereFromDestino(clubId, data);
+  const rSocios = await db.query(sql, params);
+
+  if (!soloPendientes) return { destinatarios: rSocios.rows, total: rSocios.rowCount };
+
+  const rOk = await db.query(
+    `SELECT DISTINCT socio_id FROM whatsapp_mensajes
+     WHERE notificacion_id = $1 AND status IN ('enviado','entregado','leido') AND socio_id IS NOT NULL`,
+    [notificacionId]
+  );
+  const yaEnviados = new Set(rOk.rows.map((x) => String(x.socio_id)));
+  return {
+    destinatarios: rSocios.rows.filter((s) => !yaEnviados.has(String(s.id))),
+    total: rSocios.rowCount
+  };
+}
+
+async function enviarWhatsappNotificacion({ clubId, clubName, noti, data, soloPendientes = false }) {
+  const { destinatarios, total } = await obtenerDestinatariosPendientes({
+    clubId, notificacionId: noti.id, data, soloPendientes
+  });
+
+  let enviados = 0;
+  let sinCupo = 0;
+  const errores = [];
+
+  for (const s of destinatarios) {
+    try {
+      const r = await enviarPlantillaWhatsapp({
+        clubId,
+        socioId: s.id,
+        notificacionId: noti.id,
+        tipo: 'notificacion',
+        telefono: s.telefono,
+        templateName: 'notificacion_club',
+        parametros: [clubName, noti.titulo, noti.cuerpo]
+      });
+
+      if (r.ok) enviados++;
+      else if (r.error === 'El club alcanzó su límite mensual de WhatsApp') {
+        sinCupo++;
+        break; // corta apenas se agota el cupo, no sigue intentando
+      } else {
+        errores.push({ socioId: s.id, error: r.error || 'Error desconocido' });
+      }
+    } catch (e) {
+      console.error(`❌ WhatsApp notificación ${noti.id} socio ${s.id}:`, e.message);
+      errores.push({ socioId: s.id, error: e.message || 'Error inesperado' });
+    }
+  }
+
+  return { enviados, sinCupo, total, intentados: destinatarios.length, errores };
+}
+
+// ===============================
+// ✅ NUEVO: detalle del envío por WhatsApp de una notificación (para el Historial)
+// ===============================
+async function detalleWhatsappNotificacion({ clubId, notificacionId }) {
+  const rN = await db.query(
+    `SELECT id, titulo, canal, data FROM notificaciones WHERE id = $1 AND club_id = $2`,
+    [notificacionId, clubId]
+  );
+  if (!rN.rowCount) return null;
+  const noti = rN.rows[0];
+
+  const conTel = await obtenerDestinatariosPendientes({
+    clubId, notificacionId, data: noti.data, soloPendientes: false
+  });
+  const pend = await obtenerDestinatariosPendientes({
+    clubId, notificacionId, data: noti.data, soloPendientes: true
+  });
+
+  const { sql: sqlTodos, params: paramsTodos } = buildSociosWhereFromDestino(
+    clubId, noti.data, { incluirSinTelefono: true }
+  );
+  const rTodos = await db.query(sqlTodos, paramsTodos);
+
+  const rEst = await db.query(
+    `SELECT status, COUNT(DISTINCT socio_id)::int AS n
+     FROM whatsapp_mensajes WHERE notificacion_id = $1 GROUP BY status`,
+    [notificacionId]
+  );
+  const porEstado = {};
+  rEst.rows.forEach((x) => { porEstado[x.status] = x.n; });
+
+  return {
+    notificacion: { id: noti.id, titulo: noti.titulo, canal: noti.canal },
+    destinatarios: rTodos.rowCount,
+    sinTelefono: rTodos.rowCount - conTel.total,
+    conTelefono: conTel.total,
+    porEstado,
+    pendientes: pend.destinatarios.length
+  };
 }
 
 // ===============================
@@ -260,38 +371,10 @@ async function crearYEnviarNotificacion({ clubId, titulo, cuerpo, data, canal })
   // 4) Envío por WhatsApp si el canal elegido lo incluye
   let whatsappResumen = null;
   if (canalFinal === 'whatsapp' || canalFinal === 'ambos') {
-    const { sql, params: paramsDestino } = buildSociosWhereFromDestino(clubId, data);
-    const rSocios = await db.query(sql, paramsDestino);
-
-    let enviados = 0;
-    let sinCupo = 0;
-    // ✅ NUEVO: antes un fallo que no fuera "sin cupo" (ej: teléfono
-    // inválido, error de Meta) quedaba mudo: no sumaba a enviados ni a
-    // sinCupo, y el panel solo mostraba "X enviados de Y" sin decir por
-    // qué faltaban. Ahora se junta el detalle para mostrarlo en el panel.
-    const errores = [];
-
-    for (const s of rSocios.rows) {
-      const r = await enviarPlantillaWhatsapp({
-        clubId,
-        socioId: s.id,
-        notificacionId: noti.id,
-        tipo: 'notificacion',
-        telefono: s.telefono,
-        templateName: 'notificacion_club',
-        parametros: [clubName, noti.titulo, noti.cuerpo]
-      });
-
-      if (r.ok) enviados++;
-      else if (r.error === 'El club alcanzó su límite mensual de WhatsApp') {
-        sinCupo++;
-        break; // corta el loop apenas se agota el cupo, no sigue intentando
-      } else {
-        errores.push({ socioId: s.id, error: r.error || 'Error desconocido' });
-      }
-    }
-
-    whatsappResumen = { enviados, sinCupo, total: rSocios.rowCount, errores };
+    // ✅ NUEVO: el envío por WhatsApp ahora vive en enviarWhatsappNotificacion(), que
+    // sigue con el resto de los socios aunque uno falle (antes un error inesperado
+    // en un solo envío cortaba todos los siguientes sin dejar rastro).
+    whatsappResumen = await enviarWhatsappNotificacion({ clubId, clubName, noti, data });
 
     // Si no se mandó push (canal solo WhatsApp), igual dejamos sent_at
     // seteado para que la notificación no quede como "no enviada".
@@ -377,6 +460,8 @@ module.exports = {
   sendPushToClubTopic,
   buildSociosWhereFromDestino,
   crearYEnviarNotificacion,
+  enviarWhatsappNotificacion,
+  detalleWhatsappNotificacion,
   topicSocio,
   notificarSocio,
 };

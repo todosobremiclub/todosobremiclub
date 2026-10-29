@@ -25,9 +25,24 @@ router.post('/', async (req, res) => {
 
     for (const s of statuses) {
       const estado = { sent: 'enviado', delivered: 'entregado', read: 'leido', failed: 'fallido' }[s.status] || s.status;
+
+      // ✅ NUEVO: si Meta informa un fallo, guardamos el motivo (código y mensaje)
+      // para poder ver por qué un socio no recibió el WhatsApp.
+      const motivo = estado === 'fallido' && s.errors ? JSON.stringify(s.errors).slice(0, 1000) : null;
+
+      // ✅ NUEVO: los estados pueden llegar desordenados (ej: "enviado" después de
+      // "leído"); solo se avanza (enviado -> entregado -> leído). "fallido" siempre se registra.
       await db.query(
-        `UPDATE whatsapp_mensajes SET status = $1 WHERE wa_message_id = $2`,
-        [estado, s.id]
+        `UPDATE whatsapp_mensajes
+         SET status = $1::text,
+             error = CASE WHEN $1::text = 'fallido' THEN COALESCE($3::text, error) ELSE error END
+         WHERE wa_message_id = $2
+           AND (
+             $1::text = 'fallido'
+             OR (CASE status WHEN 'enviado' THEN 1 WHEN 'entregado' THEN 2 WHEN 'leido' THEN 3 ELSE 0 END)
+              < (CASE $1::text WHEN 'enviado' THEN 1 WHEN 'entregado' THEN 2 WHEN 'leido' THEN 3 ELSE 0 END)
+           )`,
+        [estado, s.id, motivo]
       );
     }
     res.sendStatus(200);

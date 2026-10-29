@@ -133,6 +133,8 @@
         <td>${escapeHtml(fmtDT(n.created_at))}</td>
         <td>${n.sent_at ? escapeHtml(fmtDT(n.sent_at)) : '—'}</td>
         <td style="white-space:nowrap;">
+          ${(n.canal === 'whatsapp' || n.canal === 'ambos') ? `<button class="btn btn-secondary" title="Ver cómo salió el WhatsApp y reenviar a quienes no lo recibieron"
+            data-act="wa-detalle" data-id="${escapeHtml(n.id)}">📊</button>` : ''}
           <button id="btnNotiDel" class="btn btn-secondary"
             style="background:#ef4444;border-color:#ef4444;"
             data-act="del" data-id="${escapeHtml(n.id)}">🗑️</button>
@@ -623,8 +625,65 @@ function getDestinoPayload() {
     await loadNotificaciones();
   }
 
+  // ✅ NUEVO: detalle del envío por WhatsApp de una notificación + reenvío a
+  // quienes no la recibieron (nunca se les envió, o falló).
+  async function waDetalleYReenviar(id) {
+    const clubId = getActiveClubId();
+    const { res, data } = await fetchAuth(`/club/${clubId}/notificaciones/${id}/whatsapp-detalle`);
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'No se pudo obtener el detalle');
+      return;
+    }
+
+    const est = data.porEstado || {};
+    const n = (k) => est[k] || 0;
+    let msg =
+      `📊 WhatsApp: "${data.notificacion.titulo}"\n\n` +
+      `Socios destinatarios: ${data.destinatarios}\n` +
+      `Sin teléfono cargado: ${data.sinTelefono}\n\n` +
+      `Leídos: ${n('leido')}\n` +
+      `Entregados: ${n('entregado')}\n` +
+      `Enviados (sin confirmación de entrega): ${n('enviado')}\n` +
+      `Fallidos: ${n('fallido')}\n\n` +
+      `Pendientes (no recibieron): ${data.pendientes}`;
+
+    if (data.cupo && data.cupo.habilitado) {
+      msg += `\nCupo disponible este mes: ${data.cupo.restante} de ${data.cupo.limite}`;
+    }
+
+    if (!data.pendientes) {
+      alert(msg);
+      return;
+    }
+
+    if (data.cupo && data.cupo.habilitado && data.cupo.restante < data.pendientes) {
+      msg += `\n⚠️ El cupo no alcanza para todos: se enviará hasta agotarlo.`;
+    }
+
+    if (!confirm(msg + `\n\n¿Reenviar por WhatsApp a los ${data.pendientes} que no lo recibieron?`)) return;
+
+    const r = await fetchAuth(`/club/${clubId}/notificaciones/${id}/reenviar-whatsapp`, { method: 'POST' });
+    if (!r.res.ok || !r.data.ok) {
+      alert(r.data.error || 'No se pudo iniciar el reenvío');
+      return;
+    }
+    alert(`✅ Reenvío iniciado para ${r.data.pendientes} socio(s). Se envía en segundo plano: ` +
+          `en unos minutos volvé a tocar 📊 para ver cómo quedó.`);
+    loadWaCupo('notiWaCupo');
+  }
+
   // ✅ EVENT DELEGATION GLOBAL
   document.addEventListener('click', (e) => {
+    const btnWa = e.target.closest('button[data-act="wa-detalle"][data-id]');
+    if (btnWa) {
+      e.preventDefault();
+      waDetalleYReenviar(btnWa.dataset.id).catch(err => {
+        console.error(err);
+        alert(err.message || 'Error');
+      });
+      return;
+    }
+
     const btnSend = e.target.closest('#btnPushEnviar');
     if (btnSend) {
       e.preventDefault();
