@@ -341,7 +341,7 @@ function renderActividades(items) {
           type="text"
           id="act_${a.id}"
           value="${escapeHtml(a.nombre)}"
-          ${esGrupoFamiliar ? 'disabled style="background:#f3f4f6; color:#6b7280;"' : ''}
+          ${esGrupoFamiliar ? 'disabled style="background:var(--t-surface3,#f3f4f6); color:var(--t-muted,#6b7280);"' : ''}
         />
       </td>
       <td>

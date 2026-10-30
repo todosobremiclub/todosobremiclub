@@ -371,8 +371,8 @@ tr.innerHTML = `
       const cantidadHtml = `
         <input type="number" class="tw-cantidad-entregar" data-cantidad-original="${cantidadPedida}"
                min="1" max="${cantidadPedida}" step="1" value="${cantidadPedida}"
-               style="width:64px; padding:5px 6px; border-radius:8px; border:1px solid #ccc; font-size:13px;">
-        <div style="font-size:10.5px; color:#6b7280; margin-top:2px;">de ${cantidadPedida} pedidas</div>
+               style="width:64px; padding:5px 6px; border-radius:8px; border:1px solid var(--t-border,#ccc); font-size:13px;">
+        <div style="font-size:10.5px; color:var(--t-muted,#6b7280); margin-top:2px;">de ${cantidadPedida} pedidas</div>
       `;
 
       tr.innerHTML = `

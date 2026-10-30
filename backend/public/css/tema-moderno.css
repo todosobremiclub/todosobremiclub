@@ -1,0 +1,254 @@
+/* =========================================================
+   TEMA MODERNO — Panel del Club (Todo Sobre Mi Club)
+   Se activa con html.tema-moderno (ver /js/tema.js).
+   Variables que calcula tema.js: --a --b --on --bg1 --bg2 --bgm --bar1 --bar2
+   Las secciones usan --t-* (con el valor claro original como respaldo),
+   por eso el tema "Clásico" no cambia nada.
+========================================================= */
+html.tema-moderno{
+  color-scheme: dark;
+  --t-ink:#0b1020;
+  --t-surface: color-mix(in srgb, var(--a, #2563eb) 6%, #0c1226);
+  --t-surface2: color-mix(in srgb, var(--a, #2563eb) 10%, #101a33);
+  --t-surface3: color-mix(in srgb, var(--a, #2563eb) 16%, #15203d);
+  --t-input: color-mix(in srgb, var(--a, #2563eb) 5%, #0a1122);
+  --t-mixdark:#ffffff;
+  --t-glass: color-mix(in srgb, var(--a, #2563eb) 8%, rgba(10,16,32,.92));
+  --t-text:#e8edf8;
+  --t-muted:#9aa9c6;
+  --t-border: color-mix(in srgb, var(--a, #2563eb) 26%, #222d4a);
+}
+
+/* ---------- Fondo ---------- */
+html.tema-moderno body{
+  color: var(--t-text);
+  font-family: Inter, "Segoe UI", system-ui, Arial, sans-serif;
+  background:
+    radial-gradient(900px 500px at 12% 0%, color-mix(in srgb, var(--a) 30%, transparent), transparent 60%),
+    radial-gradient(900px 500px at 95% 100%, color-mix(in srgb, var(--b) 30%, transparent), transparent 60%),
+    linear-gradient(160deg, var(--bg1) 0%, var(--bgm) 50%, var(--bg2) 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+html.tema-moderno, html.tema-moderno body{ background-color: var(--t-ink); }
+
+/* ---------- Barra superior ---------- */
+html.tema-moderno .header-wrapper{
+  background: linear-gradient(115deg, var(--bar1), var(--bar2));
+  border: 1px solid color-mix(in srgb, var(--a) 55%, transparent);
+  box-shadow: 0 14px 40px color-mix(in srgb, var(--a) 28%, transparent);
+  border-radius: 22px;
+  padding: 12px 14px 12px;
+}
+html.tema-moderno .header-wrapper::before{ display:none; }
+html.tema-moderno .topbar{
+  background: transparent; border: 0; padding: 0 2px; border-radius: 0;
+}
+html.tema-moderno .logo{
+  border-radius: 13px; background:#fff; border:1px solid rgba(255,255,255,.35);
+  box-shadow: 0 6px 18px rgba(0,0,0,.3);
+}
+html.tema-moderno .logo:not([src]){ display:none; }
+html.tema-moderno .club-name{ font-weight:800; letter-spacing:.2px; }
+html.tema-moderno .club-user{ color: rgba(255,255,255,.75); }
+
+html.tema-moderno .navbtn{
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.22);
+  color:#fff; border-radius: 12px; font-weight:600;
+  backdrop-filter: blur(6px);
+}
+html.tema-moderno .navbtn:hover{ background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.4); }
+html.tema-moderno .navbtn--logout{ background: rgba(255,80,80,.2); color:#ffc2c2; border-color: rgba(255,120,120,.4); }
+html.tema-moderno .navbtn--logout:hover{ background: rgba(239,68,68,.45); color:#fff; }
+html.tema-moderno .club-select{
+  background: rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25);
+  border-radius:12px; padding:8px 10px; font-size:13px; font-weight:600;
+}
+html.tema-moderno .club-select option{ background:#101a33; color:#fff; }
+html.tema-moderno .badge{
+  background: rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.22);
+  font-weight:700; padding:8px 12px; border-radius:12px;
+}
+/* íconos: en moderno se ven los SVG y se ocultan los emojis */
+.nav-svg{ display:none; }
+html.tema-moderno .nav-svg{ display:inline-block; vertical-align:-3px; margin-right:6px; }
+html.tema-moderno .nav-ico{ display:none; }
+html.tema-moderno .topbar-right .navbtn .nav-svg{ margin-right:6px; }
+
+/* ---------- Menú de pestañas ---------- */
+html.tema-moderno .topnav{ margin-top: 12px; padding: 0; }
+html.tema-moderno .topnav__center{
+  justify-content:flex-start; gap:6px; padding:6px;
+  background: color-mix(in srgb, var(--a) 14%, #0b1020);
+  border: 1px solid color-mix(in srgb, var(--a) 45%, transparent);
+  border-radius: 18px; flex: 0 1 auto;
+}
+html.tema-moderno .topnav__center .navbtn--top{
+  background: transparent; border: 0; backdrop-filter:none; box-shadow:none;
+  color: color-mix(in srgb, var(--a) 35%, #c9d4ea);
+  padding: 9px 12px; font-size: 13.5px; border-radius: 13px;
+}
+html.tema-moderno .topnav__center .navbtn--top:hover{ background: rgba(255,255,255,.07); color:#fff; }
+html.tema-moderno .navbtn.active,
+html.tema-moderno .topnav__center .navbtn--top.active{
+  background: linear-gradient(135deg, var(--a), var(--b)) !important;
+  color: var(--on) !important;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--a) 45%, transparent);
+  border: 0;
+}
+
+/* Banner de solo lectura */
+html.tema-moderno .impersonation-banner,
+html.tema-moderno #impersonationBanner{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  color:#fcd98a; background: rgba(251,191,36,.12);
+  border:1px solid rgba(251,191,36,.35); border-radius:12px;
+  padding:8px 14px; font-size:13px; margin-bottom:10px; width:max-content; max-width:100%;
+}
+html.tema-moderno #impersonationBanner .navbtn{ background:transparent; border-color: rgba(251,191,36,.5); color:#fcd98a; padding:3px 12px; }
+
+/* ---------- Contenedor de secciones y tarjetas ---------- */
+html.tema-moderno .content{ max-width: 1360px; }
+html.tema-moderno #sectionContainer,
+html.tema-moderno .card{
+  background: var(--t-surface);
+  border: 1px solid color-mix(in srgb, var(--a) 40%, transparent);
+  border-radius: 22px;
+  box-shadow: 0 20px 50px color-mix(in srgb, var(--a) 14%, transparent);
+  color: var(--t-text);
+}
+html.tema-moderno section[class^="section-"],
+html.tema-moderno section.section{
+  background: transparent; border-color: var(--t-border); border-left-color: var(--a);
+  color: var(--t-text);
+}
+html.tema-moderno #sectionContainer .card{ box-shadow:none; background: var(--t-surface2); border-color: var(--t-border); }
+
+/* ---------- Texto ---------- */
+html.tema-moderno h1, html.tema-moderno h2, html.tema-moderno h3, html.tema-moderno h4{ color:#fff; }
+html.tema-moderno label{ color: var(--t-muted); }
+html.tema-moderno .muted, html.tema-moderno .small{ color: var(--t-muted); }
+html.tema-moderno a{ color: color-mix(in srgb, var(--a) 70%, #fff); }
+html.tema-moderno hr{ border-color: var(--t-border); }
+
+/* ---------- Formularios (especificidad baja: no pisa botones de sección) ---------- */
+:where(html.tema-moderno) input,
+:where(html.tema-moderno) select,
+:where(html.tema-moderno) textarea{
+  background: var(--t-input); color: var(--t-text);
+  border:1px solid var(--t-border); border-radius:10px;
+}
+:where(html.tema-moderno) input::placeholder,
+:where(html.tema-moderno) textarea::placeholder{ color:#6f819f; }
+:where(html.tema-moderno) option{ background:#101a33; color:#e8edf8; }
+:where(html.tema-moderno) input[type="checkbox"],
+:where(html.tema-moderno) input[type="radio"]{ accent-color: var(--a); }
+html.tema-moderno input:focus, html.tema-moderno select:focus, html.tema-moderno textarea:focus{
+  border-color: var(--a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 28%, transparent);
+}
+:where(html.tema-moderno) input[type="date"],
+:where(html.tema-moderno) input[type="time"],
+:where(html.tema-moderno) input[type="month"]{ color-scheme: dark; }
+
+/* ---------- Botones ---------- */
+:where(html.tema-moderno) button,
+:where(html.tema-moderno) .btn{
+  background: color-mix(in srgb, var(--a) 14%, transparent);
+  color: var(--t-text);
+  border: 1px solid color-mix(in srgb, var(--a) 45%, transparent);
+  border-radius: 10px;
+}
+:where(html.tema-moderno) button:hover, :where(html.tema-moderno) .btn:hover{
+  background: color-mix(in srgb, var(--a) 26%, transparent); border-color: var(--a);
+}
+:where(html.tema-moderno) button:disabled{ opacity:.5; cursor:not-allowed; }
+html.tema-moderno .btn-primary,
+html.tema-moderno button.btn-primary,
+html.tema-moderno .asist2-btn-primary{
+  background: linear-gradient(135deg, var(--a), var(--b)); border:0; color: var(--on);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--a) 40%, transparent);
+}
+html.tema-moderno .btn-primary:hover,
+html.tema-moderno .asist2-btn-primary:hover{ filter: brightness(1.08); background: linear-gradient(135deg, var(--a), var(--b)); }
+
+/* ---------- Tablas ---------- */
+html.tema-moderno .table-wrapper{ background: var(--t-surface); border-color: var(--t-border); border-radius:16px; }
+html.tema-moderno table{ color: var(--t-text); }
+html.tema-moderno th{
+  background: color-mix(in srgb, var(--a) 22%, #0b1020);
+  color: color-mix(in srgb, var(--a) 30%, #fff);
+  font-size: 11.5px; text-transform: uppercase; letter-spacing:.6px;
+  border-bottom: 1px solid var(--t-border);
+}
+html.tema-moderno td{ border-bottom: 1px solid var(--t-border); color: var(--t-text); }
+html.tema-moderno tbody tr:hover td{ background: color-mix(in srgb, var(--a) 12%, var(--t-surface)); }
+
+/* ---------- Modales ---------- */
+html.tema-moderno .modal{ background: rgba(4,8,20,.72); backdrop-filter: blur(4px); }
+html.tema-moderno .modal-content{
+  background: var(--t-surface); color: var(--t-text);
+  border: 1px solid color-mix(in srgb, var(--a) 45%, transparent);
+  border-radius: 20px; box-shadow: 0 30px 80px rgba(0,0,0,.55);
+}
+
+/* Modal de asistencia */
+html.tema-moderno .asist2-header{ background: linear-gradient(115deg, var(--bar1), var(--bar2)); }
+html.tema-moderno .asist2-footer{ background: var(--t-surface2); border-top-color: var(--t-border); }
+html.tema-moderno .asist2-step.active{ background:#fff; color:#0b1020; }
+html.tema-moderno .asist2-row:hover{ background: var(--t-surface2); }
+html.tema-moderno .asist2-chip-invitado{ background: color-mix(in srgb, var(--b) 22%, transparent); color:#fff; }
+html.tema-moderno .asist2-chip-invitado button{ color:#fff; }
+html.tema-moderno .asist2-row-name{ color: var(--t-text); }
+
+/* ---------- Reporte de asistencia ---------- */
+html.tema-moderno .asist2r-table td:first-child,
+html.tema-moderno .asist2r-table th:first-child{ background: var(--t-surface); }
+html.tema-moderno .asist2r-table thead th,
+html.tema-moderno .asist2r-table thead th:first-child{ background: color-mix(in srgb, var(--a) 22%, #0b1020); color:#fff; }
+html.tema-moderno .asist2r-table tbody tr:nth-child(even),
+html.tema-moderno .asist2r-table tbody tr:nth-child(even) td:first-child{ background: var(--t-surface2); }
+html.tema-moderno .asist2r-table .asist2r-th-fecha:hover{ background: var(--t-surface3); }
+html.tema-moderno .asist2r-pill{ background: var(--t-surface2); color: var(--t-text); border-color: var(--t-border); }
+html.tema-moderno .asist2r-badge-ok{ background: rgba(52,211,153,.18); color:#6ee7b7; }
+html.tema-moderno .asist2r-badge-no{ background: rgba(251,113,133,.18); color:#fda4af; }
+
+/* ---------- Chips/etiquetas pastel: mantener legibles sobre oscuro ---------- */
+html.tema-moderno .tag, html.tema-moderno .chip, html.tema-moderno .pill{ border-radius: 999px; }
+
+/* ---------- FullCalendar (Agenda) ---------- */
+html.tema-moderno .fc{
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: var(--t-surface2);
+  --fc-neutral-text-color: var(--t-muted);
+  --fc-border-color: var(--t-border);
+  --fc-button-bg-color: color-mix(in srgb, var(--a) 22%, #0b1020);
+  --fc-button-border-color: color-mix(in srgb, var(--a) 50%, transparent);
+  --fc-button-text-color:#fff;
+  --fc-button-hover-bg-color: color-mix(in srgb, var(--a) 40%, #0b1020);
+  --fc-button-hover-border-color: var(--a);
+  --fc-button-active-bg-color: var(--a);
+  --fc-button-active-border-color: var(--a);
+  --fc-today-bg-color: color-mix(in srgb, var(--a) 18%, transparent);
+  --fc-list-event-hover-bg-color: var(--t-surface3);
+  --fc-event-bg-color: var(--a);
+  --fc-event-border-color: var(--a);
+  color: var(--t-text);
+}
+html.tema-moderno .fc .fc-col-header-cell-cushion,
+html.tema-moderno .fc .fc-daygrid-day-number,
+html.tema-moderno .fc .fc-timegrid-slot-label-cushion,
+html.tema-moderno .fc .fc-list-day-text,
+html.tema-moderno .fc .fc-list-day-side-text{ color: var(--t-text); }
+html.tema-moderno .fc .fc-toolbar-title{ color:#fff; }
+
+/* ---------- Scrollbars ---------- */
+html.tema-moderno *{ scrollbar-color: color-mix(in srgb, var(--a) 45%, #1b2540) transparent; scrollbar-width: thin; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 768px){
+  html.tema-moderno .header-wrapper{ border-radius:16px; }
+  html.tema-moderno .topnav__center{ border-radius:14px; }
+  html.tema-moderno .topnav__center .navbtn--top{ padding:8px 10px; font-size:12.5px; }
+}

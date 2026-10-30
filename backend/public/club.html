@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Panel del Club</title>
+  <script>
+    /* Tema moderno: se marca antes de pintar para evitar destello claro */
+    try{ if(localStorage.getItem('tsmcTema')!=='clasico') document.documentElement.classList.add('tema-moderno'); }catch(e){ document.documentElement.classList.add('tema-moderno'); }
+  </script>
 
   <style>
     :root {
@@ -25,7 +29,7 @@
       height: 100%;
       margin: 0;
       padding: 0;
-      background: #f3f4f6;
+      background: var(--t-surface3,#f3f4f6);
       font-family: Arial, sans-serif;
     }
 
@@ -52,11 +56,11 @@ IDENTIDAD DEL CLUB – SECCIONES
 /* Todas las secciones principales */
 section[class^="section-"],
 section.section{
-  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, #d1d5db);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--t-border,#d1d5db));
   border-left: 4px solid var(--color-primary);
   border-radius: 14px;
   padding: 14px;
-  background: #ffffff;
+  background: var(--t-surface,#ffffff);
   margin-bottom: 16px;
 }
 
@@ -127,7 +131,7 @@ section.section{
       object-fit: contain;
       border-radius: 10px;
       border:1px solid rgba(255,255,255,0.35);
-      background: #fff;
+      background: var(--t-surface,#fff);
       padding: 2px;
     }
 
@@ -156,7 +160,7 @@ section.section{
       padding:4px 6px;
       font-size:12px;
       border-radius:6px;
-      border:1px solid #ddd;
+      border:1px solid var(--t-border,#ddd);
     }
 
     .badge {
@@ -165,7 +169,7 @@ section.section{
       border-radius: 999px;
       background: var(--color-accent);
       font-size: 12px;
-      color:#111827;
+      color:var(--t-text,#111827);
       font-weight:700;
     }
 
@@ -213,18 +217,18 @@ section.section{
        CARDS / TABLAS
     ========================= */
     .card {
-      border:1px solid #ddd;
+      border:1px solid var(--t-border,#ddd);
       border-radius:12px;
       padding:14px;
       margin-top:14px;
-      background:#fff;
+      background:var(--t-surface,#fff);
     }
 
     .table-wrapper {
       overflow:auto;
-      border:1px solid #ddd;
+      border:1px solid var(--t-border,#ddd);
       border-radius:10px;
-      background:#fff;
+      background:var(--t-surface,#fff);
     }
 
     table {
@@ -233,14 +237,14 @@ section.section{
     }
 
     th, td {
-      border-bottom:1px solid #eee;
+      border-bottom:1px solid var(--t-border,#eee);
       padding:8px;
       font-size:14px;
       white-space: nowrap;
     }
 
     th {
-      background:#f7f7f7;
+      background:var(--t-surface2,#f7f7f7);
       text-align:left;
     }
 
@@ -257,19 +261,19 @@ section.section{
     label {
       display:block;
       font-size: 0.85rem;
-      color:#444;
+      color:var(--t-text,#444);
       margin-bottom:6px;
     }
 
     input, select, button {
       padding: 8px;
       border-radius:6px;
-      border:1px solid #ccc;
+      border:1px solid var(--t-border,#ccc);
       font-size:14px;
     }
 
     .muted {
-      color:#6b7280;
+      color:var(--t-muted,#6b7280);
       font-size:13px;
     }
 
@@ -280,9 +284,9 @@ BOTONES – COLOR DEL CLUB
 button,
 .btn{
   border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, #d1d5db);
-  background: #ffffff;
-  color: #111827;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, var(--t-border,#d1d5db));
+  background: var(--t-surface,#ffffff);
+  color: var(--t-text,#111827);
   transition: all .15s ease;
 }
 
@@ -320,7 +324,7 @@ button:hover,
 
     .modal-content {
       width:min(780px, 95vw);
-      background:#fff;
+      background:var(--t-surface,#fff);
       border-radius:12px;
       padding:16px;
     }
@@ -419,7 +423,7 @@ textarea:focus{
 
 .navbtn.active{
   background: white;
-  color: #111;
+  color: var(--t-text,#111);
 
   border: none;
 
@@ -527,7 +531,7 @@ textarea:focus{
       white-space:nowrap;
     }
     .asist2-step.active{
-      background:#fff;
+      background:var(--t-surface,#fff);
       color: var(--color-primary);
     }
     .asist2-step-line{
@@ -550,14 +554,14 @@ textarea:focus{
     }
 
     .asist2-field{ display:flex; flex-direction:column; gap:5px; }
-    .asist2-field label{ font-size:12px; font-weight:600; color:#374151; }
+    .asist2-field label{ font-size:12px; font-weight:600; color:var(--t-text,#374151); }
     .asist2-field select,
     .asist2-field input{
       padding:9px 10px;
       border-radius:9px;
-      border:1px solid #d1d5db;
+      border:1px solid var(--t-border,#d1d5db);
       font-size:14px;
-      background:#fff;
+      background:var(--t-surface,#fff);
       width:100%;
     }
     .asist2-field select:focus,
@@ -572,12 +576,12 @@ textarea:focus{
     .asist2-section-label{
       font-size:12px;
       font-weight:600;
-      color:#374151;
+      color:var(--t-text,#374151);
       margin-bottom:6px;
     }
     .asist2-hint{
       font-size:11.5px;
-      color:#9ca3af;
+      color:var(--t-muted,#9ca3af);
       margin-top:4px;
     }
 
@@ -586,8 +590,8 @@ textarea:focus{
       gap:10px;
       justify-content:flex-end;
       padding:14px 20px;
-      border-top:1px solid #eef0f3;
-      background:#fafafa;
+      border-top:1px solid var(--t-border,#eef0f3);
+      background:var(--t-surface2,#fafafa);
       flex:none;
     }
 
@@ -597,9 +601,9 @@ textarea:focus{
       font-size:13.5px;
       font-weight:600;
       cursor:pointer;
-      border:1px solid #d1d5db;
-      background:#fff;
-      color:#374151;
+      border:1px solid var(--t-border,#d1d5db);
+      background:var(--t-surface,#fff);
+      color:var(--t-text,#374151);
       transition: all .15s ease;
     }
     .asist2-btn:hover{ border-color: var(--color-primary); color: var(--color-primary); }
@@ -616,13 +620,13 @@ textarea:focus{
       justify-content:space-between;
       gap:10px;
       flex-wrap:wrap;
-      background: color-mix(in srgb, var(--color-primary) 6%, #fff);
-      border:1px solid color-mix(in srgb, var(--color-primary) 18%, #e5e7eb);
+      background: color-mix(in srgb, var(--color-primary) 6%, var(--t-surface,#fff));
+      border:1px solid color-mix(in srgb, var(--color-primary) 18%, var(--t-border,#e5e7eb));
       border-radius:12px;
       padding:10px 14px;
       margin-bottom:14px;
       font-size:13px;
-      color:#111827;
+      color:var(--t-text,#111827);
     }
 
     .asist2-search-wrap{
@@ -633,7 +637,7 @@ textarea:focus{
       width:100%;
       padding:9px 12px 9px 32px;
       border-radius:9px;
-      border:1px solid #d1d5db;
+      border:1px solid var(--t-border,#d1d5db);
       font-size:13.5px;
     }
     .asist2-search-wrap input:focus{
@@ -647,7 +651,7 @@ textarea:focus{
       top:50%;
       transform:translateY(-50%);
       font-size:13px;
-      color:#9ca3af;
+      color:var(--t-muted,#9ca3af);
     }
 
     .asist2-convocados-header{
@@ -664,7 +668,7 @@ textarea:focus{
       font-weight:700;
       padding:4px 10px;
       border-radius:999px;
-      background: color-mix(in srgb, var(--color-primary) 12%, #fff);
+      background: color-mix(in srgb, var(--color-primary) 12%, var(--t-surface,#fff));
       color: var(--color-primary);
       white-space:nowrap;
     }
@@ -674,17 +678,17 @@ textarea:focus{
       border-radius:999px;
       font-size:11.5px;
       font-weight:600;
-      border:1px solid #d1d5db;
-      background:#fff;
+      border:1px solid var(--t-border,#d1d5db);
+      background:var(--t-surface,#fff);
       cursor:pointer;
-      color:#374151;
+      color:var(--t-text,#374151);
     }
     .asist2-mini-btn:hover{ border-color: var(--color-primary); color: var(--color-primary); }
 
     .asist2-lista{
       max-height:280px;
       overflow-y:auto;
-      border:1px solid #eef0f3;
+      border:1px solid var(--t-border,#eef0f3);
       border-radius:12px;
     }
 
@@ -693,13 +697,13 @@ textarea:focus{
       align-items:center;
       gap:10px;
       padding:9px 12px;
-      border-bottom:1px solid #f3f4f6;
+      border-bottom:1px solid var(--t-border,#f3f4f6);
       cursor:pointer;
       transition: background .12s ease;
     }
     .asist2-row:last-child{ border-bottom:none; }
-    .asist2-row:hover{ background:#f9fafb; }
-    .asist2-row.is-checked{ background: color-mix(in srgb, var(--color-primary) 6%, #fff); }
+    .asist2-row:hover{ background:var(--t-surface2,#f9fafb); }
+    .asist2-row.is-checked{ background: color-mix(in srgb, var(--color-primary) 6%, var(--t-surface,#fff)); }
 
     .asist2-row input[type="checkbox"]{
       width:18px;
@@ -712,7 +716,7 @@ textarea:focus{
       width:30px;
       height:30px;
       border-radius:50%;
-      background: color-mix(in srgb, var(--color-primary) 15%, #fff);
+      background: color-mix(in srgb, var(--color-primary) 15%, var(--t-surface,#fff));
       color: var(--color-primary);
       display:flex;
       align-items:center;
@@ -722,13 +726,13 @@ textarea:focus{
       flex:none;
     }
 
-    .asist2-row-name{ font-size:13.5px; color:#111827; }
-    .asist2-row-meta{ font-size:11.5px; color:#9ca3af; }
+    .asist2-row-name{ font-size:13.5px; color:var(--t-text,#111827); }
+    .asist2-row-meta{ font-size:11.5px; color:var(--t-muted,#9ca3af); }
 
     .asist2-empty{
       padding:20px;
       text-align:center;
-      color:#9ca3af;
+      color:var(--t-muted,#9ca3af);
       font-size:13px;
     }
 
@@ -773,24 +777,24 @@ textarea:focus{
       gap:7px;
       padding:6px 14px;
       border-radius:999px;
-      border:1px solid #d1d5db;
+      border:1px solid var(--t-border,#d1d5db);
       cursor:pointer;
       font-size:12.5px;
       font-weight:600;
-      color:#4b5563;
-      background:#fff;
+      color:var(--t-text,#4b5563);
+      background:var(--t-surface,#fff);
       transition: all .15s ease;
     }
     .asist2r-pill input{ display:none; }
     .asist2r-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; flex:none; }
     .asist2r-pill:has(input:checked){
       border-color: var(--color-primary);
-      background: color-mix(in srgb, var(--color-primary) 8%, #fff);
-      color:#111827;
+      background: color-mix(in srgb, var(--color-primary) 8%, var(--t-surface,#fff));
+      color:var(--t-text,#111827);
     }
 
     .asist2r-table-wrap{
-      border:1px solid #eef0f3;
+      border:1px solid var(--t-border,#eef0f3);
       border-radius:12px;
       overflow-x:auto;
       overflow-y:hidden;
@@ -806,18 +810,18 @@ textarea:focus{
     .asist2r-table th:first-child{
       position:sticky;
       left:0;
-      background:#fff;
+      background:var(--t-surface,#fff);
       z-index:1;
     }
-    .asist2r-table thead th:first-child{ background:#f9fafb; z-index:2; }
-    .asist2r-table tbody tr:nth-child(even) td:first-child{ background:#fafbfc; }
+    .asist2r-table thead th:first-child{ background:var(--t-surface2,#f9fafb); z-index:2; }
+    .asist2r-table tbody tr:nth-child(even) td:first-child{ background:var(--t-surface2,#fafbfc); }
     .asist2r-table thead th{
-      background:#f9fafb;
+      background:var(--t-surface2,#f9fafb);
       text-align:left;
       padding:8px 10px;
-      border-bottom:1px solid #eef0f3;
+      border-bottom:1px solid var(--t-border,#eef0f3);
       font-size:12px;
-      color:#374151;
+      color:var(--t-text,#374151);
     }
     .asist2r-table .asist2r-th-fecha{
       cursor:pointer;
@@ -825,11 +829,11 @@ textarea:focus{
       font-weight:700;
       transition: background .12s ease;
     }
-    .asist2r-table .asist2r-th-fecha:hover{ background:#f3f4f6; }
+    .asist2r-table .asist2r-th-fecha:hover{ background:var(--t-surface3,#f3f4f6); }
     .asist2r-table .asist2r-th-fecha .asist2r-dot{ margin-right:5px; }
-    .asist2r-table tbody tr{ border-bottom:1px solid #f3f4f6; }
-    .asist2r-table tbody tr:nth-child(even){ background:#fafbfc; }
-    .asist2r-table tbody tr:hover{ background: color-mix(in srgb, var(--color-primary) 4%, #fff); }
+    .asist2r-table tbody tr{ border-bottom:1px solid var(--t-border,#f3f4f6); }
+    .asist2r-table tbody tr:nth-child(even){ background:var(--t-surface2,#fafbfc); }
+    .asist2r-table tbody tr:hover{ background: color-mix(in srgb, var(--color-primary) 4%, var(--t-surface,#fff)); }
     .asist2r-table td{ padding:7px 10px; }
     .asist2r-socio-cell{
       display:flex;
@@ -862,7 +866,7 @@ textarea:focus{
     }
 
     .asist2r-detalle-card{
-      border:1px solid #eef0f3;
+      border:1px solid var(--t-border,#eef0f3);
       border-radius:12px;
       padding:14px;
     }
@@ -916,6 +920,7 @@ textarea:focus{
     }
   </style>
 
+  <link rel="stylesheet" href="/css/tema-moderno.css?v=20261030-2">
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/es.global.min.js"></script>
 </head>
@@ -1006,7 +1011,7 @@ textarea:focus{
             <div class="asist2-section-label">Años de nacimiento adicionales (opcional)</div>
             <div style="display:flex; gap:8px;">
               <input id="asistAnioAdicionalInput" type="number" min="1900" max="2100"
-                     placeholder="Ej: 2011" style="flex:1; padding:9px 10px; border-radius:9px; border:1px solid #d1d5db; font-size:14px;" />
+                     placeholder="Ej: 2011" style="flex:1; padding:9px 10px; border-radius:9px; border:1px solid var(--t-border,#d1d5db); font-size:14px;" />
               <button type="button" id="btnAsistAgregarAnioAdicional" class="asist2-btn">+ Agregar</button>
             </div>
             <div id="asistAniosAdicionalesChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
@@ -1107,6 +1112,8 @@ textarea:focus{
   </div>
 
   <div class="topbar-right">
+    <button id="btnTema" class="navbtn navbtn--top" type="button">🎨 Moderno</button>
+
     <button id="btnAsistencia" class="navbtn navbtn--top">📋 Asistencia</button>
 
     <button id="btnVerQR" class="navbtn navbtn--top">📱 Ver QR</button>
@@ -1227,21 +1234,22 @@ textarea:focus{
   }
 </script>
 
-  <script src="/js/club.js?v=20261026-1"></script>
-  <script src="/js/socios.js?v=20261027-2"></script>
+  <script src="/js/tema.js?v=20261030-2"></script>
+  <script src="/js/club.js?v=20261030-2"></script>
+  <script src="/js/socios.js?v=20261030-2"></script>
   <script src="/js/asistencia.js"></script>
   <script src="/js/vendor/zxing-browser.min.js?v=20260331"></script>
 <script src="/js/acceso.js?v=20260331"></script>
-  <script src="/js/configuracion.js?v=20261027-3"></script>
+  <script src="/js/configuracion.js?v=20261030-2"></script>
   <script src="/js/gastos.js?v=20261001-2"></script>
   <script src="/js/pagos.js?v=20261015-1"></script>
   <script defer src="/js/cumples.js?v=20261027-1"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="/js/reportes.js?v=20260921-1"></script>
-  <script src="/js/noticias.js"></script>
+  <script src="/js/reportes.js?v=20261030-2"></script>
+  <script src="/js/noticias.js?v=20261030-2"></script>
   <script src="/js/notificaciones.js?v=20261029-1"></script>
-  <script src="/js/pendientes.js?v=20261023-1"></script>
-  <script src="/js/tienda.js?v=20260928-1"></script>
+  <script src="/js/pendientes.js?v=20261030-2"></script>
+  <script src="/js/tienda.js?v=20261030-2"></script>
   <script src="/js/espacios.js?v=20261026-1"></script>
 
 

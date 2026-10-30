@@ -248,14 +248,14 @@
   margin:0;
   font-size:17px;
   font-weight:800;
-  color:#0f172a;
+  color:var(--t-text,#0f172a);
   letter-spacing:-.01em;
 }
 
 .ag-modern .ag-header-sub{
   margin:1px 0 0;
   font-size:12px;
-  color:#64748b;
+  color:var(--t-muted,#64748b);
 }
 
 .ag-modern .ag-btn-add{ margin-left:auto; }
@@ -285,9 +285,9 @@
 .ag-modern .ag-btn-primary:active{ transform:translateY(1px); }
 
 .ag-modern .ag-btn-ghost{
-  background:#fff;
-  border:1px solid #d5dae1;
-  color:#475569;
+  background:var(--t-surface,#fff);
+  border:1px solid var(--t-border,#d5dae1);
+  color:var(--t-text,#475569);
   border-radius:10px;
   padding:9px 15px;
   font-size:13px;
@@ -295,10 +295,10 @@
   cursor:pointer;
   transition:background .15s ease, color .15s ease;
 }
-.ag-modern .ag-btn-ghost:hover{ background:#f1f5f9; color:#0f172a; }
+.ag-modern .ag-btn-ghost:hover{ background:var(--t-surface3,#f1f5f9); color:var(--t-text,#0f172a); }
 
 .ag-modern .ag-btn-danger{
-  background:#fff;
+  background:var(--t-surface,#fff);
   border:1px solid #fca5a5;
   color:#dc2626;
   border-radius:10px;
@@ -348,7 +348,7 @@
   display:flex;
   align-items:center;
   gap:8px;
-  background:#fff;
+  background:var(--t-surface,#fff);
   border:1px solid #fcd34d;
   border-radius:999px;
   padding:4px 13px 4px 4px;
@@ -367,7 +367,7 @@
 .ag-modern .ag-cumple-nombre{
   font-size:12px;
   font-weight:700;
-  color:#0f172a;
+  color:var(--t-text,#0f172a);
   line-height:1.2;
 }
 
@@ -394,7 +394,7 @@
   gap:6px;
   font-size:11.5px;
   font-weight:600;
-  color:#475569;
+  color:var(--t-text,#475569);
 }
 
 .ag-modern .ag-legend-toggle{
@@ -405,7 +405,7 @@
   border:1px solid transparent;
   transition:background .15s ease, border-color .15s ease;
 }
-.ag-modern .ag-legend-toggle:hover{ background:#f1f5f9; }
+.ag-modern .ag-legend-toggle:hover{ background:var(--t-surface3,#f1f5f9); }
 .ag-modern .ag-legend-toggle input[type="checkbox"]{
   width:13px;
   height:13px;
@@ -433,15 +433,15 @@
 .ag-modern .ag-legend-hint{
   margin-left:auto;
   font-size:11px;
-  color:#94a3b8;
+  color:var(--t-muted,#94a3b8);
 }
 
 /* ---------------------------------------------------------------
    CONTENEDOR DEL CALENDARIO
 --------------------------------------------------------------- */
 .ag-modern .ag-calendar-card{
-  background:#fff;
-  border:1px solid #dfe3e8;
+  background:var(--t-surface,#fff);
+  border:1px solid var(--t-border,#dfe3e8);
   border-radius:14px;
   padding:12px 14px 14px;
   box-shadow:0 1px 3px rgba(16,24,40,.06);
@@ -471,7 +471,7 @@
 .ag-modern .fc .fc-toolbar-title{
   font-size:15.5px !important;
   font-weight:800;
-  color:#0f172a;
+  color:var(--t-text,#0f172a);
   letter-spacing:-.01em;
   text-transform:capitalize;
 }
@@ -492,9 +492,9 @@
 /* prev / next como círculos */
 .ag-modern .fc .fc-prev-button,
 .ag-modern .fc .fc-next-button{
-  background:#fff !important;
-  border:1px solid #d5dae1 !important;
-  color:#334155 !important;
+  background:var(--t-surface,#fff) !important;
+  border:1px solid var(--t-border,#d5dae1) !important;
+  color:var(--t-text,#334155) !important;
   width:31px;
   height:31px;
   padding:0 !important;
@@ -505,22 +505,22 @@
 }
 .ag-modern .fc .fc-prev-button:hover,
 .ag-modern .fc .fc-next-button:hover{
-  background:#eef2f7 !important;
-  color:#0f172a !important;
+  background:var(--t-surface3,#eef2f7) !important;
+  color:var(--t-text,#0f172a) !important;
 }
 
 /* botón Hoy */
 .ag-modern .fc .fc-today-button{
-  background:#fff !important;
-  border:1px solid #d5dae1 !important;
-  color:#334155 !important;
+  background:var(--t-surface,#fff) !important;
+  border:1px solid var(--t-border,#d5dae1) !important;
+  color:var(--t-text,#334155) !important;
 }
-.ag-modern .fc .fc-today-button:hover:not(:disabled){ background:#eef2f7 !important; }
+.ag-modern .fc .fc-today-button:hover:not(:disabled){ background:var(--t-surface3,#eef2f7) !important; }
 .ag-modern .fc .fc-today-button:disabled{ opacity:.45 !important; }
 
 /* selector Mes / Semana como segmented control */
 .ag-modern .fc .fc-button-group{
-  background:#eef2f7;
+  background:var(--t-surface3,#eef2f7);
   padding:3px;
   border-radius:11px;
   gap:2px;
@@ -528,12 +528,12 @@
 .ag-modern .fc .fc-button-group .fc-button{
   background:transparent !important;
   border:none !important;
-  color:#64748b !important;
+  color:var(--t-muted,#64748b) !important;
   border-radius:8px !important;
 }
-.ag-modern .fc .fc-button-group .fc-button:hover{ color:#0f172a !important; }
+.ag-modern .fc .fc-button-group .fc-button:hover{ color:var(--t-text,#0f172a) !important; }
 .ag-modern .fc .fc-button-group .fc-button.fc-button-active{
-  background:#fff !important;
+  background:var(--t-surface,#fff) !important;
   color:#1d4ed8 !important;
   box-shadow:0 1px 3px rgba(16,24,40,.18) !important;
 }
@@ -546,7 +546,7 @@
 
 /* encabezado de días (render custom desde cumples.js) */
 .ag-modern .fc .fc-col-header-cell{
-  background:#f8fafc;
+  background:var(--t-surface2,#f8fafc);
   padding:6px 0;
 }
 .ag-modern .fc .fc-col-header-cell-cushion{
@@ -565,14 +565,14 @@
 .ag-modern .ag-dh-dow{
   font-size:10px;
   font-weight:700;
-  color:#64748b;
+  color:var(--t-muted,#64748b);
   text-transform:uppercase;
   letter-spacing:.06em;
 }
 .ag-modern .ag-dh-num{
   font-size:14px;
   font-weight:800;
-  color:#0f172a;
+  color:var(--t-text,#0f172a);
   width:25px;
   height:25px;
   line-height:25px;
@@ -591,13 +591,13 @@
 .ag-modern .fc .fc-timegrid-slot-label-cushion{
   font-size:11px;
   font-weight:700;
-  color:#475569;
+  color:var(--t-text,#475569);
   padding-right:8px;
 }
 .ag-modern .fc .fc-timegrid-axis-cushion{
   font-size:9.5px;
   font-weight:700;
-  color:#475569;
+  color:var(--t-text,#475569);
   text-transform:uppercase;
   letter-spacing:.03em;
 }
@@ -622,7 +622,7 @@
 .ag-modern .fc .fc-daygrid-day-number{
   font-size:12px;
   font-weight:700;
-  color:#334155;
+  color:var(--t-text,#334155);
   padding:5px 7px;
   text-decoration:none !important;
 }
@@ -724,16 +724,16 @@
 .ag-modern .fc .evento-recurso:hover{ background:#99f6e4 !important; }
 
 /* Socios asignados a una clase (modal de actividad) */
-.ag-modern .ag-count{ font-weight:400; color:#64748b; font-size:12px; margin-left:4px; }
+.ag-modern .ag-count{ font-weight:400; color:var(--t-muted,#64748b); font-size:12px; margin-left:4px; }
 .ag-modern .ag-buscador{ position:relative; }
 .ag-modern .ag-resultados{
-  border:1px solid #e2e8f0; border-radius:10px; background:#fff;
+  border:1px solid var(--t-border,#e2e8f0); border-radius:10px; background:var(--t-surface,#fff);
   max-height:170px; overflow:auto; margin-top:4px;
   box-shadow:0 6px 16px rgba(15,23,42,.08);
 }
 .ag-modern .ag-resultados .item{ padding:8px 10px; cursor:pointer; font-size:13px; }
-.ag-modern .ag-resultados .item:hover{ background:#f1f5f9; }
-.ag-modern .ag-resultados .item.muted{ color:#94a3b8; cursor:default; }
+.ag-modern .ag-resultados .item:hover{ background:var(--t-surface3,#f1f5f9); }
+.ag-modern .ag-resultados .item.muted{ color:var(--t-muted,#94a3b8); cursor:default; }
 .ag-modern .ag-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; max-height:150px; overflow:auto; }
 .ag-modern .ag-chip{
   display:inline-flex; align-items:center; gap:6px;
@@ -744,7 +744,7 @@
   border:none; background:rgba(59,7,100,.12); color:#3b0764; border-radius:50%;
   width:18px; height:18px; line-height:16px; cursor:pointer; font-size:11px; padding:0;
 }
-.ag-modern .ag-sociohint{ font-size:11.5px; color:#94a3b8; margin-top:6px; }
+.ag-modern .ag-sociohint{ font-size:11.5px; color:var(--t-muted,#94a3b8); margin-top:6px; }
 
 /* CUMPLEAÑOS — ámbar, texto oscuro */
 .ag-modern .fc .evento-cumple{
@@ -769,7 +769,7 @@
 }
 .ag-modern .fc .fc-more-popover{
   border-radius:10px;
-  border:1px solid #dfe3e8;
+  border:1px solid var(--t-border,#dfe3e8);
   box-shadow:0 10px 30px rgba(16,24,40,.16);
   z-index:99999 !important;
 }
@@ -791,7 +791,7 @@
 .ag-modern .modal.hidden{ display:none !important; }
 
 .ag-modern .ag-modal{
-  background:#fff;
+  background:var(--t-surface,#fff);
   width:min(580px, 96vw);
   max-height:92vh;
   overflow:auto;
@@ -824,13 +824,13 @@
   margin:0;
   font-size:15.5px;
   font-weight:800;
-  color:#0f172a;
+  color:var(--t-text,#0f172a);
 }
 
 .ag-modern .ag-modal-sub{
   margin:1px 0 0;
   font-size:12px;
-  color:#64748b;
+  color:var(--t-muted,#64748b);
 }
 
 .ag-modern .ag-modal-close{
@@ -838,7 +838,7 @@
   background:transparent;
   border:none;
   font-size:14px;
-  color:#94a3b8;
+  color:var(--t-muted,#94a3b8);
   cursor:pointer;
   width:30px;
   height:30px;
@@ -846,7 +846,7 @@
   flex:none;
   transition:background .15s ease, color .15s ease;
 }
-.ag-modern .ag-modal-close:hover{ background:#f1f5f9; color:#0f172a; }
+.ag-modern .ag-modal-close:hover{ background:var(--t-surface3,#f1f5f9); color:var(--t-text,#0f172a); }
 
 /* --- Formulario --- */
 .ag-modern .ag-form{
@@ -881,7 +881,7 @@
   gap:5px;
   font-size:11.5px;
   font-weight:700;
-  color:#475569;
+  color:var(--t-text,#475569);
 }
 
 .ag-modern .ag-ico{ font-size:12px; }
@@ -892,11 +892,11 @@
   width:100%;
   padding:8px 10px;
   border-radius:9px;
-  border:1px solid #d5dae1;
+  border:1px solid var(--t-border,#d5dae1);
   font-size:13px;
   font-family:inherit;
-  color:#0f172a;
-  background:#fff;
+  color:var(--t-text,#0f172a);
+  background:var(--t-surface,#fff);
   transition:border-color .15s ease, box-shadow .15s ease;
 }
 
@@ -915,7 +915,7 @@
   border:1px solid #e4e8ee;
   border-radius:11px;
   padding:12px;
-  background:#f8fafc;
+  background:var(--t-surface2,#f8fafc);
 }
 
 .ag-modern .ag-switch{
@@ -950,7 +950,7 @@
   width:17px;
   height:17px;
   border-radius:50%;
-  background:#fff;
+  background:var(--t-surface,#fff);
   box-shadow:0 1px 3px rgba(16,24,40,.3);
   transition:transform .18s ease;
 }
@@ -968,13 +968,13 @@
 .ag-modern .ag-switch-text{
   font-size:12.5px;
   font-weight:700;
-  color:#334155;
+  color:var(--t-text,#334155);
 }
 
 .ag-modern .ag-rec-panel{
   margin-top:12px;
   padding-top:12px;
-  border-top:1px dashed #d5dae1;
+  border-top:1px dashed var(--t-border,#d5dae1);
 }
 
 .ag-modern .ag-dias{
@@ -988,15 +988,15 @@
   width:32px;
   height:32px;
   border-radius:50%;
-  border:1px solid #d5dae1;
-  background:#fff;
-  color:#64748b;
+  border:1px solid var(--t-border,#d5dae1);
+  background:var(--t-surface,#fff);
+  color:var(--t-muted,#64748b);
   font-size:11.5px;
   font-weight:800;
   cursor:pointer;
   transition:all .15s ease;
 }
-.ag-modern .ag-dia:hover{ border-color:#94a3b8; color:#334155; }
+.ag-modern .ag-dia:hover{ border-color:#94a3b8; color:var(--t-text,#334155); }
 .ag-modern .ag-dia.active{
   background:#2563eb;
   border-color:#2563eb;

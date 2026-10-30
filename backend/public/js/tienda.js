@@ -368,7 +368,7 @@
         </td>
         <td>
           <div style="font-weight:600;">${escapeHtml(p.nombre ?? '')}</div>
-          <div style="font-size:12.5px; color:#6b7280;">
+          <div style="font-size:12.5px; color:var(--t-muted,#6b7280);">
             ${escapeHtml((p.descripcion || '').slice(0, 100))}${(p.descripcion || '').length > 100 ? '…' : ''}
           </div>
         </td>

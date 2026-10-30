@@ -296,26 +296,26 @@ if (btnEspacios) {
 }
 
     // ===============================
-    // Fondo
+    // Fondo + COLORES DEL CLUB (THEME)
     // ===============================
-    if (club.background_url) {
-      document.body.style.backgroundImage = `url('${club.background_url}')`;
-      document.body.style.backgroundColor = 'rgba(255,255,255,0.65)';
-document.body.style.backgroundBlendMode = 'overlay';
-      document.body.style.backgroundSize = 'cover';
-      document.body.style.backgroundPosition = 'center';
-      document.body.style.backgroundAttachment = 'fixed';
+    window.__clubActual = club;
+    // aplica colores (clásico: tal cual; moderno: paleta calculada + fondo degradé)
+    if (window.TSMC_Tema) {
+      window.TSMC_Tema.aplicar(club);
     } else {
-      document.body.style.backgroundImage = 'none';
+      const root = document.documentElement;
+      root.style.setProperty('--color-primary', club.color_primary || '#2563eb');
+      root.style.setProperty('--color-secondary', club.color_secondary || '#1e40af');
+      root.style.setProperty('--color-accent', club.color_accent || '#facc15');
     }
-
-    // ===============================
-    // ✅ COLORES DEL CLUB (THEME)
-    // ===============================
-    const root = document.documentElement;
-    root.style.setProperty('--color-primary', club.color_primary || '#2563eb');
-    root.style.setProperty('--color-secondary', club.color_secondary || '#1e40af');
-    root.style.setProperty('--color-accent', club.color_accent || '#facc15');
+    if (window.TSMC_Tema) {
+      window.TSMC_Tema.inyectarIconos();
+      if (!window.__temaBtnListo) {
+        window.__temaBtnListo = true;
+        window.TSMC_Tema.iniciarBoton(() => window.__clubActual);
+      }
+      window.TSMC_Tema.textosBotones();
+    }
 
 // ===============================
     // Recargar sección actual
@@ -480,7 +480,7 @@ if (perms && !perms.canAccess(sectionName)) {
 }
       window.currentSection = sectionName;
 
-      const res = await fetch(`/sections/${sectionName}.html?v=20261029-1`);
+      const res = await fetch(`/sections/${sectionName}.html?v=20261030-2`);
       if (!res.ok) throw new Error('No se pudo cargar la sección');
 
       const html = await res.text();
@@ -615,7 +615,9 @@ setupImpersonationBanner();
   });
 });
 
-    loadSection(pickDefaultSection(window.__clubPerms || buildPermissions('admin')));
+    const __secInicial = pickDefaultSection(window.__clubPerms || buildPermissions('admin'));
+    document.querySelectorAll('[data-section]').forEach(b => b.classList.toggle('active', b.dataset.section === __secInicial));
+    loadSection(__secInicial);
     setInterval(() => window.actualizarBadgePendientes?.(), 60_000);
 
   } catch (e) {

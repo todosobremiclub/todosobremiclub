@@ -132,14 +132,14 @@
   <div class="modal-comparacion-box" style="max-width:380px;">
     <h3 style="margin-top:0;">Registrar pago</h3>
     <div id="modalEstadoPagoMontoWrap" style="margin-bottom:12px;">
-      <label style="display:block; font-size:0.85rem; color:#444; margin-bottom:6px;">Monto abonado</label>
+      <label style="display:block; font-size:0.85rem; color:var(--t-text,#444); margin-bottom:6px;">Monto abonado</label>
       <input type="number" id="modalEstadoPagoMonto" min="0" step="0.01" placeholder="0.00"
-             style="width:100%; padding:9px 10px; border-radius:8px; border:1px solid #ccc; font-size:14px;">
+             style="width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--t-border,#ccc); font-size:14px;">
     </div>
     <div>
-      <label style="display:block; font-size:0.85rem; color:#444; margin-bottom:6px;">Cuenta / forma de pago</label>
+      <label style="display:block; font-size:0.85rem; color:var(--t-text,#444); margin-bottom:6px;">Cuenta / forma de pago</label>
       <select id="modalEstadoPagoCuenta"
-              style="width:100%; padding:9px 10px; border-radius:8px; border:1px solid #ccc; font-size:14px;"></select>
+              style="width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--t-border,#ccc); font-size:14px;"></select>
     </div>
     <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
       <button id="modalEstadoPagoCancel" class="btn btn-secondary">Cancelar</button>
@@ -153,10 +153,10 @@
     width:100%;
     padding:6px 8px;
     border-radius:8px;
-    border:1px solid #ccc;
+    border:1px solid var(--t-border,#ccc);
     font-size:12.5px;
     font-weight:600;
-    background:#fff;
+    background:var(--t-surface,#fff);
   }
   .tw-estado-pago-select[data-estado="sin_pago"]{ color:#b91c1c; border-color:#fca5a5; }
   .tw-estado-pago-select[data-estado="parcial"]{ color:#b45309; border-color:#fcd34d; }
@@ -174,20 +174,20 @@
     height:34px;
     border-radius:10px;
     object-fit:cover;
-    border:1px solid #ddd;
-    background:#fff;
+    border:1px solid var(--t-border,#ddd);
+    background:var(--t-surface,#fff);
   }
 
   /* Opcional: mejorar visual de acciones */
   .socios-table button{
     padding:6px 10px;
     border-radius:8px;
-    border:1px solid #ccc;
+    border:1px solid var(--t-border,#ccc);
     cursor:pointer;
-    background:#fff;
+    background:var(--t-surface,#fff);
   }
   .socios-table button:hover{
-    background:#f3f4f6;
+    background:var(--t-surface3,#f3f4f6);
   }
 
 .btn-ok {
@@ -216,7 +216,7 @@
 }
 
 .modal-comparacion-box {
-  background: #fff;
+  background: var(--t-surface,#fff);
   border-radius: 12px;
   padding: 20px;
   max-width: 640px;

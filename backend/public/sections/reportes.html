@@ -224,7 +224,7 @@
       </div>
 
       <!-- Búsqueda por socio -->
-      <div style="margin-top:22px; border-top:1px solid #e5e7eb; padding-top:14px;">
+      <div style="margin-top:22px; border-top:1px solid var(--t-border,#e5e7eb); padding-top:14px;">
         <h4 style="margin:0 0 8px;">Buscar historial por socio</h4>
         <div style="display:flex; gap:8px;">
           <input id="asistReporteBuscarSocio" type="text" placeholder="Nombre, apellido, DNI o número de socio..." style="flex:1; padding:8px;" />
@@ -527,7 +527,7 @@
       </div>
 
       <div id="detalleModalFooter"
-           style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
+           style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid var(--t-border,#eee); padding-top:10px;">
         <div class="muted small" id="detalleModalInfo"></div>
         <div style="font-weight:700;" id="detalleModalTotal"></div>
       </div>
@@ -647,9 +647,9 @@
   }
 
 .report-card {
-    background:#ffffff;
+    background:var(--t-surface,#ffffff);
     border-radius: 12px;
-    border:1px solid #e5e7eb;
+    border:1px solid var(--t-border,#e5e7eb);
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
     display:flex;
     flex-direction:column;
@@ -691,7 +691,7 @@
 
   .card-header {
     padding:10px 12px;
-    border-bottom:1px solid #e5e7eb;
+    border-bottom:1px solid var(--t-border,#e5e7eb);
     display:flex;
     justify-content:space-between;
     align-items:flex-start;
@@ -751,7 +751,7 @@
 
   .impagos-label {
     font-size:12px;
-    color:#6b7280;
+    color:var(--t-muted,#6b7280);
   }
 
   .impagos-value {
@@ -778,7 +778,7 @@
   .ig-month-item,
   .ig-summary-item {
     flex:1;
-    background:#f9fafb;
+    background:var(--t-surface2,#f9fafb);
     border-radius:8px;
     padding:8px 10px;
     display:flex;
@@ -788,7 +788,7 @@
 
   .ig-label {
     font-size:11px;
-    color:#6b7280;
+    color:var(--t-muted,#6b7280);
   }
 
   .ig-month-value,
@@ -812,9 +812,9 @@
   }
 
   .detail-card {
-    background:#ffffff;
+    background:var(--t-surface,#ffffff);
     border-radius:12px;
-    border:1px solid #e5e7eb;
+    border:1px solid var(--t-border,#e5e7eb);
     padding:10px 12px;
     display:flex;
     flex-direction:column;
@@ -838,7 +838,7 @@
 
   .nuevos-label {
     font-size:12px;
-    color:#6b7280;
+    color:var(--t-muted,#6b7280);
   }
 
   .nuevos-value {
@@ -881,7 +881,7 @@
   .modal.hidden { display:none !important; }
 
   .modal-content {
-    background:#ffffff;
+    background:var(--t-surface,#ffffff);
     padding:16px;
     border-radius:12px;
     max-height:90vh;
@@ -917,14 +917,14 @@
   }
 
   #card-ig-responsable .small-table thead th {
-    background: #f3f4f6;
+    background: var(--t-surface3,#f3f4f6);
     font-weight: 700;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--t-border,#e5e7eb);
   }
 
   #card-ig-responsable .small-table th:not(:last-child),
   #card-ig-responsable .small-table td:not(:last-child) {
-    border-right: 1px solid #e5e7eb;
+    border-right: 1px solid var(--t-border,#e5e7eb);
   }
 
   #card-ig-responsable .small-table tbody td {
@@ -963,8 +963,8 @@
 
   /* Botón exportar mini (icono) */
   .btn-export-icon {
-    border: 1px solid #e5e7eb;
-    background: #ffffff;
+    border: 1px solid var(--t-border,#e5e7eb);
+    background: var(--t-surface,#ffffff);
     border-radius: 6px;
     padding: 2px 6px;
     font-size: 13px;
@@ -973,7 +973,7 @@
   }
 
   .btn-export-icon:hover {
-    background: #f3f4f6;
+    background: var(--t-surface3,#f3f4f6);
   }
 
   /* Modal detalle */

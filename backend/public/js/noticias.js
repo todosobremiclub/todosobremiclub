@@ -415,7 +415,7 @@
           <div style="font-weight:600; text-decoration:underline; margin-bottom:4px;">
             ${escapeHtml(n.titulo ?? '')}
           </div>
-          <div style="font-size:13px; color:#374151;">
+          <div style="font-size:13px; color:var(--t-text,#374151);">
             ${escapeHtml(n.texto ?? '').slice(0, 120)}${(n.texto || '').length > 120 ? '…' : ''}
           </div>
         </td>

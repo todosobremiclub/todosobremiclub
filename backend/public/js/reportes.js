@@ -3130,24 +3130,24 @@ function renderDetalleEventoEdit() {
       </div>
 
       ${invitados.length ? `
-        <div style="margin-top:12px; border-top:1px solid #eef0f3; padding-top:10px;">
+        <div style="margin-top:12px; border-top:1px solid var(--t-border,#eef0f3); padding-top:10px;">
           <div class="asist2r-detalle-col-title">★ Invitados de otra categoría (${invitadosActivos})</div>
           ${invitados.map(filaInvitado).join('')}
         </div>
       ` : ''}
 
-      <div style="border-top:1px solid #eef0f3; padding-top:10px; margin-top:12px;">
+      <div style="border-top:1px solid var(--t-border,#eef0f3); padding-top:10px; margin-top:12px;">
         <div class="asist2r-detalle-col-title">+ Agregar socio que faltó cargar</div>
         <div style="display:flex; gap:8px; margin:6px 0;">
           <input id="asistAgregarSocioInput" type="text" placeholder="Buscar por nombre, apellido o DNI..."
-                 style="flex:1; padding:8px 10px; border-radius:9px; border:1px solid #d1d5db; font-size:13px;" />
+                 style="flex:1; padding:8px 10px; border-radius:9px; border:1px solid var(--t-border,#d1d5db); font-size:13px;" />
           <button type="button" id="btnAsistAgregarSocioBuscar" class="asist2-btn">Buscar</button>
         </div>
         <div id="asistAgregarSocioResultados" class="muted small"></div>
       </div>
 
       ${dirty ? `
-        <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end; margin-top:14px; border-top:1px solid #eef0f3; padding-top:12px;">
+        <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end; margin-top:14px; border-top:1px solid var(--t-border,#eef0f3); padding-top:12px;">
           <span class="muted small" style="margin-right:auto;">Tenés cambios sin guardar</span>
           <button type="button" id="btnAsistDescartarCambios" class="asist2-btn">Descartar cambios</button>
           <button type="button" id="btnAsistGuardarCambios" class="asist2-btn asist2-btn-primary">💾 Guardar cambios</button>
@@ -3367,7 +3367,7 @@ async function cargarHistorialSocioAsistReporte(socioId) {
   cont.innerHTML = `
     <div class="card-table" style="max-height:260px; overflow-y:auto;">
       ${historial.map(h => `
-        <div style="display:flex; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px solid #f0f0f0;">
+        <div style="display:flex; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px solid var(--t-border,#f0f0f0);">
           <span>${formatFechaDMY(h.fecha)} · ${h.tipo === 'partido' ? 'Partido' : 'Entren.'} · ${h.actividad} (${h.categoria})</span>
           <span style="color:${h.presente ? '#16a34a' : '#dc2626'}; font-weight:700;">
             ${h.presente ? '✔ Presente' : '✘ Ausente'}${h.origen === 'invitado' ? ' (invitado)' : ''}

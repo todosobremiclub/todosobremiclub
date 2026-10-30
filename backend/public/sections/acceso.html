@@ -76,7 +76,7 @@
       border:1px solid rgba(0,0,0,0.08);
       border-radius:12px;
       padding:12px;
-      background:#fff;
+      background:var(--t-surface,#fff);
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     }
 
@@ -153,7 +153,7 @@
       border: 1px solid rgba(0,0,0,0.08);
     }
 
-    .access-pill.neutral{ background:#f3f4f6; color:#111827; }
+    .access-pill.neutral{ background:var(--t-surface3,#f3f4f6); color:var(--t-text,#111827); }
     .access-pill.ok{ background:#16a34a; color:#fff; }
     .access-pill.bad{ background:#dc2626; color:#fff; }
 
@@ -182,7 +182,7 @@
       height:64px;
       border-radius:14px;
       object-fit:cover;
-      background:#fff;
+      background:var(--t-surface,#fff);
       border:2px solid rgba(255,255,255,0.75);
     }
 
@@ -193,7 +193,7 @@
 
     .qr-card-body{
       padding:12px;
-      background:#fff;
+      background:var(--t-surface,#fff);
     }
 
     .qr-row{
@@ -201,13 +201,13 @@
       justify-content:space-between;
       gap:10px;
       padding:8px 0;
-      border-bottom:1px solid #f0f0f0;
+      border-bottom:1px solid var(--t-border,#f0f0f0);
     }
 
     .qr-row:last-child{ border-bottom:none; }
 
-    .qr-k{ font-weight:800; color:#374151; }
-    .qr-v{ color:#111827; text-align:right; }
+    .qr-k{ font-weight:800; color:var(--t-text,#374151); }
+    .qr-v{ color:var(--t-text,#111827); text-align:right; }
 
     .hidden{ display:none !important; }
   </style>

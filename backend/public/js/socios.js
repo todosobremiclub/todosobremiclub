@@ -410,7 +410,7 @@ function ensureExcepcionOption(value, labelHint) {
     if (!hint) {
       hint = document.createElement('div');
       hint.id = 'socioCategoriaHint';
-      hint.style.cssText = 'font-size:12px; margin-top:4px; color:#666;';
+      hint.style.cssText = 'font-size:12px; margin-top:4px; color:var(--t-muted,#666);';
       sel.insertAdjacentElement('afterend', hint);
     }
     const auto = categoriaAutoPorFecha($('socioNacimiento')?.value);
@@ -631,7 +631,7 @@ function renderGrupoFamiliarResumen() {
       justify-content:space-between;
       align-items:center;
       padding:6px 8px;
-      border-bottom:1px solid #eee;
+      border-bottom:1px solid var(--t-border,#eee);
     ">
       <span>${escapeHtml(s.apellido || '')} ${escapeHtml(s.nombre || '')}</span>
       <small class="muted">N° ${escapeHtml(String(s.numero_socio || ''))}</small>
@@ -701,7 +701,7 @@ function renderRelacionadosResumen() {
       justify-content:space-between;
       align-items:center;
       padding:6px 8px;
-      border-bottom:1px solid #eee;
+      border-bottom:1px solid var(--t-border,#eee);
     ">
       <span>${escapeHtml(s.apellido || '')} ${escapeHtml(s.nombre || '')}</span>
       <small class="muted">N° ${escapeHtml(String(s.numero_socio || ''))}</small>
@@ -1660,7 +1660,7 @@ function renderRelacionadosLista(query = '') {
     row.className = 'gf-autocomplete-item';
     row.style = `
       padding:6px 8px;
-      border-bottom:1px solid #eee;
+      border-bottom:1px solid var(--t-border,#eee);
       cursor:pointer;
       display:flex;
       justify-content:space-between;
@@ -1767,7 +1767,7 @@ const border = checked ? '1px solid #38bdf8' : '1px solid transparent';
     row.className = 'gf-autocomplete-item';
     row.style = `
   padding:6px 8px;
-  border-bottom:1px solid #eee;
+  border-bottom:1px solid var(--t-border,#eee);
   cursor:pointer;
   display:flex;
   justify-content:space-between;
@@ -2306,7 +2306,7 @@ async function cargarComentariosEnModal(socioId) {
           const fecha = fmtDMYShort(a.created_at);
           const nombreArchivo = a.filename || '(sin archivo)';
           html += `
-            <div style="padding:6px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div style="padding:6px 0; border-bottom:1px solid var(--t-border,#eee); display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
               <div>
                 <div>
                   <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
@@ -2338,7 +2338,7 @@ async function cargarComentariosEnModal(socioId) {
         comentarios.forEach((c) => {
           const fecha = fmtDMYShort(c.created_at);
           html += `
-            <div style="padding:6px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div style="padding:6px 0; border-bottom:1px solid var(--t-border,#eee); display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
               <div>
                 <div><b>${fecha}</b></div>
                 <div>${escapeHtml(c.comentario)}</div>
@@ -2403,7 +2403,7 @@ async function cargarComentariosEnModal(socioId) {
           <button id="photoViewerClose" style="border:0; border-radius:8px; padding:6px 10px; cursor:pointer;">✕ Cerrar</button>
         </div>
         <div style="margin-top:10px; display:flex; justify-content:center;">
-          <img id="photoViewerImg" style="max-width:86vw; max-height:78vh; border-radius:10px; background:#fff;" alt="Foto"/>
+          <img id="photoViewerImg" style="max-width:86vw; max-height:78vh; border-radius:10px; background:var(--t-surface,#fff);" alt="Foto"/>
         </div>
       </div>
     `;
@@ -2457,7 +2457,7 @@ async function cargarComentariosEnModal(socioId) {
     box.id = 'socioDraftPhotoBox';
     box.style.cssText = `
       margin-top: 10px; padding: 10px;
-      border: 1px dashed #ddd; border-radius: 10px; background: #fafafa;
+      border: 1px dashed var(--t-border,#ddd); border-radius: 10px; background: var(--t-surface2,#fafafa);
     `;
 
     box.innerHTML = `
@@ -2471,7 +2471,7 @@ async function cargarComentariosEnModal(socioId) {
 
       <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
         <img id="socioFotoDraftPreview" alt="Preview"
-          style="width:70px; height:70px; border-radius:10px; object-fit:cover; display:none; border:1px solid #ddd; background:#fff; cursor:pointer;" />
+          style="width:70px; height:70px; border-radius:10px; object-fit:cover; display:none; border:1px solid var(--t-border,#ddd); background:var(--t-surface,#fff); cursor:pointer;" />
         <div class="muted" id="socioFotoDraftMeta" style="font-size:12px;">Sin foto seleccionada.</div>
       </div>
 
@@ -3557,7 +3557,7 @@ function openCarnet(socio) {
           data-act="viewphoto"
           data-url="${escapeHtml(fotoUrl)}"
           src="${escapeHtml(fotoUrl)}"
-          style="width:34px; height:34px; border-radius:10px; object-fit:cover; border:1px solid #ddd; background:#fff; cursor:pointer;"
+          style="width:34px; height:34px; border-radius:10px; object-fit:cover; border:1px solid var(--t-border,#ddd); background:var(--t-surface,#fff); cursor:pointer;"
           onerror="this.src='/img/user-placeholder.png'"
           alt="foto"
         />
@@ -4420,7 +4420,7 @@ if (payload.es_menor && !payload.tutor_nombre) {
     }
 
     cont.innerHTML = bienvenidaPendientesCache.map((s) => `
-      <label style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid #eee;">
+      <label style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid var(--t-border,#eee);">
         <input type="checkbox" class="chk-bienvenida-socio" value="${escapeHtml(s.id)}">
         <span style="flex:1;">
           <b>${escapeHtml(s.apellido ?? '')}, ${escapeHtml(s.nombre ?? '')}</b>
@@ -5118,7 +5118,7 @@ if (confirm('¿Eliminar socio? Se borrará de forma PERMANENTE junto con todo su
       const err = Number(data.errorCount || 0);
 
       let html = `
-        <div style="padding:10px; border-radius:10px; background:#f9fafb; border:1px solid #e5e7eb;">
+        <div style="padding:10px; border-radius:10px; background:var(--t-surface2,#f9fafb); border:1px solid var(--t-border,#e5e7eb);">
           <b>Insertados:</b> ${ok} &nbsp;&nbsp; <b>Errores:</b> ${err}
         </div>
       `;
@@ -5139,7 +5139,7 @@ if (confirm('¿Eliminar socio? Se borrará de forma PERMANENTE junto con todo su
   `;
   html += `
     <div style="margin-top:10px;">
-      <table class="socios-table" style="background:#fff;">
+      <table class="socios-table" style="background:var(--t-surface,#fff);">
         <thead>
           <tr>
             <th>Fila</th>

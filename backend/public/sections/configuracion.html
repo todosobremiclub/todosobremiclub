@@ -145,7 +145,7 @@
         Mis categorías se asignan por rango de edad
       </label>
 
-      <div class="cat-rango muted small" style="margin-bottom:8px; color:#666; font-size:13px;">
+      <div class="cat-rango muted small" style="margin-bottom:8px; color:var(--t-muted,#666); font-size:13px;">
         Si indicás un rango de edad, esa categoría se asigna automáticamente
         a los socios según su edad (y cambia sola el día que cumplen años).
         Dejá "Desde" y "Hasta" vacíos para una categoría que se asigna a mano.
@@ -315,7 +315,7 @@
     border:1px solid rgba(0,0,0,0.1);
     border-radius:12px;
     padding:14px;
-    background:#fff;
+    background:var(--t-surface,#fff);
   }
 
   .config-header {
@@ -357,7 +357,7 @@
 
   .config-input-row input {
     padding:8px;
-    border:1px solid #ccc;
+    border:1px solid var(--t-border,#ccc);
     border-radius:6px;
     font-size:14px;
     flex:1;
@@ -386,14 +386,14 @@
 
   .config-table th,
   .config-table td {
-    border-bottom:1px solid #eee;
+    border-bottom:1px solid var(--t-border,#eee);
     padding:8px;
     text-align:left;
     white-space:nowrap;
   }
 
   .config-table th {
-    background:#f7f7f7;
+    background:var(--t-surface2,#f7f7f7);
     font-weight:600;
   }
 
