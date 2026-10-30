@@ -43,6 +43,23 @@
   let convocados = [];   // [{id, nombre, apellido, numero_socio, categoria}]
   let invitados = [];    // [{id, nombre, apellido, numero_socio, categoria}]
 
+  // ✅ NUEVO: presentes marcados (ids como string). Se guarda acá y NO en el
+  // DOM, así no se pierde lo marcado al filtrar/buscar y el guardado siempre
+  // incluye a TODOS los convocados (antes solo a los que estaban visibles).
+  let presentes = new Set();
+
+  // ✅ NUEVO: vista de convocados ('grilla' con fotos grandes o 'lista'),
+  // se recuerda en este navegador.
+  function getVistaAsistencia() {
+    try { return localStorage.getItem('tsmcAsistVista') === 'lista' ? 'lista' : 'grilla'; } catch (e) { return 'grilla'; }
+  }
+  function setVistaAsistencia(v) {
+    try { localStorage.setItem('tsmcAsistVista', v); } catch (e) { /* sin storage */ }
+  }
+  function esc(v) {
+    return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  }
+
   // ✅ NUEVO: categorías/años adicionales para ampliar la búsqueda de convocados
   let categoriasAdicionalesSeleccionadas = new Set();
   let aniosAdicionalesSeleccionados = []; // array de strings, en orden de agregado
@@ -54,6 +71,7 @@
   function resetModal() {
     convocados = [];
     invitados = [];
+    presentes = new Set();
     filtroConvocadosTexto = '';
     $('asistDatosMsg').textContent = '';
     $('asistGuardarMsg').textContent = '';
@@ -81,6 +99,7 @@
     $('asistFooterDatos').style.display = esPaso2 ? 'none' : 'flex';
 
     $('asistStepPill1')?.classList.toggle('active', !esPaso2);
+    document.querySelector('#modalAsistencia .asist2-modal')?.classList.toggle('asist2-ancho', esPaso2);
     $('asistStepPill2')?.classList.toggle('active', esPaso2);
 
     const subtitle = $('asistPasoSubtitle');
@@ -396,26 +415,47 @@
       return;
     }
 
-    const filas = visibles.map(s => `
-      <label class="asist2-row" data-id="${s.id}">
-        <input type="checkbox" class="asist-check-convocado" data-id="${s.id}" />
-        <span class="asist2-avatar">${iniciales(s.nombre, s.apellido)}</span>
-        <span>
-          <div class="asist2-row-name">${s.apellido}, ${s.nombre}</div>
-          <div class="asist2-row-meta">N° ${s.numero_socio ?? '-'}${s.categoria ? ' · ' + s.categoria : ''}</div>
-        </span>
-      </label>
-    `).join('');
+    const vista = getVistaAsistencia();
+    cont.className = 'asist2-cards' + (vista === 'lista' ? ' asist2-vista-lista' : '');
+    const btnVista = $('btnAsistVista');
+    if (btnVista) btnVista.textContent = vista === 'lista' ? '▦ Grilla' : '☰ Lista';
 
-    cont.innerHTML = `<div class="asist2-lista">${filas}</div>`;
+    cont.innerHTML = visibles.map(s => {
+      const on = presentes.has(String(s.id));
+      const nombreCompleto = `${s.nombre || ''} ${s.apellido || ''}`.trim();
+      return `
+      <button type="button" class="asist2-card${on ? ' is-on' : ''}" data-id="${esc(s.id)}" aria-pressed="${on}">
+        ${fotoSocioHtml(s)}
+        <span class="asist2-card-name">${esc(nombreCompleto)}</span>
+        <span class="asist2-card-meta">N° ${esc(s.numero_socio ?? '-')}${s.categoria ? ' · ' + esc(s.categoria) : ''}</span>
+        <span class="asist2-card-estado">${on ? 'Presente' : 'Ausente'}</span>
+      </button>`;
+    }).join('');
 
-    cont.querySelectorAll('.asist-check-convocado').forEach(cb => {
-      cb.addEventListener('change', () => {
-        cb.closest('.asist2-row')?.classList.toggle('is-checked', cb.checked);
-        actualizarContadorConvocados();
-      });
-    });
+    actualizarContadorConvocados();
+  }
 
+  // ✅ NUEVO: foto del socio (miniatura liviana, carga diferida). Si no tiene
+  // foto, o la imagen falla, se muestran las iniciales.
+  function fotoSocioHtml(s) {
+    const ini = esc(iniciales(s.nombre, s.apellido));
+    const url = String(s.foto_url || '').trim();
+    if (!url) return `<span class="asist2-foto asist2-foto--ini">${ini}</span>`;
+    return `<span class="asist2-foto"><img src="${esc(url)}" alt="" loading="lazy" decoding="async" data-ini="${ini}" onerror="this.parentNode.classList.add('asist2-foto--ini');this.parentNode.textContent=this.dataset.ini"></span>`;
+  }
+
+  // ✅ NUEVO: tocar una tarjeta marca/desmarca presente (delegado, una sola vez)
+  function toggleSocioPresente(id) {
+    id = String(id);
+    if (presentes.has(id)) presentes.delete(id); else presentes.add(id);
+    const card = document.querySelector(`#asistListaConvocados .asist2-card[data-id="${CSS.escape(id)}"]`);
+    if (card) {
+      const on = presentes.has(id);
+      card.classList.toggle('is-on', on);
+      card.setAttribute('aria-pressed', String(on));
+      const est = card.querySelector('.asist2-card-estado');
+      if (est) est.textContent = on ? 'Presente' : 'Ausente';
+    }
     actualizarContadorConvocados();
   }
 
@@ -425,9 +465,10 @@
   function actualizarContadorConvocados() {
     const badge = $('asistContadorConvocados');
     if (!badge) return;
-    const checks = document.querySelectorAll('.asist-check-convocado');
-    const marcados = Array.from(checks).filter(cb => cb.checked).length;
-    badge.textContent = `${marcados} de ${convocados.length} presentes`;
+    const total = convocados.length;
+    badge.textContent = `${presentes.size} de ${total} presentes`;
+    const barra = $('asistProgresoBar');
+    if (barra) barra.style.width = total ? `${Math.round((presentes.size / total) * 100)}%` : '0%';
   }
 
   function renderInvitados() {
@@ -533,6 +574,7 @@
 
     convocados = data.socios || [];
     invitados = [];
+    presentes = new Set();
 
     const { tipo: t2 } = getDatosEvento();
 
@@ -557,10 +599,11 @@
     const { tipo, actividad, actividadAdicional, categoria, fecha, anioNacimiento } = getDatosEvento();
     const clubId = getActiveClubId();
 
-    const checks = document.querySelectorAll('.asist-check-convocado');
-    const convocadosPayload = Array.from(checks).map(cb => ({
-      socioId: cb.dataset.id,
-      presente: cb.checked
+    // ✅ Siempre se envían TODOS los convocados (marcados o no), aunque haya
+    // un filtro de texto aplicado en pantalla.
+    const convocadosPayload = convocados.map(s => ({
+      socioId: String(s.id),
+      presente: presentes.has(String(s.id))
     }));
 
     const invitadosPayload = invitados.map(s => ({ socioId: s.id }));
@@ -619,18 +662,20 @@
       renderConvocados();
     });
     $('btnAsistTodos')?.addEventListener('click', () => {
-      document.querySelectorAll('.asist-check-convocado').forEach(cb => {
-        cb.checked = true;
-        cb.closest('.asist2-row')?.classList.add('is-checked');
-      });
-      actualizarContadorConvocados();
+      convocadosFiltrados().forEach(s => presentes.add(String(s.id)));
+      renderConvocados();
     });
     $('btnAsistNinguno')?.addEventListener('click', () => {
-      document.querySelectorAll('.asist-check-convocado').forEach(cb => {
-        cb.checked = false;
-        cb.closest('.asist2-row')?.classList.remove('is-checked');
-      });
-      actualizarContadorConvocados();
+      convocadosFiltrados().forEach(s => presentes.delete(String(s.id)));
+      renderConvocados();
+    });
+    $('asistListaConvocados')?.addEventListener('click', (ev) => {
+      const card = ev.target.closest('.asist2-card');
+      if (card) toggleSocioPresente(card.dataset.id);
+    });
+    $('btnAsistVista')?.addEventListener('click', () => {
+      setVistaAsistencia(getVistaAsistencia() === 'lista' ? 'grilla' : 'lista');
+      renderConvocados();
     });
 
     // ✅ NUEVO: acceso directo al reporte de asistencia desde el modal.

@@ -736,6 +736,86 @@ textarea:focus{
       font-size:13px;
     }
 
+
+    /* ===== Convocados: grilla de tarjetas con foto (tocar = presente) ===== */
+    #modalAsistencia .asist2-modal.asist2-ancho{ max-width:1040px !important; width:min(1040px, 96vw); }
+
+    .asist2-progreso{
+      height:7px; border-radius:99px; margin:2px 0 12px;
+      background: color-mix(in srgb, var(--color-primary) 12%, var(--t-surface3,#f3f4f6));
+      overflow:hidden;
+    }
+    .asist2-progreso i{
+      display:block; height:100%; width:0%; border-radius:99px;
+      background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+      transition: width .25s ease;
+    }
+
+    .asist2-cards{
+      display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));
+      gap:12px;
+    }
+    .asist2-card{
+      position:relative;
+      display:flex; flex-direction:column; align-items:center; gap:3px;
+      padding:14px 8px 12px;
+      border-radius:16px;
+      border:2px solid var(--t-border,#e5e7eb);
+      background: var(--t-surface,#ffffff);
+      color: var(--t-text,#111827);
+      cursor:pointer; text-align:center;
+      font:inherit;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
+    }
+    .asist2-card:hover{ transform: translateY(-2px); box-shadow:0 8px 20px rgba(15,23,42,.12); border-color: var(--color-primary); }
+    .asist2-card.is-on{
+      border-color:#10b981;
+      background: color-mix(in srgb, #10b981 12%, var(--t-surface,#ffffff));
+    }
+    .asist2-card.is-on::after{
+      content:"✓";
+      position:absolute; top:8px; right:8px;
+      width:26px; height:26px; border-radius:50%;
+      background:#10b981; color:#fff; font-weight:900; font-size:15px;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 2px 8px rgba(16,185,129,.45);
+    }
+    .asist2-foto{
+      width:88px; height:88px; border-radius:50%;
+      overflow:hidden; flex:none; margin-bottom:6px;
+      border:3px solid var(--t-border,#e5e7eb);
+      background: color-mix(in srgb, var(--color-primary) 14%, var(--t-surface3,#f3f4f6));
+      display:flex; align-items:center; justify-content:center;
+    }
+    .asist2-foto img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .asist2-foto--ini{
+      font-size:26px; font-weight:800; color: var(--color-primary);
+    }
+    .asist2-card.is-on .asist2-foto{ border-color:#10b981; }
+    .asist2-card-name{ font-size:13.5px; font-weight:700; line-height:1.2; color: var(--t-text,#111827); word-break:break-word; }
+    .asist2-card-meta{ font-size:11.5px; color: var(--t-muted,#6b7280); }
+    .asist2-card-estado{ display:none; }
+
+    /* Vista lista (misma data, filas compactas) */
+    .asist2-cards.asist2-vista-lista{ grid-template-columns:1fr; gap:6px; }
+    .asist2-vista-lista .asist2-card{
+      flex-direction:row; text-align:left; gap:12px; padding:8px 14px; border-radius:14px; border-width:1px;
+    }
+    .asist2-vista-lista .asist2-foto{ width:46px; height:46px; margin:0; border-width:2px; font-size:16px; }
+    .asist2-vista-lista .asist2-card-name{ flex:1; font-size:14.5px; }
+    .asist2-vista-lista .asist2-card-meta{ min-width:140px; }
+    .asist2-vista-lista .asist2-card-estado{
+      display:inline-block; font-size:12px; font-weight:700; padding:5px 14px; border-radius:999px;
+      background: var(--t-surface3,#f3f4f6); color: var(--t-muted,#6b7280);
+    }
+    .asist2-vista-lista .asist2-card.is-on .asist2-card-estado{ background:#10b981; color:#fff; }
+    .asist2-vista-lista .asist2-card.is-on::after{ display:none; }
+
+    @media (max-width: 640px){
+      .asist2-cards{ grid-template-columns:repeat(2, 1fr); }
+    }
+
     .asist2-chip-invitado{
       display:inline-flex;
       align-items:center;
@@ -920,7 +1000,7 @@ textarea:focus{
     }
   </style>
 
-  <link rel="stylesheet" href="/css/tema-moderno.css?v=20261030-2">
+  <link rel="stylesheet" href="/css/tema-moderno.css?v=20261031-1">
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/es.global.min.js"></script>
 </head>
@@ -1034,12 +1114,14 @@ textarea:focus{
           <strong class="small">Convocados</strong>
           <span id="asistContadorConvocados" class="asist2-contador">0 de 0 presentes</span>
           <span style="margin-left:auto; display:flex; gap:6px;">
-            <button type="button" id="btnAsistTodos" class="asist2-mini-btn">Marcar todos</button>
+            <button type="button" id="btnAsistVista" class="asist2-mini-btn" title="Cambiar entre grilla con fotos y lista">☰ Lista</button>
+            <button type="button" id="btnAsistTodos" class="asist2-mini-btn">Todos presentes</button>
             <button type="button" id="btnAsistNinguno" class="asist2-mini-btn">Ninguno</button>
           </span>
         </div>
+        <div class="asist2-progreso"><i id="asistProgresoBar"></i></div>
 
-        <div id="asistListaConvocados"></div>
+        <div id="asistListaConvocados" class="asist2-cards"></div>
 
         <div id="asistInvitadosWrap" style="margin-top:18px;"></div>
 
@@ -1237,7 +1319,7 @@ textarea:focus{
   <script src="/js/tema.js?v=20261030-2"></script>
   <script src="/js/club.js?v=20261030-2"></script>
   <script src="/js/socios.js?v=20261030-2"></script>
-  <script src="/js/asistencia.js"></script>
+  <script src="/js/asistencia.js?v=20261031-1"></script>
   <script src="/js/vendor/zxing-browser.min.js?v=20260331"></script>
 <script src="/js/acceso.js?v=20260331"></script>
   <script src="/js/configuracion.js?v=20261030-2"></script>
