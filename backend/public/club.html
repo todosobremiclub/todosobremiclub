@@ -549,9 +549,43 @@ textarea:focus{
 
     .asist2-grid{
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
+      grid-template-columns:1fr;   /* una selección debajo de la otra */
+      gap:14px;
     }
+    /* paso 1 (datos): modal más angosto, lectura en una sola columna */
+    #modalAsistencia .asist2-modal:not(.asist2-ancho){ max-width:560px !important; }
+
+    .asist2-tipo-opciones{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    /* opciones con tilde (Entrenamiento / Partido) */
+    .asist2-check{
+      display:flex; align-items:center; gap:12px;
+      padding:12px 14px; border-radius:12px; cursor:pointer;
+      border:1px solid var(--t-border,#d1d5db);
+      background: var(--t-surface2,#f9fafb);
+      transition: border-color .12s ease, background .12s ease;
+      margin:0; color: var(--t-text,#111827); font-size:14px;
+    }
+    .asist2-field .asist2-check, html.tema-moderno .asist2-field .asist2-check{ color: var(--t-text,#111827); font-size:14px; font-weight:400; }
+    .asist2-check:hover{ border-color: var(--color-primary); }
+    .asist2-check input{ position:absolute; opacity:0; pointer-events:none; }
+    .asist2-check-box{
+      width:24px; height:24px; border-radius:7px; flex:none;
+      border:2px solid var(--t-muted,#9ca3af);
+      display:flex; align-items:center; justify-content:center;
+      transition: all .12s ease;
+    }
+    .asist2-check input:checked + .asist2-check-box{
+      background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+      border-color: transparent;
+    }
+    .asist2-check input:checked + .asist2-check-box::after{ content:"✓"; color:#fff; font-weight:900; font-size:15px; }
+    .asist2-check input:focus-visible + .asist2-check-box{ box-shadow:0 0 0 3px color-mix(in srgb, var(--color-primary) 30%, transparent); }
+    .asist2-check:has(input:checked){
+      border-color: var(--color-primary);
+      background: color-mix(in srgb, var(--color-primary) 12%, var(--t-surface,#fff));
+    }
+    .asist2-check-txt{ display:flex; flex-direction:column; gap:2px; }
+    .asist2-check-txt small{ font-size:11.5px; color: var(--t-muted,#6b7280); font-weight:400; }
 
     .asist2-field{ display:flex; flex-direction:column; gap:5px; }
     .asist2-field label{ font-size:12px; font-weight:600; color:var(--t-text,#374151); }
@@ -1034,7 +1068,21 @@ textarea:focus{
         <div class="asist2-grid">
           <div class="asist2-field">
             <label>Tipo</label>
-            <select id="asistTipo">
+            <div class="asist2-tipo-opciones">
+              <label class="asist2-check" for="asistTipoEntrenamiento">
+                <input type="radio" name="asistTipoOpcion" id="asistTipoEntrenamiento" value="entrenamiento">
+                <span class="asist2-check-box" aria-hidden="true"></span>
+                <span class="asist2-check-txt"><b>🏋️ Entrenamiento</b></span>
+              </label>
+              <label class="asist2-check" for="asistTipoPartido">
+                <input type="radio" name="asistTipoOpcion" id="asistTipoPartido" value="partido">
+                <span class="asist2-check-box" aria-hidden="true"></span>
+                <span class="asist2-check-txt"><b>🏆 Partido</b></span>
+              </label>
+            </div>
+            <!-- se mantiene el select (oculto) porque asistencia.js lee su valor -->
+            <select id="asistTipo" style="display:none;">
+              <option value="">Elegí…</option>
               <option value="entrenamiento">🏋️ Entrenamiento</option>
               <option value="partido">🏆 Partido</option>
             </select>
@@ -1319,7 +1367,7 @@ textarea:focus{
   <script src="/js/tema.js?v=20261030-2"></script>
   <script src="/js/club.js?v=20261030-2"></script>
   <script src="/js/socios.js?v=20261030-2"></script>
-  <script src="/js/asistencia.js?v=20261031-1"></script>
+  <script src="/js/asistencia.js?v=20261031-4"></script>
   <script src="/js/vendor/zxing-browser.min.js?v=20260331"></script>
 <script src="/js/acceso.js?v=20260331"></script>
   <script src="/js/configuracion.js?v=20261030-2"></script>

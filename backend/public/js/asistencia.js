@@ -68,7 +68,13 @@
   // volver a pegarle al servidor (filtra el array ya traído).
   let filtroConvocadosTexto = '';
 
+  function limpiarTipo() {
+    document.querySelectorAll('input[name="asistTipoOpcion"]').forEach(r => { r.checked = false; });
+    if ($('asistTipo')) $('asistTipo').value = '';
+  }
+
   function resetModal() {
+    limpiarTipo();
     convocados = [];
     invitados = [];
     presentes = new Set();
@@ -545,7 +551,7 @@
     const { tipo, actividad, categoria, fecha } = getDatosEvento();
 
     if (!tipo || !actividad || !categoria || !fecha) {
-      $('asistDatosMsg').textContent = 'Completá Tipo, Actividad, Categoría y Fecha.';
+      $('asistDatosMsg').textContent = 'Elegí el Tipo (Entrenamiento o Partido) y completá Actividad, Categoría y Fecha.';
       return;
     }
     $('asistDatosMsg').textContent = '';
@@ -673,6 +679,16 @@
       const card = ev.target.closest('.asist2-card');
       if (card) toggleSocioPresente(card.dataset.id);
     });
+    // ✅ NUEVO: Tipo = dos opciones con tilde (Entrenamiento / Partido).
+    // Mantienen el valor del select oculto #asistTipo, que es el que lee
+    // getDatosEvento().
+    document.querySelectorAll('input[name="asistTipoOpcion"]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (r.checked) $('asistTipo').value = r.value;
+      });
+    });
+    // Sin selección inicial: el usuario elige Entrenamiento o Partido.
+    limpiarTipo();
     $('btnAsistVista')?.addEventListener('click', () => {
       setVistaAsistencia(getVistaAsistencia() === 'lista' ? 'grilla' : 'lista');
       renderConvocados();
