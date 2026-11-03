@@ -1929,6 +1929,7 @@ function bindRankingDetalleClicks() {
               { key: 'fecha', label: 'Fecha' },
               { key: 'descripcion', label: 'Descripción' },
               { key: 'cuenta', label: 'Cuenta' },
+              { key: 'socio_nombre', label: 'Socio' },
               { key: 'monto', label: 'Monto' }
             ],
         moneyKey: 'monto',

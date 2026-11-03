@@ -2705,13 +2705,16 @@ router.get('/:clubId/reportes/ingresos-vs-gastos/detalle', requireAuth, requireC
           EXTRACT(MONTH FROM ig.fecha)::int AS mes,
           ig.monto,
           ig.fecha AS fecha_pago,
-          NULL::int AS numero_socio,
-          NULL::text AS nombre,
-          NULL::text AS apellido,
+          ts.numero_socio AS numero_socio,
+          COALESCE(ts.nombre, NULLIF(BTRIM(tr.nombre_referencia), '')) AS nombre,
+          ts.apellido AS apellido,
           NULL::text AS actividad,
           NULL::text AS categoria
         FROM ingresos_generales ig
         LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+        LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+LEFT JOIN socios ts ON ts.id = tr.socio_id
         WHERE ig.club_id = $1
           AND ig.activo = true
           AND EXTRACT(YEAR FROM ig.fecha) = $2
@@ -3480,9 +3483,17 @@ router.get(
           ig.monto,
           ig.observacion,
           ig.cuenta,
-          COALESCE(ti.nombre, 'Otro ingreso') AS tipo
+          COALESCE(ti.nombre, 'Otro ingreso') AS tipo,
+          CASE
+          WHEN tr.id IS NULL THEN NULL
+          WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
+          ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
+        END AS socio_nombre
         FROM ingresos_generales ig
         LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+        LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+LEFT JOIN socios ts ON ts.id = tr.socio_id
         WHERE ig.club_id = $1
           AND ig.activo = true
           AND EXTRACT(YEAR FROM ig.fecha) = $2
@@ -3569,8 +3580,16 @@ router.get(
           ig.monto,
           ig.observacion AS descripcion,
           COALESCE(ig.cuenta, 'Sin cuenta') AS cuenta,
+          CASE
+          WHEN tr.id IS NULL THEN NULL
+          WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
+          ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
+        END AS socio_nombre,
           'Ingreso general'::text AS origen
         FROM ingresos_generales ig
+        LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+LEFT JOIN socios ts ON ts.id = tr.socio_id
         WHERE ig.club_id = $1
           AND ig.activo = true
           AND EXTRACT(YEAR FROM ig.fecha) = $2
@@ -4787,10 +4806,18 @@ router.get(
               'Ingreso' AS origen,
               ig.monto,
               ig.cuenta,
-              NULL AS socio_nombre,
+              CASE
+          WHEN tr.id IS NULL THEN NULL
+          WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
+          ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
+        END AS socio_nombre,
               ig.observacion AS descripcion
             FROM ingresos_generales ig
+            LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+LEFT JOIN socios ts ON ts.id = tr.socio_id
             WHERE ig.club_id = $1
+              AND ig.activo = true
               AND ig.fecha::date = $2
           ) t
         `, [clubId, fecha]);
