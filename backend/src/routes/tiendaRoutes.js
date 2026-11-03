@@ -816,7 +816,6 @@ router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClu
     }
     const fila = rRows.rows[0];
     const total = Number(fila.precio) * Number(fila.cantidad);
-    const ingresoIdExistente = fila.ingreso_generado_id || null;
 
     let montoPagado = 0;
     let cuentaFinal = null;
@@ -852,36 +851,105 @@ router.patch('/:clubId/tienda/reservas/:id/estado-pago', requireAuth, requireClu
     }
     // estado_pago === 'sin_pago' → montoPagado queda en 0, sin cuenta
 
-    let ingresoId = ingresoIdExistente;
+    // ✅ CADA COBRO ES UN INGRESO PROPIO (fix reportes).
+    // Antes, al pasar de "parcial" (seña) a "pagado" se pisaba el mismo
+    // ingreso (monto = total) conservando la FECHA de la seña: el saldo se
+    // sumaba retroactivamente al mes de la seña y no aparecía en el reporte
+    // del mes en que realmente se cobró. Ahora se compara lo ya registrado
+    // contra el nuevo monto pagado y solo se registra la DIFERENCIA, con la
+    // fecha y la cuenta de hoy. Los ingresos de cada reserva se enlazan en
+    // tienda_reserva_ingresos.
+    let activos = [];
+    const rLinks = await db.query(
+      `
+      SELECT ig.id, ig.monto, ig.cuenta
+      FROM tienda_reserva_ingresos l
+      JOIN ingresos_generales ig ON ig.id = l.ingreso_id
+      WHERE l.reserva_id = $1 AND ig.activo = true
+      ORDER BY ig.created_at ASC, ig.id ASC
+      FOR UPDATE OF ig
+      `,
+      [id]
+    );
+    activos = rLinks.rows.map(x => ({ id: x.id, monto: Number(x.monto), cuenta: x.cuenta }));
 
-    if (montoPagado > 0) {
+    // Compatibilidad: reserva con ingreso_generado_id viejo que todavía no
+    // quedó enlazado (no debería pasar si se corrió la migración).
+    if (!activos.length && fila.ingreso_generado_id) {
+      const rVieja = await db.query(
+        `SELECT id, monto, cuenta, activo FROM ingresos_generales WHERE id = $1`,
+        [fila.ingreso_generado_id]
+      );
+      if (rVieja.rowCount && rVieja.rows[0].activo) {
+        await db.query(
+          `INSERT INTO tienda_reserva_ingresos (ingreso_id, reserva_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [fila.ingreso_generado_id, id]
+        );
+        activos = [{ id: rVieja.rows[0].id, monto: Number(rVieja.rows[0].monto), cuenta: rVieja.rows[0].cuenta }];
+      }
+    }
+
+    const redondear = (n) => Math.round(Number(n) * 100) / 100;
+    const registrado = redondear(activos.reduce((acc, a) => acc + a.monto, 0));
+    const delta = redondear(montoPagado - registrado);
+
+    if (delta > 0) {
+      // Se cobró algo más (seña, o saldo de una seña): ingreso nuevo con la
+      // fecha de HOY y la cuenta elegida ahora.
       const tipoIngresoId = await getOrCrearTipoIngresoTienda(clubId);
       const clienteLabel = fila.socio_id
         ? `#${fila.numero_socio ?? '—'} ${fila.socio_apellido ?? ''} ${fila.socio_nombre ?? ''}`.trim()
         : (fila.nombre_referencia?.trim() || 'No socio');
-      const observacion = `Tienda: ${fila.producto_nombre} x${fila.cantidad} — ${clienteLabel}`;
+      const sufijo = registrado > 0 ? ' (saldo)' : '';
+      const observacion = `Tienda: ${fila.producto_nombre} x${fila.cantidad}${sufijo} — ${clienteLabel}`;
 
-      if (ingresoId) {
-        await db.query(
-          `UPDATE ingresos_generales SET monto = $1, observacion = $2, cuenta = $3, activo = true WHERE id = $4`,
-          [montoPagado, observacion, cuentaFinal, ingresoId]
-        );
-      } else {
-        const rIng = await db.query(
-          `
-          INSERT INTO ingresos_generales (id, club_id, tipo_ingreso_id, fecha, monto, observacion, cuenta, created_at, activo)
-          VALUES (gen_random_uuid(), $1, $2, CURRENT_DATE, $3, $4, $5, NOW(), true)
-          RETURNING id
-          `,
-          [clubId, tipoIngresoId, montoPagado, observacion, cuentaFinal]
-        );
-        ingresoId = rIng.rows[0].id;
+      const rIng = await db.query(
+        `
+        INSERT INTO ingresos_generales (id, club_id, tipo_ingreso_id, fecha, monto, observacion, cuenta, created_at, activo)
+        VALUES (gen_random_uuid(), $1, $2, CURRENT_DATE, $3, $4, $5, NOW(), true)
+        RETURNING id
+        `,
+        [clubId, tipoIngresoId, delta, observacion, cuentaFinal]
+      );
+      const nuevoId = rIng.rows[0].id;
+      await db.query(
+        `INSERT INTO tienda_reserva_ingresos (ingreso_id, reserva_id) VALUES ($1, $2)`,
+        [nuevoId, id]
+      );
+      activos.push({ id: nuevoId, monto: delta, cuenta: cuentaFinal });
+    } else if (delta < 0) {
+      // Se corrigió a un monto menor (o vuelve a "sin_pago"): se descuenta
+      // desde el cobro más reciente hacia atrás. Los ingresos que quedan en
+      // 0 se desactivan (no se borran, para conservar trazabilidad).
+      let aReducir = -delta;
+      for (let k = activos.length - 1; k >= 0 && aReducir > 0; k--) {
+        const a = activos[k];
+        if (a.monto <= aReducir) {
+          await db.query(`UPDATE ingresos_generales SET activo = false WHERE id = $1`, [a.id]);
+          aReducir = redondear(aReducir - a.monto);
+          a.monto = 0;
+        } else {
+          const restante = redondear(a.monto - aReducir);
+          await db.query(`UPDATE ingresos_generales SET monto = $1 WHERE id = $2`, [restante, a.id]);
+          a.monto = restante;
+          aReducir = 0;
+        }
       }
-    } else if (ingresoId) {
-      // Volvió a "sin_pago": el ingreso ya generado se desactiva (no se
-      // borra, para no perder el registro histórico).
-      await db.query(`UPDATE ingresos_generales SET activo = false WHERE id = $1`, [ingresoId]);
+      activos = activos.filter(a => a.monto > 0);
+    } else if (montoPagado > 0 && activos.length && cuentaFinal) {
+      // Mismo monto pero otra cuenta: se corrige la cuenta del último cobro.
+      const ultimo = activos[activos.length - 1];
+      if (ultimo.cuenta !== cuentaFinal) {
+        await db.query(`UPDATE ingresos_generales SET cuenta = $1 WHERE id = $2`, [cuentaFinal, ultimo.id]);
+        ultimo.cuenta = cuentaFinal;
+      }
     }
+
+    // ingreso_generado_id queda apuntando al cobro más reciente (lo usa el
+    // listado para mostrar la forma de pago).
+    const ingresoId = activos.length
+      ? activos[activos.length - 1].id
+      : (fila.ingreso_generado_id || null);
 
     await db.query(
       `
@@ -939,12 +1007,25 @@ router.delete('/:clubId/tienda/reservas/:id', requireAuth, requireClubAccess, as
       });
     }
 
+    // ✅ Una reserva puede tener varios ingresos (seña + saldo): se juntan
+    // todos los enlazados (más el id viejo, por compatibilidad) ANTES de
+    // borrar la reserva, porque el enlace se elimina en cascada con ella.
+    const rIngs = await db.query(
+      `SELECT ingreso_id FROM tienda_reserva_ingresos WHERE reserva_id = $1`,
+      [id]
+    );
+    const idsIngresos = new Set(rIngs.rows.map(x => x.ingreso_id));
+    if (fila.ingreso_generado_id) idsIngresos.add(fila.ingreso_generado_id);
+
     await db.query(`DELETE FROM tienda_reservas WHERE id = $1 AND club_id = $2`, [id, clubId]);
 
     let ingresosEliminados = 0;
-    if (fila.ingreso_generado_id) {
-      await db.query(`DELETE FROM ingresos_generales WHERE id = $1`, [fila.ingreso_generado_id]);
-      ingresosEliminados = 1;
+    if (idsIngresos.size) {
+      const rDel = await db.query(
+        `DELETE FROM ingresos_generales WHERE id = ANY($1::uuid[]) AND club_id = $2`,
+        [Array.from(idsIngresos), clubId]
+      );
+      ingresosEliminados = rDel.rowCount;
     }
 
     await db.query('COMMIT');
@@ -1166,6 +1247,10 @@ router.post('/:clubId/tienda/ventas-manuales', requireAuth, requireClubAccess, a
         [clubId, tipoIngresoId, montoPagado, observacion, cuentaFinal]
       );
       ingresoId = rIng.rows[0].id;
+      await db.query(
+        `INSERT INTO tienda_reserva_ingresos (ingreso_id, reserva_id) VALUES ($1, $2)`,
+        [ingresoId, reservaId]
+      );
     }
 
     await db.query(
