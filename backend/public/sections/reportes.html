@@ -341,6 +341,32 @@
     </div>
   </div>
 
+  <!-- BLOQUE – INGRESOS POR SOCIO -->
+  <div class="report-card report-finanzas" id="card-ingresos-socio">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Ingresos por socio</h3>
+        <div class="card-subtitle muted">
+          Otros ingresos y compras de tienda asignados a socios. Buscá un socio para ver también sus cuotas.
+        </div>
+      </div>
+
+      <div class="card-toolbar" style="gap:6px;">
+        <select id="igSocioAnio" class="input-sm"></select>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div style="position:relative; margin-bottom:8px;">
+        <input id="igSocioBuscar" type="text" autocomplete="off"
+               placeholder="Buscar socio por nombre, DNI o N°..." style="width:100%;" />
+        <div id="igSocioSugerencias" class="hidden"
+             style="position:absolute; left:0; right:0; z-index:20; max-height:260px; overflow:auto; border:1px solid var(--t-border,#e5e7eb); border-radius:10px; background:var(--t-surface,#fff); padding:4px;"></div>
+      </div>
+      <div id="igSocioBody"><div class="muted small">Cargando…</div></div>
+    </div>
+  </div>
+
 </div>
 <!-- /reportes-grid -->
 

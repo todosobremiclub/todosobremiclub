@@ -98,7 +98,7 @@
 
       <div class="ingresos-top" style="justify-content:flex-start; gap:20px;">
         <div class="muted">
-          Ingresos no asociados a socios 
+          Otros ingresos 
         </div>
         <div class="total-ingresos">
           Total año: <span id="ingresosTotal">$ 0.00</span>
@@ -113,6 +113,7 @@
   <th>Tipo</th>
   <th>Observación</th>
   <th>Cuenta</th>
+  <th>Socio</th>
   <th>Monto</th>
   <th>Acción</th>
 </tr>
@@ -345,6 +346,17 @@
           </div>
         </div>
 
+        <div class="row modal-row">
+          <div class="mini-block flex-1">
+            <label>Socio (opcional)</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input id="ingresoSocioTxt" type="text" readonly placeholder="Sin socio asignado" style="flex:1; cursor:pointer;" />
+              <button type="button" id="btnIngresoSocioElegir" class="btn btn-secondary btn-sm">👤 Elegir</button>
+              <button type="button" id="btnIngresoSocioQuitar" class="btn btn-secondary btn-sm" title="Quitar socio">✕</button>
+            </div>
+          </div>
+        </div>
+
         <div class="modal-actions">
           <button type="button" id="btnIngresoCancel" class="btn btn-secondary">Cancelar</button>
           <button type="submit" id="btnIngresoSave" class="btn btn-primary">Guardar ingreso</button>
@@ -353,9 +365,32 @@
       </form>
 
       <div class="muted" style="margin-top:10px;">
-        Este ingreso no está asociado a ningún socio.
+        Podés asociar el ingreso a un socio (opcional) para verlo después en Reportes → Ingresos por socio.
       </div>
 
+    </div>
+  </div>
+
+  <!-- =========================
+       MODAL: ELEGIR SOCIO PARA UN INGRESO
+  ========================== -->
+  <div id="modalIngresoSocio" class="modal hidden">
+    <div class="modal-content" style="max-width:560px;">
+      <div class="modal-header-row">
+        <h3>Asignar socio</h3>
+        <button type="button" id="btnIngresoSocioClose" class="btn btn-secondary">✕</button>
+      </div>
+
+      <input id="ingresoSocioBuscar" type="text" autocomplete="off"
+             placeholder="Buscar por nombre, apellido, DNI o N° de socio..." style="width:100%;" />
+
+      <div id="ingresoSocioResultados" class="muted" style="margin-top:10px; max-height:320px; overflow:auto;">
+        Escribí al menos 2 letras o números.
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="btnIngresoSocioSin" class="btn btn-secondary">Sin socio</button>
+      </div>
     </div>
   </div>
 

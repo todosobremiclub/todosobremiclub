@@ -2705,9 +2705,9 @@ router.get('/:clubId/reportes/ingresos-vs-gastos/detalle', requireAuth, requireC
           EXTRACT(MONTH FROM ig.fecha)::int AS mes,
           ig.monto,
           ig.fecha AS fecha_pago,
-          ts.numero_socio AS numero_socio,
-          COALESCE(ts.nombre, NULLIF(BTRIM(tr.nombre_referencia), '')) AS nombre,
-          ts.apellido AS apellido,
+          COALESCE(gs.numero_socio, ts.numero_socio) AS numero_socio,
+          COALESCE(gs.nombre, ts.nombre, NULLIF(BTRIM(tr.nombre_referencia), '')) AS nombre,
+          COALESCE(gs.apellido, ts.apellido) AS apellido,
           NULL::text AS actividad,
           NULL::text AS categoria
         FROM ingresos_generales ig
@@ -2715,6 +2715,7 @@ router.get('/:clubId/reportes/ingresos-vs-gastos/detalle', requireAuth, requireC
         LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
 LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
 LEFT JOIN socios ts ON ts.id = tr.socio_id
+LEFT JOIN socios gs ON gs.id = ig.socio_id
         WHERE ig.club_id = $1
           AND ig.activo = true
           AND EXTRACT(YEAR FROM ig.fecha) = $2
@@ -3485,6 +3486,7 @@ router.get(
           ig.cuenta,
           COALESCE(ti.nombre, 'Otro ingreso') AS tipo,
           CASE
+          WHEN gs.id IS NOT NULL THEN (gs.apellido || ' ' || gs.nombre || CASE WHEN gs.numero_socio IS NULL THEN '' ELSE ' (#' || gs.numero_socio || ')' END)
           WHEN tr.id IS NULL THEN NULL
           WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
           ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
@@ -3494,6 +3496,7 @@ router.get(
         LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
 LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
 LEFT JOIN socios ts ON ts.id = tr.socio_id
+LEFT JOIN socios gs ON gs.id = ig.socio_id
         WHERE ig.club_id = $1
           AND ig.activo = true
           AND EXTRACT(YEAR FROM ig.fecha) = $2
@@ -3581,6 +3584,7 @@ router.get(
           ig.observacion AS descripcion,
           COALESCE(ig.cuenta, 'Sin cuenta') AS cuenta,
           CASE
+          WHEN gs.id IS NOT NULL THEN (gs.apellido || ' ' || gs.nombre || CASE WHEN gs.numero_socio IS NULL THEN '' ELSE ' (#' || gs.numero_socio || ')' END)
           WHEN tr.id IS NULL THEN NULL
           WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
           ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
@@ -3590,6 +3594,7 @@ router.get(
         LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
 LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
 LEFT JOIN socios ts ON ts.id = tr.socio_id
+LEFT JOIN socios gs ON gs.id = ig.socio_id
         WHERE ig.club_id = $1
           AND ig.activo = true
           AND EXTRACT(YEAR FROM ig.fecha) = $2
@@ -4807,6 +4812,7 @@ router.get(
               ig.monto,
               ig.cuenta,
               CASE
+          WHEN gs.id IS NOT NULL THEN (gs.apellido || ' ' || gs.nombre || CASE WHEN gs.numero_socio IS NULL THEN '' ELSE ' (#' || gs.numero_socio || ')' END)
           WHEN tr.id IS NULL THEN NULL
           WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
           ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
@@ -4816,6 +4822,7 @@ router.get(
             LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
 LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
 LEFT JOIN socios ts ON ts.id = tr.socio_id
+LEFT JOIN socios gs ON gs.id = ig.socio_id
             WHERE ig.club_id = $1
               AND ig.activo = true
               AND ig.fecha::date = $2
@@ -4849,6 +4856,148 @@ LEFT JOIN socios ts ON ts.id = tr.socio_id
     } catch (e) {
       console.error('❌ detalle dia:', e);
       res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+
+// ============================================================
+// REPORTE: INGRESOS POR SOCIO
+// ✅ NUEVO. Muestra los ingresos asociados a un socio:
+//   - resumen: socios con "otros ingresos" asignados (ingresos_generales
+//     con socio_id, más las compras de la tienda) en el año.
+//   - detalle: todo lo que pagó un socio (cuotas + otros ingresos + tienda).
+// ============================================================
+const UUID_RE_ING_SOCIO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function anioIngSocio(raw) {
+  // 'todos' => sin filtro de año (null)
+  if (String(raw || '').toLowerCase() === 'todos') return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 2000 && n < 2200 ? n : new Date().getFullYear();
+}
+
+// GET /club/:clubId/reportes/ingresos-por-socio/resumen?anio=2026|todos
+router.get(
+  '/:clubId/reportes/ingresos-por-socio/resumen',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const anio = anioIngSocio(req.query.anio);
+
+    try {
+      const r = await db.query(
+        `
+        SELECT
+          s.id AS socio_id,
+          (s.apellido || ' ' || s.nombre)::text AS socio_nombre,
+          s.numero_socio,
+          COUNT(*)::int AS cantidad,
+          SUM(ig.monto)::numeric AS total
+        FROM ingresos_generales ig
+        LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+        LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+        JOIN socios s ON s.id = COALESCE(ig.socio_id, tr.socio_id)
+        WHERE ig.club_id = $1
+          AND ig.activo = true
+          AND ($2::int IS NULL OR EXTRACT(YEAR FROM ig.fecha) = $2::int)
+        GROUP BY s.id, s.apellido, s.nombre, s.numero_socio
+        ORDER BY total DESC, socio_nombre ASC
+        `,
+        [clubId, anio]
+      );
+      return res.json({ ok: true, rows: r.rows });
+    } catch (e) {
+      console.error('❌ ingresos-por-socio/resumen', e);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// GET /club/:clubId/reportes/ingresos-por-socio/detalle?socio_id=<uuid>&anio=2026|todos
+router.get(
+  '/:clubId/reportes/ingresos-por-socio/detalle',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId } = req.params;
+    const socioId = String(req.query.socio_id || '');
+    const anio = anioIngSocio(req.query.anio);
+
+    if (!UUID_RE_ING_SOCIO.test(socioId)) {
+      return res.status(400).json({ ok: false, error: 'socio_id inválido' });
+    }
+
+    try {
+      const rSocio = await db.query(
+        `SELECT id, numero_socio, nombre, apellido FROM socios WHERE id = $1 AND club_id = $2`,
+        [socioId, clubId]
+      );
+      if (!rSocio.rowCount) {
+        return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+      }
+
+      const r = await db.query(
+        `
+        SELECT *
+        FROM (
+          SELECT
+            pm.fecha_pago::date AS fecha,
+            'Cuota'::text AS origen,
+            ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
+            COALESCE(pm.cuenta, '')::text AS cuenta,
+            pm.monto::numeric AS monto
+          FROM pagos_mensuales pm
+          WHERE pm.club_id = $1
+            AND pm.socio_id = $2
+            AND pm.fecha_pago IS NOT NULL
+            AND ($3::int IS NULL OR EXTRACT(YEAR FROM pm.fecha_pago) = $3::int)
+
+          UNION ALL
+
+          SELECT
+            ig.fecha::date AS fecha,
+            COALESCE(ti.nombre, 'Otro ingreso')::text AS origen,
+            COALESCE(ig.observacion, '')::text AS descripcion,
+            COALESCE(ig.cuenta, '')::text AS cuenta,
+            ig.monto::numeric AS monto
+          FROM ingresos_generales ig
+          LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+          LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+          LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+          WHERE ig.club_id = $1
+            AND ig.activo = true
+            AND COALESCE(ig.socio_id, tr.socio_id) = $2
+            AND ($3::int IS NULL OR EXTRACT(YEAR FROM ig.fecha) = $3::int)
+        ) t
+        ORDER BY fecha DESC
+        `,
+        [clubId, socioId, anio]
+      );
+
+      // Totales por origen (Cuota, Tienda, Cantina, ...)
+      const porOrigen = {};
+      let total = 0;
+      for (const row of r.rows) {
+        const m = Number(row.monto || 0);
+        total += m;
+        porOrigen[row.origen] = (porOrigen[row.origen] || 0) + m;
+      }
+      const totales = Object.keys(porOrigen)
+        .map(o => ({ origen: o, total: porOrigen[o] }))
+        .sort((a, b) => b.total - a.total);
+
+      return res.json({
+        ok: true,
+        socio: rSocio.rows[0],
+        rows: r.rows,
+        totales,
+        total,
+      });
+    } catch (e) {
+      console.error('❌ ingresos-por-socio/detalle', e);
+      return res.status(500).json({ ok: false, error: e.message });
     }
   }
 );

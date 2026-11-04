@@ -129,11 +129,77 @@ function ensureIngresosUI() {
     if ($('ingresoFecha')) $('ingresoFecha').value = todayISO();
     if ($('ingresoMonto')) $('ingresoMonto').value = '';
     if ($('ingresoObs')) $('ingresoObs').value = '';
+    setIngresoSocio(null); // ✅ NUEVO: el socio es opcional; arranca sin socio
     modal.classList.remove('hidden');
   }
 
   function closeIngresoModal() {
     $('modalIngreso')?.classList.add('hidden');
+  }
+
+  /* =============================
+   * ✅ NUEVO: socio opcional en "Otros ingresos"
+   * ============================= */
+  let ingresoSocioSel = null;        // { id, nombre } del socio elegido en el modal de alta
+  let ingresoSocioCallback = null;   // qué hacer cuando se elige (o se quita) un socio
+  let ingresoSocioTimer = null;
+
+  function socioLabelIngreso(s) {
+    const nom = `${s.apellido || ''} ${s.nombre || ''}`.trim();
+    return s.numero_socio != null && s.numero_socio !== '' ? `${nom} (#${s.numero_socio})` : nom;
+  }
+
+  function setIngresoSocio(sel) {
+    ingresoSocioSel = sel || null;
+    if ($('ingresoSocioTxt')) $('ingresoSocioTxt').value = sel ? sel.nombre : '';
+  }
+
+  function cerrarSelectorSocioIngreso() {
+    $('modalIngresoSocio')?.classList.add('hidden');
+    ingresoSocioCallback = null;
+  }
+
+  function abrirSelectorSocioIngreso(cb) {
+    ingresoSocioCallback = cb;
+    if ($('ingresoSocioBuscar')) $('ingresoSocioBuscar').value = '';
+    const box = $('ingresoSocioResultados');
+    if (box) box.textContent = 'Escribí al menos 2 letras o números.';
+    $('modalIngresoSocio')?.classList.remove('hidden');
+    $('ingresoSocioBuscar')?.focus();
+  }
+
+  async function buscarSociosIngreso(q) {
+    const box = $('ingresoSocioResultados');
+    if (!box) return;
+    if (q.length < 2) {
+      box.textContent = 'Escribí al menos 2 letras o números.';
+      return;
+    }
+    box.textContent = 'Buscando...';
+    try {
+      const clubId = getActiveClubId();
+      const { res, data } = await fetchAuth(`/club/${clubId}/socios?search=${encodeURIComponent(q)}&limit=15`);
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error buscando socios');
+      const socios = data.socios || [];
+      if (!socios.length) {
+        box.textContent = 'No se encontraron socios.';
+        return;
+      }
+      box.innerHTML = '';
+      socios.forEach(s => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn-secondary';
+        b.style.cssText = 'display:block; width:100%; text-align:left; margin:4px 0;';
+        b.dataset.id = s.id;
+        b.dataset.nombre = socioLabelIngreso(s);
+        const dni = s.dni ? ` · DNI ${s.dni}` : '';
+        b.textContent = `${socioLabelIngreso(s)}${dni}${s.activo === false ? ' · (inactivo)' : ''}`;
+        box.appendChild(b);
+      });
+    } catch (e) {
+      box.textContent = e.message || 'Error buscando socios';
+    }
   }
 
   function moneyARS(n) {
@@ -1517,7 +1583,7 @@ async function deleteIngreso(id) {
   tbody.innerHTML = '';
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay ingresos cargados para este año.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="muted">No hay ingresos cargados para este año.</td></tr>`;
     return;
   }
 
@@ -1558,7 +1624,7 @@ async function deleteIngreso(id) {
     trGroup.style.cursor = "pointer";
 
     trGroup.innerHTML = `
-      <td colspan="6" style="
+      <td colspan="7" style="
         background: color-mix(in srgb, var(--color-primary) 8%, #ffffff);
         border-left: 4px solid var(--color-primary);
         font-weight: 800;
@@ -1581,8 +1647,18 @@ async function deleteIngreso(id) {
   <td><strong>${r.tipo_ingreso || ''}</strong></td>
   <td>${r.observacion || ''}</td>
   <td>${r.cuenta || '—'}</td>
+  <td>${r.socio_nombre ? escapeHtmlPagos(r.socio_nombre) : '—'}</td>
   <td><strong>${moneyARS(r.monto)}</strong></td>
-  <td style="text-align:right;">
+  <td style="text-align:right; white-space:nowrap;">
+    <button
+  type="button"
+  class="btn btn-secondary btn-sm"
+  data-act="socio-ingreso"
+  data-id="${r.id}"
+  title="Asignar o cambiar el socio"
+>
+  👤
+</button>
     <button
   type="button"
   class="btn btn-secondary btn-sm"
@@ -1656,7 +1732,8 @@ async function deletePagoMensual(pagoId, socioId) {
         fecha,
         monto: montoNum,
         observacion: obs.trim() || null,
-        cuenta: cuentaNombre   // 👈 se envía el nombre de la cuenta al backend
+        cuenta: cuentaNombre,  // 👈 se envía el nombre de la cuenta al backend
+        socio_id: ingresoSocioSel ? ingresoSocioSel.id : null // ✅ NUEVO: socio opcional
       })
     });
 
@@ -1750,6 +1827,35 @@ $('btnIngresoAdd')?.addEventListener('click', async () => {
 
 $('btnIngresoClose')?.addEventListener('click', closeIngresoModal);
 $('btnIngresoCancel')?.addEventListener('click', closeIngresoModal);
+
+// ✅ NUEVO: elegir / quitar el socio de un ingreso (alta)
+$('btnIngresoSocioElegir')?.addEventListener('click', () => {
+  abrirSelectorSocioIngreso((sel) => setIngresoSocio(sel));
+});
+$('ingresoSocioTxt')?.addEventListener('click', () => {
+  abrirSelectorSocioIngreso((sel) => setIngresoSocio(sel));
+});
+$('btnIngresoSocioQuitar')?.addEventListener('click', () => setIngresoSocio(null));
+
+// ✅ NUEVO: modal buscador de socios
+$('btnIngresoSocioClose')?.addEventListener('click', cerrarSelectorSocioIngreso);
+$('btnIngresoSocioSin')?.addEventListener('click', () => {
+  const cb = ingresoSocioCallback;
+  cerrarSelectorSocioIngreso();
+  if (cb) cb(null);
+});
+$('ingresoSocioBuscar')?.addEventListener('input', (e) => {
+  const q = e.target.value.trim();
+  clearTimeout(ingresoSocioTimer);
+  ingresoSocioTimer = setTimeout(() => buscarSociosIngreso(q), 300);
+});
+$('ingresoSocioResultados')?.addEventListener('click', (ev) => {
+  const b = ev.target.closest('button[data-id]');
+  if (!b) return;
+  const cb = ingresoSocioCallback;
+  cerrarSelectorSocioIngreso();
+  if (cb) cb({ id: b.dataset.id, nombre: b.dataset.nombre });
+});
 
 // ✅ NUEVO: al elegir un tipo de ingreso, si tiene un monto habitual
 // configurado (Configuración > Tipos de ingreso), completa el campo Monto.
@@ -1857,6 +1963,34 @@ $('ingresosTableBody')?.addEventListener('click', async (ev) => {
 
     const ingresoId = btnDelIngreso.dataset.id;
     await deleteIngreso(ingresoId);
+    return;
+  }
+
+  // 1b) ✅ NUEVO: asignar / cambiar / quitar el socio de un ingreso ya cargado
+  const btnSocioIngreso = ev.target.closest('button[data-act="socio-ingreso"]');
+  if (btnSocioIngreso) {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const ingresoId = btnSocioIngreso.dataset.id;
+    abrirSelectorSocioIngreso(async (sel) => {
+      try {
+        const clubId = getActiveClubId();
+        const { res, data } = await fetchAuth(`/club/${clubId}/ingresos/${ingresoId}/socio`, {
+          method: 'PATCH',
+          json: true,
+          body: JSON.stringify({ socio_id: sel ? sel.id : null })
+        });
+        if (!res.ok || !data.ok) {
+          alert(data.error || 'Error asignando el socio');
+          return;
+        }
+        await loadIngresos();
+      } catch (e) {
+        console.error(e);
+        alert(e.message || 'Error asignando el socio');
+      }
+    });
     return;
   }
 

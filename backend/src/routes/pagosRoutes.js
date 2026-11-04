@@ -1178,9 +1178,20 @@ router.get(
           ig.observacion,
           ig.tipo_ingreso_id,
           ig.cuenta,
-          ti.nombre AS tipo_ingreso
+          ig.socio_id,
+          ti.nombre AS tipo_ingreso,
+          CASE
+            WHEN gs.id IS NOT NULL THEN (gs.apellido || ' ' || gs.nombre || CASE WHEN gs.numero_socio IS NULL THEN '' ELSE ' (#' || gs.numero_socio || ')' END)
+            WHEN tr.id IS NULL THEN NULL
+            WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
+            ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
+          END AS socio_nombre
         FROM ingresos_generales ig
         JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+        LEFT JOIN socios gs ON gs.id = ig.socio_id
+        LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+        LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+        LEFT JOIN socios ts ON ts.id = tr.socio_id
         WHERE ${where.join(' AND ')}
         ORDER BY ig.fecha DESC, ig.created_at DESC
         LIMIT $${p++} OFFSET $${p++}
@@ -1225,6 +1236,7 @@ router.post(
       observacion,
       cuenta = null,
       cuenta_id = null,
+      socio_id = null, // ✅ NUEVO: socio asociado al ingreso (opcional)
     } = req.body || {};
 
     try {
@@ -1277,20 +1289,77 @@ router.post(
         }
       }
 
+      // ✅ NUEVO: socio opcional. Si viene, tiene que ser un socio de este club.
+      let socioIdFinal = null;
+      if (socio_id) {
+        const rSocio = await db.query(
+          `SELECT id FROM socios WHERE id = $1 AND club_id = $2`,
+          [socio_id, clubId]
+        );
+        if (!rSocio.rowCount) {
+          return res.status(400).json({ ok: false, error: 'El socio seleccionado no existe en este club' });
+        }
+        socioIdFinal = rSocio.rows[0].id;
+      }
+
       const r = await db.query(
         `
         INSERT INTO ingresos_generales
-          (id, club_id, tipo_ingreso_id, fecha, monto, observacion, cuenta, created_at, activo)
+          (id, club_id, tipo_ingreso_id, fecha, monto, observacion, cuenta, socio_id, created_at, activo)
         VALUES
-          (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW(), true)
-        RETURNING id, club_id, tipo_ingreso_id, fecha, monto, observacion, cuenta, created_at
+          (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, NOW(), true)
+        RETURNING id, club_id, tipo_ingreso_id, fecha, monto, observacion, cuenta, socio_id, created_at
         `,
-        [clubId, tipo_ingreso_id, String(fecha), montoNum, observacion ?? null, cuentaFinal ?? null]
+        [clubId, tipo_ingreso_id, String(fecha), montoNum, observacion ?? null, cuentaFinal ?? null, socioIdFinal]
       );
 
       return res.status(201).json({ ok: true, ingreso: r.rows[0] });
     } catch (e) {
       console.error('❌ create ingreso:', e);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ✅ NUEVO: asignar / cambiar / quitar el socio de un ingreso ya cargado.
+// body: { socio_id: <uuid> | null }
+router.patch(
+  '/:clubId/ingresos/:id/socio',
+  requireAuth,
+  requireClubAccess,
+  async (req, res) => {
+    const { clubId, id } = req.params;
+    const { socio_id = null } = req.body || {};
+
+    try {
+      let socioIdFinal = null;
+      if (socio_id) {
+        const rSocio = await db.query(
+          `SELECT id FROM socios WHERE id = $1 AND club_id = $2`,
+          [socio_id, clubId]
+        );
+        if (!rSocio.rowCount) {
+          return res.status(400).json({ ok: false, error: 'El socio seleccionado no existe en este club' });
+        }
+        socioIdFinal = rSocio.rows[0].id;
+      }
+
+      const r = await db.query(
+        `
+        UPDATE ingresos_generales
+        SET socio_id = $1
+        WHERE id = $2 AND club_id = $3 AND activo = true
+        `,
+        [socioIdFinal, id, clubId]
+      );
+
+      if (!r.rowCount) {
+        return res.status(404).json({ ok: false, error: 'Ingreso no encontrado' });
+      }
+
+      return res.json({ ok: true, socio_id: socioIdFinal });
+    } catch (e) {
+      console.error('❌ patch ingreso socio:', e);
       return res.status(500).json({ ok: false, error: e.message });
     }
   }
