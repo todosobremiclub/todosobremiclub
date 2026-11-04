@@ -2073,6 +2073,7 @@ function bindIGRespDetalleClicks() {
             { key: 'tipo_item', label: 'Origen' },
             { key: 'periodo', label: 'Fecha' }, // YYYY-MM
             { key: 'descripcion', label: 'Descripción' },
+            { key: 'socio', label: 'Socio' },
             { key: 'monto', label: 'Monto' }
           ]
         : [
@@ -3445,12 +3446,12 @@ function bindAsistenciaReporte() {
 
 
 // =============================
-// ✅ NUEVO: INGRESOS POR SOCIO
-// Sin socio elegido: resumen de socios con otros ingresos / tienda asignados.
-// Con socio elegido: detalle completo (cuotas + otros ingresos + tienda).
+// ✅ INGRESOS POR SOCIO
+// Se busca un socio y se listan TODOS sus ingresos: cuotas, otros ingresos
+// y compras de tienda.
 // =============================
 const igSocioState = {
-  anio: String(new Date().getFullYear()),
+  anio: 'todos',
   socioId: null,
   socioNombre: ''
 };
@@ -3463,42 +3464,19 @@ function escHtmlIgSocio(v) {
 async function loadIngresosSocio() {
   const body = $('igSocioBody');
   if (!body) return;
+
+  // Sin socio elegido: solo la guía para buscar
+  if (!igSocioState.socioId) {
+    body.innerHTML = `<div class="muted small">Buscá un socio por nombre, DNI o N° para ver todos sus ingresos.</div>`;
+    return;
+  }
+
   showLoading(body, 'Cargando...');
 
   try {
     const clubId = getActiveClubId();
     const anio = igSocioState.anio;
 
-    // ---------- Resumen ----------
-    if (!igSocioState.socioId) {
-      const { data } = await fetchAuth(`/club/${clubId}/reportes/ingresos-por-socio/resumen?anio=${encodeURIComponent(anio)}`);
-      if (!data || !data.ok) return showError(body, (data && data.error) || 'Error cargando el reporte');
-
-      const rows = data.rows || [];
-      if (!rows.length) {
-        body.innerHTML = `<div class="muted small">Ningún socio tiene otros ingresos asignados en este período. Buscá un socio para ver todos sus pagos.</div>`;
-        return;
-      }
-
-      const total = rows.reduce((a, r) => a + Number(r.total || 0), 0);
-      body.innerHTML = `
-        <table class="socios-table" style="font-size:12px;">
-          <thead><tr><th>Socio</th><th style="text-align:right;">Movimientos</th><th style="text-align:right;">Total</th></tr></thead>
-          <tbody>
-            ${rows.map(r => `
-              <tr class="row-ig-socio" data-socio-id="${escHtmlIgSocio(r.socio_id)}" data-socio-nombre="${escHtmlIgSocio(r.socio_nombre)}" style="cursor:pointer;">
-                <td>${escHtmlIgSocio(r.socio_nombre)}${r.numero_socio != null ? ` (#${escHtmlIgSocio(r.numero_socio)})` : ''}</td>
-                <td style="text-align:right;">${Number(r.cantidad || 0)}</td>
-                <td style="text-align:right;">${moneyARS.format(Number(r.total || 0))}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-        <div class="muted small" style="margin-top:6px;">${rows.length} socios · Total: <strong>${moneyARS.format(total)}</strong> · Tocá un socio para ver el detalle.</div>
-      `;
-      return;
-    }
-
-    // ---------- Detalle de un socio ----------
     const { data } = await fetchAuth(
       `/club/${clubId}/reportes/ingresos-por-socio/detalle?socio_id=${encodeURIComponent(igSocioState.socioId)}&anio=${encodeURIComponent(anio)}`
     );
@@ -3507,33 +3485,37 @@ async function loadIngresosSocio() {
     const s = data.socio || {};
     const nombre = `${s.apellido || ''} ${s.nombre || ''}`.trim() || igSocioState.socioNombre;
     const rows = data.rows || [];
-    const tabla = renderTableGeneric({
-      columns: [
-        { key: 'fecha', label: 'Fecha' },
-        { key: 'origen', label: 'Origen' },
-        { key: 'descripcion', label: 'Descripción' },
-        { key: 'cuenta', label: 'Cuenta' },
-        { key: 'monto', label: 'Monto' }
-      ],
-      rows,
-      moneyKey: 'monto',
-      dateKey: 'fecha'
-    });
+    const periodo = anio === 'todos' ? 'todos los años' : anio;
 
-    const resumenOrigen = (data.totales || [])
-      .map(t => `${escHtmlIgSocio(t.origen)}: <strong>${moneyARS.format(Number(t.total || 0))}</strong>`)
-      .join(' · ');
+    const tabla = rows.length
+      ? renderTableGeneric({
+          columns: [
+            { key: 'fecha', label: 'Fecha' },
+            { key: 'origen', label: 'Origen' },
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'cuenta', label: 'Cuenta' },
+            { key: 'monto', label: 'Monto' }
+          ],
+          rows,
+          moneyKey: 'monto',
+          dateKey: 'fecha'
+        }).html
+      : `<div class="muted small">Este socio no tiene ingresos en ${escHtmlIgSocio(periodo)}.</div>`;
+
+    const chips = (data.totales || [])
+      .map(t => `<span style="display:inline-block; padding:3px 10px; margin:0 6px 6px 0; border:1px solid var(--t-border,#e5e7eb); border-radius:999px; font-size:12px;">
+                   ${escHtmlIgSocio(t.origen)}: <strong>${moneyARS.format(Number(t.total || 0))}</strong>
+                 </span>`)
+      .join('');
 
     body.innerHTML = `
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
-        <div><strong>${escHtmlIgSocio(nombre)}</strong>${s.numero_socio != null ? ` <span class="muted">(#${escHtmlIgSocio(s.numero_socio)})</span>` : ''}</div>
-        <button type="button" id="btnIgSocioVolver" class="btn btn-secondary btn-sm">← Volver al resumen</button>
+      <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
+        <div style="font-size:15px;"><strong>${escHtmlIgSocio(nombre)}</strong>${s.numero_socio != null ? ` <span class="muted">(#${escHtmlIgSocio(s.numero_socio)})</span>` : ''}</div>
+        <div style="font-size:15px;">Total (${escHtmlIgSocio(periodo)}): <strong>${moneyARS.format(Number(data.total || 0))}</strong></div>
       </div>
-      ${rows.length ? tabla.html : '<div class="muted small">Este socio no tiene ingresos en el período elegido.</div>'}
-      <div class="muted small" style="margin-top:6px;">
-        ${rows.length} movimientos · Total: <strong>${moneyARS.format(Number(data.total || 0))}</strong>
-        ${resumenOrigen ? `<br>${resumenOrigen}` : ''}
-      </div>
+      ${chips ? `<div style="margin-bottom:6px;">${chips}</div>` : ''}
+      ${tabla}
+      <div class="muted small" style="margin-top:6px;">${rows.length} movimientos</div>
     `;
   } catch (e) {
     console.error(e);
@@ -3546,13 +3528,12 @@ function initIngresosSocio() {
   if (!card || card.dataset.bound === '1') return;
   card.dataset.bound = '1';
 
-  // Selector de año (últimos 6 + "Todos")
+  // Selector de año ("Todos" + últimos 6)
   const selAnio = $('igSocioAnio');
   if (selAnio) {
     const y = new Date().getFullYear();
-    let html = '';
+    let html = `<option value="todos">Todos los años</option>`;
     for (let i = 0; i < 6; i++) html += `<option value="${y - i}">${y - i}</option>`;
-    html += `<option value="todos">Todos</option>`;
     selAnio.innerHTML = html;
     selAnio.value = igSocioState.anio;
     selAnio.addEventListener('change', () => {
@@ -3561,28 +3542,24 @@ function initIngresosSocio() {
     });
   }
 
-  const body = $('igSocioBody');
-  if (body) {
-    body.addEventListener('click', (ev) => {
-      if (ev.target.closest('#btnIgSocioVolver')) {
-        igSocioState.socioId = null;
-        igSocioState.socioNombre = '';
-        loadIngresosSocio();
-        return;
-      }
-      const tr = ev.target.closest('tr.row-ig-socio');
-      if (!tr) return;
-      igSocioState.socioId = tr.dataset.socioId;
-      igSocioState.socioNombre = tr.dataset.socioNombre || '';
-      loadIngresosSocio();
-    });
-  }
-
-  // Buscador de socio (para ver cuotas + todo lo de un socio puntual)
   const inp = $('igSocioBuscar');
   const box = $('igSocioSugerencias');
+  const btnLimpiar = $('btnIgSocioLimpiar');
   let timer = null;
-  const cerrar = () => { if (box) { box.classList.add('hidden'); box.innerHTML = ''; } };
+
+  // OJO: la clase .hidden no oculta un <div> en este panel; se usa display.
+  const cerrar = () => { if (box) { box.style.display = 'none'; box.innerHTML = ''; } };
+
+  const limpiar = () => {
+    igSocioState.socioId = null;
+    igSocioState.socioNombre = '';
+    if (inp) { inp.value = ''; inp.focus(); }
+    if (btnLimpiar) btnLimpiar.style.display = 'none';
+    cerrar();
+    loadIngresosSocio();
+  };
+
+  if (btnLimpiar) btnLimpiar.addEventListener('click', limpiar);
 
   if (inp && box) {
     inp.addEventListener('input', () => {
@@ -3595,7 +3572,7 @@ function initIngresosSocio() {
           const { data } = await fetchAuth(`/club/${clubId}/socios?search=${encodeURIComponent(q)}&limit=10`);
           const socios = (data && data.socios) || [];
           if (!socios.length) {
-            box.innerHTML = `<div class="muted small" style="padding:6px;">No se encontraron socios.</div>`;
+            box.innerHTML = `<div class="muted small" style="padding:8px;">No se encontraron socios.</div>`;
           } else {
             box.innerHTML = socios.map(s => {
               const nom = `${s.apellido || ''} ${s.nombre || ''}`.trim();
@@ -3605,7 +3582,7 @@ function initIngresosSocio() {
                       </button>`;
             }).join('');
           }
-          box.classList.remove('hidden');
+          box.style.display = 'block';
         } catch (e) {
           console.error(e);
           cerrar();
@@ -3618,7 +3595,8 @@ function initIngresosSocio() {
       if (!b) return;
       igSocioState.socioId = b.dataset.id;
       igSocioState.socioNombre = b.dataset.nombre || '';
-      inp.value = '';
+      inp.value = igSocioState.socioNombre;
+      if (btnLimpiar) btnLimpiar.style.display = '';
       cerrar();
       loadIngresosSocio();
     });

@@ -2781,9 +2781,19 @@ async function getMovsIngGastoRange(clubId, desde, hasta) {
         COALESCE(ti.nombre, 'Otro ingreso') AS tipo_item,
         ig.monto::numeric AS monto,
         COALESCE(ig.cuenta, '') AS cuenta,
-        COALESCE(ig.observacion, '') AS observacion
+        COALESCE(ig.observacion, '') AS observacion,
+        COALESCE(CASE
+            WHEN gs.id IS NOT NULL THEN (gs.apellido || ' ' || gs.nombre || CASE WHEN gs.numero_socio IS NULL THEN '' ELSE ' (#' || gs.numero_socio || ')' END)
+            WHEN tr.id IS NULL THEN NULL
+            WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
+            ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
+          END, '') AS socio
       FROM ingresos_generales ig
       LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+      LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+      LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+      LEFT JOIN socios ts ON ts.id = tr.socio_id
+      LEFT JOIN socios gs ON gs.id = ig.socio_id
       WHERE ig.club_id = $1
         AND ig.activo = true
         AND ig.fecha::date >= $2::date
@@ -2809,7 +2819,10 @@ async function getMovsIngGastoRange(clubId, desde, hasta) {
             ELSE ' (#' || COALESCE(pm.socio_numero, s.numero_socio) || ')'
           END ||
           ' - Cuota ' || pm.mes || '/' || pm.anio
-        )::text AS observacion
+        )::text AS observacion,
+        COALESCE(NULLIF(BTRIM(
+              COALESCE(COALESCE(pm.socio_apellido, s.apellido), '') || ' ' || COALESCE(COALESCE(pm.socio_nombre, s.nombre), '')
+            ) || CASE WHEN COALESCE(pm.socio_numero, s.numero_socio) IS NULL THEN '' ELSE ' (#' || COALESCE(pm.socio_numero, s.numero_socio) || ')' END, ''), '') AS socio
       FROM pagos_mensuales pm
       LEFT JOIN socios s ON s.id = pm.socio_id
       WHERE pm.club_id = $1
@@ -2826,7 +2839,8 @@ async function getMovsIngGastoRange(clubId, desde, hasta) {
         COALESCE(tg.nombre, 'Sin tipo') AS tipo_item,
         g.monto::numeric AS monto,
         COALESCE(g.cuenta, rg.nombre, 'Sin cuenta') AS cuenta,
-        COALESCE(g.descripcion, '') AS observacion
+        COALESCE(g.descripcion, '') AS observacion,
+        ''::text AS socio
       FROM gastos g
       LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
       LEFT JOIN responsables_gasto rg ON rg.id = g.responsable_id
@@ -2876,6 +2890,7 @@ router.get(
           { key: 'tipo_item', label: 'Tipo de Ingreso/Gasto' },
           { key: 'monto', label: 'Monto' },
           { key: 'cuenta', label: 'Cuenta' },
+          { key: 'socio', label: 'Socio' },
           { key: 'observacion', label: 'Observación' }
         ],
         rows
@@ -3223,9 +3238,19 @@ router.get(
             'ingreso'::text AS tipo,
             to_char(ig.fecha,'YYYY-MM') AS periodo,
             ig.monto::numeric AS monto,
-            COALESCE(ig.observacion,'') AS descripcion
+            COALESCE(ig.observacion,'') AS descripcion,
+            CASE
+            WHEN gs.id IS NOT NULL THEN (gs.apellido || ' ' || gs.nombre || CASE WHEN gs.numero_socio IS NULL THEN '' ELSE ' (#' || gs.numero_socio || ')' END)
+            WHEN tr.id IS NULL THEN NULL
+            WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
+            ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
+          END AS socio
           FROM ingresos_generales ig
           LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+          LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+          LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+          LEFT JOIN socios ts ON ts.id = tr.socio_id
+          LEFT JOIN socios gs ON gs.id = ig.socio_id
           WHERE ig.club_id = $1
             AND ig.activo = true
             AND EXTRACT(YEAR FROM ig.fecha) = $2
@@ -3239,8 +3264,12 @@ router.get(
             'ingreso'::text AS tipo,
             to_char(pm.fecha_pago,'YYYY-MM') AS periodo,
             pm.monto::numeric AS monto,
-            ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion
+            ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
+            NULLIF(BTRIM(
+              COALESCE(COALESCE(pm.socio_apellido, s.apellido), '') || ' ' || COALESCE(COALESCE(pm.socio_nombre, s.nombre), '')
+            ) || CASE WHEN COALESCE(pm.socio_numero, s.numero_socio) IS NULL THEN '' ELSE ' (#' || COALESCE(pm.socio_numero, s.numero_socio) || ')' END, '') AS socio
           FROM pagos_mensuales pm
+          LEFT JOIN socios s ON s.id = pm.socio_id
           WHERE pm.club_id = $1
             AND pm.fecha_pago IS NOT NULL
             AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
@@ -3306,9 +3335,19 @@ async function getMovsIngGastoPorRespExport(clubId, anio, mesOrNull) {
         'ingreso'::text AS tipo,
         to_char(ig.fecha, 'YYYY-MM') AS periodo,
         ig.monto::numeric AS monto,
-        COALESCE(ig.observacion, '') AS descripcion
+        COALESCE(ig.observacion, '') AS descripcion,
+        COALESCE(CASE
+            WHEN gs.id IS NOT NULL THEN (gs.apellido || ' ' || gs.nombre || CASE WHEN gs.numero_socio IS NULL THEN '' ELSE ' (#' || gs.numero_socio || ')' END)
+            WHEN tr.id IS NULL THEN NULL
+            WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
+            ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
+          END, '') AS socio
       FROM ingresos_generales ig
       LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+      LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+      LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+      LEFT JOIN socios ts ON ts.id = tr.socio_id
+      LEFT JOIN socios gs ON gs.id = ig.socio_id
       WHERE ig.club_id = $1
         AND ig.activo = true
         AND EXTRACT(YEAR FROM ig.fecha) = $2
@@ -3321,8 +3360,12 @@ async function getMovsIngGastoPorRespExport(clubId, anio, mesOrNull) {
         'ingreso'::text AS tipo,
         to_char(pm.fecha_pago, 'YYYY-MM') AS periodo,
         pm.monto::numeric AS monto,
-        ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion
+        ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
+        COALESCE(NULLIF(BTRIM(
+              COALESCE(COALESCE(pm.socio_apellido, s.apellido), '') || ' ' || COALESCE(COALESCE(pm.socio_nombre, s.nombre), '')
+            ) || CASE WHEN COALESCE(pm.socio_numero, s.numero_socio) IS NULL THEN '' ELSE ' (#' || COALESCE(pm.socio_numero, s.numero_socio) || ')' END, ''), '') AS socio
       FROM pagos_mensuales pm
+      LEFT JOIN socios s ON s.id = pm.socio_id
       WHERE pm.club_id = $1
         AND pm.fecha_pago IS NOT NULL
         AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
@@ -3335,7 +3378,8 @@ async function getMovsIngGastoPorRespExport(clubId, anio, mesOrNull) {
         'gasto'::text AS tipo,
         to_char(g.periodo, 'YYYY-MM') AS periodo,
         g.monto::numeric AS monto,
-        COALESCE(g.descripcion, '') AS descripcion
+        COALESCE(g.descripcion, '') AS descripcion,
+        ''::text AS socio
       FROM gastos g
       LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
       WHERE g.club_id = $1
@@ -3374,11 +3418,12 @@ router.get(
         res,
         `Ingresos_vs_Gastos_por_responsable_${anio}${mes ? '-' + String(mes).padStart(2,'0') : ''}`,
         [
-          { key:'tipo_item',   label:'Tipo ingreso/gasto', width: 170 },
-          { key:'tipo',        label:'Tipo',              width: 55  },
-          { key:'periodo',     label:'Periodo',           width: 70  },
-          { key:'monto',       label:'Monto',             width: 70  },
-          { key:'descripcion', label:'Descripción',       width: 180 }
+          { key:'tipo_item',   label:'Tipo ingreso/gasto', width: 120 },
+          { key:'tipo',        label:'Tipo',              width: 45  },
+          { key:'periodo',     label:'Periodo',           width: 60  },
+          { key:'socio',       label:'Socio',             width: 110 },
+          { key:'monto',       label:'Monto',             width: 65  },
+          { key:'descripcion', label:'Descripción',       width: 145 }
         ],
         rows
       );
@@ -3412,6 +3457,7 @@ router.get(
           { key:'tipo_item',   label:'Tipo ingreso/gasto' },
           { key:'tipo',        label:'Tipo' },
           { key:'periodo',     label:'Periodo' },
+          { key:'socio',       label:'Socio' },
           { key:'monto',       label:'Monto' },
           { key:'descripcion', label:'Descripción' }
         ],
@@ -3678,9 +3724,19 @@ router.get(
             'ingreso'::text AS tipo,
             to_char(ig.fecha,'YYYY-MM') AS periodo,
             ig.monto::numeric AS monto,
-            COALESCE(ig.observacion,'') AS descripcion
+            COALESCE(ig.observacion,'') AS descripcion,
+            CASE
+            WHEN gs.id IS NOT NULL THEN (gs.apellido || ' ' || gs.nombre || CASE WHEN gs.numero_socio IS NULL THEN '' ELSE ' (#' || gs.numero_socio || ')' END)
+            WHEN tr.id IS NULL THEN NULL
+            WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
+            ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
+          END AS socio
           FROM ingresos_generales ig
           LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+          LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+          LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+          LEFT JOIN socios ts ON ts.id = tr.socio_id
+          LEFT JOIN socios gs ON gs.id = ig.socio_id
           WHERE ig.club_id = $1
             AND ig.activo = true
             AND EXTRACT(YEAR FROM ig.fecha) = $2
@@ -3695,8 +3751,12 @@ router.get(
             'ingreso'::text AS tipo,
             to_char(pm.fecha_pago,'YYYY-MM') AS periodo,
             pm.monto::numeric AS monto,
-            ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion
+            ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
+            NULLIF(BTRIM(
+              COALESCE(COALESCE(pm.socio_apellido, s.apellido), '') || ' ' || COALESCE(COALESCE(pm.socio_nombre, s.nombre), '')
+            ) || CASE WHEN COALESCE(pm.socio_numero, s.numero_socio) IS NULL THEN '' ELSE ' (#' || COALESCE(pm.socio_numero, s.numero_socio) || ')' END, '') AS socio
           FROM pagos_mensuales pm
+          LEFT JOIN socios s ON s.id = pm.socio_id
           WHERE pm.club_id = $1
             AND pm.fecha_pago IS NOT NULL
             AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
@@ -3764,9 +3824,19 @@ async function getMovsIngGastoPorRespExport(clubId, anio, mesOrNull) {
         'ingreso'::text AS tipo,
         to_char(ig.fecha, 'YYYY-MM') AS periodo,
         ig.monto::numeric AS monto,
-        COALESCE(ig.observacion, '') AS descripcion
+        COALESCE(ig.observacion, '') AS descripcion,
+        COALESCE(CASE
+            WHEN gs.id IS NOT NULL THEN (gs.apellido || ' ' || gs.nombre || CASE WHEN gs.numero_socio IS NULL THEN '' ELSE ' (#' || gs.numero_socio || ')' END)
+            WHEN tr.id IS NULL THEN NULL
+            WHEN ts.id IS NOT NULL THEN (ts.apellido || ' ' || ts.nombre || CASE WHEN ts.numero_socio IS NULL THEN '' ELSE ' (#' || ts.numero_socio || ')' END)
+            ELSE COALESCE(NULLIF(BTRIM(tr.nombre_referencia), ''), 'No socio')
+          END, '') AS socio
       FROM ingresos_generales ig
       LEFT JOIN tipos_ingreso ti ON ti.id = ig.tipo_ingreso_id
+      LEFT JOIN tienda_reserva_ingresos tri ON tri.ingreso_id = ig.id
+      LEFT JOIN tienda_reservas tr ON tr.id = tri.reserva_id
+      LEFT JOIN socios ts ON ts.id = tr.socio_id
+      LEFT JOIN socios gs ON gs.id = ig.socio_id
       WHERE ig.club_id = $1
         AND ig.activo = true
         AND EXTRACT(YEAR FROM ig.fecha) = $2
@@ -3779,8 +3849,12 @@ async function getMovsIngGastoPorRespExport(clubId, anio, mesOrNull) {
         'ingreso'::text AS tipo,
         to_char(pm.fecha_pago, 'YYYY-MM') AS periodo,
         pm.monto::numeric AS monto,
-        ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion
+        ('Cuota ' || pm.mes || '/' || pm.anio)::text AS descripcion,
+        COALESCE(NULLIF(BTRIM(
+              COALESCE(COALESCE(pm.socio_apellido, s.apellido), '') || ' ' || COALESCE(COALESCE(pm.socio_nombre, s.nombre), '')
+            ) || CASE WHEN COALESCE(pm.socio_numero, s.numero_socio) IS NULL THEN '' ELSE ' (#' || COALESCE(pm.socio_numero, s.numero_socio) || ')' END, ''), '') AS socio
       FROM pagos_mensuales pm
+      LEFT JOIN socios s ON s.id = pm.socio_id
       WHERE pm.club_id = $1
         AND pm.fecha_pago IS NOT NULL
         AND EXTRACT(YEAR FROM pm.fecha_pago) = $2
@@ -3793,7 +3867,8 @@ async function getMovsIngGastoPorRespExport(clubId, anio, mesOrNull) {
         'gasto'::text AS tipo,
         to_char(g.periodo, 'YYYY-MM') AS periodo,
         g.monto::numeric AS monto,
-        COALESCE(g.descripcion, '') AS descripcion
+        COALESCE(g.descripcion, '') AS descripcion,
+        ''::text AS socio
       FROM gastos g
       LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
       WHERE g.club_id = $1
@@ -3837,11 +3912,12 @@ router.get(
         res,
         `Ingresos_vs_Gastos_por_responsable_${anio}${mes ? '-' + String(mes).padStart(2,'0') : ''}`,
         [
-          { key:'tipo_item',   label:'Tipo ingreso/gasto', width: 170 },
-          { key:'tipo',        label:'Tipo',              width: 55  },
-          { key:'periodo',     label:'Periodo',           width: 70  },
-          { key:'monto',       label:'Monto',             width: 70  },
-          { key:'descripcion', label:'Descripción',       width: 180 }
+          { key:'tipo_item',   label:'Tipo ingreso/gasto', width: 120 },
+          { key:'tipo',        label:'Tipo',              width: 45  },
+          { key:'periodo',     label:'Periodo',           width: 60  },
+          { key:'socio',       label:'Socio',             width: 110 },
+          { key:'monto',       label:'Monto',             width: 65  },
+          { key:'descripcion', label:'Descripción',       width: 145 }
         ],
         rows
       );
@@ -3878,6 +3954,7 @@ router.get(
           { key:'tipo_item',   label:'Tipo ingreso/gasto' },
           { key:'tipo',        label:'Tipo' },
           { key:'periodo',     label:'Periodo' },
+          { key:'socio',       label:'Socio' },
           { key:'monto',       label:'Monto' },
           { key:'descripcion', label:'Descripción' }
         ],
