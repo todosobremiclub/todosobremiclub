@@ -23,6 +23,8 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = (n) => Number(n ?? 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
   const clubId = () => localStorage.getItem('activeClubId');
+  const canCfg = () => { const p = window.__clubPerms; return !!(p && p.canWrite && p.canWrite('configuracion')); };
+  const canAsis = () => { const p = window.__clubPerms; return !!(p && p.canWrite && p.canWrite('asistencia')); };
 
   async function api(path, opts = {}) {
     const token = localStorage.getItem('token');
@@ -128,6 +130,7 @@
   const lsKey = () => `ayuda_${clubId()}_${GUIA}`;
   async function loadProg() {
     if (S.loadedFor === clubId()) return;
+    if (!canCfg()) { S.loadedFor = clubId(); return; }
     let p = null;
     try { p = (await api(`/ayuda/progreso/${GUIA}`)).progreso; }
     catch { try { p = JSON.parse(localStorage.getItem(lsKey()) || 'null'); } catch { p = null; } }
@@ -159,7 +162,7 @@
   }
   function updateFab() {
     if (!fab) return;
-    const pend = !S.prog.completado;
+    const pend = canCfg() && !S.prog.completado;
     fab.classList.toggle('pending', pend);
     fab.classList.toggle('pulse', pend && !S.open && doneCount() === 0);
   }
@@ -167,7 +170,7 @@
   async function openHome() { await open('home'); }
   async function open(view) {
     S.open = true; hideNudge();
-    await loadProg();
+    await loadProg(); await loadCoach();
     S.view = view; S.flash = null;
     panel.classList.add('open'); render();
   }
@@ -191,19 +194,32 @@
   function renderHome() {
     const n = doneCount(), tot = WORK_STEPS.length, pct = Math.round((n / tot) * 100);
     const label = S.prog.completado ? 'Repasar' : (n > 0 || S.prog.paso_actual ? 'Continuar' : 'Empezar');
-    panel.innerHTML = `${head('Centro de ayuda')}
-      <div class="ay-body">
-        <p style="margin:0 0 14px;line-height:1.45">Hola 👋 Te acompaño para dejar tu club listo, paso a paso. Vas cargando todo acá mismo y yo te explico para qué sirve cada cosa.</p>
+    const cfgCard = !canCfg() ? '' : `
         <button class="ay-guide" data-a="start">
           <div class="ay-kicker">Guía</div>
           <div class="gt">🚀 Configuración inicial</div>
           <div style="font-size:13px;color:var(--t-muted,#6b7280)">Actividades y precios, excepciones, adicionales, grupo familiar, cuentas, tipos de ingreso y de gasto.</div>
           <div class="ay-bar"><i style="width:${pct}%"></i></div>
           <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--t-muted,#6b7280)">${S.prog.completado ? '✅ Completada' : `${n} de ${tot} pasos`}</span><span class="ay-btn primary">${label} →</span></div>
-        </button>
+        </button>`;
+    const cn = coachDone(), ct = COACH_WORK.length, cp = Math.round((cn / ct) * 100);
+    const clabel = C.prog.completado ? 'Repasar' : (cn > 0 ? 'Continuar' : 'Empezar');
+    const asCard = !canAsis() ? '' : `
+        <button class="ay-guide" data-a="coach-start">
+          <div class="ay-kicker">Guía en pantalla</div>
+          <div class="gt">📋 Registrar asistencias</div>
+          <div style="font-size:13px;color:var(--t-muted,#6b7280)">Te acompaño sobre la pantalla real: tipo, fecha, categoría, quién estuvo presente, invitados y guardar. No guarda nada de verdad.</div>
+          <div class="ay-bar"><i style="width:${cp}%"></i></div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--t-muted,#6b7280)">${C.prog.completado ? '✅ Completada' : `${cn} de ${ct} pasos`}</span><span class="ay-btn primary">${clabel} →</span></div>
+        </button>`;
+    const quick = QUICK.filter((q) => { const p = window.__clubPerms; return !p || !p.canAccess || p.canAccess(q[3]); });
+    panel.innerHTML = `${head('Centro de ayuda')}
+      <div class="ay-body">
+        <p style="margin:0 0 14px;line-height:1.45">Hola 👋 Elegí una guía y te acompaño paso a paso, explicándote para qué sirve cada cosa.</p>
+        ${cfgCard}${asCard}
         <div class="ay-kicker" style="margin:18px 0 8px">Ir directo a…</div>
-        ${QUICK.map(([e, t, d, s]) => `<button class="ay-link" data-a="go" data-s="${s}"><span class="e">${e}</span><span class="tx"><b>${esc(t)}</b><span>${esc(d)}</span></span><span>›</span></button>`).join('')}
-        <p style="font-size:12px;color:var(--t-muted,#6b7280);margin-top:14px">Próximamente: guías paso a paso para cargar socios, cobrar cuotas y tomar asistencia.</p>
+        ${quick.map(([e, t, d, s]) => `<button class="ay-link" data-a="go" data-s="${s}"><span class="e">${e}</span><span class="tx"><b>${esc(t)}</b><span>${esc(d)}</span></span><span>›</span></button>`).join('')}
+        <p style="font-size:12px;color:var(--t-muted,#6b7280);margin-top:14px">Próximamente: guías para cargar socios y cobrar cuotas.</p>
       </div>`;
   }
 
@@ -337,6 +353,7 @@
     const t = e.target.closest('[data-a]'); if (!t) return;
     const a = t.dataset.a, st = STEPS[S.idx];
     if (a === 'close') return close();
+    if (a === 'coach-start') return coachStart();
     if (a === 'home') { S.view = 'home'; return render(); }
     if (a === 'start') {
       const k = S.prog.completado ? 0 : Math.max(0, STEPS.findIndex((s) => s.key === S.prog.paso_actual));
@@ -400,9 +417,163 @@
   }
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+  /* =========================================================
+     COACH "Registrar asistencias": abre la pantalla REAL de
+     Asistencia y marca con un resaltado cada campo mientras
+     una tarjeta flotante explica qué hacer. No guarda nada:
+     el usuario decide si guarda o no al final.
+     Progreso: guia 'asistencia' (mismo endpoint de progreso).
+  ========================================================= */
+  const COACH_GUIA = 'asistencia';
+  const COACH_CSS = `
+.ay-hl{ outline:3px solid #f59e0b !important; outline-offset:3px; border-radius:10px; animation:ayHl 1.4s ease-in-out infinite; }
+@keyframes ayHl{ 0%,100%{ box-shadow:0 0 0 0 rgba(245,158,11,.55); } 50%{ box-shadow:0 0 0 9px rgba(245,158,11,0); } }
+#ayudaCoach{ position:fixed !important; left:22px !important; bottom:22px !important; right:auto !important; top:auto !important; z-index:2147483200 !important;
+  width:min(370px,calc(100vw - 32px)); box-sizing:border-box; padding:14px 16px; border-radius:16px; display:none;
+  background:var(--t-surface,#fff); color:var(--t-text,#111827); border:2px solid var(--a,#2563eb);
+  box-shadow:0 16px 44px rgba(0,0,0,.4); font:14px/1.45 Inter,"Segoe UI",system-ui,Arial,sans-serif; }
+#ayudaCoach.show{ display:block; }
+#ayudaCoach .co-top{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+#ayudaCoach .co-top .ay-kicker{ flex:1; }
+#ayudaCoach .co-x{ background:none; border:0; cursor:pointer; color:inherit; font-size:16px; opacity:.7; }
+#ayudaCoach .co-t{ font-size:17px; font-weight:800; margin:2px 0 6px; line-height:1.2; }
+#ayudaCoach .co-b{ font-size:13.5px; } #ayudaCoach .co-b p{ margin:0 0 6px; } #ayudaCoach .co-b ul{ margin:4px 0 6px; padding-left:18px; }
+#ayudaCoach .co-warn{ margin:8px 0 0; padding:8px 10px; border-radius:10px; font-size:13px; font-weight:600; background:rgba(245,158,11,.15); border:1px solid rgba(245,158,11,.5); }
+#ayudaCoach .co-act{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; } #ayudaCoach .co-act .ay-sp{ flex:1; }
+#ayudaCoach .ay-steps{ margin:6px 0 8px; }
+@media (max-width:640px){ #ayudaCoach{ left:16px !important; bottom:84px !important; } }
+`;
+  const COACH = [
+    { key: 'intro', icon: '📋', title: 'Tomar asistencia en 1 minuto', type: 'intro' },
+    { key: 'abrir', title: 'Abrí “Asistencia”', t: ['#btnAsistencia'], need: 'closed',
+      body: '<p>Es el botón <b>📋 Asistencia</b> del menú superior. Desde ahí se toma lista de un <b>entrenamiento</b> o de un <b>partido</b>.</p>',
+      act: ['open'] },
+    { key: 'tipo', title: '1. ¿Entrenamiento o partido?', t: ['.asist2-tipo-opciones'], pane: 1,
+      body: '<p>Elegí qué vas a registrar. Después, en los reportes, vas a poder ver la asistencia de entrenamientos y de partidos por separado.</p>' },
+    { key: 'fecha', title: '2. Fecha', t: ['#asistFecha'], pane: 1,
+      body: '<p>Por defecto es hoy. Si te olvidaste de cargar un día anterior, cambiala acá y registrás la asistencia de esa fecha.</p>' },
+    { key: 'actividad', title: '3. Actividad', t: ['#asistActividad', '#asistActividadAdicional'], pane: 1,
+      body: '<p>Elegí la <b>actividad</b> (Fútbol, Hockey, etc.). Si el chico también hace una <b>actividad adicional</b>, podés sumarla para que aparezca en la lista.</p>' },
+    { key: 'categoria', title: '4. Categoría', t: ['#asistCategoria', '#asistCategoriasAdicionalesWrap'], pane: 1,
+      body: '<p>Se habilita al elegir la actividad. Define <b>a quién se convoca</b>. Si hay chicos que entrenan con más de una categoría, tildalas en <b>Categorías adicionales</b>.</p>' },
+    { key: 'anio', title: '5. Año de nacimiento (opcional)', t: ['#asistAnioNacimiento', '#asistAnioAdicionalInput'], pane: 1,
+      body: '<p>Sirve para filtrar por camada (por ejemplo solo los nacidos en 2012). Si lo dejás vacío se convoca a toda la categoría.</p>' },
+    { key: 'buscar', title: '6. Buscar socios', t: ['#btnAsistBuscarSocios'], pane: 1,
+      body: '<p>Con los datos listos, tocá <b>Buscar socios ▶</b>. Te lleva al paso 2 con todos los convocados. Podés usar el botón de abajo para probarlo ahora.</p>',
+      act: ['buscar'] },
+    { key: 'convocados', title: '7. Marcá quién vino', t: ['#asistListaConvocados'], pane: 2,
+      body: '<p><b>Tocá la tarjeta</b> de cada socio que estuvo presente: se marca en verde. Si te equivocás, tocala de nuevo.</p>' },
+    { key: 'herramientas', title: '8. Herramientas de la lista', t: ['#asistBuscarConvocado', '#btnAsistVista', '#btnAsistTodos', '#btnAsistNinguno'], pane: 2,
+      body: '<ul><li><b>Buscador</b>: encontrá a un socio por nombre.</li><li><b>Grilla / Lista</b>: con fotos o más compacta.</li><li><b>Todos presentes</b> / <b>Ninguno</b>: marcás todo de una vez y corregís solo las ausencias.</li></ul>' },
+    { key: 'invitados', title: '9. Invitados', t: ['#asistInvitadosWrap'], pane: 2,
+      body: '<p>Si vino un chico que <b>no figura en la lista</b> (de otra categoría o que probó ese día), buscalo acá y se suma como invitado.</p>' },
+    { key: 'guardar', title: '10. Guardar', t: ['#btnAsistGuardar'], pane: 2,
+      body: '<p>Cuando termines tocá <b>Guardar asistencia</b>. Se guardan los presentes y los ausentes. <b>En esta guía no lo toco</b>: si estás practicando, cerrá la ventana sin guardar.</p>' },
+    { key: 'reporte', title: '11. Ver reporte', t: ['#btnAsistVerReporte'], modal: true,
+      body: '<p><b>📊 Ver reporte</b> muestra cuánto asistió cada socio, por actividad y categoría, en el período que elijas.</p>' },
+    { key: 'fin', icon: '🎉', title: '¡Listo!', type: 'fin' }
+  ];
+  const COACH_WORK = COACH.filter((s) => s.type !== 'intro' && s.type !== 'fin');
+  const C = { open: false, idx: 0, loaded: null, sig: '', prog: { paso_actual: null, pasos: {}, completado: false } };
+  const coachDone = () => COACH_WORK.filter((s) => C.prog.pasos[s.key]).length;
+  const clsKey = () => `ayuda_${clubId()}_${COACH_GUIA}`;
+  let coachEl, coachIv;
+
+  async function loadCoach() {
+    if (C.loaded === clubId()) return;
+    let p = null;
+    try { p = (await api(`/ayuda/progreso/${COACH_GUIA}`)).progreso; }
+    catch { try { p = JSON.parse(localStorage.getItem(clsKey()) || 'null'); } catch { p = null; } }
+    C.prog = { paso_actual: p?.paso_actual || null, pasos: p?.pasos || {}, completado: !!p?.completado };
+    C.loaded = clubId();
+  }
+  async function saveCoach() {
+    const body = { paso_actual: C.prog.paso_actual, pasos: C.prog.pasos, respuestas: {}, completado: C.prog.completado };
+    try { await api(`/ayuda/progreso/${COACH_GUIA}`, { method: 'PUT', body }); }
+    catch { try { localStorage.setItem(clsKey(), JSON.stringify(body)); } catch {} }
+  }
+  function injectCoachCss() {
+    if (document.getElementById('ayudaCoachCss')) return;
+    const st = document.createElement('style'); st.id = 'ayudaCoachCss'; st.textContent = COACH_CSS; document.head.appendChild(st);
+  }
+  const $q = (sel) => document.querySelector(sel);
+  const modalOpen = () => { const m = $q('#modalAsistencia'); return !!m && !m.classList.contains('hidden'); };
+  const pane2 = () => { const e = $q('#asistenciaPasoSocios'); return !!e && e.style.display !== 'none' && modalOpen(); };
+  const clearHl = () => document.querySelectorAll('.ay-hl').forEach((e) => e.classList.remove('ay-hl'));
+
+  async function coachStart() {
+    await loadCoach();
+    injectCoachCss();
+    if (!coachEl) { coachEl = document.createElement('div'); coachEl.id = 'ayudaCoach'; coachEl.addEventListener('click', coachClick); document.body.appendChild(coachEl); }
+    close();
+    C.open = true;
+    const k = C.prog.completado ? 0 : Math.max(0, COACH.findIndex((s) => s.key === C.prog.paso_actual));
+    C.idx = k; C.sig = '';
+    coachRender();
+    clearInterval(coachIv); coachIv = setInterval(coachTick, 600);
+  }
+  function coachStop() {
+    C.open = false; clearInterval(coachIv); clearHl();
+    if (coachEl) coachEl.classList.remove('show');
+  }
+  function coachSig() { const st = COACH[C.idx]; return [C.idx, modalOpen(), pane2(), st.type || ''].join('|'); }
+  function coachTick() { if (!C.open) return; const g = coachSig(); if (g !== C.sig) coachRender(); }
+
+  function coachGo(i) {
+    C.idx = Math.max(0, Math.min(COACH.length - 1, i));
+    C.prog.paso_actual = COACH[C.idx].key; coachRender(); saveCoach();
+  }
+  function coachRender() {
+    const st = COACH[C.idx]; C.sig = coachSig();
+    clearHl();
+    let warn = '', acts = '';
+    const back = C.idx > 0 ? '<button class="ay-btn ghost" data-c="prev">← Atrás</button>' : '';
+    // asegurar el estado de la pantalla real
+    const needModal = !!(st.pane || st.modal);
+    if (needModal && !modalOpen()) { const b = $q('#btnAsistencia'); if (b) b.click(); }
+    if (st.pane === 1 && pane2()) { const b = $q('#btnAsistVolverDatos'); if (b) b.click(); }
+    const wrongPane2 = st.pane === 2 && !pane2();
+    if (wrongPane2) warn = '<div class="co-warn">Esta parte aparece en el paso 2. Completá los datos y tocá <b>Buscar socios ▶</b> (o usá el botón de abajo).</div>';
+    if (st.need === 'closed' && modalOpen()) warn = '<div class="co-warn">✔ La ventana ya está abierta. Seguí al próximo paso.</div>';
+
+    let body = st.body || '';
+    if (st.type === 'intro') {
+      body = '<p>Te voy a guiar sobre la <b>pantalla real</b>: se abre la ventana de asistencia y te marco cada campo con un resaltado naranja.</p><ul><li>Datos del evento (tipo, fecha, actividad, categoría)</li><li>Marcar presentes, invitados</li><li>Guardar y ver el reporte</li></ul><p><b>No se guarda nada</b> mientras dure la guía.</p>';
+    } else if (st.type === 'fin') {
+      body = '<p>Ya sabés tomar asistencia: <b>Datos → Buscar socios → marcar presentes → Guardar</b>.</p><p>Podés repetir esta guía cuando quieras desde el ❓.</p>';
+      acts = '<button class="ay-btn primary" data-c="finish">Terminar</button>';
+    }
+    if (st.act && st.act.includes('open') && !modalOpen()) acts += '<button class="ay-btn" data-c="open">Abrirla por mí</button>';
+    if ((st.act && st.act.includes('buscar') || wrongPane2) && !pane2() && modalOpen()) acts += '<button class="ay-btn" data-c="buscar">▶ Buscar socios</button>';
+    if (needModal && !modalOpen()) acts += '<button class="ay-btn" data-c="open">Reabrir Asistencia</button>';
+
+    const tot = COACH.length;
+    const dots = `<div class="ay-steps">${COACH.map((s, i) => `<i class="${C.prog.pasos[s.key] || i < C.idx ? 'done' : ''} ${i === C.idx ? 'cur' : ''}"></i>`).join('')}</div>`;
+    const nav = st.type === 'fin' ? '' : `<span class="ay-sp"></span><button class="ay-btn primary" data-c="next">${st.type === 'intro' ? 'Empezar' : 'Siguiente'} →</button>`;
+    coachEl.innerHTML = `<div class="co-top"><div class="ay-kicker">Asistencia · ${C.idx + 1} de ${tot}</div><button class="co-x" data-c="exit" title="Salir de la guía" aria-label="Salir">✕</button></div>${dots}
+      <div class="co-t">${st.icon ? st.icon + ' ' : ''}${esc(st.title)}</div><div class="co-b">${body}</div>${warn}
+      <div class="co-act">${back}${acts}${nav}</div>`;
+    coachEl.classList.add('show');
+    // resaltar
+    let first = null;
+    (st.t || []).forEach((sel) => { const e = $q(sel); if (e && e.offsetParent !== null) { e.classList.add('ay-hl'); first = first || e; } });
+    if (first) { try { first.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch {} }
+  }
+  async function coachClick(e) {
+    const t = e.target.closest('[data-c]'); if (!t) return;
+    const a = t.dataset.c, st = COACH[C.idx];
+    if (a === 'exit') return coachStop();
+    if (a === 'prev') return coachGo(C.idx - 1);
+    if (a === 'next') { if (st.type !== 'intro') C.prog.pasos[st.key] = 'hecho'; return coachGo(C.idx + 1); }
+    if (a === 'open') { const b = $q('#btnAsistencia'); if (b) b.click(); setTimeout(coachRender, 350); return; }
+    if (a === 'buscar') { const b = $q('#btnAsistBuscarSocios'); if (b) b.click(); setTimeout(coachRender, 900); return; }
+    if (a === 'finish') { C.prog.completado = true; await saveCoach(); coachStop(); const x = $q('#modalAsistencia'); if (x && !x.classList.contains('hidden')) { const c = $q('#btnAsistCancelarDatos'); if (c) c.click(); } }
+  }
+
   /* ---------- arranque ---------- */
   async function maybeNudge() {
     try { if (sessionStorage.getItem('ayudaNudge')) return; } catch {}
+    if (!canCfg()) return;
     await loadProg();
     if (S.prog.completado || S.open) return;
     const n = doneCount();
@@ -416,7 +587,7 @@
 
   function init() {
     const perms = window.__clubPerms;
-    if (!perms || !perms.canWrite || !perms.canWrite('configuracion')) return false;
+    if (!perms || !perms.canWrite || !(canCfg() || canAsis())) return false;
     if (!fab) build();
     loadProg().then(() => { updateFab(); setTimeout(maybeNudge, 1800); });
     return true;
@@ -425,5 +596,5 @@
   const iv = setInterval(() => { if (init() || ++tries > 40) clearInterval(iv); }, 500);
   // si cambia de club (superadmin) se vuelve a leer el avance
   window.addEventListener('storage', () => { S.loadedFor = null; });
-  window.AyudaTSMC = { open: openHome, close };
+  window.AyudaTSMC = { open: openHome, close, coach: () => coachStart() };
 })();
