@@ -202,21 +202,23 @@
           <div class="ay-bar"><i style="width:${pct}%"></i></div>
           <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--t-muted,#6b7280)">${S.prog.completado ? '✅ Completada' : `${n} de ${tot} pasos`}</span><span class="ay-btn primary">${label} →</span></div>
         </button>`;
-    const cn = coachDone(), ct = COACH_WORK.length, cp = Math.round((cn / ct) * 100);
-    const clabel = C.prog.completado ? 'Repasar' : (cn > 0 ? 'Continuar' : 'Empezar');
-    const asCard = !canAsis() ? '' : `
-        <button class="ay-guide" data-a="coach-start">
-          <div class="ay-kicker">Guía en pantalla</div>
-          <div class="gt">📋 Registrar asistencias</div>
-          <div style="font-size:13px;color:var(--t-muted,#6b7280)">Te acompaño sobre la pantalla real: tipo, fecha, categoría, quién estuvo presente, invitados y guardar. No guarda nada de verdad.</div>
-          <div class="ay-bar"><i style="width:${cp}%"></i></div>
-          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--t-muted,#6b7280)">${C.prog.completado ? '✅ Completada' : `${cn} de ${ct} pasos`}</span><span class="ay-btn primary">${clabel} →</span></div>
+    const gCards = GUIDES.filter((g) => g.can()).map((g) => {
+      const p = gProg(g), n2 = gDone(g), t2 = gWork(g).length, pc = Math.round((n2 / t2) * 100);
+      const lb = p.completado ? 'Repasar' : (n2 > 0 ? 'Continuar' : 'Empezar');
+      return `
+        <button class="ay-guide" data-a="coach-start" data-g="${g.id}">
+          <div class="ay-kicker">${esc(g.kicker)}</div>
+          <div class="gt">${g.icon} ${esc(g.title)}</div>
+          <div style="font-size:13px;color:var(--t-muted,#6b7280)">${esc(g.desc)}</div>
+          <div class="ay-bar"><i style="width:${pc}%"></i></div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--t-muted,#6b7280)">${p.completado ? '✅ Completada' : `${n2} de ${t2} pasos`}</span><span class="ay-btn primary">${lb} →</span></div>
         </button>`;
+    }).join('');
     const quick = QUICK.filter((q) => { const p = window.__clubPerms; return !p || !p.canAccess || p.canAccess(q[3]); });
     panel.innerHTML = `${head('Centro de ayuda')}
       <div class="ay-body">
         <p style="margin:0 0 14px;line-height:1.45">Hola 👋 Elegí una guía y te acompaño paso a paso, explicándote para qué sirve cada cosa.</p>
-        ${cfgCard}${asCard}
+        ${cfgCard}${gCards}
         <div class="ay-kicker" style="margin:18px 0 8px">Ir directo a…</div>
         ${quick.map(([e, t, d, s]) => `<button class="ay-link" data-a="go" data-s="${s}"><span class="e">${e}</span><span class="tx"><b>${esc(t)}</b><span>${esc(d)}</span></span><span>›</span></button>`).join('')}
         <p style="font-size:12px;color:var(--t-muted,#6b7280);margin-top:14px">Próximamente: guías para cargar socios y cobrar cuotas.</p>
@@ -353,7 +355,7 @@
     const t = e.target.closest('[data-a]'); if (!t) return;
     const a = t.dataset.a, st = STEPS[S.idx];
     if (a === 'close') return close();
-    if (a === 'coach-start') return coachStart();
+    if (a === 'coach-start') return coachStart(t.dataset.g);
     if (a === 'home') { S.view = 'home'; return render(); }
     if (a === 'start') {
       const k = S.prog.completado ? 0 : Math.max(0, STEPS.findIndex((s) => s.key === S.prog.paso_actual));
@@ -418,13 +420,12 @@
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
   /* =========================================================
-     COACH "Registrar asistencias": abre la pantalla REAL de
-     Asistencia y marca con un resaltado cada campo mientras
-     una tarjeta flotante explica qué hacer. No guarda nada:
-     el usuario decide si guarda o no al final.
-     Progreso: guia 'asistencia' (mismo endpoint de progreso).
+     COACH (guías sobre la pantalla REAL): abre la sección o el
+     modal correspondiente y resalta en naranja cada campo
+     mientras una tarjeta flotante explica qué hacer. No guarda
+     nada: el usuario decide. Guías: 'asistencia' y 'tienda'.
+     Progreso por guía en /ayuda/progreso/:guia.
   ========================================================= */
-  const COACH_GUIA = 'asistencia';
   const COACH_CSS = `
 .ay-hl{ outline:3px solid #f59e0b !important; outline-offset:3px; border-radius:10px; animation:ayHl 1.4s ease-in-out infinite; }
 @keyframes ayHl{ 0%,100%{ box-shadow:0 0 0 0 rgba(245,158,11,.55); } 50%{ box-shadow:0 0 0 9px rgba(245,158,11,0); } }
@@ -443,131 +444,207 @@
 #ayudaCoach .ay-steps{ margin:6px 0 8px; }
 @media (max-width:640px){ #ayudaCoach{ left:16px !important; bottom:84px !important; } }
 `;
-  const COACH = [
-    { key: 'intro', icon: '📋', title: 'Tomar asistencia en 1 minuto', type: 'intro' },
-    { key: 'abrir', title: 'Abrí “Asistencia”', t: ['#btnAsistencia'], need: 'closed',
-      body: '<p>Es el botón <b>📋 Asistencia</b> del menú superior. Desde ahí se toma lista de un <b>entrenamiento</b> o de un <b>partido</b>.</p>',
-      act: ['open'] },
-    { key: 'tipo', title: '1. ¿Entrenamiento o partido?', t: ['.asist2-tipo-opciones'], pane: 1,
-      body: '<p>Elegí qué vas a registrar. Después, en los reportes, vas a poder ver la asistencia de entrenamientos y de partidos por separado.</p>' },
-    { key: 'fecha', title: '2. Fecha', t: ['#asistFecha'], pane: 1,
-      body: '<p>Por defecto es hoy. Si te olvidaste de cargar un día anterior, cambiala acá y registrás la asistencia de esa fecha.</p>' },
-    { key: 'actividad', title: '3. Actividad', t: ['#asistActividad', '#asistActividadAdicional'], pane: 1,
-      body: '<p>Elegí la <b>actividad</b> (Fútbol, Hockey, etc.). Si el chico también hace una <b>actividad adicional</b>, podés sumarla para que aparezca en la lista.</p>' },
-    { key: 'categoria', title: '4. Categoría', t: ['#asistCategoria', '#asistCategoriasAdicionalesWrap'], pane: 1,
-      body: '<p>Se habilita al elegir la actividad. Define <b>a quién se convoca</b>. Si hay chicos que entrenan con más de una categoría, tildalas en <b>Categorías adicionales</b>.</p>' },
-    { key: 'anio', title: '5. Año de nacimiento (opcional)', t: ['#asistAnioNacimiento', '#asistAnioAdicionalInput'], pane: 1,
-      body: '<p>Sirve para filtrar por camada (por ejemplo solo los nacidos en 2012). Si lo dejás vacío se convoca a toda la categoría.</p>' },
-    { key: 'buscar', title: '6. Buscar socios', t: ['#btnAsistBuscarSocios'], pane: 1,
-      body: '<p>Con los datos listos, tocá <b>Buscar socios ▶</b>. Te lleva al paso 2 con todos los convocados. Podés usar el botón de abajo para probarlo ahora.</p>',
-      act: ['buscar'] },
-    { key: 'convocados', title: '7. Marcá quién vino', t: ['#asistListaConvocados'], pane: 2,
-      body: '<p><b>Tocá la tarjeta</b> de cada socio que estuvo presente: se marca en verde. Si te equivocás, tocala de nuevo.</p>' },
-    { key: 'herramientas', title: '8. Herramientas de la lista', t: ['#asistBuscarConvocado', '#btnAsistVista', '#btnAsistTodos', '#btnAsistNinguno'], pane: 2,
-      body: '<ul><li><b>Buscador</b>: encontrá a un socio por nombre.</li><li><b>Grilla / Lista</b>: con fotos o más compacta.</li><li><b>Todos presentes</b> / <b>Ninguno</b>: marcás todo de una vez y corregís solo las ausencias.</li></ul>' },
-    { key: 'invitados', title: '9. Invitados', t: ['#asistInvitadosWrap'], pane: 2,
-      body: '<p>Si vino un chico que <b>no figura en la lista</b> (de otra categoría o que probó ese día), buscalo acá y se suma como invitado.</p>' },
-    { key: 'guardar', title: '10. Guardar', t: ['#btnAsistGuardar'], pane: 2,
-      body: '<p>Cuando termines tocá <b>Guardar asistencia</b>. Se guardan los presentes y los ausentes. <b>En esta guía no lo toco</b>: si estás practicando, cerrá la ventana sin guardar.</p>' },
-    { key: 'reporte', title: '11. Ver reporte', t: ['#btnAsistVerReporte'], modal: true,
-      body: '<p><b>📊 Ver reporte</b> muestra cuánto asistió cada socio, por actividad y categoría, en el período que elijas.</p>' },
-    { key: 'fin', icon: '🎉', title: '¡Listo!', type: 'fin' }
-  ];
-  const COACH_WORK = COACH.filter((s) => s.type !== 'intro' && s.type !== 'fin');
-  const C = { open: false, idx: 0, loaded: null, sig: '', prog: { paso_actual: null, pasos: {}, completado: false } };
-  const coachDone = () => COACH_WORK.filter((s) => C.prog.pasos[s.key]).length;
-  const clsKey = () => `ayuda_${clubId()}_${COACH_GUIA}`;
+  const vis = (e) => { if (!e) return false; const cs = getComputedStyle(e); return cs.display !== 'none' && cs.visibility !== 'hidden' && (e.offsetParent !== null || cs.position === 'fixed'); };
+  const $q = (sel) => document.querySelector(sel);
+  const asisModalOpen = () => vis($q('#modalAsistencia'));
+  const asisPane2 = () => { const e = $q('#asistenciaPasoSocios'); return !!e && asisModalOpen() && getComputedStyle(e).display !== 'none'; };
+  const tiendaOn = () => window.currentClub?.tienda_habilitada === true;
+  const canTienda = () => { const p = window.__clubPerms; return tiendaOn() && !!(p && p.canWrite && p.canWrite('tienda')); };
+
+  const G_ASIS = {
+    id: 'asistencia', icon: '📋', name: 'Asistencia', title: 'Registrar asistencias', kicker: 'Guía en pantalla',
+    desc: 'Te acompaño sobre la pantalla real: tipo, fecha, categoría, quién estuvo presente, invitados y guardar. No guarda nada de verdad.',
+    can: () => canAsis(),
+    steps: [
+      { key: 'intro', icon: '📋', title: 'Tomar asistencia en 1 minuto', type: 'intro',
+        body: '<p>Te voy a guiar sobre la <b>pantalla real</b>: se abre la ventana de asistencia y te marco cada campo con un resaltado naranja.</p><ul><li>Datos del evento (tipo, fecha, actividad, categoría)</li><li>Marcar presentes, invitados</li><li>Guardar y ver el reporte</li></ul><p><b>No se guarda nada</b> mientras dure la guía.</p>' },
+      { key: 'abrir', title: 'Abrí “Asistencia”', t: ['#btnAsistencia'], opener: { label: 'Abrirla por mí', sel: '#btnAsistencia', done: asisModalOpen },
+        body: '<p>Es el botón <b>📋 Asistencia</b> del menú superior. Desde ahí se toma lista de un <b>entrenamiento</b> o de un <b>partido</b>.</p>' },
+      { key: 'tipo', title: '1. ¿Entrenamiento o partido?', t: ['.asist2-tipo-opciones'], modal: { vis: asisModalOpen, open: '#btnAsistencia' }, prep: () => asisBack(),
+        body: '<p>Elegí qué vas a registrar. Después, en los reportes, vas a poder ver la asistencia de entrenamientos y de partidos por separado.</p>' },
+      { key: 'fecha', title: '2. Fecha', t: ['#asistFecha'], modal: { vis: asisModalOpen, open: '#btnAsistencia' }, prep: () => asisBack(),
+        body: '<p>Por defecto es hoy. Si te olvidaste de cargar un día anterior, cambiala acá y registrás la asistencia de esa fecha.</p>' },
+      { key: 'actividad', title: '3. Actividad', t: ['#asistActividad', '#asistActividadAdicional'], modal: { vis: asisModalOpen, open: '#btnAsistencia' }, prep: () => asisBack(),
+        body: '<p>Elegí la <b>actividad</b> (Fútbol, Hockey, etc.). Si el chico también hace una <b>actividad adicional</b>, podés sumarla para que aparezca en la lista.</p>' },
+      { key: 'categoria', title: '4. Categoría', t: ['#asistCategoria', '#asistCategoriasAdicionalesWrap'], modal: { vis: asisModalOpen, open: '#btnAsistencia' }, prep: () => asisBack(),
+        body: '<p>Se habilita al elegir la actividad. Define <b>a quién se convoca</b>. Si hay chicos que entrenan con más de una categoría, tildalas en <b>Categorías adicionales</b>.</p>' },
+      { key: 'anio', title: '5. Año de nacimiento (opcional)', t: ['#asistAnioNacimiento', '#asistAnioAdicionalInput'], modal: { vis: asisModalOpen, open: '#btnAsistencia' }, prep: () => asisBack(),
+        body: '<p>Sirve para filtrar por camada (por ejemplo solo los nacidos en 2012). Si lo dejás vacío se convoca a toda la categoría.</p>' },
+      { key: 'buscar', title: '6. Buscar socios', t: ['#btnAsistBuscarSocios'], modal: { vis: asisModalOpen, open: '#btnAsistencia' }, prep: () => asisBack(),
+        extra: { label: '▶ Buscar socios', sel: '#btnAsistBuscarSocios', show: () => asisModalOpen() && !asisPane2() },
+        body: '<p>Con los datos listos, tocá <b>Buscar socios ▶</b>. Te lleva al paso 2 con todos los convocados. Podés usar el botón de abajo para probarlo ahora.</p>' },
+      { key: 'convocados', title: '7. Marcá quién vino', t: ['#asistListaConvocados'], modal: { vis: asisModalOpen, open: '#btnAsistencia' },
+        warn: () => (asisPane2() ? '' : 'Esta parte aparece en el paso 2. Completá los datos y tocá <b>Buscar socios ▶</b> (o usá el botón de abajo).'),
+        extra: { label: '▶ Buscar socios', sel: '#btnAsistBuscarSocios', show: () => asisModalOpen() && !asisPane2() },
+        body: '<p><b>Tocá la tarjeta</b> de cada socio que estuvo presente: se marca en verde. Si te equivocás, tocala de nuevo.</p>' },
+      { key: 'herramientas', title: '8. Herramientas de la lista', t: ['#asistBuscarConvocado', '#btnAsistVista', '#btnAsistTodos', '#btnAsistNinguno'], modal: { vis: asisModalOpen, open: '#btnAsistencia' },
+        warn: () => (asisPane2() ? '' : 'Esta parte aparece en el paso 2. Tocá <b>Buscar socios ▶</b> en la ventana.'),
+        extra: { label: '▶ Buscar socios', sel: '#btnAsistBuscarSocios', show: () => asisModalOpen() && !asisPane2() },
+        body: '<ul><li><b>Buscador</b>: encontrá a un socio por nombre.</li><li><b>Grilla / Lista</b>: con fotos o más compacta.</li><li><b>Todos presentes</b> / <b>Ninguno</b>: marcás todo de una vez y corregís solo las ausencias.</li></ul>' },
+      { key: 'invitados', title: '9. Invitados', t: ['#asistInvitadosWrap'], modal: { vis: asisModalOpen, open: '#btnAsistencia' },
+        warn: () => (asisPane2() ? '' : 'Esta parte aparece en el paso 2. Tocá <b>Buscar socios ▶</b> en la ventana.'),
+        extra: { label: '▶ Buscar socios', sel: '#btnAsistBuscarSocios', show: () => asisModalOpen() && !asisPane2() },
+        body: '<p>Si vino un chico que <b>no figura en la lista</b> (de otra categoría o que probó ese día), buscalo acá y se suma como invitado.</p>' },
+      { key: 'guardar', title: '10. Guardar', t: ['#btnAsistGuardar'], modal: { vis: asisModalOpen, open: '#btnAsistencia' },
+        warn: () => (asisPane2() ? '' : 'Este botón aparece en el paso 2. Tocá <b>Buscar socios ▶</b> en la ventana.'),
+        body: '<p>Cuando termines tocá <b>Guardar asistencia</b>. Se guardan los presentes y los ausentes. <b>En esta guía no lo toco</b>: si estás practicando, cerrá la ventana sin guardar.</p>' },
+      { key: 'reporte', title: '11. Ver reporte', t: ['#btnAsistVerReporte'], modal: { vis: asisModalOpen, open: '#btnAsistencia' },
+        body: '<p><b>📊 Ver reporte</b> muestra cuánto asistió cada socio, por actividad y categoría, en el período que elijas.</p>' },
+      { key: 'fin', icon: '🎉', title: '¡Listo!', type: 'fin',
+        body: '<p>Ya sabés tomar asistencia: <b>Datos → Buscar socios → marcar presentes → Guardar</b>.</p><p>Podés repetir esta guía cuando quieras desde el ❓.</p>' }
+    ],
+    onFinish: () => { if (asisModalOpen()) { const c = $q('#btnAsistCancelarDatos'); if (c) c.click(); } }
+  };
+  function asisBack() { if (asisPane2()) { const b = $q('#btnAsistVolverDatos'); if (b) b.click(); } }
+
+  const TN = { nav: 'tienda', navSel: '#tienda-section' };
+  const ventaOpen = () => vis($q('#modalVentaManualOverlay'));
+  const G_TIENDA = {
+    id: 'tienda', icon: '🛒', name: 'Tienda', title: 'Armar mi tienda', kicker: 'Guía en pantalla · Tienda Online',
+    desc: 'Cargá tus productos (con talles y fotos), gestioná las reservas de los socios, cargá ventas en mostrador y controlá los pagos. Te marco cada parte en pantalla.',
+    can: () => canTienda(),
+    steps: [
+      { key: 'intro', icon: '🛒', title: 'Tu tienda, paso a paso', type: 'intro',
+        body: '<p>Los socios ven tus productos en la app (menú <b>Más → Tienda</b>), los <b>reservan</b> y vos los gestionás desde el panel. <b>El pago es en el club</b>, no hay cobro online.</p><ul><li>Cargar productos (foto, precio, stock, talles)</li><li>Aceptar o rechazar reservas</li><li>Venta manual en mostrador</li><li>Controlar pagos y retiros</li></ul><p>No guardo nada por vos: la guía solo te marca dónde tocar.</p>' },
+      { key: 'ir', title: 'Entrá a “Tienda”', t: ['[data-section="tienda"]'], nav: 'tienda',
+        body: '<p>Está en el menú superior (🛒 <b>Tienda</b>); solo les aparece a los clubes que la tienen habilitada. Ya te llevé a esa pantalla.</p>' },
+      { key: 'nombre', title: '1. Nombre y descripción', t: ['#tiendaNombre', '#tiendaDescripcion'], nav: 'tienda',
+        body: '<p>Poné un nombre claro y, en la descripción, lo que el socio necesita saber: colores, condición, medidas.</p>' },
+      { key: 'precio', title: '2. Precio y stock', t: ['#tiendaPrecio', '#tiendaStockWrap'], nav: 'tienda',
+        body: '<p>El <b>precio</b> es por unidad. El <b>stock</b> es cuántas unidades tenés. Se descuenta recién cuando <b>aceptás</b> una reserva, no cuando el socio la hace.</p>' },
+      { key: 'talles', title: '3. ¿Se vende por talle?', t: ['label:has(#tiendaTieneTalles)', '#tiendaTallesWrap'], nav: 'tienda',
+        body: '<p>Para ropa o calzado tildá esta opción: cargás cada <b>talle con su propio stock</b> (S, M, L / 38, 39…) y el total se calcula solo. En la app los talles sin stock se ven tachados.</p>' },
+      { key: 'tipo', title: '4. Tipo de producto', t: ['#tiendaCategoria'], nav: 'tienda',
+        body: '<p>Sirve para ordenar y para filtrar ventas e ingresos por rubro (indumentaria, bebidas…). Los tipos se crean en <b>Configuración</b>, debajo de “Cuentas $”. Si no cargaste ninguno, dejalo en “Sin tipificar”.</p>' },
+      { key: 'fotos', title: '5. Fotos (hasta 3)', t: ['#tiendaImagen', '#tiendaImagen2', '#tiendaImagen3'], nav: 'tienda',
+        body: '<p>La primera es la principal. Hasta 3 MB cada una (JPG, PNG o WEBP). En la app se ven deslizando, como un carrete.</p>' },
+      { key: 'preview', title: '6. Vista previa', t: ['.tw-preview-phone'], nav: 'tienda',
+        body: '<p>A la derecha ves aproximadamente cómo lo va a ver el socio en su celular mientras completás el formulario.</p>' },
+      { key: 'publicar', title: '7. Publicar', t: ['#btnTiendaGuardar'], nav: 'tienda',
+        body: '<p>Cuando esté listo tocá <b>Publicar producto</b>. Queda visible en la app al instante. <b>Yo no lo toco</b>: lo hacés vos.</p>' },
+      { key: 'lista', title: '8. Tus productos publicados', t: ['table:has(#tiendaTableBody)'], nav: 'tienda',
+        body: '<p>Desde acá <b>editás</b>, <b>desactivás</b> (deja de verse en la app sin perder el historial) o <b>eliminás</b>. Si el producto ya tuvo reservas, eliminar lo desactiva para no romper el historial.</p>' },
+      { key: 'pend', title: '9. Reservas de los socios', t: ['#tiendaReservasWrapper', '[data-section="pendientes"]'], nav: 'pendientes',
+        body: '<p>Cada reserva llega a <b>Pendientes → Reservas de tienda</b>. Las que vienen del carrito se gestionan <b>juntas como un pedido</b>.</p><ul><li><b>Aceptar</b>: descuenta el stock y le avisa al socio por notificación (podés dejarle un mensaje, ej. “retirá el viernes”).</li><li><b>Rechazar</b>: no toca el stock y le avisa el motivo.</li><li><b>Marcar retirado</b>: cuando se lo llevó. Si falta pagar, te pide confirmar y queda como deuda.</li></ul>' },
+      { key: 'manual', title: '10. Venta manual (mostrador)', t: ['#btnVentaManualAbrir'], nav: 'tienda',
+        opener: { label: 'Abrir el formulario', sel: '#btnVentaManualAbrir', done: ventaOpen },
+        body: '<p>Para quien compra en el club sin usar la app. Tocá <b>➕ Cargar venta manual</b>.</p>' },
+      { key: 'manual2', title: 'Completá la venta manual', t: ['#ventaManualSocioBusqueda', '#ventaManualProducto', '#ventaManualEstadoPago', '#ventaManualRetirado'], modal: { vis: ventaOpen, open: '#btnVentaManualAbrir' }, nav: 'tienda',
+        body: '<ul><li>Buscá al <b>socio</b> (o tildá “No socio” para una visita).</li><li>Elegí <b>producto</b> y <b>talle</b>, cantidad y precio.</li><li><b>Estado de pago</b>: falta de pago, seña o pago completo (si cobrás, elegís la cuenta y se registra el ingreso).</li><li><b>Ya retirado</b>: tildalo si se lo llevó en el momento.</li></ul><p>Yo no guardo: cerrá con <b>Cancelar</b> si solo estás mirando.</p>' },
+      { key: 'historial', title: '11. Historial de ventas y pagos', t: ['table:has(#tiendaHistorialVentasBody)'], nav: 'tienda', cleanup: () => { if (ventaOpen()) { const c = $q('#ventaManualCancel'); if (c) c.click(); } },
+        body: '<p>Todas las ventas, de la app y manuales. En <b>Estado de pago</b> podés registrar un cobro posterior (seña o saldo): ahí se genera el ingreso en tus cuentas.</p><p>Podés buscar por socio o producto y filtrar por tipo.</p>' },
+      { key: 'fin', icon: '🎉', title: '¡Tu tienda está lista!', type: 'fin',
+        body: '<p>Resumen: <b>publicás → el socio reserva → aceptás → retira y paga → queda en el historial</b>.</p><p>Podés repetir esta guía cuando quieras desde el ❓.</p>' }
+    ],
+    onFinish: () => { if (ventaOpen()) { const c = $q('#ventaManualCancel'); if (c) c.click(); } }
+  };
+  const GUIDES = [G_ASIS, G_TIENDA];
+  const gById = (id) => GUIDES.find((g) => g.id === id);
+  const CP = {};   // progreso por guía
+  const C = { open: false, g: null, idx: 0, sig: '', navKey: '' };
+  const gWork = (g) => g.steps.filter((s) => s.type !== 'intro' && s.type !== 'fin');
+  const gDone = (g) => { const p = CP[g.id]; return p ? gWork(g).filter((s) => p.pasos[s.key]).length : 0; };
+  const gProg = (g) => CP[g.id] || { paso_actual: null, pasos: {}, completado: false };
+  const lsG = (g) => `ayuda_${clubId()}_${g.id}`;
   let coachEl, coachIv;
 
   async function loadCoach() {
-    if (C.loaded === clubId()) return;
-    let p = null;
-    try { p = (await api(`/ayuda/progreso/${COACH_GUIA}`)).progreso; }
-    catch { try { p = JSON.parse(localStorage.getItem(clsKey()) || 'null'); } catch { p = null; } }
-    C.prog = { paso_actual: p?.paso_actual || null, pasos: p?.pasos || {}, completado: !!p?.completado };
-    C.loaded = clubId();
+    for (const g of GUIDES) {
+      const k = clubId();
+      if (CP[g.id] && CP[g.id].club === k) continue;
+      let p = null;
+      try { p = (await api(`/ayuda/progreso/${g.id}`)).progreso; }
+      catch { try { p = JSON.parse(localStorage.getItem(lsG(g)) || 'null'); } catch { p = null; } }
+      CP[g.id] = { club: k, paso_actual: p?.paso_actual || null, pasos: p?.pasos || {}, completado: !!p?.completado };
+    }
   }
-  async function saveCoach() {
-    const body = { paso_actual: C.prog.paso_actual, pasos: C.prog.pasos, respuestas: {}, completado: C.prog.completado };
-    try { await api(`/ayuda/progreso/${COACH_GUIA}`, { method: 'PUT', body }); }
-    catch { try { localStorage.setItem(clsKey(), JSON.stringify(body)); } catch {} }
+  async function saveCoach(g) {
+    const p = CP[g.id];
+    const body = { paso_actual: p.paso_actual, pasos: p.pasos, respuestas: {}, completado: p.completado };
+    try { await api(`/ayuda/progreso/${g.id}`, { method: 'PUT', body }); }
+    catch { try { localStorage.setItem(lsG(g), JSON.stringify(body)); } catch {} }
   }
   function injectCoachCss() {
     if (document.getElementById('ayudaCoachCss')) return;
     const st = document.createElement('style'); st.id = 'ayudaCoachCss'; st.textContent = COACH_CSS; document.head.appendChild(st);
   }
-  const $q = (sel) => document.querySelector(sel);
-  const modalOpen = () => { const m = $q('#modalAsistencia'); return !!m && !m.classList.contains('hidden'); };
-  const pane2 = () => { const e = $q('#asistenciaPasoSocios'); return !!e && e.style.display !== 'none' && modalOpen(); };
   const clearHl = () => document.querySelectorAll('.ay-hl').forEach((e) => e.classList.remove('ay-hl'));
 
-  async function coachStart() {
+  async function coachStart(id) {
+    const g = gById(id || 'asistencia'); if (!g) return;
     await loadCoach();
     injectCoachCss();
     if (!coachEl) { coachEl = document.createElement('div'); coachEl.id = 'ayudaCoach'; coachEl.addEventListener('click', coachClick); document.body.appendChild(coachEl); }
     close();
-    C.open = true;
-    const k = C.prog.completado ? 0 : Math.max(0, COACH.findIndex((s) => s.key === C.prog.paso_actual));
-    C.idx = k; C.sig = '';
+    C.open = true; C.g = g;
+    const p = CP[g.id];
+    C.idx = p.completado ? 0 : Math.max(0, g.steps.findIndex((s) => s.key === p.paso_actual));
+    C.sig = ''; C.navKey = '';
     coachRender();
     clearInterval(coachIv); coachIv = setInterval(coachTick, 600);
   }
   function coachStop() {
+    if (C.g && C.g.onFinish && C.open) { /* no cerrar modales al salir: el usuario decide */ }
     C.open = false; clearInterval(coachIv); clearHl();
     if (coachEl) coachEl.classList.remove('show');
   }
-  function coachSig() { const st = COACH[C.idx]; return [C.idx, modalOpen(), pane2(), st.type || ''].join('|'); }
-  function coachTick() { if (!C.open) return; const g = coachSig(); if (g !== C.sig) coachRender(); }
-
+  function coachSig() {
+    const st = C.g.steps[C.idx];
+    return [C.idx, vis($q((st.t || [])[0] || '#__none')), st.modal ? st.modal.vis() : '', asisPane2()].join('|');
+  }
+  function coachTick() { if (!C.open) return; if (coachSig() !== C.sig) coachRender(); }
   function coachGo(i) {
-    C.idx = Math.max(0, Math.min(COACH.length - 1, i));
-    C.prog.paso_actual = COACH[C.idx].key; coachRender(); saveCoach();
+    const g = C.g, prev = g.steps[C.idx];
+    if (prev && prev.cleanup) prev.cleanup();
+    C.idx = Math.max(0, Math.min(g.steps.length - 1, i));
+    CP[g.id].paso_actual = g.steps[C.idx].key; C.navKey = ''; coachRender(); saveCoach(g);
   }
   function coachRender() {
-    const st = COACH[C.idx]; C.sig = coachSig();
+    const g = C.g, st = g.steps[C.idx];
     clearHl();
-    let warn = '', acts = '';
-    const back = C.idx > 0 ? '<button class="ay-btn ghost" data-c="prev">← Atrás</button>' : '';
-    // asegurar el estado de la pantalla real
-    const needModal = !!(st.pane || st.modal);
-    if (needModal && !modalOpen()) { const b = $q('#btnAsistencia'); if (b) b.click(); }
-    if (st.pane === 1 && pane2()) { const b = $q('#btnAsistVolverDatos'); if (b) b.click(); }
-    const wrongPane2 = st.pane === 2 && !pane2();
-    if (wrongPane2) warn = '<div class="co-warn">Esta parte aparece en el paso 2. Completá los datos y tocá <b>Buscar socios ▶</b> (o usá el botón de abajo).</div>';
-    if (st.need === 'closed' && modalOpen()) warn = '<div class="co-warn">✔ La ventana ya está abierta. Seguí al próximo paso.</div>';
-
-    let body = st.body || '';
-    if (st.type === 'intro') {
-      body = '<p>Te voy a guiar sobre la <b>pantalla real</b>: se abre la ventana de asistencia y te marco cada campo con un resaltado naranja.</p><ul><li>Datos del evento (tipo, fecha, actividad, categoría)</li><li>Marcar presentes, invitados</li><li>Guardar y ver el reporte</li></ul><p><b>No se guarda nada</b> mientras dure la guía.</p>';
-    } else if (st.type === 'fin') {
-      body = '<p>Ya sabés tomar asistencia: <b>Datos → Buscar socios → marcar presentes → Guardar</b>.</p><p>Podés repetir esta guía cuando quieras desde el ❓.</p>';
-      acts = '<button class="ay-btn primary" data-c="finish">Terminar</button>';
+    // 1) dejar la pantalla real en el estado que pide el paso
+    const key = g.id + ':' + C.idx;
+    if (st.nav && C.navKey !== key) {
+      C.navKey = key;
+      const first = $q((st.t || [])[0] || '#__none');
+      const nb = document.querySelector(`[data-section="${st.nav}"]`);
+      if (nb && st.key !== 'ir' && !(first && vis(first))) nb.click();
+      else if (nb && st.key === 'ir') nb.click();
     }
-    if (st.act && st.act.includes('open') && !modalOpen()) acts += '<button class="ay-btn" data-c="open">Abrirla por mí</button>';
-    if ((st.act && st.act.includes('buscar') || wrongPane2) && !pane2() && modalOpen()) acts += '<button class="ay-btn" data-c="buscar">▶ Buscar socios</button>';
-    if (needModal && !modalOpen()) acts += '<button class="ay-btn" data-c="open">Reabrir Asistencia</button>';
-
-    const tot = COACH.length;
-    const dots = `<div class="ay-steps">${COACH.map((s, i) => `<i class="${C.prog.pasos[s.key] || i < C.idx ? 'done' : ''} ${i === C.idx ? 'cur' : ''}"></i>`).join('')}</div>`;
+    if (st.modal && !st.modal.vis()) { const b = $q(st.modal.open); if (b && vis(b)) b.click(); }
+    if (st.prep) st.prep();
+    C.sig = coachSig();
+    // 2) tarjeta
+    let acts = '';
+    const back = C.idx > 0 ? '<button class="ay-btn ghost" data-c="prev">← Atrás</button>' : '';
+    let warn = st.warn ? st.warn() : '';
+    if (st.opener) { if (!st.opener.done()) acts += `<button class="ay-btn" data-c="opener">${esc(st.opener.label)}</button>`; else warn = '✔ Ya está abierta. Seguí al próximo paso.'; }
+    if (st.extra && st.extra.show()) acts += `<button class="ay-btn" data-c="extra">${esc(st.extra.label)}</button>`;
+    if (st.modal && !st.modal.vis()) acts += `<button class="ay-btn" data-c="reopen">Reabrir ventana</button>`;
+    if (st.type === 'fin') acts += '<button class="ay-btn primary" data-c="finish">Terminar</button>';
+    const tot = g.steps.length;
+    const p = CP[g.id];
+    const dots = `<div class="ay-steps">${g.steps.map((s, i) => `<i class="${p.pasos[s.key] || i < C.idx ? 'done' : ''} ${i === C.idx ? 'cur' : ''}"></i>`).join('')}</div>`;
     const nav = st.type === 'fin' ? '' : `<span class="ay-sp"></span><button class="ay-btn primary" data-c="next">${st.type === 'intro' ? 'Empezar' : 'Siguiente'} →</button>`;
-    coachEl.innerHTML = `<div class="co-top"><div class="ay-kicker">Asistencia · ${C.idx + 1} de ${tot}</div><button class="co-x" data-c="exit" title="Salir de la guía" aria-label="Salir">✕</button></div>${dots}
-      <div class="co-t">${st.icon ? st.icon + ' ' : ''}${esc(st.title)}</div><div class="co-b">${body}</div>${warn}
+    coachEl.innerHTML = `<div class="co-top"><div class="ay-kicker">${esc(g.name)} · ${C.idx + 1} de ${tot}</div><button class="co-x" data-c="exit" title="Salir de la guía" aria-label="Salir">✕</button></div>${dots}
+      <div class="co-t">${st.icon ? st.icon + ' ' : ''}${esc(st.title)}</div><div class="co-b">${st.body || ''}</div>${warn ? `<div class="co-warn">${warn}</div>` : ''}
       <div class="co-act">${back}${acts}${nav}</div>`;
     coachEl.classList.add('show');
-    // resaltar
+    // 3) resaltar
     let first = null;
-    (st.t || []).forEach((sel) => { const e = $q(sel); if (e && e.offsetParent !== null) { e.classList.add('ay-hl'); first = first || e; } });
+    (st.t || []).forEach((sel) => { let e = null; try { e = $q(sel); } catch {} if (e && vis(e)) { e.classList.add('ay-hl'); first = first || e; } });
     if (first) { try { first.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch {} }
   }
   async function coachClick(e) {
     const t = e.target.closest('[data-c]'); if (!t) return;
-    const a = t.dataset.c, st = COACH[C.idx];
+    const a = t.dataset.c, g = C.g, st = g.steps[C.idx];
     if (a === 'exit') return coachStop();
     if (a === 'prev') return coachGo(C.idx - 1);
-    if (a === 'next') { if (st.type !== 'intro') C.prog.pasos[st.key] = 'hecho'; return coachGo(C.idx + 1); }
-    if (a === 'open') { const b = $q('#btnAsistencia'); if (b) b.click(); setTimeout(coachRender, 350); return; }
-    if (a === 'buscar') { const b = $q('#btnAsistBuscarSocios'); if (b) b.click(); setTimeout(coachRender, 900); return; }
-    if (a === 'finish') { C.prog.completado = true; await saveCoach(); coachStop(); const x = $q('#modalAsistencia'); if (x && !x.classList.contains('hidden')) { const c = $q('#btnAsistCancelarDatos'); if (c) c.click(); } }
+    if (a === 'next') { if (st.type !== 'intro') CP[g.id].pasos[st.key] = 'hecho'; return coachGo(C.idx + 1); }
+    if (a === 'opener') { const b = $q(st.opener.sel); if (b) b.click(); setTimeout(coachRender, 400); return; }
+    if (a === 'extra') { const b = $q(st.extra.sel); if (b) b.click(); setTimeout(coachRender, 900); return; }
+    if (a === 'reopen') { const b = $q(st.modal.open); if (b) b.click(); setTimeout(coachRender, 400); return; }
+    if (a === 'finish') { CP[g.id].completado = true; await saveCoach(g); if (g.onFinish) g.onFinish(); coachStop(); }
   }
 
   /* ---------- arranque ---------- */
@@ -587,7 +664,7 @@
 
   function init() {
     const perms = window.__clubPerms;
-    if (!perms || !perms.canWrite || !(canCfg() || canAsis())) return false;
+    if (!perms || !perms.canWrite || !(canCfg() || canAsis() || canTienda())) return false;
     if (!fab) build();
     loadProg().then(() => { updateFab(); setTimeout(maybeNudge, 1800); });
     return true;
@@ -596,5 +673,5 @@
   const iv = setInterval(() => { if (init() || ++tries > 40) clearInterval(iv); }, 500);
   // si cambia de club (superadmin) se vuelve a leer el avance
   window.addEventListener('storage', () => { S.loadedFor = null; });
-  window.AyudaTSMC = { open: openHome, close, coach: () => coachStart() };
+  window.AyudaTSMC = { open: openHome, close, coach: (id) => coachStart(id) };
 })();
