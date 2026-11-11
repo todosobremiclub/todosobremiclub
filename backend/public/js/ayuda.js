@@ -587,7 +587,60 @@
     ],
     onFinish: () => setDestino('todos')
   };
-  const GUIDES = [G_ASIS, G_TIENDA, G_NOTI];
+  /* ---- Guía: Entender los reportes ---- */
+  const canRep = () => { const p = window.__clubPerms; const r = window.__clubRole; return !!(p && p.canAccess && p.canAccess('reportes')) && r !== 'asistencias' && r !== 'profesor'; };
+  const repView = (mode) => () => {
+    const btn = $q(mode === 'socios' ? '#btnSwitchSocios' : '#btnSwitchFinanzas');
+    const card = $q(mode === 'socios' ? '#card-nuevos' : '#card-ingresos');
+    if (btn && card && !vis(card)) btn.click();
+  };
+  const RF = { nav: 'reportes', navSec: '#reportes-section', prep: repView('finanzas') };
+  const RS = { nav: 'reportes', navSec: '#reportes-section', prep: repView('socios') };
+  const G_REP = {
+    id: 'reportes', icon: '📊', name: 'Reportes', title: 'Entender los reportes', kicker: 'Guía en pantalla · Reportes',
+    desc: 'Un recorrido por cada tablero de Finanzas y de Socios: qué muestra, cómo leerlo y cómo bajar el detalle.',
+    can: () => canRep(),
+    steps: [
+      { key: 'intro', icon: '📊', title: 'Tus reportes, explicados', type: 'intro',
+        body: '<p>El Dashboard tiene dos vistas: <b>💰 Finanzas</b> (plata) y <b>👥 Socios</b> (personas). Te llevo por cada tablero y te marco dónde mirar.</p><ul><li>Casi todos se mueven por mes con <b>◀ ▶</b></li><li>El botón <b>⬇</b> descarga el detalle</li><li>Muchos números se pueden <b>tocar</b> para ver el detalle</li></ul><p>Solo se mira y se explora: la guía no cambia ningún dato.</p>' },
+      { key: 'ir', title: 'Entrá a “Reportes”', t: ['[data-section="reportes"]'], nav: 'reportes',
+        body: '<p>Está en el menú superior (📊 <b>Reportes</b>). Ya te llevé a esa pantalla.</p>' },
+      { key: 'switch', title: 'Finanzas o Socios', t: ['#reportesSwitch'], ...RF,
+        body: '<p>Con estos dos botones cambiás de vista. Empezamos por <b>💰 Finanzas</b>; después pasamos a <b>👥 Socios</b>.</p>' },
+      { key: 'ig', title: 'Ingresos vs Gastos', t: ['#card-ingresos'], ...RF,
+        body: '<p>La foto general del mes y del año:</p><ul><li><b>Ingresos</b>: todo lo que entró.</li><li><b>Gastos</b>: todo lo que salió.</li><li><b>Resultado</b>: la diferencia entre ambos. Si es negativo, gastaste más de lo que ingresó.</li></ul><p>Cambiá de mes con ◀ ▶ y descargá un rango de fechas con ⬇.</p>' },
+      { key: 'ranking', title: 'Ranking de ingresos y gastos', t: ['#card-ranking'], ...RF,
+        body: '<p>Ordena el mes por <b>tipo</b> (por ejemplo cuotas, tienda, alquiler de cancha / luz, sueldos). Sirve para ver <b>de dónde viene</b> la plata y <b>en qué se va</b>. Tocá un tipo para ver sus movimientos.</p>' },
+      { key: 'cuentas', title: 'Ingresos / Gastos por responsable', t: ['#card-cuentas'], ...RF,
+        body: '<p>Resumen del mes por <b>responsable (cuenta)</b>: caja, banco, Mercado Pago, etc. Te dice <b>dónde está</b> la plata que cobraste y <b>desde dónde</b> se pagó cada gasto.</p>' },
+      { key: 'porsocio', title: 'Ingresos por socio', t: ['#igSocioBuscar', '#igSocioAnio'], ...RF,
+        body: '<p>Buscá un socio por nombre, DNI o número y mirá <b>todo lo que pagó en el año</b>: cuotas, compras de tienda y otros ingresos. Cambiá el año con el desplegable.</p>' },
+      { key: 'resp', title: 'Ingresos vs Gastos por responsable', t: ['#card-ig-responsable'], ...RF,
+        body: '<p>Lo mismo que el comparativo general, pero <b>abierto por cuenta</b>: te muestra el saldo mensual de cada responsable.</p>' },
+      { key: 'dia', title: 'Ingresos y Gastos por día', t: ['#card-ig-dia'], ...RF,
+        body: '<p>Tocá el título (la flechita ▶) para desplegarlo: muestra día por día cuánto entró y cuánto salió. Útil para <b>cuadrar la caja</b>.</p>' },
+      { key: 'evr', title: 'Esperado vs Recaudado', t: ['#card-esperado-final'], ...RF,
+        body: '<p>Compara <b>lo que correspondía cobrar</b> en el mes con <b>lo que realmente se cobró</b>.</p><ul><li><b>Diferencia en rojo</b>: te falta cobrar.</li><li><b>En verde</b>: llegaste o superaste lo esperado.</li></ul><p>Con la flechita ▶ ves el detalle por actividad.</p>' },
+      { key: 'nuevos', title: 'Socios nuevos por mes', t: ['#card-nuevos'], ...RS,
+        body: '<p>Pasamos a la vista <b>👥 Socios</b>. Acá ves las <b>altas del mes</b>. Cambiá de mes con ◀ ▶ y tocá el detalle para ver quiénes son.</p>' },
+      { key: 'impagos', title: 'Cuotas impagas', t: ['#card-impagos'], ...RS,
+        extra: { label: 'Ver el detalle de socios', sel: '#impagosCount', show: () => true },
+        cleanup: () => { const c = $q('#impagosModalClose'); if (c && vis($q('#impagosModal'))) c.click(); },
+        body: '<p>La <b>morosidad del mes</b>: cuántos socios activos no pagaron. <b>Tocá el número</b> para abrir el listado, filtrarlo por actividad y categoría, y ver el monto adeudado. Con ⬇ lo descargás para llamar o avisar por WhatsApp.</p>' },
+      { key: 'actividades', title: 'Socios por actividad / categoría', t: ['#card-actividades'], ...RS,
+        body: '<p>Un gráfico con cuántos socios tiene cada <b>actividad</b>. Tocá una barra para bajar a sus <b>categorías</b>, y usá el botón <b>Adicionales</b> para ver las actividades adicionales. ⬇ descarga el listado.</p>' },
+      { key: 'logueados', title: 'Socios logueados en la app', t: ['#card-logueados'], ...RS,
+        body: '<p>Cuántos socios <b>entraron al menos una vez</b> a la app. Tocá el número para ver quiénes son y, por descarte, a quiénes todavía hay que invitar a instalarla.</p>' },
+      { key: 'asis', title: 'Asistencia: elegí qué mirar', t: ['#asistReporteActividad', '#asistReporteActividadAdicional', '#asistReporteCategoria', '#asistReporteAnioNacimiento'], ...RS,
+        body: '<p>Elegí <b>actividad</b> y <b>categoría</b> (y opcionalmente el año de nacimiento). Aparece una tabla <b>Socios × Fechas</b> del mes con quién fue presente a cada entrenamiento o partido. Cambiá de mes con ◀ ▶ y filtrá Entrenamientos / Partidos.</p><p>Tocá la <b>fecha</b> del encabezado para ver el detalle de ese día.</p>' },
+      { key: 'asis2', title: 'Historial de asistencia por socio', t: ['#asistReporteBuscarSocio', '#btnAsistReporteBuscarSocio'], ...RS,
+        body: '<p>Buscá a un socio por nombre, apellido, DNI o número y mirá <b>todas sus asistencias</b>. Ideal para charlar con una familia.</p>' },
+      { key: 'fin', icon: '🎉', title: '¡Listo!', type: 'fin',
+        body: '<p>Para recordar: <b>Finanzas</b> te dice cómo está la plata, <b>Socios</b> cómo está la gente. Usá ◀ ▶ para cambiar de mes y ⬇ para exportar.</p><p>Podés repetir esta guía cuando quieras desde el ❓.</p>' }
+    ],
+    onFinish: () => { const c = $q('#impagosModalClose'); if (c && vis($q('#impagosModal'))) c.click(); }
+  };
+  const GUIDES = [G_ASIS, G_TIENDA, G_NOTI, G_REP];
   const gById = (id) => GUIDES.find((g) => g.id === id);
   const CP = {};   // progreso por guía
   const C = { open: false, g: null, idx: 0, sig: '', navKey: '' };
@@ -657,7 +710,8 @@
       C.navKey = key;
       const first = $q((st.t || [])[0] || '#__none');
       const nb = document.querySelector(`[data-section="${st.nav}"]`);
-      if (nb && st.key !== 'ir' && !(first && vis(first))) nb.click();
+      const inSec = st.navSec && vis($q(st.navSec));
+      if (nb && st.key !== 'ir' && !inSec && !(first && vis(first))) nb.click();
       else if (nb && st.key === 'ir') nb.click();
     }
     if (st.modal && !st.modal.vis()) { const b = $q(st.modal.open); if (b && vis(b)) b.click(); }
@@ -722,7 +776,7 @@
 
   function init() {
     const perms = window.__clubPerms;
-    if (!perms || !perms.canWrite || !(canCfg() || canAsis() || canTienda() || canNoti())) return false;
+    if (!perms || !perms.canWrite || !(canCfg() || canAsis() || canTienda() || canNoti() || canRep())) return false;
     if (!fab) build();
     loadProg().then(() => { updateFab(); setTimeout(maybeNudge, 1800); });
     return true;
