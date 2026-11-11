@@ -1206,4 +1206,72 @@ router.delete('/:clubId/config/tienda-categorias/:id', requireAuth, requireClubA
   }
 });
 
+/* ============================================================
+ AYUDA — avance del asistente "Configuración inicial" (y otras guías)
+ GET /club/:clubId/ayuda/progreso/:guia
+ PUT /club/:clubId/ayuda/progreso/:guia
+ Tabla: ayuda_progreso (migración 2026-11-11_ayuda_progreso.sql).
+ Si la tabla no existe, GET devuelve progreso null y el panel
+ guarda el avance en el navegador.
+============================================================ */
+const GUIA_AYUDA_RE = /^[a-z0-9_]{1,40}$/;
+
+function sanitizarMapaAyuda(obj) {
+  const out = {};
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return out;
+  for (const k of Object.keys(obj).slice(0, 40)) {
+    if (!/^[a-z0-9_]{1,40}$/.test(k)) continue;
+    const v = obj[k];
+    if (typeof v === 'string' && v.length <= 20) out[k] = v;
+  }
+  return out;
+}
+
+router.get('/:clubId/ayuda/progreso/:guia', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, guia } = req.params;
+  if (!GUIA_AYUDA_RE.test(guia)) return res.status(400).json({ ok: false, error: 'Guía inválida' });
+  try {
+    const r = await db.query(
+      `SELECT paso_actual, pasos, respuestas, completado, updated_at
+       FROM ayuda_progreso
+       WHERE club_id = $1 AND guia = $2`,
+      [clubId, guia]
+    );
+    res.json({ ok: true, progreso: r.rows[0] ?? null });
+  } catch (e) {
+    if (isMissingRelation(e)) return res.json({ ok: true, progreso: null });
+    console.error('❌ get ayuda progreso', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+router.put('/:clubId/ayuda/progreso/:guia', requireAuth, requireClubAccess, async (req, res) => {
+  const { clubId, guia } = req.params;
+  if (!GUIA_AYUDA_RE.test(guia)) return res.status(400).json({ ok: false, error: 'Guía inválida' });
+  const b = req.body ?? {};
+  const paso = (typeof b.paso_actual === 'string' && /^[a-z0-9_]{1,40}$/.test(b.paso_actual)) ? b.paso_actual : null;
+  const pasos = sanitizarMapaAyuda(b.pasos);
+  const respuestas = sanitizarMapaAyuda(b.respuestas);
+  const completado = b.completado === true;
+  try {
+    const r = await db.query(
+      `INSERT INTO ayuda_progreso (club_id, guia, paso_actual, pasos, respuestas, completado, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, NOW())
+       ON CONFLICT (club_id, guia) DO UPDATE
+         SET paso_actual = EXCLUDED.paso_actual,
+             pasos       = EXCLUDED.pasos,
+             respuestas  = EXCLUDED.respuestas,
+             completado  = EXCLUDED.completado,
+             updated_at  = NOW()
+       RETURNING paso_actual, pasos, respuestas, completado, updated_at`,
+      [clubId, guia, paso, JSON.stringify(pasos), JSON.stringify(respuestas), completado]
+    );
+    res.json({ ok: true, progreso: r.rows[0] });
+  } catch (e) {
+    if (isMissingRelation(e)) return res.status(500).json({ ok: false, error: 'Falta tabla ayuda_progreso en la DB' });
+    console.error('❌ put ayuda progreso', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 module.exports = router;
