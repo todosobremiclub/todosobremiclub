@@ -427,7 +427,7 @@
      Progreso por guía en /ayuda/progreso/:guia.
   ========================================================= */
   const COACH_CSS = `
-.ay-hl{ outline:3px solid #f59e0b !important; outline-offset:3px; border-radius:10px; animation:ayHl 1.4s ease-in-out infinite; }
+.ay-hl{ scroll-margin-top:90px; outline:3px solid #f59e0b !important; outline-offset:3px; border-radius:10px; animation:ayHl 1.4s ease-in-out infinite; }
 @keyframes ayHl{ 0%,100%{ box-shadow:0 0 0 0 rgba(245,158,11,.55); } 50%{ box-shadow:0 0 0 9px rgba(245,158,11,0); } }
 #ayudaCoach{ position:fixed !important; left:22px !important; bottom:22px !important; right:auto !important; top:auto !important; z-index:2147483200 !important;
   width:min(370px,calc(100vw - 32px)); box-sizing:border-box; padding:14px 16px; border-radius:16px; display:none;
@@ -442,6 +442,9 @@
 #ayudaCoach .co-warn{ margin:8px 0 0; padding:8px 10px; border-radius:10px; font-size:13px; font-weight:600; background:rgba(245,158,11,.15); border:1px solid rgba(245,158,11,.5); }
 #ayudaCoach .co-act{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; } #ayudaCoach .co-act .ay-sp{ flex:1; }
 #ayudaCoach .ay-steps{ margin:6px 0 8px; }
+#ayudaCoach.co-br{ left:auto !important; right:22px !important; bottom:92px !important; }
+#ayudaCoach.co-tr{ left:auto !important; right:22px !important; bottom:auto !important; top:70px !important; }
+#ayudaCoach.co-tl{ bottom:auto !important; top:70px !important; }
 @media (max-width:640px){ #ayudaCoach{ left:16px !important; bottom:84px !important; } }
 `;
   const vis = (e) => { if (!e) return false; const cs = getComputedStyle(e); return cs.display !== 'none' && cs.visibility !== 'hidden' && (e.offsetParent !== null || cs.position === 'fixed'); };
@@ -538,7 +541,53 @@
     ],
     onFinish: () => { if (ventaOpen()) { const c = $q('#ventaManualCancel'); if (c) c.click(); } }
   };
-  const GUIDES = [G_ASIS, G_TIENDA];
+  /* ---- Guía: Publicar una noticia (con los destinos posibles) ---- */
+  const canNoti = () => { const p = window.__clubPerms; return !!(p && p.canWrite && p.canWrite('noticias')); };
+  const DESTINOS = [
+    ['todos', 'Todos los socios', 'La ven todos los socios del club. Ideal para avisos generales (feriados, cambios de horario, eventos).'],
+    ['actividad', 'Por Actividad', 'Solo la ven los socios de una actividad (por ejemplo Fútbol o Hockey). Elegís la actividad en el desplegable que aparece.'],
+    ['categoria', 'Por Categoría', 'Solo los socios de una categoría (por ejemplo Sub 12). Útil para convocatorias o avisos del plantel.'],
+    ['anio_nac', 'Por Año de nacimiento', 'Solo los nacidos en un año determinado (por ejemplo 2012). Sirve para camadas.'],
+    ['cat_anio', 'Categoría + Año', 'Combina categoría y año: llega únicamente a quienes cumplen las dos condiciones.'],
+    ['act_cat', 'Actividad + Categoría', 'Combina actividad y categoría: por ejemplo solo Hockey Sub 14.'],
+    ['falta_pago', 'En falta de pago', 'Solo la ven los socios con cuotas adeudadas. Perfecto para recordatorios de pago sin exponer a los demás.']
+  ];
+  const destSel = () => $q('#notiDestinoTipo');
+  const setDestino = (v) => { const el = destSel(); if (!el) return; el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
+  const destinoBody = () => {
+    const cur = (destSel() && destSel().value) || 'todos';
+    const d = DESTINOS.find((x) => x[0] === cur) || DESTINOS[0];
+    return `<p>Elegí a quién le llega. Tocá una opción para <b>verla en pantalla</b> (no se publica nada):</p>
+      <div class="ay-chips" style="margin:6px 0">${DESTINOS.map((x) => `<button type="button" class="ay-chip" data-c="dest" data-v="${x[0]}" style="${x[0] === cur ? 'border-style:solid;border-color:var(--a,#2563eb);font-weight:800' : ''}">${esc(x[1])}</button>`).join('')}</div>
+      <p style="margin:6px 0 0"><b>${esc(d[1])}:</b> ${esc(d[2])}</p>`;
+  };
+  const G_NOTI = {
+    id: 'noticias', icon: '📣', name: 'Noticias', title: 'Publicar una noticia', kicker: 'Guía en pantalla · Noticias',
+    desc: 'Escribí tu noticia, sumale una imagen y elegí a quién le llega: todos los socios, una actividad, una categoría, un año o los que están en falta de pago.',
+    can: () => canNoti(),
+    steps: [
+      { key: 'intro', icon: '📣', title: 'Publicá una noticia', type: 'intro',
+        body: '<p>Las noticias se ven en la sección <b>Noticias</b> de la app de tus socios. Vas a poder elegir <b>quiénes la ven</b>: todos o solo un grupo.</p><ul><li>Título, texto e imagen</li><li>Destino (a quién le llega)</li><li>Vista previa y publicar</li><li>Editar o borrar publicadas</li></ul><p>Yo solo te marco dónde tocar: <b>no publico nada</b>.</p>' },
+      { key: 'ir', title: 'Entrá a “Noticias”', t: ['[data-section="noticias"]'], nav: 'noticias',
+        body: '<p>Está en el menú superior (📣 <b>Noticias</b>). Ya te llevé a esa pantalla.</p>' },
+      { key: 'texto', title: '1. Título y texto', t: ['#notiTitulo', '#notiTexto'], nav: 'noticias',
+        body: '<p>Un título corto y claro, y el texto con lo importante primero (qué, cuándo, dónde). Los dos son obligatorios.</p>' },
+      { key: 'imagen', title: '2. Imagen (opcional)', t: ['#notiImagen'], nav: 'noticias',
+        body: '<p>Una foto o flyer ayuda a que la lean. Hasta 3 MB, en JPG, PNG o WEBP. Podés quitarla con “✖ Quitar”.</p>' },
+      { key: 'destino', title: '3. Destino: ¿a quién le llega?', t: ['#notiDestinoTipo', '#notiDestinoExtra'], nav: 'noticias',
+        body: destinoBody, cleanup: () => setDestino('todos') },
+      { key: 'preview', title: '4. Vista previa', t: ['.nw-preview-phone'], nav: 'noticias',
+        body: '<p>Mientras escribís, a la derecha ves aproximadamente cómo la va a ver el socio en su celular.</p>' },
+      { key: 'publicar', title: '5. Publicar', t: ['#btnNoticiaPublicar'], nav: 'noticias',
+        body: '<p>Cuando esté lista tocá <b>📤 Publicar noticia</b>. Queda disponible en la app al instante para el destino elegido. <b>Yo no la publico</b>: lo hacés vos.</p>' },
+      { key: 'lista', title: '6. Noticias publicadas', t: ['table:has(#noticiasTableBody)'], nav: 'noticias',
+        body: '<p>Acá ves todas las que publicaste, con su <b>destino</b> en la columna correspondiente. Desde <b>Acciones</b> podés <b>editarlas</b> (cambiar texto o destino) o <b>eliminarlas</b>.</p>' },
+      { key: 'fin', icon: '🎉', title: '¡Listo!', type: 'fin',
+        body: '<p>Resumen: <b>título y texto → imagen → destino → publicar</b>.</p><p>Podés repetir esta guía cuando quieras desde el ❓.</p>' }
+    ],
+    onFinish: () => setDestino('todos')
+  };
+  const GUIDES = [G_ASIS, G_TIENDA, G_NOTI];
   const gById = (id) => GUIDES.find((g) => g.id === id);
   const CP = {};   // progreso por guía
   const C = { open: false, g: null, idx: 0, sig: '', navKey: '' };
@@ -627,13 +676,21 @@
     const dots = `<div class="ay-steps">${g.steps.map((s, i) => `<i class="${p.pasos[s.key] || i < C.idx ? 'done' : ''} ${i === C.idx ? 'cur' : ''}"></i>`).join('')}</div>`;
     const nav = st.type === 'fin' ? '' : `<span class="ay-sp"></span><button class="ay-btn primary" data-c="next">${st.type === 'intro' ? 'Empezar' : 'Siguiente'} →</button>`;
     coachEl.innerHTML = `<div class="co-top"><div class="ay-kicker">${esc(g.name)} · ${C.idx + 1} de ${tot}</div><button class="co-x" data-c="exit" title="Salir de la guía" aria-label="Salir">✕</button></div>${dots}
-      <div class="co-t">${st.icon ? st.icon + ' ' : ''}${esc(st.title)}</div><div class="co-b">${st.body || ''}</div>${warn ? `<div class="co-warn">${warn}</div>` : ''}
+      <div class="co-t">${st.icon ? st.icon + ' ' : ''}${esc(st.title)}</div><div class="co-b">${typeof st.body === 'function' ? st.body() : (st.body || '')}</div>${warn ? `<div class="co-warn">${warn}</div>` : ''}
       <div class="co-act">${back}${acts}${nav}</div>`;
     coachEl.classList.add('show');
     // 3) resaltar
     let first = null;
     (st.t || []).forEach((sel) => { let e = null; try { e = $q(sel); } catch {} if (e && vis(e)) { e.classList.add('ay-hl'); first = first || e; } });
-    if (first) { try { first.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch {} }
+    if (first) { try { first.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch {} }
+    // la tarjeta se ubica en la esquina que menos tape lo resaltado
+    const area = () => { const c = coachEl.getBoundingClientRect(); return [...document.querySelectorAll('.ay-hl')].reduce((t, e) => { const r = e.getBoundingClientRect(); const w = Math.min(r.right, c.right) - Math.max(r.left, c.left), h = Math.min(r.bottom, c.bottom) - Math.max(r.top, c.top); return t + (w > 0 && h > 0 ? w * h : 0); }, 0); };
+    let best = '', bestA = Infinity;
+    for (const pos of ['', 'co-br', 'co-tr', 'co-tl']) {
+      coachEl.classList.remove('co-br', 'co-tr', 'co-tl'); if (pos) coachEl.classList.add(pos);
+      const a = area(); if (a < bestA) { bestA = a; best = pos; } if (a === 0) break;
+    }
+    coachEl.classList.remove('co-br', 'co-tr', 'co-tl'); if (best) coachEl.classList.add(best);
   }
   async function coachClick(e) {
     const t = e.target.closest('[data-c]'); if (!t) return;
@@ -641,6 +698,7 @@
     if (a === 'exit') return coachStop();
     if (a === 'prev') return coachGo(C.idx - 1);
     if (a === 'next') { if (st.type !== 'intro') CP[g.id].pasos[st.key] = 'hecho'; return coachGo(C.idx + 1); }
+    if (a === 'dest') { setDestino(t.dataset.v); setTimeout(coachRender, 120); return; }
     if (a === 'opener') { const b = $q(st.opener.sel); if (b) b.click(); setTimeout(coachRender, 400); return; }
     if (a === 'extra') { const b = $q(st.extra.sel); if (b) b.click(); setTimeout(coachRender, 900); return; }
     if (a === 'reopen') { const b = $q(st.modal.open); if (b) b.click(); setTimeout(coachRender, 400); return; }
@@ -664,7 +722,7 @@
 
   function init() {
     const perms = window.__clubPerms;
-    if (!perms || !perms.canWrite || !(canCfg() || canAsis() || canTienda())) return false;
+    if (!perms || !perms.canWrite || !(canCfg() || canAsis() || canTienda() || canNoti())) return false;
     if (!fab) build();
     loadProg().then(() => { updateFab(); setTimeout(maybeNudge, 1800); });
     return true;
