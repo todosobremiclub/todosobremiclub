@@ -99,6 +99,50 @@ function buildFcmTarget(clubId, destino) {
 }
 
 // ===============================
+// ✅ NUEVO: push de "falta de pago" a los topics personales de cada socio en
+// falta, calculado en la base al momento del envío (ver sendPushToClubTopic).
+// Devuelve un texto corto para guardar en notificaciones.firebase_message_id.
+// ===============================
+async function sendPushFaltaPagoPorSocio({ admin, clubId, clubName, titulo, cuerpo, notificacionId, data }) {
+  const { sql, params } = buildSociosWhereFromDestino(clubId, data, { incluirSinTelefono: true });
+  const rSocios = await db.query(sql, params);
+  const socios = rSocios.rows;
+
+  if (!socios.length) return 'porsocio:0/0';
+
+  const titleFinal = clubName
+    ? `${String(clubName).trim()} — ${String(titulo ?? '').trim()}`
+    : String(titulo ?? '').trim();
+
+  const base = {
+    notification: {
+      title: String(titleFinal).slice(0, 120),
+      body: String(cuerpo ?? '').slice(0, 200),
+    },
+    data: {
+      type: 'notificacion',
+      clubId: String(clubId),
+      clubNombre: String(clubName ?? ''),
+      notificacionId: String(notificacionId),
+    },
+  };
+
+  let ok = 0;
+  for (let i = 0; i < socios.length; i += 500) {
+    const lote = socios.slice(i, i + 500).map((s) => ({
+      ...base,
+      topic: topicSocio(clubId, s.id),
+    }));
+    const r = await admin.messaging().sendEach(lote);
+    ok += r.successCount;
+  }
+
+  if (ok === 0) throw new Error('No se pudo enviar el push de falta de pago a ningún socio');
+  console.log(`📣 falta_pago por socio: ${ok}/${socios.length} enviados (club ${clubId})`);
+  return `porsocio:${ok}/${socios.length}`;
+}
+
+// ===============================
 // Helper: enviar push al destino elegido
 // (todos / actividad / categoría / año / falta de pago / combinaciones)
 // ✅ Incluye clubName en el título y en data
@@ -106,6 +150,22 @@ function buildFcmTarget(clubId, destino) {
 async function sendPushToClubTopic({ clubId, clubName, titulo, cuerpo, notificacionId, data }) {
   const admin = initFirebase();
   if (!admin) throw new Error('Firebase no inicializado (faltan FIREBASE_*)');
+
+  // ✅ NUEVO: "falta de pago" por socio (opcional, apagado por defecto).
+  // El topic grupal `club_<id>_faltapago` depende de que cada celular tenga
+  // bien sincronizado su estado de pago (puede quedar desactualizado: pagó y no
+  // volvió a iniciar sesión, o cambió de socio). Con PUSH_FALTA_PAGO_POR_SOCIO=1
+  // el estado se calcula en la base AL MOMENTO DEL ENVÍO y se manda al topic
+  // personal de cada socio en falta (club_<id>_socio_<socioId>).
+  // ⚠️ Solo lo reciben las versiones de la app que ya se suscriben al topic
+  // personal (Tienda paso 6). Dejar apagado hasta que la mayoría esté actualizada.
+  const porSocio =
+    process.env.PUSH_FALTA_PAGO_POR_SOCIO === '1' &&
+    (data?.destino_tipo || 'todos') === 'falta_pago';
+
+  if (porSocio) {
+    return sendPushFaltaPagoPorSocio({ admin, clubId, clubName, titulo, cuerpo, notificacionId, data });
+  }
 
   const target = buildFcmTarget(clubId, data);
 
