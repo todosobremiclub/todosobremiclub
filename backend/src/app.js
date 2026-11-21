@@ -101,6 +101,7 @@ app.use('/club', require('./routes/reportesRoutes'));
 app.use('/club', require('./routes/noticiasRoutes'));
 app.use('/club', require('./routes/tiendaRoutes')); // ✅ NUEVO: Tienda Online (productos + reservas, panel admin)
 app.use('/club', require('./routes/espaciosRoutes')); // ✅ NUEVO: Espacios y Clases (recursos, disponibilidad, turnos; panel admin)
+app.use('/club', require('./routes/informeMensualRoutes')); // ✅ NUEVO: Informe mensual de uso de la plataforma (panel)
 
 app.use('/app', appTransferRoutes);
 app.use('/admin', adminTransferRoutes);
@@ -172,6 +173,15 @@ const { purgarAuditLogAntiguo } = require('./services/auditLogPurgeWorker');
 const PURGA_AUDIT_LOG_MS = 24 * 60 * 60 * 1000; // cada 24 horas
 purgarAuditLogAntiguo();
 setInterval(purgarAuditLogAntiguo, PURGA_AUDIT_LOG_MS);
+
+// ✅ NUEVO: worker del informe mensual. Corre al iniciar y después cada hora:
+// genera el informe del mes anterior para los clubes productivos que todavía
+// no lo tienen (si ya existe, no hace nada). Ver src/services/informeMensualService.js.
+// Requiere la tabla informes_mensuales (migración SQL); si no existe, no hace nada.
+const { procesarInformesMensuales } = require('./services/informeMensualService');
+const CHEQUEO_INFORME_MENSUAL_MS = 60 * 60 * 1000; // cada 1 hora
+procesarInformesMensuales();
+setInterval(procesarInformesMensuales, CHEQUEO_INFORME_MENSUAL_MS);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ API listening on ${PORT}`));

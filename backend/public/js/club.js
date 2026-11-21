@@ -373,6 +373,9 @@ function buildPermissions(role){
       // ✅ NUEVO: "Espacios y Clases" solo para admin/staff y solo lectura
       // (finanzas y el resto de los roles no entran).
       if (section === 'espacios') return r === 'admin' || r === 'solo_lectura';
+      // ✅ NUEVO: "Informe mensual" solo para admin/staff, solo lectura y finanzas
+      // (los demás roles ya salieron más arriba, pero lo dejamos explícito).
+      if (section === 'informe-mensual') return r === 'admin' || r === 'solo_lectura' || r === 'finanzas';
       return ALL_SECTIONS.includes(section);
     },
     // Escritura / ejecutar acciones (mutaciones)
@@ -527,6 +530,9 @@ if (sectionName === 'notificaciones' && window.initNotificacionesSection) {
 }
 if (sectionName === 'tienda' && window.initTiendaSection) { // ✅ NUEVO
   await window.initTiendaSection();
+}
+if (sectionName === 'informe-mensual' && window.initInformeMensualSection) { // ✅ NUEVO
+  await window.initInformeMensualSection();
 }
 if (sectionName === 'espacios' && window.initEspaciosSection) { // ✅ NUEVO
   await window.initEspaciosSection();
