@@ -468,7 +468,7 @@ function renderPlanClasesPago() {
     const marcado = planClasesSeleccionadasPago.has(p.planId);
     const montoActual = marcado ? planClasesSeleccionadasPago.get(p.planId) : p.saldoPendiente;
     return `
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; padding:6px 0; border-bottom:1px solid #bfdbfe; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; padding:6px 0; border-bottom:1px solid var(--t-border,#bfdbfe); flex-wrap:wrap;">
       <label style="display:flex; align-items:center; gap:8px; flex:1 1 auto;">
         <input type="checkbox" data-plan-clase-idx="${i}" ${marcado ? 'checked' : ''}>
         <span>${escapeHtmlPagos(p.actividadNombre)} - Paquete de clases (saldo ${moneyARS(p.saldoPendiente)})</span>
@@ -1625,7 +1625,8 @@ async function deleteIngreso(id) {
 
     trGroup.innerHTML = `
       <td colspan="7" style="
-        background: color-mix(in srgb, var(--color-primary) 8%, #ffffff);
+        background: color-mix(in srgb, var(--color-primary) 14%, var(--t-surface, #ffffff));
+        color: var(--t-text, #111827);
         border-left: 4px solid var(--color-primary);
         font-weight: 800;
         padding: 10px;

@@ -146,7 +146,7 @@ function renderSociosPendientes(items) {
         const distinto = String(valorActual || '').trim() !== String(valorNuevo || '').trim();
 
         return `
-          <tr${distinto ? ' style="background:#fef9c3;"' : ''}>
+          <tr${distinto ? ' style="background:color-mix(in srgb, #eab308 25%, var(--t-surface,#ffffff));"' : ''}>
             <td><b>${label}</b></td>
             <td>${valorActual || '—'}</td>
             <td style="text-align:center;">${distinto ? '➡️' : ''}</td>

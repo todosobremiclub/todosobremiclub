@@ -197,7 +197,7 @@
                border:1px solid #bbf7d0;
                border-radius:8px;
                padding:10px;
-               background:#f0fdf4;
+               background:color-mix(in srgb, #16a34a 14%, var(--t-surface,#ffffff)); color:var(--t-text,#111827);
                min-height:40px;
              "></div>
         <div class="muted small" style="margin-top:4px;">
@@ -213,7 +213,7 @@
                border:1px solid #bfdbfe;
                border-radius:8px;
                padding:10px;
-               background:#eff6ff;
+               background:color-mix(in srgb, #2563eb 14%, var(--t-surface,#ffffff)); color:var(--t-text,#111827);
                min-height:40px;
              "></div>
         <div class="muted small" style="margin-top:4px;">
@@ -611,7 +611,8 @@
 #modalPagoDetalles thead{
   position: sticky;
   top: 0;
-  background: white;
+  background: var(--t-surface, white);
+  color: var(--t-text, #111827);
   z-index: 10;
 }
 
