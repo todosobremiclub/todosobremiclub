@@ -6,7 +6,9 @@
 //
 // Reglas (plan: claude/espacios-y-clases-plan.md):
 //  - Una reserva pendiente BLOQUEA el turno para los demás.
-//  - Máximo 3 pendientes por socio (anti-abuso).
+//  - Máximo 6 pendientes por socio (anti-abuso). Desde la app se pueden pedir
+//    hasta 6 horarios por vez (crearReservasMultiples): cada horario es una
+//    reserva pendiente separada, que el club acepta o rechaza por separado.
 //  - El servidor valida que el turno sea EXACTAMENTE uno de los generados
 //    por disponibilidadService y que esté libre (no confía en la app).
 //  - Anti doble reserva: transacción en UNA conexión (db.getClient()) con
@@ -18,7 +20,8 @@
 const disp = require('./disponibilidadService');
 const part = require('./espaciosParticipantesService');
 
-const MAX_PENDIENTES_SOCIO = 3;
+const MAX_PENDIENTES_SOCIO = 6;
+const MAX_TURNOS_POR_PEDIDO = 6;
 const TZ_SQL = `'America/Argentina/Buenos_Aires'`;
 const DIAS_CORTO = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
@@ -264,6 +267,88 @@ async function crearReserva(db, p) {
   return conPart;
 }
 
+// ============================================================================
+// CREAR VARIOS HORARIOS A LA VEZ (app: cada uno queda pendiente por separado)
+// ============================================================================
+/**
+ * @param {object} p  clubId, socioId, recursoId, comentario,
+ *                    turnos: [{ fecha 'YYYY-MM-DD', horaDesde 'HH:MM' }, ...]
+ * @param {object} deps  (solo para tests) { crear }
+ * Devuelve { reservas: [...], fallidos: [{ fecha, hora_desde, error, code }] }.
+ * Cada horario se valida con las mismas reglas de crearReserva (turno exacto,
+ * libre, anticipación, tope de pendientes). Si alguno ya lo tomó otra persona,
+ * los demás igual se crean y el que falló vuelve en `fallidos`. Si no se pudo
+ * crear NINGUNO se lanza el error del primero.
+ */
+async function crearReservasMultiples(db, p, deps = {}) {
+  const crear = deps.crear || crearReserva;
+  const socioId = p.socioId || null;
+  if (!socioId) throw new ErrNegocio(401, 'Token inválido para la app', 'auth');
+  if (!p.recursoId) throw new ErrNegocio(400, 'Falta el recurso', 'datos');
+
+  // Normalizar y sacar duplicados
+  const vistos = new Set();
+  const turnos = [];
+  for (const t of Array.isArray(p.turnos) ? p.turnos : []) {
+    const fecha = String(t?.fecha || '');
+    const hora = String(t?.horaDesde || '').slice(0, 5);
+    if (!esFechaReal(fecha)) throw new ErrNegocio(400, 'Fecha inválida (YYYY-MM-DD)', 'datos');
+    if (!HHMM.test(hora)) throw new ErrNegocio(400, 'Hora inválida (HH:MM)', 'datos');
+    const key = `${fecha}|${hora}`;
+    if (vistos.has(key)) continue;
+    vistos.add(key);
+    turnos.push({ fecha, horaDesde: hora });
+  }
+  if (!turnos.length) throw new ErrNegocio(400, 'Elegí al menos un horario', 'datos');
+  if (turnos.length > MAX_TURNOS_POR_PEDIDO) {
+    throw new ErrNegocio(400, `Podés pedir hasta ${MAX_TURNOS_POR_PEDIDO} horarios por vez`, 'max_por_pedido');
+  }
+  turnos.sort((a, b) => (a.fecha + a.horaDesde).localeCompare(b.fecha + b.horaDesde));
+
+  // Chequeo previo del tope de pendientes: si no entran todos, no se crea ninguno
+  const cnt = await db.query(
+    `SELECT COUNT(*)::int AS n FROM recursos_reservas
+      WHERE socio_id = $1 AND estado = 'pendiente'
+        AND (fecha + hora_desde) > (NOW() AT TIME ZONE ${TZ_SQL})`,
+    [socioId]
+  );
+  const pendientes = cnt.rows[0].n;
+  const disponibles = MAX_PENDIENTES_SOCIO - pendientes;
+  if (disponibles <= 0) {
+    throw new ErrNegocio(
+      409,
+      `Ya tenés ${MAX_PENDIENTES_SOCIO} solicitudes pendientes. Esperá a que el club las responda o cancelá alguna.`,
+      'max_pendientes'
+    );
+  }
+  if (turnos.length > disponibles) {
+    throw new ErrNegocio(
+      409,
+      `Tenés ${pendientes} solicitud(es) pendiente(s) y el máximo es ${MAX_PENDIENTES_SOCIO}: podés pedir hasta ${disponibles} horario(s) más.`,
+      'max_pendientes'
+    );
+  }
+
+  const reservas = [];
+  const fallidos = [];
+  let primerError = null;
+  for (const t of turnos) {
+    try {
+      const r = await crear(db, {
+        clubId: p.clubId, socioId, origen: 'app', recursoId: p.recursoId,
+        fecha: t.fecha, horaDesde: t.horaDesde, comentario: p.comentario
+      });
+      reservas.push(r);
+    } catch (e) {
+      if (!(e instanceof ErrNegocio)) throw e;
+      if (!primerError) primerError = e;
+      fallidos.push({ fecha: t.fecha, hora_desde: t.horaDesde, error: e.message, code: e.code });
+    }
+  }
+  if (!reservas.length && primerError) throw primerError;
+  return { reservas, fallidos };
+}
+
 // Agrega `participantes` a cada reserva (lista de socios adicionales al titular)
 async function adjuntarParticipantes(q, clubId, filas) {
   const mapa = await part.participantesDe(q, { clubId, tipo: 'reserva', ids: filas.map((f) => f.id) });
@@ -495,9 +580,9 @@ async function vencerPendientes(db) {
 }
 
 module.exports = {
-  MAX_PENDIENTES_SOCIO, ErrNegocio, setNotificador,
+  MAX_PENDIENTES_SOCIO, MAX_TURNOS_POR_PEDIDO, ErrNegocio, setNotificador,
   avisarSocio: avisar, enTransaccion,
-  crearReserva, gestionarReserva, cancelarPorSocio, infoCancelacion, vencerPendientes,
+  crearReserva, crearReservasMultiples, gestionarReserva, cancelarPorSocio, infoCancelacion, vencerPendientes,
   actualizarParticipantes, adjuntarParticipantes,
   obtenerReserva, minutosHastaInicio, yaEmpezo, esFechaReal, SQL_RESERVA
 };

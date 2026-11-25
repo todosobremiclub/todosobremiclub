@@ -117,7 +117,7 @@ router.get('/espacios/recursos/:id/turnos', requireAuth, async (req, res) => {
   }
 });
 
-// POST /app/espacios/reservas   body: { recurso_id, fecha, hora_desde, comentario? }
+// POST /app/espacios/reservas   (un solo horario) body: { recurso_id, fecha, hora_desde, comentario? }
 router.post('/espacios/reservas', requireAuth, async (req, res) => {
   try {
     const s = await sesionEspacios(req, res);
@@ -132,6 +132,33 @@ router.post('/espacios/reservas', requireAuth, async (req, res) => {
     return res.status(201).json({ ok: true, reserva: formatoApp(r) });
   } catch (e) {
     return responderError(res, e, 'POST /app/espacios/reservas');
+  }
+});
+
+// POST /app/espacios/reservas/multiples
+//   body: { recurso_id, turnos: [{ fecha, hora_desde }, ...], comentario? }   (hasta 6 horarios)
+// Cada horario queda como una reserva PENDIENTE separada. Si algún horario ya lo
+// tomó otra persona, los demás igual se crean y ese vuelve en `fallidos`.
+router.post('/espacios/reservas/multiples', requireAuth, async (req, res) => {
+  try {
+    const s = await sesionEspacios(req, res);
+    if (!s) return;
+    const b = req.body || {};
+    if (!isUuid(b.recurso_id)) return res.status(400).json({ ok: false, error: 'Recurso inválido' });
+    const out = await reservasSvc.crearReservasMultiples(db, {
+      clubId: s.clubId, socioId: s.socioId, recursoId: b.recurso_id,
+      turnos: (Array.isArray(b.turnos) ? b.turnos : []).map((t) => ({
+        fecha: String(t?.fecha || ''), horaDesde: String(t?.hora_desde || '')
+      })),
+      comentario: b.comentario
+    });
+    return res.status(201).json({
+      ok: true,
+      reservas: out.reservas.map(formatoApp),
+      fallidos: out.fallidos
+    });
+  } catch (e) {
+    return responderError(res, e, 'POST /app/espacios/reservas/multiples');
   }
 });
 
