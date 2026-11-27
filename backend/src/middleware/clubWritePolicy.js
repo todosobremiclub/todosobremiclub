@@ -53,6 +53,10 @@ function rolPermiteEscribir(rol, path) {
   if (rol === 'superadmin' || rol === 'admin') return true;
   const { primero, ultimo } = seccionDeRuta(path);
 
+  // Control de acceso: "verificar" un QR es una LECTURA (no modifica nada), pero se hace por POST
+  // para no mandar el token en la URL. El rol se controla dentro de la ruta (accesoRoutes.js).
+  if (primero === 'acceso' && ultimo === 'verificar') return true;
+
   // Finanzas registra cobros de planes desde la pantalla de Pagos.
   if (rol === 'finanzas' && (primero === 'planes-actividad' || primero === 'planes-clases') && ultimo === 'registrar-pago') {
     return true;

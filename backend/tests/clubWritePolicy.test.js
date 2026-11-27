@@ -46,6 +46,10 @@ const cases = [
   ['POST', '/socios', R('solo_lectura', 'club-2'), 'next'],
   // superadmin
   ['POST', '/socios', [{ role: 'superadmin', club_id: null }], 'next'],
+  // control de acceso: verificar un QR (POST de solo lectura) lo puede hacer cualquier rol del club; la ruta decide
+  ['POST', '/acceso/verificar', R('solo_lectura'), 'next'],
+  ['POST', '/acceso/verificar', R('finanzas'), 'next'],
+  ['POST', '/acceso/otra-cosa', R('solo_lectura'), 403],
   // sin token: lo maneja requireAuth
   ['POST', '/socios', null, 'next'],
   // rol desconocido

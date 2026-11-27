@@ -157,6 +157,7 @@ app.use('/club', require('./routes/notificacionesRoutes'));
 
 app.use('/public', require('./routes/publicApplyRoutes'));
 app.use('/club', require('./routes/pendientesRoutes'));
+app.use('/club', require('./routes/accesoRoutes')); // 🔒 NUEVO: validación del QR firmado del carnet (control de acceso)
 app.use('/club', require('./routes/asistenciaRoutes'));
 app.use('/app', require('./routes/espaciosAppRoutes')); // ✅ NUEVO: Espacios y Clases (API de la app del socio)
 app.use('/app', require('./routes/clasesAppRoutes')); // ✅ NUEVO: Clases / entrenamientos de la Agenda (app del socio)

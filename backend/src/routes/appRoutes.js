@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const { crearLimitador } = require('../middleware/rateLimit');
+const { firmarQr, QR_TTL_SEG } = require('../services/accesoQr');
 
 // ✅ SEGURIDAD: login de la app de socios (número + DNI): 10 intentos FALLIDOS cada
 // 15 minutos por IP. Los ingresos correctos no cuentan, así que usar la app no gasta intentos.
@@ -666,6 +667,33 @@ const APP_STORE_URL_ANDROID =
 // TODO: completar con la URL real una vez publicada en App Store
 // (formato: https://apps.apple.com/app/idXXXXXXXXXX)
 const APP_STORE_URL_IOS = '';
+
+// ======================================================
+// 🔒 GET /app/carnet/qr — token FIRMADO para el QR del carnet (control de acceso).
+// El QR ya no lleva datos personales (ni DNI): solo este token de vida corta, que el
+// lector valida contra POST /club/:clubId/acceso/verificar. Siempre sale del token de
+// sesión del socio (nunca de parámetros del request). La app lo renueva sola.
+// ======================================================
+router.get('/carnet/qr', requireAuth, async (req, res) => {
+  try {
+    const socioId = req.user?.socioId || req.user?.socio_id || null;
+    const clubId = req.user?.clubId || req.user?.club_id || null;
+    if (!socioId || !clubId) {
+      return res.status(401).json({ ok: false, error: 'Token inválido para la app' });
+    }
+    const r = await db.query(
+      `SELECT activo FROM socios WHERE id = $1 AND club_id = $2 LIMIT 1`,
+      [socioId, clubId]
+    );
+    if (!r.rowCount) return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
+    if (r.rows[0].activo === false) return res.status(403).json({ ok: false, error: 'Socio inactivo' });
+
+    return res.json({ ok: true, qr: firmarQr({ socioId, clubId }), expires_in: QR_TTL_SEG });
+  } catch (e) {
+    console.error('❌ GET /app/carnet/qr', e);
+    return res.status(500).json({ ok: false, error: 'Error interno' });
+  }
+});
 
 router.get('/config', (req, res) => {
   return res.json({

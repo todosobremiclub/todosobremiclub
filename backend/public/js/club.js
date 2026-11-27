@@ -449,6 +449,11 @@ if (urlStr.includes('/noticias')) {
 if (urlStr.includes('/asistencia')) {
   sec = 'asistencia';
 }
+// 🔒 Verificar un QR del carnet es una lectura (POST solo para no exponer el token en la URL):
+// se permite para cualquier rol que vea Control de acceso. El rol lo valida el backend.
+if (urlStr.includes('/acceso/verificar')) {
+  return _fetch(input, init);
+}
         const p = window.__clubPerms;
         if (p && !p.canWrite(sec)){
           const body = JSON.stringify({ ok:false, error:'No autorizado para modificar en esta sección.'});

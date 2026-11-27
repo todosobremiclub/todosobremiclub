@@ -114,49 +114,65 @@
       if (fotoEl) fotoEl.src = '/img/user-placeholder.png';
     }
 
-    function renderCard(qr, ultimoPagoYM) {
+    // 🔒 Los datos que se muestran salen de la RESPUESTA DEL SERVIDOR (no del QR).
+    function renderCard(socio, ultimoPagoYM) {
       const card = $('qrCard');
       if (!card) return;
 
       const fotoEl = $('qrFoto');
-      const fotoUrl = qr.fotoUrl || qr.foto_url || qr.fotoURL || qr.foto || null;
-      if (fotoEl) fotoEl.src = fotoUrl || '/img/user-placeholder.png';
+      if (fotoEl) fotoEl.src = socio.foto_url || '/img/user-placeholder.png';
 
-      const nombreCompleto = `${String(qr.nombre || '')} ${String(qr.apellido || '')}`.trim();
+      const nombreCompleto = `${String(socio.nombre || '')} ${String(socio.apellido || '')}`.trim();
       $('qrNombre') && ($('qrNombre').textContent = nombreCompleto || '—');
 
-      const dni = String(qr.dni || '—');
-      const num = String(qr.numero || qr.numero_socio || '—');
-      $('qrMeta') && ($('qrMeta').textContent = `DNI: ${dni} · Socio Nº ${num}`);
+      $('qrMeta') && ($('qrMeta').textContent = `Socio Nº ${String(socio.numero || '—')}`);
 
-      $('qrClub') && ($('qrClub').textContent = String(qr.clubNombre || qr.clubId || '—'));
-      $('qrAct') && ($('qrAct').textContent = String(qr.actividad || '—'));
-      $('qrCat') && ($('qrCat').textContent = String(qr.categoria || '—'));
+      $('qrClub') && ($('qrClub').textContent = String((window.__clubActual && window.__clubActual.name) || '—'));
+      $('qrAct') && ($('qrAct').textContent = String(socio.actividad || '—'));
+      $('qrCat') && ($('qrCat').textContent = String(socio.categoria || '—'));
       $('qrUltimoPago') && ($('qrUltimoPago').textContent = fmtYM(ultimoPagoYM));
 
       card.classList.remove('hidden');
     }
 
     // =============================
-    // Parse QR
+    // Interpretar el QR leído
+    //  - QR nuevo: un token firmado (texto) → se manda tal cual al servidor.
+    //  - QR viejo (JSON con socioId): solo se manda el socioId; el estado lo decide el servidor.
     // =============================
     function parseQrPayload(raw) {
       const s = String(raw || '').trim();
       if (!s) throw new Error('QR vacío');
 
-      let obj;
-      try { obj = JSON.parse(s); }
-      catch {
-        try { obj = JSON.parse(decodeURIComponent(s)); }
-        catch { throw new Error('El QR no es JSON válido'); }
+      if (s.startsWith('{')) {
+        let obj;
+        try { obj = JSON.parse(s); } catch { throw new Error('El QR no es válido'); }
+        if (!obj || typeof obj !== 'object' || !obj.socioId) throw new Error('Formato de QR inválido');
+        return { legacy: { socioId: String(obj.socioId) } };
       }
 
-      if (!obj || typeof obj !== 'object') throw new Error('Formato de QR inválido');
+      if (s.length > 2000) throw new Error('El QR no es válido');
+      return { qr: s };
+    }
 
-      const up = obj.ultimoPago || obj.ultimo_pago;
-      if (!up) throw new Error('El QR no trae "ultimoPago".');
+    // =============================
+    // Validar contra el servidor
+    // =============================
+    async function verificarEnServidor(payload) {
+      const token = localStorage.getItem('token');
+      const clubId = localStorage.getItem('activeClubId');
+      if (!token || !clubId) throw new Error('Sesión inválida. Volvé a iniciar sesión.');
 
-      return obj;
+      const res = await fetch(`/club/${encodeURIComponent(clubId)}/acceso/verificar`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      if (res.status === 401) throw new Error('Sesión vencida. Volvé a iniciar sesión.');
+      if (!res.ok || !data || data.ok !== true) throw new Error((data && data.error) || 'No se pudo validar el QR');
+      return data;
     }
 
     // =============================
@@ -366,11 +382,31 @@
         return;
       }
 
-      const ultimoPagoYM = qr.ultimoPago || qr.ultimo_pago || null;
-      const decision = calcDecision(ultimoPagoYM);
+      let r;
+      try {
+        r = await verificarEnServidor(qr);
+      } catch (e) {
+        setStatus(false, 'ERROR ⚠️', e.message || 'No se pudo validar el QR');
+        setOverlay('No se pudo validar. Reintentando…');
+        if (cooldownTimer) clearTimeout(cooldownTimer);
+        cooldownTimer = setTimeout(() => {
+          cooldownActive = false;
+          lastValue = null;
+          setStatus(null, 'Leyendo…', 'Apuntá al QR del carnet');
+          setOverlay('📡 Leyendo QR…');
+          setScanningVisual(true);
+          if (detector) { scanning = true; scanLoop(); }
+        }, 3000);
+        return;
+      }
 
-      renderCard(qr, ultimoPagoYM);
-      setStatus(decision.ok, decision.pill, `${decision.msg} (Último pago: ${decision.ultimoFmt})`);
+      const ultimoPagoYM = (r.socio && r.socio.ultimo_pago) || null;
+      if (r.socio) renderCard(r.socio, ultimoPagoYM);
+      setStatus(
+        r.habilitado === true,
+        r.habilitado === true ? 'HABILITADO ✅' : 'RECHAZADO ❌',
+        `${r.motivo || ''}${ultimoPagoYM ? ` (Último pago: ${fmtYM(ultimoPagoYM)})` : ''}`
+      );
       setOverlay('Resultado mostrado. Volviendo a leer en 5s…');
 
       if (cooldownTimer) clearTimeout(cooldownTimer);
