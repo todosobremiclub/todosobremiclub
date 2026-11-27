@@ -121,6 +121,11 @@ app.use('/club', auditLogMiddleware);
 // ROLE_POLICY_MODE=log la pone en modo de prueba (solo registra, no bloquea).
 app.use('/club/:clubId', require('./middleware/clubWritePolicy'));
 
+// 🔒 NUEVO (seguridad, F-06): política de LECTURA por rol (espejo de la de escritura). Un profesor/
+// asistencias/comunicación ya no puede leer finanzas, pagos ni datos sensibles llamando a la API.
+// READ_POLICY_MODE=log la pone en modo de prueba (solo registra, no bloquea). Ver src/middleware/clubReadPolicy.js.
+app.use('/club/:clubId', require('./middleware/clubReadPolicy'));
+
 app.use('/club', require('./routes/clubRoutes'));
 
 // ✅ Guardamos la referencia (antes se pasaba directo al require) para poder

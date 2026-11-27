@@ -164,7 +164,7 @@ router.get('/:clubId/asistencia/socios-filtrados', requireAuth, requireClubAcces
       SELECT
         s.id,
         s.numero_socio,
-        s.dni,
+        -- 🔒 (F-06) se quitó s.dni: el listado de asistencia no lo usa y el DNI sirve para iniciar sesión en la app.
         s.nombre,
         s.apellido,
         s.categoria,
