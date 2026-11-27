@@ -86,6 +86,13 @@ app.use('/admin/users', adminUsersRoutes);
 app.use('/admin/audit-log', require('./routes/auditLogRoutes'));
 
 app.use('/club', auditLogMiddleware);
+
+// ✅ NUEVO (seguridad): política de ESCRITURA por rol para todo /club/:clubId/...
+// (solo_lectura no puede modificar nada; finanzas/comunicación/profesor/asistencias
+// solo sus secciones). Ver src/middleware/clubWritePolicy.js.
+// ROLE_POLICY_MODE=log la pone en modo de prueba (solo registra, no bloquea).
+app.use('/club/:clubId', require('./middleware/clubWritePolicy'));
+
 app.use('/club', require('./routes/clubRoutes'));
 
 // ✅ Guardamos la referencia (antes se pasaba directo al require) para poder
