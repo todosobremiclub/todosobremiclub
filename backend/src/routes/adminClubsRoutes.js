@@ -3,6 +3,7 @@ const multer = require('multer');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
+const { signConnectToken } = require('../services/mpConnectToken');
 const jwt = require('jsonwebtoken');
 const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 const crypto = require('crypto');
@@ -737,7 +738,9 @@ router.post(
 // conexión desde su navegador — sin pasar por el panel de superadmin y sin
 // que el superadmin tenga que loguearse con la cuenta de MP del club.
 // Reutiliza GET /mp/public/connect/:clubId?token=... (ya existente en
-// mercadoPagoRoutes.js) y el mismo apply_token que usa el QR de postulación.
+// mercadoPagoRoutes.js). ✅ SEGURIDAD: el token del link ahora es FIRMADO, atado
+// al club y vence a los 7 días (antes era el apply_token, el mismo valor del QR
+// público de postulaciones, que cualquiera puede conocer).
 router.get(
   '/:id/mp/public-link',
   requireAuth,
@@ -747,29 +750,26 @@ router.get(
       const { id } = req.params;
 
       const r = await db.query(
-        `SELECT id, name, apply_token FROM clubs WHERE id = $1 LIMIT 1`,
+        `SELECT id, name FROM clubs WHERE id = $1 LIMIT 1`,
         [id]
       );
       if (!r.rowCount) {
         return res.status(404).json({ ok: false, error: 'Club no encontrado' });
       }
 
-      let applyToken = r.rows[0].apply_token;
-
-      // Clubes creados antes de que existiera apply_token no tienen uno:
-      // se lo generamos y guardamos recién acá, así el link nunca falla.
-      if (!applyToken) {
-        applyToken = crypto.randomBytes(16).toString('hex');
-        await db.query(`UPDATE clubs SET apply_token = $2 WHERE id = $1`, [id, applyToken]);
-      }
-
       if (!process.env.PUBLIC_BASE_URL) {
         return res.status(500).json({ ok: false, error: 'Falta configurar PUBLIC_BASE_URL en el servidor' });
       }
 
-      const url = `${process.env.PUBLIC_BASE_URL}/mp/public/connect/${id}?token=${applyToken}`;
+      const { token, expiraEnSeg } = signConnectToken(id);
+      const url = `${process.env.PUBLIC_BASE_URL}/mp/public/connect/${id}?token=${encodeURIComponent(token)}`;
 
-      return res.json({ ok: true, url });
+      return res.json({
+        ok: true,
+        url,
+        expires_at: new Date(expiraEnSeg * 1000).toISOString(),
+        expires_in_days: 7
+      });
     } catch (err) {
       console.error('❌ mp public-link:', err);
       return res.status(500).json({ ok: false, error: 'Error interno' });

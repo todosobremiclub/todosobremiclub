@@ -8,67 +8,14 @@ const router = express.Router();
 
 /* ======================================================
    Helpers para OAuth state (seguridad)
+   Ahora viven en src/services/mpConnectToken.js (state firmado obligatorio,
+   sin formato "legacy", y token firmado con vencimiento para el link público).
 ====================================================== */
-
-function getStateSecret() {
-  return (
-    process.env.MP_OAUTH_STATE_SECRET ||
-    process.env.JWT_SECRET ||
-    process.env.SECRET ||
-    ''
-  );
-}
-
-function signState(raw) {
-  const secret = getStateSecret();
-  if (!secret) return null;
-  return crypto.createHmac('sha256', secret).update(raw).digest('hex');
-}
-
-function buildOAuthState(clubId) {
-  const ts = Math.floor(Date.now() / 1000);
-  const raw = `${clubId}.${ts}`;
-  const sig = signState(raw);
-  if (!sig) return clubId; // fallback legacy
-  return `${clubId}.${ts}.${sig}`;
-}
-
-function parseOAuthState(state) {
-  const s = String(state || '').trim();
-  if (!s) return { ok: false, error: 'state vacío' };
-
-  const parts = s.split('.');
-  if (parts.length === 1) {
-    // legacy: state = clubId
-    return { ok: true, clubId: parts[0], legacy: true };
-  }
-
-  if (parts.length < 3) {
-    return { ok: false, error: 'state inválido' };
-  }
-
-  const clubId = parts[0];
-  const ts = Number(parts[1]);
-  const sig = parts.slice(2).join('.');
-
-  if (!Number.isFinite(ts)) {
-    return { ok: false, error: 'timestamp inválido en state' };
-  }
-
-  const raw = `${clubId}.${ts}`;
-  const expected = signState(raw);
-
-  if (!expected || expected !== sig) {
-    return { ok: false, error: 'firma de state inválida' };
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - ts) > 15 * 60) {
-    return { ok: false, error: 'state expirado' };
-  }
-
-  return { ok: true, clubId, legacy: false };
-}
+const {
+  buildOAuthState,
+  parseOAuthState,
+  verifyConnectToken
+} = require('../services/mpConnectToken');
 
 function escapeHtml(str) {
   return String(str ?? '')
@@ -337,7 +284,7 @@ router.get('/oauth/callback', async (req, res) => {
 
     // Verificar club
     const rClub = await db.query(
-      `SELECT id, name FROM clubs WHERE id = $1 LIMIT 1`,
+      `SELECT id, name, mp_connected FROM clubs WHERE id = $1 LIMIT 1`,
       [clubId]
     );
 
@@ -346,6 +293,16 @@ router.get('/oauth/callback', async (req, res) => {
         ok: false,
         title: 'Club no encontrado',
         message: 'No pudimos identificar a qué club corresponde este link.'
+      }));
+    }
+
+    // ✅ SEGURIDAD: si el club ya tiene una cuenta conectada NO se pisa (para cambiarla,
+    // el superadmin primero la desconecta desde el panel).
+    if (rClub.rows[0].mp_connected) {
+      return res.status(409).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Este club ya tiene Mercado Pago conectado',
+        message: 'Por seguridad no se reemplaza una cuenta ya conectada. Si necesitás cambiarla, pedí que la desconecten desde Todo Sobre mi Club y volvé a conectar.'
       }));
     }
 
@@ -386,7 +343,7 @@ router.get('/oauth/callback', async (req, res) => {
 
     const expiresAt = new Date(Date.now() + mpData.expires_in * 1000);
 
-    await db.query(
+    const rUpd = await db.query(
       `
       UPDATE clubs
       SET
@@ -396,6 +353,7 @@ router.get('/oauth/callback', async (req, res) => {
         mp_refresh_token = $4,
         mp_expires_at = $5
       WHERE id = $1
+        AND mp_connected IS NOT TRUE
       `,
       [
         clubId,
@@ -405,6 +363,15 @@ router.get('/oauth/callback', async (req, res) => {
         expiresAt
       ]
     );
+
+    // Si en el medio otro pedido ya conectó el club, no se pisa.
+    if (!rUpd.rowCount) {
+      return res.status(409).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Este club ya tiene Mercado Pago conectado',
+        message: 'Por seguridad no se reemplaza una cuenta ya conectada.'
+      }));
+    }
 
     return res.send(renderMpCallbackPage({
       ok: true,
@@ -416,8 +383,7 @@ router.get('/oauth/callback', async (req, res) => {
     return res.status(500).send(renderMpCallbackPage({
       ok: false,
       title: 'Error inesperado',
-      message: 'Ocurrió un error inesperado conectando la cuenta. Volvé a intentarlo más tarde.',
-      detail: err.message
+      message: 'Ocurrió un error inesperado conectando la cuenta. Volvé a intentarlo más tarde.'
     }));
   }
 });
@@ -536,7 +502,7 @@ router.post('/webhook', async (req, res) => {
 
 // =====================================================
 // Link público para que el club conecte su Mercado Pago
-// GET /mp/public/connect/:clubId?token=apply_token
+// GET /mp/public/connect/:clubId?token=<token firmado que genera el superadmin>
 // =====================================================
 router.get('/public/connect/:clubId', async (req, res) => {
   try {
@@ -551,9 +517,9 @@ router.get('/public/connect/:clubId', async (req, res) => {
       }));
     }
 
-    // Validar club + token (usamos apply_token como token de conexión)
+    // Validar club + token firmado
     const r = await db.query(
-      `SELECT id, name, apply_token FROM clubs WHERE id = $1 LIMIT 1`,
+      `SELECT id, name, mp_connected FROM clubs WHERE id = $1 LIMIT 1`,
       [clubId]
     );
 
@@ -566,11 +532,23 @@ router.get('/public/connect/:clubId', async (req, res) => {
     }
 
     const club = r.rows[0];
-    if (String(club.apply_token || '') !== token) {
+
+    // ✅ SEGURIDAD: el link lleva un token FIRMADO, atado a este club y con vencimiento
+    // (antes usaba el apply_token, que es el mismo valor del QR público de postulaciones).
+    const vt = verifyConnectToken(clubId, token);
+    if (!vt.ok) {
       return res.status(403).send(renderMpCallbackPage({
         ok: false,
-        title: 'Link inválido',
-        message: 'Este link no es válido. Pedí que te generen uno nuevo desde Todo Sobre mi Club.'
+        title: vt.error === 'vencido' ? 'Link vencido' : 'Link inválido',
+        message: 'Este link no es válido o ya venció. Pedí que te generen uno nuevo desde Todo Sobre mi Club.'
+      }));
+    }
+
+    if (club.mp_connected) {
+      return res.status(409).send(renderMpCallbackPage({
+        ok: false,
+        title: 'Este club ya tiene Mercado Pago conectado',
+        message: 'No hace falta volver a conectar. Si necesitás cambiar de cuenta, pedí que la desconecten desde Todo Sobre mi Club.'
       }));
     }
 
