@@ -134,7 +134,10 @@ app.use('/club', require('./routes/espaciosRoutes')); // ✅ NUEVO: Espacios y C
 app.use('/club', require('./routes/informeMensualRoutes')); // ✅ NUEVO: Informe mensual de uso de la plataforma (panel)
 
 app.use('/app', appTransferRoutes);
-app.use('/admin', adminTransferRoutes);
+// 🔒 Seguridad (F-01): /admin/payments/transfer/* quedó DESACTIVADO. No verificaba el club
+// (un admin de un club podía operar transferencias de otros). Panel y app usan
+// /club/:clubId/payments/transfer/* (clubPaymentsTransferRoutes), que sí valida el club.
+// app.use('/admin', adminTransferRoutes);
 app.use('/club', clubPaymentsTransferRoutes);
 
 
@@ -214,4 +217,4 @@ procesarInformesMensuales();
 setInterval(procesarInformesMensuales, CHEQUEO_INFORME_MENSUAL_MS);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ API listening on ${PORT}`));
+app.listen(PORT, () => console.log(`✅ API listening on ${PORT}`));

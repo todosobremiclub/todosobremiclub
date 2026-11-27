@@ -834,7 +834,7 @@ router.post('/tienda/reservas', requireAuth, async (req, res) => {
         VALUES ($1, $2, $3, $4, 'pendiente', $5, $6, $7, 'app')
         RETURNING id, club_id, producto_id, socio_id, cantidad, estado, talle_id, talle, pedido_id, created_at
         `,
-        [clubId, it.producto_id, socioId, cantidadNum, it.talle_id || null, talleNombre, pedidoId]
+        [clubId, it.producto_id, socioId, cantidadNum, producto.tiene_talles ? (it.talle_id || null) : null, talleNombre, pedidoId]
       );
       reservasCreadas.push(r.rows[0]);
     }
@@ -893,4 +893,4 @@ router.get('/tienda/reservas/mias', requireAuth, async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = router;

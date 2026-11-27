@@ -16,7 +16,7 @@ function requireClubAccess(req, res, next) {
 }
 
 // GET /club/:clubId/pendientes
-router.get('/:clubId/pendientes', requireAuth, async (req, res) => {
+router.get('/:clubId/pendientes', requireAuth, requireClubAccess, async (req, res) => {
   const { tipo } = req.query;
   try {
     const { clubId } = req.params;
@@ -501,4 +501,4 @@ const fotoUrl = up.url;
   }
 });
 
-module.exports = router;
+module.exports = router;

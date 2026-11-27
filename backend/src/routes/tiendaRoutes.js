@@ -541,8 +541,8 @@ router.post('/:clubId/tienda/reservas/:id/aceptar', requireAuth, requireClubAcce
       huboReduccion = true;
       if (fila.talle_id) {
         await db.query(
-          `UPDATE tienda_producto_talles SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
-          [diferencia, fila.talle_id]
+          `UPDATE tienda_producto_talles SET stock = stock + $1, updated_at = NOW() WHERE id = $2 AND producto_id = $3`,
+          [diferencia, fila.talle_id, fila.producto_id]
         );
       }
       await db.query(
@@ -640,8 +640,8 @@ router.post('/:clubId/tienda/reservas/:id/rechazar', requireAuth, requireClubAcc
 
     if (fila.talle_id) {
       await db.query(
-        `UPDATE tienda_producto_talles SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
-        [fila.cantidad, fila.talle_id]
+        `UPDATE tienda_producto_talles SET stock = stock + $1, updated_at = NOW() WHERE id = $2 AND producto_id = $3`,
+        [fila.cantidad, fila.talle_id, fila.producto_id]
       );
     }
     await db.query(

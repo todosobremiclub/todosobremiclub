@@ -69,6 +69,20 @@ function requireClubAccess(req, res, next) {
   next();
 }
 
+// 🔒 Seguridad (F-10/F-11): verifica que TODOS los ids sean socios de ESTE club.
+// Evita vincular (grupo familiar, relacionados, planes) socios de otro club.
+async function sociosSonDelClub(clubId, ids) {
+  const unicos = [...new Set((ids || []).map((x) => String(x)))];
+  if (!unicos.length) return true;
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!unicos.every((x) => uuidRe.test(x))) return false;
+  const r = await db.query(
+    'SELECT COUNT(*)::int AS n FROM socios WHERE club_id = $1 AND id = ANY($2::uuid[])',
+    [clubId, unicos]
+  );
+  return r.rows[0].n === unicos.length;
+}
+
 // ===============================
 // BIENVENIDA POR EMAIL – HELPERS
 // ===============================
@@ -224,10 +238,10 @@ router.get('/:clubId/grupo-familiar/:socioId', requireAuth, requireClubAccess, a
       `
       SELECT s.id, s.nombre, s.apellido, s.numero_socio
       FROM grupos_familiares_miembros gm
-      JOIN socios s ON s.id = gm.socio_id
+      JOIN socios s ON s.id = gm.socio_id AND s.club_id = $2
       WHERE gm.grupo_familiar_id = $1
       `,
-      [grupoId]
+      [grupoId, clubId]
     );
 
     res.json({
@@ -261,6 +275,11 @@ router.post('/:clubId/grupo-familiar', requireAuth, requireClubAccess, async (re
     .filter((id) => id !== String(jefeSocioId));
 
   try {
+    // 🔒 F-10: jefe y miembros deben ser socios de este club (antes del BEGIN)
+    if (!(await sociosSonDelClub(clubId, [jefeSocioId, ...miembrosIds]))) {
+      return res.status(400).json({ ok: false, error: 'Alguno de los socios no pertenece a este club.' });
+    }
+
     await db.query('BEGIN');
 
     // 1. buscar grupo existente
@@ -424,7 +443,7 @@ router.get('/:clubId/socios-relacionados/:socioId', requireAuth, requireClubAcce
       `
       SELECT s.id, s.nombre, s.apellido, s.numero_socio
       FROM socios_relaciones_manuales srm
-      JOIN socios s ON s.id = srm.socio_relacionado_id
+      JOIN socios s ON s.id = srm.socio_relacionado_id AND s.club_id = srm.club_id
       WHERE srm.club_id = $1 AND srm.socio_id = $2
       ORDER BY s.apellido ASC, s.nombre ASC
       `,
@@ -447,6 +466,11 @@ router.post('/:clubId/socios-relacionados/:socioId', requireAuth, requireClubAcc
     .filter((id) => id !== String(socioId));
 
   try {
+    // 🔒 F-10: el socio y todos sus relacionados deben ser de este club
+    if (!(await sociosSonDelClub(clubId, [socioId, ...idsLimpios]))) {
+      return res.status(400).json({ ok: false, error: 'Alguno de los socios no pertenece a este club.' });
+    }
+
     await db.query('BEGIN');
 
     // Borra TODAS las filas de esta relación para este socio, en ambos
@@ -585,6 +609,11 @@ router.post('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClu
   }
 
   try {
+    // 🔒 F-11: el socio debe ser de este club
+    if (!(await sociosSonDelClub(clubId, [socioId]))) {
+      return res.status(404).json({ ok: false, error: 'Socio no encontrado.' });
+    }
+
     // La actividad puede ser una adicional o una deportiva: validamos que
     // exista en la tabla que corresponda según el tipo elegido.
     const tablaActividad = tipoActividadVal === 'deportiva' ? 'actividades' : 'actividades_adicionales';
@@ -749,7 +778,7 @@ router.post('/:clubId/planes-actividad/:planId/registrar-pago', requireAuth, req
         ON p.tipo_actividad = 'adicional' AND aa.id = p.actividad_id
       LEFT JOIN actividades ad
         ON p.tipo_actividad = 'deportiva' AND ad.id = p.actividad_id
-      JOIN socios s ON s.id = p.socio_id
+      JOIN socios s ON s.id = p.socio_id AND s.club_id = p.club_id
       WHERE p.id = $1 AND p.club_id = $2
       `,
       [planId, clubId]
@@ -1046,6 +1075,11 @@ router.post('/:clubId/socios/:socioId/planes-clases', requireAuth, requireClubAc
   }
 
   try {
+    // 🔒 F-11: el socio debe ser de este club
+    if (!(await sociosSonDelClub(clubId, [socioId]))) {
+      return res.status(404).json({ ok: false, error: 'Socio no encontrado.' });
+    }
+
     const tablaActividad = tipoActividadVal === 'deportiva' ? 'actividades' : 'actividades_adicionales';
     const rAct = await db.query(
       `SELECT id, nombre FROM ${tablaActividad} WHERE id = $1 AND club_id = $2 AND activo = true`,
@@ -1217,7 +1251,7 @@ router.post('/:clubId/planes-clases/:planId/registrar-pago', requireAuth, requir
         ON aa.id = p.actividad_id AND p.tipo_actividad = 'adicional'
       LEFT JOIN actividades ad
         ON ad.id = p.actividad_id AND p.tipo_actividad = 'deportiva'
-      JOIN socios s ON s.id = p.socio_id
+      JOIN socios s ON s.id = p.socio_id AND s.club_id = p.club_id
       WHERE p.id = $1 AND p.club_id = $2
       `,
       [planId, clubId]
@@ -1574,6 +1608,7 @@ LEFT JOIN grupos_familiares_miembros gfm
 
 LEFT JOIN grupos_familiares gf_miembro
   ON gf_miembro.id = gfm.grupo_familiar_id
+ AND gf_miembro.club_id = s.club_id
  AND gf_miembro.activo = true
       WHERE ${where.join(' AND ')}
       )
