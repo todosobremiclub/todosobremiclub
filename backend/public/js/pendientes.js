@@ -1,6 +1,11 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
+  // Solo se muestran como link/imagen las URL http(s) (evita javascript: y similares).
+  function urlHttpSegura(u) {
+    return /^https?:\/\//i.test(String(u ?? '').trim());
+  }
+
   function getToken() {
     const t = localStorage.getItem('token');
     if (!t) {
@@ -67,23 +72,20 @@ function renderSociosPendientes(items) {
         : 'Alta';
 
     // ✅ ACA ESTÁ LA CLAVE (faltaba esto)
-    const fotoHtml = p.foto_url
-      ? `<img 
-           src="${p.foto_url}" 
-           class="pend-mini" 
-           style="cursor:pointer;" 
-           onclick="window.open('${p.foto_url}','_blank')"
-         />`
+    const fotoHtml = urlHttpSegura(p.foto_url)
+      ? `<a href="${escapeHtmlPend(p.foto_url)}" target="_blank" rel="noopener noreferrer">
+           <img src="${escapeHtmlPend(p.foto_url)}" class="pend-mini" style="cursor:pointer;" alt="" />
+         </a>`
       : '—';
 
     tr.innerHTML = `
       <td>${fotoHtml}</td>
-      <td><b>${p.apellido || ''} ${p.nombre || ''}</b></td>
-      <td>${p.dni || ''}</td>
+      <td><b>${escapeHtmlPend(p.apellido)} ${escapeHtmlPend(p.nombre)}</b></td>
+      <td>${escapeHtmlPend(p.dni)}</td>
       <td>${tipoTxt}</td>
-      <td>${p.actividad || ''}</td>
-      <td>${p.categoria || ''}</td>
-      <td>${p.telefono || ''}</td>
+      <td>${escapeHtmlPend(p.actividad)}</td>
+      <td>${escapeHtmlPend(p.categoria)}</td>
+      <td>${escapeHtmlPend(p.telefono)}</td>
       <td style="white-space:nowrap;">
         <button class="btn-ok" data-act="accept">
           ${p.tipo === 'foto' ? 'Aplicar foto' : (p.tipo === 'actualizacion' ? 'Revisar cambios' : 'Aceptar')}
@@ -148,16 +150,16 @@ function renderSociosPendientes(items) {
         return `
           <tr${distinto ? ' style="background:color-mix(in srgb, #eab308 25%, var(--t-surface,#ffffff));"' : ''}>
             <td><b>${label}</b></td>
-            <td>${valorActual || '—'}</td>
+            <td>${escapeHtmlPend(valorActual) || '—'}</td>
             <td style="text-align:center;">${distinto ? '➡️' : ''}</td>
-            <td>${distinto ? `<b>${valorNuevo || '—'}</b>` : (valorNuevo || '—')}</td>
+            <td>${distinto ? `<b>${escapeHtmlPend(valorNuevo) || '—'}</b>` : (escapeHtmlPend(valorNuevo) || '—')}</td>
           </tr>
         `;
       }).join('');
 
       body.innerHTML = `
         <p class="muted" style="margin-top:0;">
-          N° de socio <b>#${actual?.numero_socio ?? '—'}</b>. El número de socio se mantiene sin cambios.
+          N° de socio <b>#${escapeHtmlPend(actual?.numero_socio ?? '—')}</b>. El número de socio se mantiene sin cambios.
         </p>
         <div class="table-wrapper">
           <table class="socios-table" style="width:100%;">
@@ -220,23 +222,23 @@ items.forEach(t => {
       const tr = document.createElement('tr');
       tr.dataset.id = t.id;
 
-      const socioLabel = `#${t.numero_socio ?? '—'} ${t.apellido ?? ''} ${t.nombre ?? ''}`.trim();
-      const periodo = `${t.mes}/${t.anio}`;
+      const socioLabel = escapeHtmlPend(`#${t.numero_socio ?? '—'} ${t.apellido ?? ''} ${t.nombre ?? ''}`.trim());
+      const periodo = `${escapeHtmlPend(t.mes)}/${escapeHtmlPend(t.anio)}`;
 
       // Comprobante: si es una imagen, la mostramos como miniatura clickeable
       const esImagen = t.comprobante_url && /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(t.comprobante_url);
-      const comprobanteHtml = esImagen
-        ? `<img src="${t.comprobante_url}" class="pend-mini" style="cursor:pointer;" onclick="window.open('${t.comprobante_url}','_blank')" />`
-        : (t.comprobante_url
-            ? `<a href="${t.comprobante_url}" target="_blank" rel="noopener">Ver</a>`
-            : '—');
+      const comprobanteHtml = !urlHttpSegura(t.comprobante_url)
+        ? '—'
+        : (esImagen
+            ? `<a href="${escapeHtmlPend(t.comprobante_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtmlPend(t.comprobante_url)}" class="pend-mini" style="cursor:pointer;" alt="" /></a>`
+            : `<a href="${escapeHtmlPend(t.comprobante_url)}" target="_blank" rel="noopener noreferrer">Ver</a>`);
 
       // Detalle: qué está pagando (base/adicional) + si es parcial
       let detalleConceptos = '';
       try {
         const detalle = typeof t.detalle_pago === 'string' ? JSON.parse(t.detalle_pago) : t.detalle_pago;
         if (Array.isArray(detalle) && detalle.length) {
-          detalleConceptos = detalle.map(c => c.nombre).join(', ');
+          detalleConceptos = escapeHtmlPend(detalle.map(c => c.nombre).join(', '));
         }
       } catch {}
 
@@ -255,9 +257,9 @@ tr.innerHTML = `
 
   <td>
     <div><b>Concepto:</b> ${detalleConceptos || '—'}</div>
-    <div><b>Cuenta origen:</b> ${t.cuenta_origen || '—'}</div>
-    ${t.comentario ? `<div><b>Comentario:</b> ${t.comentario}</div>` : ''}
-    ${t.comprobante_texto ? `<div><b>Nota:</b> ${t.comprobante_texto}</div>` : ''}
+    <div><b>Cuenta origen:</b> ${escapeHtmlPend(t.cuenta_origen) || '—'}</div>
+    ${t.comentario ? `<div><b>Comentario:</b> ${escapeHtmlPend(t.comentario)}</div>` : ''}
+    ${t.comprobante_texto ? `<div><b>Nota:</b> ${escapeHtmlPend(t.comprobante_texto)}</div>` : ''}
   </td>
 
   <td style="white-space:nowrap;">
@@ -315,8 +317,8 @@ tr.innerHTML = `
   }
 
   function reservaImgHtml(r) {
-    return r.producto_imagen_url
-      ? `<img src="${escapeHtmlPend(r.producto_imagen_url)}" class="pend-mini" style="cursor:pointer;" onclick="window.open('${escapeHtmlPend(r.producto_imagen_url)}','_blank')" />`
+    return urlHttpSegura(r.producto_imagen_url)
+      ? `<a href="${escapeHtmlPend(r.producto_imagen_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtmlPend(r.producto_imagen_url)}" class="pend-mini" style="cursor:pointer;" alt="" /></a>`
       : '—';
   }
 

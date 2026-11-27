@@ -4,7 +4,24 @@ const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 
 const router = express.Router();
 
-function norm(v) { return String(v ?? '').trim(); }
+// Texto libre que viene de una persona externa: sin caracteres de control ni < >,
+// espacios normalizados y largo acotado (defensa contra HTML/scripts en los datos).
+function norm(v) {
+  return String(v ?? '')
+    .replace(/[\u0000-\u001f\u007f<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+}
+
+// Solo aceptamos fotos reales jpg/png/webp (se valida el contenido, no solo lo que dice el cliente).
+function detectarImagen(buffer) {
+  if (!buffer || buffer.length < 12) return null;
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'image/jpeg';
+  if (buffer.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
+  if (buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+  return null;
+}
 function onlyDigits(v) { return String(v ?? '').replace(/\D+/g, ''); }
 
 function parseInputDateToISO(value) {
@@ -204,10 +221,14 @@ if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
     // =========================
     let foto_url = null;
     if (foto_base64 && foto_mimetype) {
-      const buffer = Buffer.from(foto_base64, 'base64');
+      const buffer = Buffer.from(String(foto_base64), 'base64');
+      const mimeReal = detectarImagen(buffer);
+      if (!mimeReal || buffer.length > 4 * 1024 * 1024) {
+        return res.status(400).json({ ok: false, error: 'La foto debe ser una imagen JPG, PNG o WEBP de hasta 4 MB.' });
+      }
       const up = await uploadImageBuffer({
         buffer,
-        mimetype: foto_mimetype,
+        mimetype: mimeReal,
         originalname: 'postulacion.jpg',
         folder: `clubs/${clubId}/postulaciones`
       });
@@ -302,7 +323,7 @@ VALUES
     return res.json({ ok: true, id: r.rows[0].id });
   } catch (e) {
     console.error('❌ apply post', e);
-    return res.status(500).json({ ok: false, error: e.message });
+    return res.status(500).json({ ok: false, error: 'Error interno' });
   }
 });
 

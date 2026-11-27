@@ -718,8 +718,8 @@ pageRows.forEach(s => {
   const socioId = s.socio_id ?? s.id ?? '';
 
   tr.innerHTML = `
-      <td>${s.numero_socio ?? ''}</td>
-      <td>${s.nombre ?? ''} ${s.apellido ?? ''}</td>
+      <td>${escapeHtmlPagos(s.numero_socio ?? '')}</td>
+      <td>${escapeHtmlPagos(s.nombre ?? '')} ${escapeHtmlPagos(s.apellido ?? '')}</td>
       <td>
         <button class="btn btn-secondary" data-act="details" data-id="${socioId}">
           Ver detalles
@@ -1111,7 +1111,7 @@ function renderConceptosPago(conceptos) {
       <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;">
         <span style="display:flex; align-items:center; gap:8px;">
           <input type="checkbox" data-idx="${i}" ${c.seleccionado ? 'checked' : ''}>
-          <span>${c.tipo === 'base' ? 'Base' : 'Adicional'}: ${c.nombre}</span>
+          <span>${c.tipo === 'base' ? 'Base' : 'Adicional'}: ${escapeHtmlPagos(c.nombre)}</span>
         </span>
         <strong>${moneyARS(c.monto)}</strong>
       </label>
@@ -1398,7 +1398,7 @@ async function savePago() {
         ${detalle.map((d) => `
           <div class="det-concepto ${d.seleccionado === true ? 'ok' : 'pending'}">
             <span>${d.seleccionado === true ? '✅' : '⛔'}</span>
-            <span class="det-name">${d.nombre}</span>
+            <span class="det-name">${escapeHtmlPagos(d.nombre)}</span>
             <span class="det-amount">${moneyARS(d.monto)}</span>
           </div>
         `).join('')}
@@ -1456,7 +1456,7 @@ async function savePago() {
         <td>${estadoHtml}</td>
         <td>${moneyARS(p.monto || 0)}</td>
         <td>${fecha || '—'}</td>
-        <td>${cuenta}</td>
+        <td>${escapeHtmlPagos(cuenta)}</td>
         <td>${detalleHtml}</td>
         <td style="text-align:right;">
           <button class="btn btn-secondary btn-sm"
@@ -1502,7 +1502,7 @@ async function savePago() {
         sel.innerHTML = `<option value="">(No hay tipos cargados)</option>`;
       } else {
         sel.innerHTML = `<option value="">Seleccionar...</option>` +
-          tiposIngresoCache.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
+          tiposIngresoCache.map(t => `<option value="${escapeHtmlPagos(t.id)}">${escapeHtmlPagos(t.nombre)}</option>`).join('');
       }
     }
   }
@@ -1645,9 +1645,9 @@ async function deleteIngreso(id) {
       tr.dataset.group = key;
       tr.innerHTML = `
   <td>${fecha}</td>
-  <td><strong>${r.tipo_ingreso || ''}</strong></td>
-  <td>${r.observacion || ''}</td>
-  <td>${r.cuenta || '—'}</td>
+  <td><strong>${escapeHtmlPagos(r.tipo_ingreso || '')}</strong></td>
+  <td>${escapeHtmlPagos(r.observacion || '')}</td>
+  <td>${escapeHtmlPagos(r.cuenta || '—')}</td>
   <td>${r.socio_nombre ? escapeHtmlPagos(r.socio_nombre) : '—'}</td>
   <td><strong>${moneyARS(r.monto)}</strong></td>
   <td style="text-align:right; white-space:nowrap;">

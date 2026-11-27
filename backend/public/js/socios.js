@@ -173,7 +173,7 @@ function renderActividadesAdicionalesSocio(items) {
 
     div.innerHTML = `
       <label style="display:flex; gap:8px; align-items:center;">
-        <input type="checkbox" class="chk-adicional" value="${a.nombre}">
+        <input type="checkbox" class="chk-adicional" value="${escapeHtml(a.nombre)}">
         ${escapeHtml(a.nombre)} ($${a.precio_mensual || 0})
       </label>
     `;
@@ -201,7 +201,7 @@ function fillActividadAdicionalSelect(items) {
   }
   sel.innerHTML =
     `<option value="">(Ninguna)</option>` +
-    items.map((a) => `<option value="${String(a.nombre)}">${String(a.nombre)}</option>`).join('');
+    items.map((a) => `<option value="${escapeHtml(String(a.nombre))}">${escapeHtml(String(a.nombre))}</option>`).join('');
   if (valorPrevio) sel.value = valorPrevio;
 }
 
@@ -214,7 +214,7 @@ function fillActividadAdicionalSelect(items) {
     }
     sel.innerHTML =
       `<option value="">Seleccionar...</option>` +
-      items.map((a) => `<option value="${String(a.nombre)}">${String(a.nombre)}</option>`).join('');
+      items.map((a) => `<option value="${escapeHtml(String(a.nombre))}">${escapeHtml(String(a.nombre))}</option>`).join('');
   }
 
   function fillFiltroActividad(items) {
@@ -4321,13 +4321,13 @@ if (payload.es_menor && !payload.tutor_nombre) {
           <tbody>
             ${items.map((s) => `
               <tr>
-                <td>${s.numero_socio ?? ''}</td>
-                <td>${s.dni ?? ''}</td>
-                <td>${s.apellido ?? ''}</td>
-                <td>${s.nombre ?? ''}</td>
-                <td>${s.actividad ?? ''}</td>
-                <td>${s.categoria ?? ''}</td>
-                <td>${s.telefono ?? ''}</td>
+                <td>${escapeHtml(s.numero_socio ?? '')}</td>
+                <td>${escapeHtml(s.dni ?? '')}</td>
+                <td>${escapeHtml(s.apellido ?? '')}</td>
+                <td>${escapeHtml(s.nombre ?? '')}</td>
+                <td>${escapeHtml(s.actividad ?? '')}</td>
+                <td>${escapeHtml(s.categoria ?? '')}</td>
+                <td>${escapeHtml(s.telefono ?? '')}</td>
                 <td>${s.fecha_ingreso ? String(s.fecha_ingreso).substring(0, 10) : ''}</td>
               </tr>
             `).join('')}
@@ -5151,10 +5151,10 @@ if (confirm('¿Eliminar socio? Se borrará de forma PERMANENTE junto con todo su
         <tbody>
           ${rows.map((r) => `
             <tr>
-              <td>${r.row ?? '-'}</td>
-              <td>${r.dni ?? '-'}</td>
-              <td>${r.numero_socio ?? '-'}</td>
-              <td>${r.error ?? '-'}</td>
+              <td>${escapeHtml(r.row ?? '-')}</td>
+              <td>${escapeHtml(r.dni ?? '-')}</td>
+              <td>${escapeHtml(r.numero_socio ?? '-')}</td>
+              <td>${escapeHtml(r.error ?? '-')}</td>
             </tr>
           `).join('')}
         </tbody>
