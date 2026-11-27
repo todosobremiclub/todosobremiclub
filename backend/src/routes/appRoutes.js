@@ -3,6 +3,17 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
+const { crearLimitador } = require('../middleware/rateLimit');
+
+// ✅ SEGURIDAD: login de la app de socios (número + DNI): 10 intentos FALLIDOS cada
+// 15 minutos por IP. Los ingresos correctos no cuentan, así que usar la app no gasta intentos.
+const limitarLoginApp = crearLimitador({
+  nombre: 'app-login',
+  ventanaMs: 15 * 60 * 1000,
+  max: 10,
+  contarSoloFallos: true,
+  mensaje: 'Demasiados intentos. Esperá unos minutos y volvé a probar.'
+});
 const router = express.Router();
 
 // ✅ CORS simple para Flutter Web (sin instalar cors)
@@ -204,7 +215,7 @@ const SOCIO_SELECT_COLS = `
  * body: { numero, dni }
  * Devuelve: { ok, token, socio, club }
  */
-router.post('/login', async (req, res) => {
+router.post('/login', limitarLoginApp, async (req, res) => {
   try {
     const numeroRaw = req.body?.numero;
     const dniRaw = req.body?.dni;

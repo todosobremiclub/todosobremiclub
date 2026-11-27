@@ -1,6 +1,22 @@
 const express = require('express');
 const app = express();
 
+// ✅ SEGURIDAD: detrás del proxy de Render, la IP real del cliente viene en
+// X-Forwarded-For. Con "trust proxy" Express la usa en req.ip (la necesita el límite
+// de intentos). TRUST_PROXY_HOPS = cuántos proxies hay delante de la app (Render = 1;
+// si algún día se pone Cloudflare adelante, pasar a 2).
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 1));
+app.disable('x-powered-by');
+
+const { crearLimitador } = require('./middleware/rateLimit');
+// Formulario "pedí una demo" (público, manda un mail): 5 pedidos por hora por IP.
+const limitarDemo = crearLimitador({
+  nombre: 'demo-request',
+  ventanaMs: 60 * 60 * 1000,
+  max: 5,
+  mensaje: 'Ya recibimos varias solicitudes desde tu conexión. Probá de nuevo en un rato.'
+});
+
 // ⬆️ Aumentamos el límite del body para poder enviar fotos en base64 (por ejemplo 5 MB)
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
@@ -36,9 +52,16 @@ const auditLogMiddleware = require('./middleware/auditLogMiddleware');
 
 
 
-app.post("/api/demo-request", async (req, res) => {
+app.post("/api/demo-request", limitarDemo, async (req, res) => {
   try {
-    const { nombre, club, socios, telefono } = req.body;
+    // ✅ SEGURIDAD: se limpian los textos (sin saltos de línea ni caracteres de control)
+    // y se acota el largo, para que no se pueda armar un mail a medida.
+    const limpiar = (v, max = 120) =>
+      String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+    const nombre = limpiar(req.body?.nombre);
+    const club = limpiar(req.body?.club);
+    const socios = limpiar(req.body?.socios, 30);
+    const telefono = limpiar(req.body?.telefono, 40);
 
     if (!nombre || !club || !socios || !telefono) {
       return res.status(400).json({ ok: false, message: "Datos incompletos" });

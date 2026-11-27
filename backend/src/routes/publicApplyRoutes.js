@@ -4,6 +4,21 @@ const { uploadImageBuffer } = require('../utils/uploadToFirebase');
 
 const router = express.Router();
 
+const { crearLimitador } = require('../middleware/rateLimit');
+// ✅ SEGURIDAD: formulario público de alta/actualización (sin login).
+// Enviar: 10 por 10 minutos por IP. Consultar opciones: 60 por 10 minutos por IP.
+const limitarApply = crearLimitador({
+  nombre: 'public-apply',
+  ventanaMs: 10 * 60 * 1000,
+  max: 10,
+  mensaje: 'Enviaste varias solicitudes seguidas. Probá de nuevo en unos minutos.'
+});
+const limitarApplyOptions = crearLimitador({
+  nombre: 'public-apply-options',
+  ventanaMs: 10 * 60 * 1000,
+  max: 60
+});
+
 // Texto libre que viene de una persona externa: sin caracteres de control ni < >,
 // espacios normalizados y largo acotado (defensa contra HTML/scripts en los datos).
 function norm(v) {
@@ -53,7 +68,7 @@ async function validateClubToken(clubId, token) {
 }
 
 // GET /public/club/:clubId/apply/options?t=TOKEN
-router.get('/club/:clubId/apply/options', async (req, res) => {
+router.get('/club/:clubId/apply/options', limitarApplyOptions, async (req, res) => {
   try {
     const { clubId } = req.params;
     const token = req.query.t;
@@ -109,7 +124,7 @@ const club = rClub.rowCount ? rClub.rows[0] : null;
 // POST /public/club/:clubId/apply?t=TOKEN
 // body alta: { nombre, apellido, dni, actividad, categoria, telefono, direccion, fecha_nacimiento, foto_base64?, foto_mimetype?, tipo? }
 // body foto: { dni, foto_base64, foto_mimetype, tipo:'foto' }
-router.post('/club/:clubId/apply', async (req, res) => {
+router.post('/club/:clubId/apply', limitarApply, async (req, res) => {
   try {
     const { clubId } = req.params;
     const token = req.query.t;

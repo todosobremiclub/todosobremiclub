@@ -6,6 +6,32 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const { registrarLogin } = require('../services/auditLogService'); // ✅ NUEVO: log de auditoría (ingresos)
+const { crearLimitador, intentar } = require('../middleware/rateLimit');
+
+// ✅ SEGURIDAD: límite de intentos.
+// Login: 10 intentos FALLIDOS cada 15 minutos por IP (los logins correctos no cuentan).
+const limitarLogin = crearLimitador({
+  nombre: 'panel-login',
+  ventanaMs: 15 * 60 * 1000,
+  max: 10,
+  contarSoloFallos: true,
+  mensaje: 'Demasiados intentos de ingreso. Esperá unos minutos y volvé a probar.'
+});
+// Pedido de reseteo: 5 por hora por IP (cada uno manda un mail).
+const limitarResetPedido = crearLimitador({
+  nombre: 'reset-request',
+  ventanaMs: 60 * 60 * 1000,
+  max: 5,
+  mensaje: 'Hiciste varios pedidos de recuperación. Probá de nuevo en un rato.'
+});
+// Confirmación de reseteo: 20 intentos fallidos por hora por IP.
+const limitarResetConfirm = crearLimitador({
+  nombre: 'reset-confirm',
+  ventanaMs: 60 * 60 * 1000,
+  max: 20,
+  contarSoloFallos: true,
+  mensaje: 'Demasiados intentos. Probá de nuevo en un rato.'
+});
 
 const router = express.Router();
 
@@ -15,7 +41,7 @@ const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{9,}$/;
  * POST /auth/login
  * body: { email, password }
  */
-router.post('/login', async (req, res) => {
+router.post('/login', limitarLogin, async (req, res) => {
   try {
     const { email, password } = req.body || {};
     if (!email || !password) {
@@ -111,7 +137,7 @@ router.get('/me', requireAuth, (req, res) => {
 // ==============================
 // PASSWORD RESET REQUEST
 // ==============================
-router.post('/password-reset/request', async (req, res) => {
+router.post('/password-reset/request', limitarResetPedido, async (req, res) => {
   try {
     const email = String(req.body?.email || '').toLowerCase().trim();
 
@@ -119,6 +145,13 @@ router.post('/password-reset/request', async (req, res) => {
     const genericResponse = { ok: true };
 
     if (!email) return res.json(genericResponse);
+
+    // ✅ SEGURIDAD: máximo 3 mails de recuperación por hora a la MISMA casilla (así no se
+    // puede usar el sistema para llenarle el correo a alguien). Se responde igual que
+    // siempre para no revelar nada.
+    if (!intentar('reset-por-mail', email, 3, 60 * 60 * 1000).permitido) {
+      return res.json(genericResponse);
+    }
 
     const r = await db.query(
       `SELECT id, email
@@ -180,7 +213,7 @@ Este enlace vence en 1 hora.
 // ==============================
 // PASSWORD RESET CONFIRM
 // ==============================
-router.post('/password-reset/confirm', async (req, res) => {
+router.post('/password-reset/confirm', limitarResetConfirm, async (req, res) => {
   try {
     const token = String(req.body?.token || '').trim();
     const password = String(req.body?.password || '');
