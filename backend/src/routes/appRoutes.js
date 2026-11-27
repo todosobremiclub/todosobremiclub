@@ -767,6 +767,10 @@ router.post('/tienda/reservas', requireAuth, async (req, res) => {
     if (!items.length || items.some(it => !it?.producto_id)) {
       return res.status(400).json({ ok: false, error: 'Faltan productos en el carrito' });
     }
+    // 🔒 Seguridad: tope de líneas por pedido (evita pedidos gigantes que retengan la conexión)
+    if (items.length > 30) {
+      return res.status(400).json({ ok: false, error: 'El carrito tiene demasiados productos (máximo 30)' });
+    }
     for (const it of items) {
       const cantidadNum = Number(it.cantidad);
       if (!Number.isInteger(cantidadNum) || cantidadNum < 1) {

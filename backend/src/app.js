@@ -21,6 +21,11 @@ const limitarDemo = crearLimitador({
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
+// 🔒 Seguridad (F-03): contexto de base de datos por request. Hace que
+// db.query('BEGIN') ... COMMIT/ROLLBACK use UNA conexión dedicada (transacciones
+// reales). Tiene que ir DESPUÉS de los parsers y ANTES de las rutas. Ver src/db.js.
+app.use(require('./db').contextMiddleware);
+
 const path = require('path');
 const nodemailer = require('nodemailer');
 
