@@ -642,7 +642,9 @@ router.post('/:clubId/socios/:socioId/planes-actividad', requireAuth, requireClu
         `UPDATE planes_actividad_socio SET activo = true, updated_at = NOW() WHERE id = $1`,
         [planId]
       );
-      await db.query(`DELETE FROM planes_actividad_cuotas WHERE plan_id = $1`, [planId]);
+      // 🔒 F-12: solo se reemplazan las cuotas IMPAGAS; las pagadas se conservan
+      // (si no, el pago ya registrado queda huérfano y se puede cobrar dos veces).
+      await db.query(`DELETE FROM planes_actividad_cuotas WHERE plan_id = $1 AND pagado = false`, [planId]);
     } else {
       const rNew = await db.query(
         `

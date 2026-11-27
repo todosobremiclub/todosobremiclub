@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
+const { resolverMontoCuotaSocio } = require('../services/cuotaService');
 
 const router = express.Router();
 
@@ -449,9 +450,24 @@ router.post('/webhook', async (req, res) => {
     else if (typeof mesesRaw === 'string') meses = mesesRaw.split(',').map(x => Number(x.trim())).filter(m => m >= 1 && m <= 12);
 
     if (socioId && anio && meses.length) {
+      // 🔒 Seguridad (F-04): el monto a registrar sale de la metadata que armó
+      // NUESTRO servidor al crear la preferencia (ya calculado del lado servidor),
+      // y se verifica contra lo que MP efectivamente cobró. Si lo cobrado es
+      // menor, o la moneda no es ARS, NO se registra el pago.
+      const mesesUnicos = [...new Set(meses)];
       const montoPorMes = Number(md.monto_por_mes || md.montoPorMes || 0) || 0;
-      const montoFallback = Number(payData.transaction_amount || 0) || 0;
-      const montoFinal = montoPorMes > 0 ? montoPorMes : (montoFallback / meses.length);
+      const cobrado = Number(payData.transaction_amount || 0) || 0;
+      const esperado = montoPorMes * mesesUnicos.length;
+      const anioOk = Number.isInteger(Number(anio)) && Number(anio) >= 2000 && Number(anio) <= new Date().getFullYear() + 1;
+      if (!(montoPorMes > 0) || !anioOk
+          || String(payData.currency_id || 'ARS').toUpperCase() !== 'ARS'
+          || cobrado + 0.01 < esperado) {
+        console.error('⚠️ MP webhook: pago NO registrado por monto/moneda inconsistente', {
+          paymentId, clubId, socioId, anio, meses: mesesUnicos, montoPorMes, cobrado, esperado, currency: payData.currency_id
+        });
+        return res.status(200).json({ ok: false, error: 'monto_inconsistente' });
+      }
+      const montoFinal = montoPorMes;
 
       const rSoc = await db.query(
         `SELECT nombre, apellido, numero_socio
@@ -468,7 +484,7 @@ router.post('/webhook', async (req, res) => {
           : new Date().toISOString().slice(0, 10);
 
         await db.query('BEGIN');
-        for (const mes of meses) {
+        for (const mes of mesesUnicos) {
           await db.query(
             `INSERT INTO pagos_mensuales
              (club_id, socio_id, socio_nombre, socio_apellido, socio_numero, anio, mes, monto, fecha_pago, cuenta)
@@ -496,7 +512,9 @@ router.post('/webhook', async (req, res) => {
   } catch (e) {
     try { await db.query('ROLLBACK'); } catch {}
     console.error('❌ MP webhook error:', e);
-    return res.status(200).json({ ok: false });
+    // 🔒 500 (no 200): así Mercado Pago REINTENTA el aviso y un pago aprobado no
+    // se pierde por un error transitorio. El INSERT es idempotente (ON CONFLICT DO NOTHING).
+    return res.status(500).json({ ok: false });
   }
 });
 
@@ -605,12 +623,17 @@ router.post('/preference/:clubId', requireAuth, async (req, res) => {
       return res.status(403).json({ ok: false, error: 'Solo disponible para socios' });
     }
 
+    // 🔒 Seguridad (F-04): el MONTO ya no lo manda el cliente. Se ignora
+    // body.monto_por_mes y se calcula en el servidor (services/cuotaService.js).
+    // Además se validan año y meses (enteros, sin repetir).
     const anio = Number(req.body?.anio);
     const mesesRaw = Array.isArray(req.body?.meses) ? req.body.meses : [];
-    const meses = mesesRaw.map(Number).filter(m => m >= 1 && m <= 12);
-    const montoPorMes = Number(req.body?.monto_por_mes);
+    const meses = [...new Set(mesesRaw.map(Number))];
+    const anioMax = new Date().getFullYear() + 1;
 
-    if (!anio || !meses.length || !montoPorMes || montoPorMes <= 0) {
+    if (!Number.isInteger(anio) || anio < 2000 || anio > anioMax
+        || !meses.length || meses.length > 12
+        || !meses.every(m => Number.isInteger(m) && m >= 1 && m <= 12)) {
       return res.status(400).json({ ok: false, error: 'Datos de pago incompletos' });
     }
 
@@ -637,8 +660,23 @@ router.post('/preference/:clubId', requireAuth, async (req, res) => {
       return res.status(404).json({ ok: false, error: 'Socio no encontrado' });
     }
 
+    // 🔒 Cuota real del socio, calculada en el servidor.
+    const montoPorMes = await resolverMontoCuotaSocio(clubId, socioId);
+    if (!Number.isFinite(montoPorMes) || montoPorMes <= 0) {
+      return res.status(400).json({ ok: false, error: 'No se pudo determinar el monto de tu cuota. Consultá con el club.' });
+    }
+
+    // 🔒 No cobrar meses que ya están registrados como pagados.
+    const rYaPagos = await db.query(
+      `SELECT mes FROM pagos_mensuales WHERE club_id = $1 AND socio_id = $2 AND anio = $3 AND mes = ANY($4::int[])`,
+      [clubId, socioId, anio, meses]
+    );
+    if (rYaPagos.rowCount) {
+      return res.status(409).json({ ok: false, error: 'Alguno de esos meses ya figura como pagado.' });
+    }
+
     const accessToken = await getClubMpAccessToken(clubId);
-    const montoTotal = montoPorMes * meses.length;
+    const montoTotal = Math.round(montoPorMes * meses.length * 100) / 100;
     const sig = signMpWebhook(clubId);
 
     const preferenceBody = {
